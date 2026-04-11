@@ -1,0 +1,45 @@
+{
+  "1": {
+    "nome": "P. CONTAS PADRÃO (RECEITAS)",
+    "contas": [
+      {"conta":"1000 - 43","nome":"ORDINARIA","tipo":"Receita","as":"Sintética","grau":1},
+      {"conta":"1001 - 51","nome":"COTAS EM ABERTO","tipo":"Receita","as":"Analítica","grau":2},
+      {"conta":"1002 - 86","nome":"CONDOMINIO","tipo":"Receita","as":"Analítica","grau":2},
+      {"conta":"1003 - 116","nome":"FUNDO DE RESERVA","tipo":"Receita","as":"Analítica","grau":2},
+      {"conta":"1004 - 124","nome":"FUNDO DE OBRAS","tipo":"Receita","as":"Analítica","grau":2},
+      {"conta":"1005 - 132","nome":"FUNDO 13o. SALARIO/FERIAS","tipo":"Receita","as":"Analítica","grau":2},
+      {"conta":"1006 - 141","nome":"FUNDO MOVEIS E UTENSILIOS","tipo":"Receita","as":"Analítica","grau":2},
+      {"conta":"1007 - 159","nome":"UTILIZACAO SALAO DE FESTAS","tipo":"Receita","as":"Analítica","grau":2},
+      {"conta":"1008 - 167","nome":"UTILIZACAO DE CHURRASQUEIRA","tipo":"Receita","as":"Analítica","grau":2},
+      {"conta":"1009 - 175","nome":"DEFICIT ORCAMENTARIO","tipo":"Receita","as":"Analítica","grau":2},
+      {"conta":"1010 - 183","nome":"AQUISICOES","tipo":"Receita","as":"Analítica","grau":2},
+      
+      {"conta":"2000 - 50","nome":"DESPESAS COM PESSOAL","tipo":"Despesa","as":"Sintética","grau":1},
+      {"conta":"2001 - 100","nome":"FOLHA DE PAGAMENTO","tipo":"Despesa","as":"Analítica","grau":2},
+      {"conta":"2002 - 105","nome":"ENCARGOS SOCIAIS","tipo":"Despesa","as":"Analítica","grau":2},
+
+      {"conta":"3000 - 60","nome":"CONSUMOS / CONCESSIONÁRIAS","tipo":"Despesa","as":"Sintética","grau":1},
+      {"conta":"3001 - 120","nome":"AGUA E ESGOTO","tipo":"Despesa","as":"Analítica","grau":2},
+      {"conta":"3002 - 122","nome":"ENERGIA ELETRICA","tipo":"Despesa","as":"Analítica","grau":2},
+      {"conta":"3003 - 124","nome":"GAS","tipo":"Despesa","as":"Analítica","grau":2},
+
+      {"conta":"4000 - 70","nome":"MANUTENCAO","tipo":"Despesa","as":"Sintética","grau":1},
+      {"conta":"4001 - 130","nome":"MANUTENCAO ELEVADORES","tipo":"Despesa","as":"Analítica","grau":2},
+      {"conta":"4002 - 135","nome":"MANUTENCAO BOMBAS","tipo":"Despesa","as":"Analítica","grau":2},
+
+      {"conta":"5000 - 80","nome":"DESPESAS ADMINISTRATIVAS","tipo":"Despesa","as":"Sintética","grau":1},
+      {"conta":"5001 - 170","nome":"HONORARIOS ADMINISTRADORA","tipo":"Despesa","as":"Analítica","grau":2},
+      {"conta":"5002 - 175","nome":"DESPESAS BANCARIAS","tipo":"Despesa","as":"Analítica","grau":2}
+    ]
+  },
+  "2": {
+    "nome": "P. CONTAS PADRÃO SECUNDÁRIO",
+    "contas": [
+      {"conta":"01.000-00","nome":"ORDINARIA-COMUM","tipo":"Receita","as":"Sintética","grau":1},
+      {"conta":"01.001-00","nome":"COTAS EM ABERTO","tipo":"Receita","as":"Sintética","grau":2},
+      {"conta":"01.003-00","nome":"CONDOMÍNIO","tipo":"Receita","as":"Sintética","grau":2},
+      {"conta":"01.100-00","nome":"DESPESAS COM PESSOAL","tipo":"Despesa","as":"Analítica","grau":1},
+      {"conta":"01.120-00","nome":"CONCESSIONÁRIAS/CONSUMOS","tipo":"Despesa","as":"Analítica","grau":1}
+    ]
+  }
+}
