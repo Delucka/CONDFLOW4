@@ -1,0 +1,634 @@
+{% extends "base.html" %}
+{% block title %}Conferência de Arrecadação — {{ condo.name }} | CondoAdmin{% endblock %}
+
+{% block content %}
+<div class="max-w-[1400px] mx-auto pb-20">
+
+    <!-- CABEÇALHO ESTILO PLANILHA -->
+    <div class="bg-slate-900 border border-slate-800 shadow-xl p-6 mb-8 shadow-[8px_8px_0px_0px_rgba(15,23,42,0.1)] print:shadow-none print:border-slate-500">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+            <div class="space-y-4">
+                <div>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Condomínio:</span>
+                    <h1 class="text-2xl font-black text-white border-b-2 border-slate-800 pb-2">{{ condo.name }}</h1>
+                </div>
+                <div>
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Gerente responsável:</span>
+                    <p class="text-sm font-bold text-slate-300">{{ condo.gerente_name }}</p>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div class="md:col-span-2 flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vencimento habitual:</span>
+                    <span class="text-xl font-black text-cyan-400">DIA {{ condo.due_day|default('—') }}</span>
+                </div>
+                
+                <div class="space-y-3 col-span-2 pt-2">
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-slate-800 border border-slate-800 p-2 rounded text-center">
+                            <span class="text-[8px] font-bold text-slate-400 uppercase block">Limite Gerência</span>
+                            <span class="text-xs font-black text-slate-300">DIA {{ condo.limit_gerencia|default('—') }}</span>
+                        </div>
+                        <div class="bg-slate-800 border border-slate-800 p-2 rounded text-center">
+                            <span class="text-[8px] font-bold text-slate-400 uppercase block">Limite Emissão</span>
+                            <span class="text-xs font-black text-slate-300">DIA {{ condo.limit_emissao|default('—') }}</span>
+                        </div>
+                        <div class="bg-slate-800 border border-slate-800 p-2 rounded text-center">
+                            <span class="text-[8px] font-bold text-slate-400 uppercase block">Limite Expedição</span>
+                            <span class="text-xs font-black text-slate-300">DIA {{ condo.limit_expedicao|default('—') }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- STATUS DO PROCESSO -->
+    {% if processo %}
+    <div class="flex items-center gap-4 mb-6 px-1">
+        <span class="text-[10px] font-black text-slate-400 uppercase">Referência: <span class="text-white">{{ year }}/{{ "1º" if semester == 1 else "2º" }} Semestre</span></span>
+        <div class="h-4 w-[1px] bg-slate-700"></div>
+        <span class="text-[10px] font-black text-slate-400 uppercase">Status:</span>
+        <span class="text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-wider
+            {{ 'bg-orange-500/10 text-orange-400 border border-orange-500/20 shadow-[0_0_8px_rgba(249,115,22,0.15)]' if processo.status == 'Em edição' else
+               'bg-cyan-500/100/10 text-indigo-400 border border-indigo-500/20 shadow-[0_0_8px_rgba(99,102,241,0.15)]' if processo.status == 'Enviado' else
+               'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_8px_rgba(34,211,238,0.15)]' if processo.status == 'Aprovado' else
+               'bg-slate-700 text-slate-600' }}">
+            {{ processo.status }}
+        </span>
+        {% if not can_edit and processo %}
+        <span class="ml-auto flex items-center gap-1.5 text-[9px] font-black text-red-500 uppercase bg-red-50 px-2 py-1 rounded border border-red-100">
+            <i data-lucide="lock" class="w-3 h-3"></i> Somente Leitura
+        </span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- CABEÇALHO DA PÁGINA -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+        <div>
+            <h1 class="text-3xl font-black text-slate-200 tracking-tighter uppercase leading-none">
+                Conferência de Arrecadação
+            </h1>
+            <div class="flex items-center gap-3 mt-2">
+                <p class="text-xs font-black text-slate-400 uppercase tracking-wider bg-slate-800/50 px-2 py-1 rounded">
+                    {{ condo.name }}
+                </p>
+                <p class="text-[10px] font-black text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-2 py-1 rounded border border-cyan-500/20">
+                    Gerente: <span class="text-cyan-400">{{ condo.gerente_name|default('Não atribuído') }}</span>
+                </p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <form method="GET" class="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800 shadow-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
+                <label class="text-[10px] font-black uppercase text-slate-400 px-2">Ano selecionado:</label>
+                <select name="ano" onchange="this.form.submit()" 
+                        class="bg-slate-800 border-0 text-sm text-slate-200 font-black rounded-lg px-4 py-2 focus:ring-0 outline-none cursor-pointer hover:bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-colors">
+                    {% for y in years %}
+                    <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+
+            <button type="submit" form="arrecadacaoForm" name="action" value="save"
+                    class="px-6 py-3 bg-cyan-500 text-slate-950 text-xs font-black uppercase tracking-widest hover:bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-all rounded-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] flex items-center gap-2 active:translate-x-1 active:translate-y-1 active:shadow-none">
+                <i data-lucide="save" class="w-4 h-4"></i>
+                Salvar Tudo
+            </button>
+        </div>
+    </div>
+
+    <!-- PLANILHA DE CONFERÊNCIA -->
+    <form id="arrecadacaoForm" method="POST" action="/condominio/{{ condo.id }}/arrecadacoes/salvar">
+        <input type="hidden" name="ano" value="{{ year }}">
+        <div class="bg-slate-900 rounded-xl shadow-xl border border-slate-800 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse" id="rateiosTable">
+                    <thead class="bg-slate-950 text-slate-400">
+                        <tr>
+                            <th class="px-3 py-3 border-r border-slate-700 text-left min-w-[180px] w-[180px] sticky left-0 z-20 bg-slate-800 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">Conta Contábil</th>
+                            <th class="px-4 py-3 border-r border-slate-700 text-left min-w-[200px] sticky left-[180px] z-20 bg-slate-800 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">Verbas / Mês Ref.</th>
+                            {% for m in months %}
+                            <th data-month="{{ m }}" class="px-2 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-800 min-w-[140px] bg-slate-800/50">
+                                {{ month_names[m] }} / {{ (year|string)[-2:] }}
+                            </th>
+                            {% endfor %}
+                            {% if can_edit %}
+                            <th class="px-2 py-3 w-10"></th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm font-bold text-slate-200">
+                        {% for rateio in rateios %}
+                        <tr class="border-b-2 border-slate-800 hover:bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.4)]/50 transition-colors group" data-rateio-id="{{ rateio.id }}">
+                            
+                            <!-- COLUNA CONTA CONTÁBIL -->
+                            <td class="px-2 py-2 border-r border-slate-800 bg-slate-800 sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                                <input type="hidden" name="rateio_ids" value="{{ rateio.id }}">
+                                <input type="hidden" name="conta_id_{{ rateio.id }}" value="{{ rateio.conta_contabil }}">
+                                <input type="hidden" name="conta_nome_{{ rateio.id }}" value="{{ rateio.conta_nome }}">
+                                
+                                <button type="button" 
+                                        onclick="openContaDropdown(this, '{{ rateio.id }}')"
+                                        class="w-full text-left px-2 py-1.5 rounded border border-transparent hover:border-slate-300 hover:bg-slate-900 transition-all group">
+                                    <div class="text-[9px] font-black text-slate-400 uppercase leading-tight group-hover:text-cyan-400 transition-colors">
+                                        {{ rateio.conta_contabil|default('0.00.00.00') }}
+                                    </div>
+                                    <div class="text-[10px] font-black text-slate-300 uppercase leading-tight truncate">
+                                        {{ rateio.conta_nome|default('SELECIONAR CONTA') }}
+                                    </div>
+                                </button>
+                            </td>
+
+                            <!-- COLUNA NOME DO RATEIO -->
+                            <td class="px-3 py-2 border-r border-slate-800 bg-slate-800 sticky left-[180px] z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                                <div class="flex flex-col gap-1.5">
+                                    <input name="rateio_nome_{{ rateio.id }}" type="text"
+                                           value="{{ rateio.nome }}"
+                                           placeholder="Ex: Fundo de Obras"
+                                           class="w-full bg-transparent border-none p-0 text-[11px] font-black text-slate-200 uppercase focus:ring-0 outline-none">
+                                </div>
+                                
+                                {% if can_edit %}
+                                <div class="mt-1 px-2 flex items-center gap-3">
+                                    <label class="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase cursor-pointer hover:text-slate-600 transition-colors">
+                                        <input type="checkbox" name="is_parcelado_{{ rateio.id }}" 
+                                               {% if rateio.is_parcelado %}checked{% endif %}
+                                               onchange="toggleParcelas(this)"
+                                               class="w-3 h-3 rounded border-slate-300 text-cyan-400 focus:ring-indigo-500">
+                                        Parcelar
+                                    </label>
+                                    <div class="parcela-controls flex flex-wrap items-center gap-1.5 {{ 'hidden' if not rateio.is_parcelado }}">
+                                        <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded px-1">
+                                            <input type="number" name="parcela_inicio_{{ rateio.id }}" 
+                                                value="{{ rateio.parcela_inicio|default(1) }}"
+                                                title="Nº da Parcela inicial"
+                                                onchange="recalculateParcelas(this)"
+                                                class="w-7 h-5 p-0 text-center text-[10px] font-black border-none outline-none">
+                                            <span class="text-[9px] font-black text-slate-300">/</span>
+                                            <input type="number" name="parcela_total_{{ rateio.id }}" 
+                                                value="{{ rateio.parcela_total|default(1) }}"
+                                                title="Total de Parcelas"
+                                                onchange="recalculateParcelas(this)"
+                                                class="w-7 h-5 p-0 text-center text-[10px] font-black border-none outline-none">
+                                        </div>
+                                        
+                                        <select name="mes_inicio_{{ rateio.id }}" 
+                                                onchange="recalculateParcelas(this)"
+                                                class="h-5 py-0 px-1 text-[9px] font-black border border-slate-800 rounded bg-slate-900 outline-none focus:border-indigo-500">
+                                            {% for m in months %}
+                                            <option value="{{ m }}" {% if rateio.mes_inicio == m %}selected{% endif %}>
+                                                Inicia em: {{ month_names[m] }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        
+                                        <span class="competencia-final text-[8px] font-black text-indigo-400 uppercase"></span>
+                                    </div>
+                                </div>
+                                {% elif rateio.is_parcelado %}
+                                <div class="px-2">
+                                    <span class="text-[9px] font-black text-indigo-400 uppercase">Parcelado: {{ rateio.parcela_total }}x</span>
+                                </div>
+                                {% endif %}
+                            </td>
+
+                            <!-- VALORES MENSAIS -->
+                            {% for m in months %}
+                            {% set val = rateios_vals.get(rateio.id, {}).get(m, '0.00') %}
+                            <td class="px-1 py-1 border-r border-slate-800 bg-slate-900">
+                                <input name="val_{{ rateio.id }}_{{ m }}" type="text" 
+                                       value="{{ val }}"
+                                       onchange="recalculateParcelas(this)"
+                                       class="w-full text-right bg-transparent focus:bg-cyan-500/10 px-2 py-1 outline-none transition-all text-xs month-val-input {{ 'text-slate-400' if not can_edit }} {{ 'font-black text-indigo-700 text-center' if val == 'PLANILHA' }}"
+                                       {{ 'disabled' if not can_edit }} placeholder="0.00">
+                                <div class="parcela-badge text-center mt-0.5" data-month="{{ m }}"></div>
+                            </td>
+                            {% endfor %}
+
+                            <!-- BOTÃO REMOVER -->
+                            {% if can_edit %}
+                            <td class="px-1 py-2 text-center">
+                                <button type="button" onclick="confirmarRemover('{{ rateio.id }}', '{{ condo.id }}')"
+                                    class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all p-1 rounded hover:bg-red-50" title="Remover rateio">
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                </button>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+
+                        <!-- LINHAS EXTRAS VAZIAS -->
+                        {% for i in range(3) %}
+                        <tr class="h-10 border-b border-slate-50">
+                          <td class="border-r border-slate-800 bg-slate-800/10"></td>
+                          <td class="border-r border-slate-800 bg-slate-800/10"></td>
+                          {% for m in months %}<td class="border-r border-slate-50"></td>{% endfor %}
+                          {% if can_edit %}<td></td>{% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- BOTÃO ADICIONAR RATEIO -->
+            {% if can_edit %}
+            <div class="border-t-2 border-slate-800 p-4 bg-slate-800/80">
+                <button type="submit" name="action" value="add" 
+                        class="flex items-center gap-2 px-6 py-2.5 text-xs font-black text-cyan-400 uppercase tracking-widest hover:bg-slate-900 hover:text-indigo-700 rounded-xl transition-all border-2 border-dashed border-indigo-200 hover:border-indigo-500 bg-slate-900/50 shadow-sm active:scale-95">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    Adicionar Novo Registro (Rateio)
+                </button>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- RODAPÉ: OBSERVAÇÕES E ASSINATURAS -->
+        <div class="bg-slate-900 border border-slate-800 shadow-xl p-8 print:border-slate-500">
+            <div class="mb-10">
+                <label class="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Observações Emissão:</label>
+                <textarea name="obs_emissao" rows="3" 
+                          class="w-full p-4 border-2 border-slate-800 rounded-lg text-sm font-medium text-slate-300 bg-slate-800/30 outline-none focus:border-slate-900 transition-all resize-none"
+                          {{ 'disabled' if not can_edit }}
+                          placeholder="Digite aqui as observações de emissão...">{{ processo.issue_notes if (processo and processo.issue_notes) else condo.obs_emissao }}</textarea>
+            </div>
+
+            <!-- ESPAÇOS DE ASSINATURA -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mt-16 print:mt-24">
+                <div class="space-y-3">
+                    <div class="border-t-2 border-slate-300 pt-3">
+                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Gerente:</span>
+                        <div class="text-xs font-black text-white uppercase underline decoration-2 decoration-indigo-500 underline-offset-4">{{ condo.gerente_name }}</div>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div class="border-t-2 border-slate-300 pt-3">
+                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Administrativo:</span>
+                        <div class="h-4"></div>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div class="border-t-2 border-slate-300 pt-3">
+                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Vistos/Datas Entrega:</span>
+                        <div class="flex items-center gap-1 mt-1">
+                            <div class="w-10 h-8 border-2 border-slate-900 rounded flex items-center justify-center text-xs font-black">/</div>
+                            <div class="w-10 h-8 border-2 border-slate-900 rounded flex items-center justify-center text-xs font-black">/</div>
+                            <div class="w-16 h-8 border-2 border-slate-900 rounded flex items-center justify-center text-xs font-black">{{ year }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AÇÕES -->
+            <div class="flex flex-wrap justify-end gap-4 mt-12 print:hidden">
+                <a href="/dashboard" class="px-6 py-2.5 text-xs font-black text-slate-400 hover:text-slate-950 uppercase tracking-widest transition-colors">Voltar para Início</a>
+                
+                {% if can_edit %}
+                <button type="submit" name="btn_action" value="save" class="px-10 py-3 bg-cyan-500 text-slate-950 text-xs font-black rounded uppercase tracking-widest hover:bg-black shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] transition-all flex items-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4 text-emerald-400"></i> Salvar Planilha
+                </button>
+                
+                <button type="button" onclick="document.getElementById('enviarModal').classList.remove('hidden')"
+                        class="px-10 py-3 bg-cyan-500 text-white text-xs font-black rounded uppercase tracking-widest hover:bg-cyan-400 shadow-[6px_6px_0px_0px_rgba(79,70,229,0.2)] transition-all flex items-center gap-2">
+                    <i data-lucide="send" class="w-4 h-4"></i> Enviar Conferência
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL DE ENVIO -->
+<div id="enviarModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 shadow-xl p-8 w-full max-w-sm shadow-2xl scale-in">
+        <h3 class="text-xl font-black text-white uppercase tracking-tight mb-3">Confirmar Envio?</h3>
+        <p class="text-sm font-medium text-slate-600 mb-8 leading-relaxed">Isso bloqueará a edição da planilha para este semestre até que a administração valide os dados.</p>
+        <div class="flex gap-4">
+            <button onclick="document.getElementById('enviarModal').classList.add('hidden')"
+                    class="flex-1 py-3 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-white transition-colors">Cancelar</button>
+            <form action="/processo/{{ processo.id or '' }}/enviar" method="POST" class="flex-1">
+                <button type="submit" class="w-full py-3 bg-cyan-500 text-white text-xs font-black uppercase tracking-widest hover:bg-cyan-400 shadow-[4px_4px_0px_0px_rgba(79,70,229,0.2)] transition-all">Enviar Agora</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE REMOÇÃO -->
+<div id="removerModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 shadow-xl p-8 w-full max-w-sm shadow-2xl scale-in">
+        <h3 class="text-lg font-black text-red-600 uppercase tracking-tight mb-3">Remover Rateio?</h3>
+        <p class="text-sm font-medium text-slate-600 mb-8">Esta ação não pode ser desfeita.</p>
+        <div class="flex gap-4">
+            <button onclick="document.getElementById('removerModal').classList.add('hidden')"
+                    class="flex-1 py-3 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-white transition-colors">Cancelar</button>
+            <form id="removerForm" method="POST" class="flex-1">
+                <input type="hidden" name="condo_id" id="removerCondoId">
+                <button type="submit" class="w-full py-3 bg-red-600 text-white text-xs font-black uppercase tracking-widest hover:bg-red-700 transition-all rounded">Remover</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- DROPDOWN DE CONTAS CONTÁBEIS -->
+<div id="contaDropdown" class="fixed z-[100] bg-slate-900 border-2 border-slate-900 shadow-2xl rounded-lg overflow-hidden hidden" style="width: 380px; max-height: 400px;">
+    <div class="p-3 border-b border-slate-800 bg-slate-800 space-y-2">
+        <input type="text" id="contaSearch" placeholder="Buscar conta..." 
+               class="w-full px-3 py-2 text-sm border border-slate-800 rounded-lg outline-none focus:border-indigo-500">
+        <div class="flex gap-1">
+            <button type="button" onclick="filterContas('todas')" class="filter-btn active px-3 py-1 text-[10px] font-black uppercase rounded-full border transition-all" data-filter="todas">Todas</button>
+            <button type="button" onclick="filterContas('receita')" class="filter-btn px-3 py-1 text-[10px] font-black uppercase rounded-full border transition-all text-emerald-600 border-emerald-200 hover:bg-emerald-50" data-filter="receita">Receita</button>
+            <button type="button" onclick="filterContas('despesa')" class="filter-btn px-3 py-1 text-[10px] font-black uppercase rounded-full border transition-all text-orange-600 border-orange-200 hover:bg-orange-50" data-filter="despesa">Despesa</button>
+        </div>
+    </div>
+    <div id="contaList" class="overflow-y-auto" style="max-height: 310px;">
+    </div>
+</div>
+
+<style>
+    @media print {
+        body { background: white !important; }
+        .base-layout-header, .sidebar, .print-hidden { display: none !important; }
+        .max-w-\[1400px\] { max-width: 100% !important; margin: 0 !important; }
+    }
+    .scale-in { animation: scaleIn 0.2s ease-out; }
+    @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .filter-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
+    .conta-item:hover { background: #eef2ff; }
+    .sticky-col { position: sticky; background-color: inherit; z-index: 10; }
+    .shadow-right { box-shadow: 4px 0 8px -4px rgba(0,0,0,0.1); }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Lazy-load plano de contas via API (em vez de inline no HTML)
+const planoId = {{ plano_id }};
+let contasData = null;  // carregado sob demanda
+let contasLoading = false;
+let currentFilter = 'todas';
+let currentRateioId = null;
+let currentBtn = null;
+
+async function loadContasIfNeeded() {
+    if (contasData) return;
+    if (contasLoading) return;
+    contasLoading = true;
+    try {
+        const resp = await fetch(`/api/plano-contas/${planoId}`);
+        const data = await resp.json();
+        contasData = data.contas || [];
+    } catch (e) {
+        console.error('Erro ao carregar plano de contas:', e);
+        contasData = [];
+    }
+    contasLoading = false;
+}
+
+async function openContaDropdown(btn, rateioId) {
+    currentRateioId = rateioId;
+    currentBtn = btn;
+    
+    // Lazy-load plano de contas na primeira abertura
+    await loadContasIfNeeded();
+    
+    const dropdown = document.getElementById('contaDropdown');
+    const rect = btn.getBoundingClientRect();
+    
+    // Posiciona o dropdown
+    let left = rect.left;
+    let top = rect.bottom + 4;
+    if (left + 380 > window.innerWidth) left = window.innerWidth - 390;
+    if (top + 400 > window.innerHeight) top = rect.top - 404;
+    
+    dropdown.style.left = left + 'px';
+    dropdown.style.top = top + 'px';
+    dropdown.classList.remove('hidden');
+    
+    document.getElementById('contaSearch').value = '';
+    renderContas('');
+    document.getElementById('contaSearch').focus();
+}
+
+function renderContas(search) {
+    const list = document.getElementById('contaList');
+    if (!contasData) {
+        list.innerHTML = '<div class="p-4 text-center text-sm text-slate-400">Carregando contas...</div>';
+        return;
+    }
+    const filtered = contasData.filter(c => {
+        const matchFilter = currentFilter === 'todas' || c.tipo.toLowerCase() === currentFilter;
+        const matchSearch = !search || c.nome.toLowerCase().includes(search.toLowerCase()) || c.conta.includes(search);
+        return matchFilter && matchSearch;
+    });
+    
+    // Agrupa por primeiro grau
+    let html = '';
+    let lastGroup = '';
+    
+    filtered.forEach(c => {
+        const groupCode = c.conta.substring(0, 2);
+        const isGroup = c.grau === 1;
+        const tipoClass = c.tipo === 'Receita' ? 'tipo-receita' : c.tipo === 'Despesa' ? 'tipo-despesa' : 'tipo-transferencia';
+        const tipoBg = c.tipo === 'Receita' ? 'bg-emerald-50 text-emerald-700' : c.tipo === 'Despesa' ? 'bg-orange-50 text-orange-700' : 'bg-violet-50 text-violet-700';
+        
+        if (isGroup) {
+            html += `<div class="conta-item px-3 py-2 cursor-pointer border-b border-slate-800 flex items-center gap-2 hover:bg-cyan-500/10" onclick="selectConta('${c.conta}', '${c.nome.replace(/'/g, "\\'")}')">
+                <span class="font-mono text-xs font-bold text-white shrink-0">${c.conta}</span>
+                <span class="text-xs font-bold truncate flex-1">${c.nome}</span>
+                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ${tipoBg} shrink-0">${c.tipo}</span>
+            </div>`;
+        } else {
+            html += `<div class="conta-item px-3 py-1.5 cursor-pointer border-b border-slate-50 flex items-center gap-2 pl-6 hover:bg-cyan-500/10" onclick="selectConta('${c.conta}', '${c.nome.replace(/'/g, "\\'")}')">
+                <span class="font-mono text-[10px] text-slate-400 shrink-0">${c.conta}</span>
+                <span class="text-[11px] truncate flex-1 text-slate-600">${c.nome}</span>
+                <span class="text-[8px] font-bold px-1 py-0.5 rounded ${tipoBg} shrink-0">${c.tipo}</span>
+            </div>`;
+        }
+    });
+    
+    if (!html) html = '<div class="p-4 text-center text-sm text-slate-400">Nenhuma conta encontrada</div>';
+    list.innerHTML = html;
+}
+
+function selectConta(codigo, nome) {
+    if (!currentRateioId || !currentBtn) return;
+    
+    // Atualiza os hidden inputs
+    const row = currentBtn.closest('tr');
+    row.querySelector(`input[name="conta_id_${currentRateioId}"]`).value = codigo;
+    row.querySelector(`input[name="conta_nome_${currentRateioId}"]`).value = nome;
+    
+    // Atualiza visual do botão
+    currentBtn.innerHTML = `
+        <div class="text-[9px] font-black text-slate-400 uppercase leading-tight group-hover:text-cyan-400 transition-colors">
+            ${codigo}
+        </div>
+        <div class="text-[10px] font-black text-slate-300 uppercase leading-tight truncate">
+            ${nome}
+        </div>
+    `;
+    
+    closeContaDropdown();
+}
+
+function closeContaDropdown() {
+    document.getElementById('contaDropdown').classList.add('hidden');
+    currentRateioId = null;
+    currentBtn = null;
+}
+
+function filterContas(tipo) {
+    currentFilter = tipo;
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.filter === tipo) btn.classList.add('active');
+    });
+    renderContas(document.getElementById('contaSearch').value);
+}
+
+function confirmarRemover(rateioId, condoId) {
+    document.getElementById('removerForm').action = `/rateio/${rateioId}/remover`;
+    document.getElementById('removerCondoId').value = condoId;
+    document.getElementById('removerModal').classList.remove('hidden');
+}
+
+// Event listeners
+document.getElementById('contaSearch').addEventListener('input', function() {
+    renderContas(this.value);
+});
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('contaDropdown');
+    if (!dropdown.classList.contains('hidden') && 
+        !dropdown.contains(e.target) && 
+        !e.target.classList.contains('conta-btn')) {
+        closeContaDropdown();
+    }
+});
+
+// Fechar com Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeContaDropdown();
+        document.getElementById('enviarModal').classList.add('hidden');
+        document.getElementById('removerModal').classList.add('hidden');
+    }
+});
+
+// Funções para Parcelamento
+function toggleParcelas(checkbox) {
+    const row = checkbox.closest('tr');
+    const controls = row.querySelector('.parcela-controls');
+    if (checkbox.checked) {
+        controls.classList.remove('hidden');
+    } else {
+        controls.classList.add('hidden');
+        // Limpar todos os badges de parcela da linha
+        row.querySelectorAll('.parcela-badge').forEach(b => { b.innerHTML = ''; });
+    }
+}
+
+function recalculateParcelas(input) {
+    const row = input.closest('tr');
+    const checkbox = row.querySelector('input[type="checkbox"]');
+    const isParcelado = checkbox && checkbox.checked;
+    
+    // Limpar badges se não é parcelado
+    if (!isParcelado) {
+        row.querySelectorAll('.parcela-badge').forEach(b => { b.innerHTML = ''; });
+        return;
+    }
+
+    const startIdx = parseInt(row.querySelector('input[name^="parcela_inicio_"]').value) || 1;
+    const total = parseInt(row.querySelector('input[name^="parcela_total_"]').value) || 1;
+    const mesInicio = parseInt(row.querySelector('select[name^="mes_inicio_"]').value) || 1;
+    
+    // Meses do cabeçalho
+    const monthHeaders = Array.from(document.querySelectorAll('th[data-month]'));
+    const semesterMonths = monthHeaders.map(th => parseInt(th.dataset.month));
+    
+    // Inputs de valor e badges
+    const valueInputs = Array.from(row.querySelectorAll('.month-val-input'));
+    const badges = Array.from(row.querySelectorAll('.parcela-badge'));
+    if (valueInputs.length === 0) return;
+
+    const isConfigChange = input.name.includes('parcela_') || input.name.includes('is_parcelado_') || input.name.includes('mes_inicio_');
+    const isFirstMonthChange = input === valueInputs[0];
+
+    // Limpar sufixos antigos dos valores (caso existam do formato anterior)
+    valueInputs.forEach(inp => {
+        inp.value = inp.value.replace(/\s*\(\d+\/\d+\)$/, '').trim();
+    });
+
+    // Encontrar o valor base do PRIMEIRO mês que tenha valor
+    let baseVal = "0.00";
+    for (let inp of valueInputs) {
+        let v = inp.value.trim();
+        if (v && v !== "0.00") {
+            baseVal = v;
+            break;
+        }
+    }
+
+    valueInputs.forEach((inp, index) => {
+        const currentMonth = semesterMonths[index];
+        const badge = badges[index];
+        
+        // Se o mês for anterior ao mês de início
+        if (currentMonth < mesInicio) {
+            if (isConfigChange) inp.value = "0.00";
+            if (badge) badge.innerHTML = '';
+            return;
+        }
+
+        // Se é mês de início ou posterior
+        const installmentNum = startIdx + (currentMonth - mesInicio);
+        
+        if (installmentNum >= 1 && installmentNum <= total) {
+            // Preencher valor se for mudança de config
+            if (isConfigChange || isFirstMonthChange) {
+                inp.value = baseVal;
+            }
+            // Mostrar badge da parcela
+            if (badge) {
+                badge.innerHTML = `<span class="inline-block text-[9px] font-black text-cyan-400 bg-cyan-500/10 border border-indigo-200 rounded-full px-1.5 py-0">${String(installmentNum).padStart(2, '0')}/${String(total).padStart(2, '0')}</span>`;
+            }
+        } else {
+            if (badge) badge.innerHTML = '';
+        }
+    });
+
+    // Calcular Competência Final (Apenas visual)
+    const totalMesesRestantes = total - startIdx;
+    const finalDate = new Date(new Date().getFullYear(), mesInicio - 1 + totalMesesRestantes, 1);
+    const mesFinal = finalDate.getMonth() + 1;
+    const anoFinal = finalDate.getFullYear();
+    const finalLabel = row.querySelector('.competencia-final');
+    if (finalLabel) {
+        finalLabel.innerText = `Final: ${String(mesFinal).padStart(2, '0')}/${anoFinal}`;
+    }
+}
+
+// Inicializar cálculos de parcelamento no carregamento
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('tr[data-rateio-id]').forEach(row => {
+        // Limpar sufixos antigos "(XX/YY)" dos valores em TODAS as linhas
+        row.querySelectorAll('.month-val-input').forEach(inp => {
+            inp.value = inp.value.replace(/\s*\(\d+\/\d+\)$/, '').trim();
+        });
+        
+        const checkbox = row.querySelector('input[type="checkbox"]');
+        if (checkbox && checkbox.checked) {
+            // Gerar badges apenas para linhas com parcelamento ativo
+            const firstInp = row.querySelector('.month-val-input');
+            if (firstInp) recalculateParcelas(firstInp);
+        }
+    });
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+});
+</script>
+{% endblock %}

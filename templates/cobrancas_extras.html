@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Cobranças Extras — {{ condo.name }} | CondoAdmin{% endblock %}
+{% block page_title %}
+<div class="flex items-center gap-2">
+    <a href="/dashboard" class="text-slate-400 hover:text-indigo-600 transition-colors"><i data-lucide="arrow-left" class="w-4 h-4"></i></a>
+    <span>Cobranças Extras — {{ condo.name }}</span>
+</div>
+{% endblock %}
+
+{% block content %}
+{% if processo %}
+<div class="flex flex-wrap items-center gap-3 mb-5">
+    <span class="text-sm text-slate-400">Processo: <strong class="text-slate-200">{{ processo.year }}/{{ "1º" if processo.semester == 1 else "2º" }} Sem</strong></span>
+    <span class="text-xs px-2.5 py-1 rounded-full font-bold border
+        {{ 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_8px_rgba(249,115,22,0.15)]' if processo.status == 'Em edição' else
+           'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_8px_rgba(243,24,96,0.15)]' if processo.status == 'Solicitar alteração' else
+           'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 shadow-[0_0_8px_rgba(34,211,238,0.15)]' }}">{{ processo.status }}</span>
+</div>
+
+{% if not can_edit %}
+<div class="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 mb-5 flex items-start gap-3 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.1)]">
+    <i data-lucide="lock" class="w-5 h-5 shrink-0 mt-0.5"></i>
+    <div class="text-sm"><strong>Bloqueado para edição</strong> — o processo não está em modo de edição.</div>
+</div>
+{% endif %}
+{% else %}
+<div class="bg-slate-900 border border-slate-800 shadow-xl rounded-xl p-6 mb-5 text-center text-slate-400 text-sm">
+    Nenhum processo encontrado para este semestre. <a href="/condominio/{{ condo.id }}/arrecadacoes" class="text-cyan-400 hover:text-cyan-300 font-bold hover:underline transition-colors">Criar processo</a>
+</div>
+{% endif %}
+
+<!-- Cobranças List -->
+<div class="bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden mb-5">
+    <div class="px-5 py-4 border-b border-slate-800 bg-slate-800/30">
+        <h3 class="text-sm font-semibold text-slate-200">Cobranças Extras Cadastradas</h3>
+    </div>
+
+    {% if cobrancas %}
+    <div class="divide-y divide-slate-800/50">
+        {% for cb in cobrancas %}
+        <div class="px-5 py-4 flex items-center justify-between hover:bg-slate-800/50 transition-colors group">
+            <div>
+                <p class="text-sm font-medium text-slate-200">{{ cb.description }}</p>
+                <p class="text-[11px] text-slate-500">{{ cb.created_at[:10] if cb.created_at else '' }}</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-sm font-bold text-orange-400">R$ {{ '%.2f'|format(cb.amount) }}</span>
+                {% if can_edit %}
+                <form action="/cobranca-extra/{{ cb.id }}/remover" method="POST" onsubmit="return confirm('Remover esta cobrança?')">
+                    <input type="hidden" name="condo_id" value="{{ condo.id }}">
+                    <button type="submit" class="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-10 text-center">
+        <div class="w-14 h-14 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-slate-700/50">
+            <i data-lucide="receipt" class="w-6 h-6 text-slate-500"></i>
+        </div>
+        <p class="text-slate-400 text-sm font-medium">Nenhuma cobrança extra cadastrada</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Form -->
+{% if can_edit and processo %}
+<div class="bg-slate-900 rounded-xl border border-slate-800 shadow-xl p-6 relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-bl-full pointer-events-none"></div>
+    <h4 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
+        <i data-lucide="plus-circle" class="w-4 h-4 text-orange-500"></i> Adicionar Nova Cobrança
+    </h4>
+    <form action="/condominio/{{ condo.id }}/cobrancas-extras/adicionar" method="POST" class="flex flex-wrap items-end gap-4 relative z-10">
+        <div class="flex-1 min-w-[200px]">
+            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Descrição</label>
+            <input name="descricao" type="text" required placeholder="Ex: Reforma da Fachada (Parcela 1/12)"
+                   class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all outline-none">
+        </div>
+        <div class="w-40">
+            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Valor (R$)</label>
+            <input name="valor" type="text" required placeholder="450,00"
+                   class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all outline-none">
+        </div>
+        <button type="submit" class="inline-flex items-center gap-2 px-5 py-2 bg-orange-500 text-slate-950 rounded-lg text-sm font-bold hover:bg-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all">
+            <i data-lucide="plus" class="w-4 h-4"></i> Adicionar
+        </button>
+    </form>
+</div>
+{% endif %}
+
+<!-- Arquivos Anexos -->
+<div class="bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden mb-5 mt-6">
+    <div class="px-5 py-4 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-slate-200">Arquivos Anexos</h3>
+        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">PDF, Imagens, Excel</span>
+    </div>
+
+    {% if arquivos %}
+    <div class="divide-y divide-slate-800/50">
+        {% for arq in arquivos %}
+        <div class="px-5 py-4 flex items-center justify-between hover:bg-slate-800/50 transition-colors group">
+            <div class="flex items-center gap-4 min-w-0">
+                {% if arq.is_image %}
+                <div class="w-12 h-12 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center overflow-hidden shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                    <img src="{{ arq.url }}" alt="" class="w-full h-full object-cover">
+                </div>
+                {% elif arq.ext == '.pdf' %}
+                <div class="w-12 h-12 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(244,63,94,0.1)]">
+                    <span class="text-[11px] font-black text-rose-400">PDF</span>
+                </div>
+                {% else %}
+                <div class="w-12 h-12 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(34,211,238,0.1)]">
+                    <span class="text-[11px] font-black text-cyan-400">XLS</span>
+                </div>
+                {% endif %}
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-slate-200 truncate group-hover:text-cyan-400 transition-colors">{{ arq.name[9:] }}</p>
+                    <p class="text-[11px] text-slate-500">{{ arq.size }}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <a href="{{ arq.url }}" target="_blank" download
+                   class="p-2 text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="Download">
+                    <i data-lucide="arrow-down-to-line" class="w-4 h-4"></i>
+                </a>
+                {% if can_edit %}
+                <form action="/condominio/{{ condo.id }}/arquivo/{{ arq.name }}/remover" method="POST" onsubmit="return confirm('Remover este arquivo?')">
+                    <button type="submit" class="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Remover">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-8 text-center">
+        <p class="text-slate-500 text-sm font-medium">Nenhum arquivo anexado</p>
+    </div>
+    {% endif %}
+
+    <!-- Upload Area -->
+    {% if can_edit %}
+    <div class="border-t border-slate-800 p-6 bg-slate-900/50">
+        <form action="/condominio/{{ condo.id }}/upload" method="POST" enctype="multipart/form-data" id="uploadForm">
+            <label for="fileInput" 
+                   class="block border-2 border-dashed border-slate-700 rounded-xl p-8 text-center cursor-pointer hover:border-cyan-500 hover:bg-cyan-500/5 transition-all group"
+                   id="dropZone">
+                <div class="flex flex-col items-center gap-3">
+                    <div class="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center group-hover:bg-cyan-500/20 group-hover:shadow-[0_0_15px_rgba(34,211,238,0.2)] transition-all">
+                        <i data-lucide="upload-cloud" class="w-6 h-6 text-slate-500 group-hover:text-cyan-400 transition-colors"></i>
+                    </div>
+                    <p class="text-sm font-semibold text-slate-300">Arraste arquivos aqui ou <span class="text-cyan-400 group-hover:text-cyan-300">clique para selecionar</span></p>
+                    <p class="text-[11px] text-slate-500">PDF, Imagens (PNG, JPG) e Excel — máx. 10MB</p>
+                </div>
+                <input type="file" name="arquivo" id="fileInput" class="hidden" 
+                       accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.xlsx,.xls,.csv"
+                       onchange="document.getElementById('uploadForm').submit()">
+            </label>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<div class="mt-6">
+    <a href="/condominio/{{ condo.id }}/arrecadacoes" class="inline-flex items-center gap-2 text-sm text-cyan-500 hover:text-cyan-400 font-bold transition-all hover:translate-x-1">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar para Arrecadações
+    </a>
+</div>
+{% endblock %}

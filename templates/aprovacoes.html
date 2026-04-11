@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Aprovações | CondoAdmin{% endblock %}
+{% block page_title %}Fluxos de Aprovação{% endblock %}
+
+{% block content %}
+<!-- Pending -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+    <div class="px-5 py-4 border-b border-slate-200 bg-slate-50/60">
+        <h3 class="text-sm font-semibold text-slate-800">Processos Pendentes de Aprovação</h3>
+    </div>
+
+    {% if pendentes %}
+    <div class="divide-y divide-slate-100">
+        {% for p in pendentes %}
+        {% set condo_name = '—' %}
+        {% if p.condominios %}
+            {% if p.condominios is mapping %}
+                {% set condo_name = p.condominios.name|default('—') %}
+            {% endif %}
+        {% endif %}
+        <div class="px-5 py-4 hover:bg-slate-50/60 transition-colors">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <p class="text-sm font-semibold text-slate-800">{{ condo_name }}</p>
+                    <p class="text-xs text-slate-500">{{ p.year }}/{{ "1º" if p.semester == 1 else "2º" }} Semestre •
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">{{ p.status }}</span>
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if p.condominio_id %}
+                    <a href="/condominio/{{ p.condominio_id }}/arrecadacoes"
+                       class="text-xs text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-3 py-1.5 rounded-lg font-medium transition-colors">
+                        Ver Detalhes
+                    </a>
+                    {% endif %}
+
+                    {% if user and user.role in ['master', 'supervisora', 'supervisora_contabilidade'] %}
+                    <form action="/processo/{{ p.id }}/aprovar" method="POST" style="display:inline">
+                        <button type="submit" class="text-xs text-emerald-600 border border-emerald-200 hover:bg-emerald-50 px-3 py-1.5 rounded-lg font-medium transition-colors">
+                            ✓ Aprovar
+                        </button>
+                    </form>
+                    <button onclick="openAltModal('{{ p.id }}')"
+                            class="text-xs text-red-600 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg font-medium transition-colors">
+                        ✕ Solicitar Alteração
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-10 text-center">
+        <i data-lucide="check-circle" class="w-10 h-10 text-emerald-300 mx-auto mb-2"></i>
+        <p class="text-slate-400 text-sm">Nenhum processo pendente de aprovação</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- History -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-200 bg-slate-50/60">
+        <h3 class="text-sm font-semibold text-slate-800">Histórico Recente</h3>
+    </div>
+    {% if historico %}
+    <div class="divide-y divide-slate-100 text-sm">
+        {% for h in historico %}
+        <div class="px-5 py-3 flex items-center justify-between">
+            <div>
+                <span class="font-medium text-slate-700">{{ h.action }}</span>
+                {% if h.comment %}<span class="text-slate-400"> — {{ h.comment[:60] }}{{ '...' if h.comment|length > 60 else '' }}</span>{% endif %}
+            </div>
+            <span class="text-xs text-slate-400">{{ h.created_at[:16]|replace('T',' ') if h.created_at else '' }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-8 text-center text-slate-400 text-sm">Sem histórico</div>
+    {% endif %}
+</div>
+
+<!-- Alteration Modal -->
+<div id="altModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md border border-slate-200">
+        <h3 class="text-lg font-bold text-slate-800 mb-3">Solicitar Alteração</h3>
+        <form id="altForm" method="POST">
+            <label class="block text-sm font-medium text-slate-600 mb-1">Comentário obrigatório</label>
+            <textarea name="comentario" rows="3" required placeholder="Descreva o que precisa ser ajustado..."
+                      class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500 mb-4"></textarea>
+            <div class="flex gap-3 justify-end">
+                <button type="button" onclick="document.getElementById('altModal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm font-medium border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">Cancelar</button>
+                <button type="submit" class="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Solicitar Alteração</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openAltModal(procId) {
+    document.getElementById('altForm').action = '/processo/' + procId + '/solicitar-alteracao';
+    document.getElementById('altModal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

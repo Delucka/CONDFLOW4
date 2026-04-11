@@ -1,0 +1,21 @@
+# Python / Utils
+venv/
+__pycache__/
+*.pyc
+.env
+SERVER_LOG.txt
+server_log.txt
+codigo_fonte_completo.txt
+.pytest_cache/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/.env
+frontend/.env.*.local
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
