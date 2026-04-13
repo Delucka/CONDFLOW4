@@ -1,64 +1,83 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { FileText, CheckCircle, XCircle, Search, ExternalLink, Loader2 } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, Search, ExternalLink, Loader2, Package, ChevronDown } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
+import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 
 export default function VisaoGerente({ profile }) {
   const supabase = createClient();
   const { addToast } = useToast();
   
-  const [arquivos, setArquivos] = useState([]);
+  const [pacotes, setPacotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filtroStatus, setFiltroStatus] = useState('pendente');
+  const [filtroStatus, setFiltroStatus] = useState('Aguardando Gerente');
   const [termoBusca, setTermoBusca] = useState('');
+  
+  // Pacote expandido (mostra arquivos)
+  const [expandedPacote, setExpandedPacote] = useState(null);
+  const [pacoteArquivos, setPacoteArquivos] = useState([]);
   
   // Modal de correção
   const [showModal, setShowModal] = useState(false);
-  const [currentFile, setCurrentFile] = useState(null);
+  const [currentPacote, setCurrentPacote] = useState(null);
   const [comment, setComment] = useState('');
+  
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
-    fetchArquivos();
+    fetchPacotes();
     
-    const channel = supabase.channel('gerente_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_arquivos' }, () => {
-        fetchArquivos();
-      })
+    const channel = supabase.channel('gerente_pacotes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => { fetchPacotes(); })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  async function fetchArquivos() {
+  async function fetchPacotes() {
     setLoading(true);
-    // Como gerente, o RLS traz apenas os condomínios da sua carteira
     const { data } = await supabase
-      .from('emissoes_arquivos')
-      .select('*, condominios(name)')
+      .from('emissoes_pacotes')
+      .select('*, condominios(name), profiles:uploaded_by(full_name)')
       .order('criado_em', { ascending: false });
     
-    if (data) setArquivos(data);
+    if (data) {
+      const { data: arquivos } = await supabase
+        .from('emissoes_arquivos')
+        .select('id, pacote_id, arquivo_nome, arquivo_url, formato')
+        .not('pacote_id', 'is', null);
+      
+      const arqMap = {};
+      (arquivos || []).forEach(a => {
+        if (!arqMap[a.pacote_id]) arqMap[a.pacote_id] = [];
+        arqMap[a.pacote_id].push(a);
+      });
+      
+      setPacotes(data.map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
+    }
     setLoading(false);
   }
 
-  async function handleAprovar(id) {
+  async function handleAprovar(pacoteId) {
     const { error } = await supabase
-      .from('emissoes_arquivos')
-      .update({ status: 'aprovado' })
-      .eq('id', id);
+      .from('emissoes_pacotes')
+      .update({ status: 'Aguardando Supervisor', atualizado_em: new Date().toISOString() })
+      .eq('id', pacoteId);
 
     if (error) {
       addToast('Não foi possível aprovar', 'error');
     } else {
-      addToast('Arquivo aprovado com sucesso!', 'success');
-      fetchArquivos();
+      addToast('Pacote aprovado e enviado para Supervisor!', 'success');
+      setIsDrawerOpen(false);
+      fetchPacotes();
     }
   }
 
-  function abrirModalCorrecao(file) {
-    setCurrentFile(file);
+  function abrirModalCorrecao(pacote) {
+    setCurrentPacote(pacote);
     setComment('');
     setShowModal(true);
   }
@@ -67,39 +86,50 @@ export default function VisaoGerente({ profile }) {
     if (!comment) return addToast('Comentário é obrigatório.', 'warning');
 
     const { error } = await supabase
-      .from('emissoes_arquivos')
-      .update({ status: 'solicitar_correcao', comentario_correcao: comment })
-      .eq('id', currentFile.id);
+      .from('emissoes_pacotes')
+      .update({ status: 'solicitar_correcao', comentario_correcao: comment, atualizado_em: new Date().toISOString() })
+      .eq('id', currentPacote.id);
 
     if (error) {
       addToast('Falha ao solicitar correção.', 'error');
     } else {
       addToast('Correção solicitada.', 'success');
       setShowModal(false);
-      fetchArquivos();
+      fetchPacotes();
     }
   }
 
-  async function openFileUrl(path) {
-    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(path, 60);
-
-    if (error) {
-       console.error(error);
-       addToast('Erro ao gerar link de visualização seguro.', 'error');
-       return;
-    }
+  async function openFileUrl(doc, pacote) {
+    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(doc.arquivo_url, 60);
+    if (error) return addToast('Erro ao gerar link.', 'error');
 
     if (data?.signedUrl) {
-      window.open(data.signedUrl, '_blank');
+      const isAwaiting = pacote.status === 'Aguardando Gerente' || pacote.status === 'pendente';
+      setSelectedFile({
+        name: doc.arquivo_nome,
+        url: data.signedUrl,
+        format: doc.formato || doc.arquivo_nome.split('.').pop(),
+        approveLabel: 'Aprovar Pacote → Supervisor',
+        onApprove: isAwaiting ? () => handleAprovar(pacote.id) : null,
+        onReject: isAwaiting ? () => abrirModalCorrecao(pacote) : null
+      });
+      setIsDrawerOpen(true);
     }
   }
 
-  const filtered = arquivos.filter(a => {
-    if (filtroStatus !== 'todos' && a.status !== filtroStatus) return false;
+  const filtered = pacotes.filter(p => {
+    if (p.status === 'rascunho') return false; // Não mostra rascunhos para o gerente
+    if (filtroStatus !== 'todos') {
+      if (filtroStatus === 'Aguardando Gerente') {
+        if (p.status !== 'Aguardando Gerente' && p.status !== 'pendente') return false;
+      } else {
+        if (p.status !== filtroStatus) return false;
+      }
+    }
     if (termoBusca) {
       const b = termoBusca.toLowerCase();
-      const nome = a.condominios?.name?.toLowerCase() || '';
-      return nome.includes(b) || a.arquivo_nome.toLowerCase().includes(b);
+      const nome = p.condominios?.name?.toLowerCase() || '';
+      return nome.includes(b);
     }
     return true;
   });
@@ -107,20 +137,20 @@ export default function VisaoGerente({ profile }) {
   return (
     <div className="space-y-6">
       
-      {/* Filtros Livres */}
+      {/* Filtros */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between border border-white/10 rounded-3xl bg-white/5 p-4 shadow-xl">
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
-          {['pendente', 'aprovado', 'solicitar_correcao', 'todos'].map(st => (
+          {['Aguardando Gerente', 'Aguardando Supervisor', 'aprovado', 'solicitar_correcao', 'todos'].map(st => (
             <button
               key={st}
               onClick={() => setFiltroStatus(st)}
-              className={`px-5 py-2.5 rounded-xl text-[13px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+              className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
                 filtroStatus === st 
                   ? 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' 
                   : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
               }`}
             >
-              {st.replace('_', ' ')}
+              {st === 'Aguardando Gerente' ? 'Pendentes' : st === 'Aguardando Supervisor' ? 'Em Supervisor' : st === 'solicitar_correcao' ? 'Correção' : st}
             </button>
           ))}
         </div>
@@ -129,7 +159,7 @@ export default function VisaoGerente({ profile }) {
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-500" />
           <input 
             type="text" 
-            placeholder="Buscar por condomínio..."
+            placeholder="Buscar condomínio..."
             value={termoBusca}
             onChange={e => setTermoBusca(e.target.value)}
             className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-violet-500 outline-none transition-colors"
@@ -141,80 +171,88 @@ export default function VisaoGerente({ profile }) {
         <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-violet-500"/></div>
       ) : filtered.length === 0 ? (
         <div className="text-center p-12 border border-white/10 rounded-3xl bg-white/5">
-          <span className="text-gray-500">Nenhum arquivo encontrado nesta categoria.</span>
+          <span className="text-gray-500">Nenhum pacote encontrado nesta categoria.</span>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filtered.map(doc => (
-            <div key={doc.id} className="border border-white/10 rounded-3xl bg-[#0a0a0f] overflow-hidden flex flex-col group relative transition-all hover:bg-white/5">
-              
-              <div className="absolute top-4 right-4">
-                <StatusBadge status={doc.status} />
-              </div>
+        <div className="space-y-4">
+          {filtered.map(pacote => {
+            const numArquivos = pacote.arquivos?.length || 0;
+            const isAwaiting = pacote.status === 'Aguardando Gerente' || pacote.status === 'pendente';
 
-              <div className="p-6">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-white/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <FileText className="w-7 h-7 text-violet-400" />
+            return (
+              <div key={pacote.id} className="border border-white/10 rounded-2xl bg-[#0a0a0f] overflow-hidden">
+                {/* Header do Pacote */}
+                <div className="p-5 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-white/10 flex items-center justify-center">
+                      <Package className="w-6 h-6 text-violet-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-white text-base">{pacote.condominios?.name || '-'}</h4>
+                      <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
+                        {String(pacote.mes_referencia).padStart(2,'0')}/{pacote.ano_referencia} • {numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Enviado por {pacote.profiles?.full_name}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <StatusBadge status={pacote.status} />
+                    {isAwaiting && (
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => abrirModalCorrecao(pacote)}
+                          className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 text-rose-400 hover:bg-rose-500 hover:text-white hover:border-rose-500 flex items-center justify-center transition-all"
+                          title="Solicitar Correção"
+                        >
+                          <XCircle className="w-5 h-5"/>
+                        </button>
+                        <button 
+                          onClick={() => handleAprovar(pacote.id)}
+                          className="w-10 h-10 rounded-xl bg-violet-600 shadow-[0_0_15px_rgba(139,92,246,0.3)] text-white hover:bg-violet-500 flex items-center justify-center transition-all"
+                          title="Aprovar Pacote"
+                        >
+                          <CheckCircle className="w-5 h-5"/>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                
-                <h4 className="font-black text-white text-lg truncate mb-1" title={doc.condominios?.name}>
-                  {doc.condominios?.name || '-'}
-                </h4>
-                
-                <p className="text-xs font-bold uppercase tracking-widest text-cyan-400 mb-2">
-                  {doc.tipo.replace('_', ' ')} • {String(doc.mes_referencia).padStart(2,'0')}/{doc.ano_referencia}
-                </p>
 
-                <p className="text-sm text-gray-500 truncate" title={doc.arquivo_nome}>{doc.arquivo_nome}</p>
+                {/* Lista de Arquivos (sempre visível) */}
+                <div className="border-t border-white/5 bg-white/[0.02] px-5 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    {(pacote.arquivos || []).map(arq => (
+                      <button
+                        key={arq.id}
+                        onClick={() => openFileUrl(arq, pacote)}
+                        className="flex items-center gap-2 px-3 py-2 bg-[#0a0a0f] border border-white/10 rounded-xl hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all group"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-gray-500 group-hover:text-cyan-400" />
+                        <span className="text-xs font-bold text-gray-400 group-hover:text-white truncate max-w-[150px]">{arq.arquivo_nome}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                {doc.comentario_correcao && doc.status === 'solicitar_correcao' && (
-                  <div className="mt-3 bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl text-xs text-rose-300">
-                    <span className="font-bold flex items-center gap-1 mb-1"><XCircle className="w-3 h-3"/> Sua Correção:</span>
-                    {doc.comentario_correcao}
+                {pacote.status === 'solicitar_correcao' && pacote.comentario_correcao && (
+                  <div className="px-5 py-3 bg-rose-500/5 border-t border-rose-500/10">
+                    <p className="text-xs text-rose-400"><span className="font-black">Correção:</span> {pacote.comentario_correcao}</p>
                   </div>
                 )}
               </div>
-
-              <div className="p-4 bg-white/5 border-t border-white/10 flex items-center justify-between mt-auto">
-                <button 
-                  onClick={() => openFileUrl(doc.arquivo_url)}
-                  className="px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors flex items-center gap-2"
-                >
-                  <ExternalLink className="w-4 h-4"/> Ver Arquivo
-                </button>
-
-                {doc.status === 'pendente' && (
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => abrirModalCorrecao(doc)}
-                      className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 text-rose-400 hover:bg-rose-500 hover:text-white hover:border-rose-500 flex items-center justify-center transition-all"
-                      title="Solicitar Correção"
-                    >
-                      <XCircle className="w-5 h-5"/>
-                    </button>
-                    <button 
-                       onClick={() => handleAprovar(doc.id)}
-                       className="w-10 h-10 rounded-xl bg-violet-600 shadow-[0_0_15px_rgba(139,92,246,0.3)] text-white hover:bg-violet-500 flex items-center justify-center transition-all"
-                       title="Aprovar"
-                    >
-                      <CheckCircle className="w-5 h-5"/>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Modal Correção */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-6 overflow-hidden relative shadow-2xl animate-fade-in">
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-6 shadow-2xl animate-fade-in">
             <h3 className="text-xl font-black text-white mb-2">Solicitar Correção</h3>
             <p className="text-sm text-gray-400 mb-6 font-bold uppercase tracking-widest">
-              No de {currentFile?.condominios?.name} ({currentFile?.mes_referencia}/{currentFile?.ano_referencia})
+              {currentPacote?.condominios?.name} ({currentPacote?.mes_referencia}/{currentPacote?.ano_referencia})
             </p>
             
             <textarea
@@ -225,16 +263,10 @@ export default function VisaoGerente({ profile }) {
             />
 
             <div className="flex items-center gap-3 justify-end">
-              <button 
-                onClick={() => setShowModal(false)}
-                className="px-5 py-3 rounded-xl text-[13px] font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-              >
+              <button onClick={() => setShowModal(false)} className="px-5 py-3 rounded-xl text-[13px] font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                 Cancelar
               </button>
-              <button 
-                onClick={confirmarCorrecao}
-                className="px-5 py-3 rounded-xl text-[13px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-[0_0_20px_rgba(244,63,94,0.4)] hover:bg-rose-400 transition-colors"
-              >
+              <button onClick={confirmarCorrecao} className="px-5 py-3 rounded-xl text-[13px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-lg hover:bg-rose-400 transition-colors">
                 Confirmar
               </button>
             </div>
@@ -242,6 +274,11 @@ export default function VisaoGerente({ profile }) {
         </div>
       )}
 
+      <FilePreviewDrawer 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)} 
+        file={selectedFile} 
+      />
     </div>
   );
 }

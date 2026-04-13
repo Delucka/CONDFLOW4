@@ -12,8 +12,8 @@
 body {
   background-color: var(--color-brand-bg) !important;
   background-image: 
-    radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.15), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(34, 211, 238, 0.15), transparent 25%) !important;
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.12), transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(34, 211, 238, 0.12), transparent 40%) !important;
   background-attachment: fixed;
   color: #f3f4f6;
   min-height: 100vh;
@@ -22,10 +22,10 @@ body {
 /* ─── Efeito de Vidro (Premium) ─── */
 .glass-panel {
   background: var(--color-brand-glass);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--color-brand-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
 }
 
 .glass-card {
@@ -74,5 +74,8 @@ input:focus, select:focus, textarea:focus {
 /* ─── Animações Baseadas no Plano Original ─── */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
 .animate-fade-in { animation: fadeIn 0.4s ease-out; }
 .animate-fade-up { animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-slide-right { animation: slideRight 0.5s cubic-bezier(0.16, 1, 0.3, 1); }

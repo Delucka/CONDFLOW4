@@ -1,33 +1,46 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Clock, AlertCircle, Loader2, Trash2 } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
+import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 
 export default function VisaoEmissor({ profile }) {
   const supabase = createClient();
   const { addToast } = useToast();
   
-  const [emissoes, setEmissoes] = useState([]);
   const [condominios, setCondominios] = useState([]);
+  const [pacotes, setPacotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   
-  // States do form
-  const [file, setFile] = useState(null);
+  // Pacote ativo (aberto para edição)
+  const [activePacote, setActivePacote] = useState(null);
+  const [pacoteArquivos, setPacoteArquivos] = useState([]);
+  
+  // Form para novo pacote
   const [condoId, setCondoId] = useState('');
   const [mes, setMes] = useState(new Date().getMonth() + 1);
   const [ano, setAno] = useState(new Date().getFullYear());
-  const [tipo, setTipo] = useState('emissao');
+  
+  // Modal de conclusão
+  const [showConcluirModal, setShowConcluirModal] = useState(false);
+  const [nivelAprovacao, setNivelAprovacao] = useState('Aguardando Gerente');
+  const [confirmDeleteArqId, setConfirmDeleteArqId] = useState(null);
+
+  // Carteiras expandidas
+  const [expandedCarteiras, setExpandedCarteiras] = useState({});
 
   useEffect(() => {
     fetchDados();
     
-    // Subscribe aos updates realtime para as emissoes
-    const channel = supabase.channel('emissor_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_arquivos' }, () => {
-        fetchEmissoes();
+    const channel = supabase.channel('emissor_pacotes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => { fetchPacotes(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_arquivos' }, () => { 
+        if (activePacote) fetchArquivosDoPacote(activePacote.id); 
       })
       .subscribe();
 
@@ -37,235 +50,536 @@ export default function VisaoEmissor({ profile }) {
   async function fetchDados() {
     setLoading(true);
     try {
-      await Promise.all([fetchCondominios(), fetchEmissoes()]);
-    } catch (err) {
-      console.error("Erro no fetch inicial:", err);
+      await Promise.all([fetchCondominios(), fetchPacotes()]);
     } finally {
       setLoading(false);
     }
   }
 
   async function fetchCondominios() {
-    const { data, error } = await supabase.from('condominios').select('id, name').order('name');
-    if (error) console.error("fetchCondominios error:", error);
+    const { data } = await supabase
+      .from('condominios')
+      .select('*, gerentes:gerente_id(id, profiles(full_name))')
+      .order('name');
     if (data) setCondominios(data);
   }
 
-  async function fetchEmissoes() {
-    const { data, error } = await supabase
-      .from('emissoes_arquivos')
-      .select('*, condominios(name)')
+  async function fetchPacotes() {
+    const { data } = await supabase
+      .from('emissoes_pacotes')
+      .select('*, condominios(name, gerente_id, gerentes:gerente_id(profiles(full_name)))')
       .order('criado_em', { ascending: false });
     
-    if (error) console.error("fetchEmissoes error:", error);
-    if (data) setEmissoes(data);
+    if (data) {
+      // Buscar contagem de arquivos por pacote
+      const { data: arquivos } = await supabase
+        .from('emissoes_arquivos')
+        .select('id, pacote_id')
+        .not('pacote_id', 'is', null);
+      
+      const countMap = {};
+      (arquivos || []).forEach(a => {
+        countMap[a.pacote_id] = (countMap[a.pacote_id] || 0) + 1;
+      });
+      
+      setPacotes(data.map(p => ({ ...p, numArquivos: countMap[p.id] || 0 })));
+    }
   }
 
-  async function handleUpload(e) {
-    e.preventDefault();
-    if (!file || !condoId) return addToast('Preencha todos os campos obrigatórios', 'error');
+  async function fetchArquivosDoPacote(pacoteId) {
+    const { data } = await supabase
+      .from('emissoes_arquivos')
+      .select('*')
+      .eq('pacote_id', pacoteId)
+      .order('criado_em', { ascending: true });
+    if (data) setPacoteArquivos(data);
+  }
 
+  // --- AÇÕES ---
+
+  async function handleCriarOuAbrirPacote(e) {
+    e?.preventDefault?.();
+    if (!condoId) return addToast('Selecione um condomínio', 'error');
+
+    // Tentar buscar pacote existente
+    const { data: existing } = await supabase
+      .from('emissoes_pacotes')
+      .select('*')
+      .eq('condominio_id', condoId)
+      .eq('mes_referencia', mes)
+      .eq('ano_referencia', ano)
+      .maybeSingle();
+
+    if (existing) {
+      setActivePacote(existing);
+      await fetchArquivosDoPacote(existing.id);
+      addToast('Pacote existente aberto para edição.', 'info');
+    } else {
+      const { data: novo, error } = await supabase
+        .from('emissoes_pacotes')
+        .insert({
+          condominio_id: condoId,
+          mes_referencia: mes,
+          ano_referencia: ano,
+          status: 'rascunho',
+          uploaded_by: profile.id
+        })
+        .select()
+        .single();
+
+      if (error) {
+        addToast('Erro ao criar pacote: ' + error.message, 'error');
+      } else {
+        setActivePacote(novo);
+        setPacoteArquivos([]);
+        addToast('Novo pacote criado! Adicione os arquivos.', 'success');
+        fetchPacotes();
+      }
+    }
+  }
+
+  async function handleUploadArquivo(fileInput) {
+    if (!fileInput || !activePacote) return;
+    
     setIsUploading(true);
     try {
-      const extensao = file.name.split('.').pop().toLowerCase();
+      const extensao = fileInput.name.split('.').pop().toLowerCase();
       const randomId = Math.random().toString(36).substring(7);
-      const filePath = `${condoId}/${ano}/${mes}/${randomId}_${file.name}`;
+      const filePath = `${activePacote.condominio_id}/${ano}/${mes}/${randomId}_${fileInput.name}`;
       
-      // 1. Upload to Storage
-      const { error: uploadError } = await supabase.storage
-        .from('emissoes')
-        .upload(filePath, file);
-
+      const { error: uploadError } = await supabase.storage.from('emissoes').upload(filePath, fileInput);
       if (uploadError) throw uploadError;
 
-      // Pegar a URL pública (O bucket é privado mas podemos gerar signedUrl depois se quiser, no entanto a URL de acesso é estrutural se tiver select/ler)
-      const { data: publicUrl } = supabase.storage.from('emissoes').getPublicUrl(filePath);
-
-      // 2. Add to table
       const { error: dbError } = await supabase
         .from('emissoes_arquivos')
         .insert({
-          condominio_id: condoId,
-          tipo,
-          arquivo_url: filePath, // guardamos o path na tabela
-          arquivo_nome: file.name,
+          condominio_id: activePacote.condominio_id,
+          pacote_id: activePacote.id,
+          tipo: 'emissao',
+          arquivo_url: filePath,
+          arquivo_nome: fileInput.name,
           formato: extensao,
           mes_referencia: mes,
           ano_referencia: ano,
+          status: 'pendente',
           uploaded_by: profile.id
         });
 
       if (dbError) throw dbError;
 
-      addToast('Arquivo enviado com sucesso!', 'success');
-      setFile(null); // Reset file
-      fetchEmissoes();
-
+      addToast(`${fileInput.name} adicionado!`, 'success');
+      await fetchArquivosDoPacote(activePacote.id);
+      fetchPacotes();
     } catch (err) {
-      console.error("[DETALHE DO ERRO UPLOAD]:", err);
-      const storageErrMsg = typeof err?.error === 'string' ? err.error : err?.message;
-      const msgErro = storageErrMsg || 'Falha no upload do arquivo para o bucket.';
-      addToast(`Erro de Storage: ${msgErro}`, 'error');
+      addToast(`Erro no upload: ${err.message}`, 'error');
     } finally {
       setIsUploading(false);
     }
   }
 
-  const handleDelete = async (id, path) => {
-    if (!window.confirm('Deseja excluir este arquivo permanentemente? Esta ação não pode ser desfeita.')) return;
-    try {
-      setIsUploading(true); // Re-utilizando state de loading global de form pro fluxo todo
-      // Tenta apagar do storage (se não achar não travar)
-      await supabase.storage.from('emissoes').remove([path]);
-      
-      const { error: dbError } = await supabase.from('emissoes_arquivos').delete().eq('id', id);
-      if (dbError) throw dbError;
-
-      addToast('Arquivo excluído com sucesso.', 'success');
-      setEmissoes(prev => prev.filter(e => e.id !== id));
-    } catch (err) {
-      addToast(`Erro: ${err.message}`, 'error');
-    } finally {
-      setIsUploading(false);
+  async function handleDeleteArquivo(e, id, path) {
+    e.stopPropagation();
+    if (confirmDeleteArqId !== id) {
+      setConfirmDeleteArqId(id);
+      addToast('Clique novamente para confirmar a remoção', 'warning');
+      setTimeout(() => setConfirmDeleteArqId(null), 3000);
+      return;
     }
+    try {
+      await supabase.storage.from('emissoes').remove([path]);
+      const { error } = await supabase.from('emissoes_arquivos').delete().eq('id', id);
+      if (error) {
+        addToast('Erro ao excluir: ' + error.message, 'error');
+        return;
+      }
+      setConfirmDeleteArqId(null);
+      addToast('Arquivo removido.', 'success');
+      await fetchArquivosDoPacote(activePacote.id);
+      fetchPacotes();
+    } catch (err) {
+      addToast('Erro: ' + err.message, 'error');
+    }
+  }
+
+  async function handleConcluirPacote() {
+    if (pacoteArquivos.length === 0) return addToast('Adicione pelo menos 1 arquivo antes de concluir.', 'warning');
+    setShowConcluirModal(true);
+  }
+
+  async function confirmarConclusao() {
+    const { error } = await supabase
+      .from('emissoes_pacotes')
+      .update({ status: nivelAprovacao, nivel_aprovacao: nivelAprovacao, atualizado_em: new Date().toISOString() })
+      .eq('id', activePacote.id);
+
+    if (error) {
+      addToast('Erro ao concluir pacote: ' + error.message, 'error');
+    } else {
+      addToast('Emissão concluída e enviada para aprovação!', 'success');
+      setShowConcluirModal(false);
+      setActivePacote(null);
+      setPacoteArquivos([]);
+      fetchPacotes();
+    }
+  }
+
+  async function openFileUrl(path, fileName) {
+    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(path, 60);
+    if (error) return addToast('Erro ao gerar link.', 'error');
+    if (data?.signedUrl) {
+      setSelectedFile({ name: fileName, url: data.signedUrl, format: fileName.split('.').pop() });
+      setIsDrawerOpen(true);
+    }
+  }
+
+  function abrirPacote(pacote) {
+    setActivePacote(pacote);
+    setCondoId(pacote.condominio_id);
+    setMes(pacote.mes_referencia);
+    setAno(pacote.ano_referencia);
+    fetchArquivosDoPacote(pacote.id);
+  }
+
+  // Agrupar condomínios por carteira
+  const carteiras = useMemo(() => {
+    const groups = {};
+    condominios.forEach(c => {
+      const gerente = c.gerentes?.profiles?.full_name || 'Sem Carteira';
+      if (!groups[gerente]) groups[gerente] = [];
+      groups[gerente].push(c);
+    });
+    return groups;
+  }, [condominios]);
+
+  // Mapa de pacotes por condomínio (mês/ano atual)
+  const pacotesPorCondo = useMemo(() => {
+    const map = {};
+    pacotes.forEach(p => {
+      const key = `${p.condominio_id}_${p.mes_referencia}_${p.ano_referencia}`;
+      map[key] = p;
+    });
+    return map;
+  }, [pacotes]);
+
+  const toggleCarteira = (name) => {
+    setExpandedCarteiras(prev => ({ ...prev, [name]: !prev[name] }));
   };
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-violet-500"/></div>;
 
+  // --- RENDER ---
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* Container de Formulário */}
-      <div className="lg:col-span-1 border border-white/10 rounded-3xl bg-white/5 p-6 shadow-xl h-fit sticky top-6">
-        <h3 className="font-black text-white text-lg mb-6 flex items-center gap-2">
-          <UploadCloud className="text-violet-400 w-5 h-5"/>
-          Novo Envio
+    <div className="space-y-8">
+      
+      {/* ═══ PAINEL DO PACOTE ATIVO ═══ */}
+      {activePacote ? (
+        <div className="border border-violet-500/30 rounded-3xl bg-violet-500/5 p-6 shadow-2xl animate-fade-in">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-violet-500/20 rounded-2xl flex items-center justify-center border border-violet-500/30">
+                <Package className="w-6 h-6 text-violet-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tight">
+                  {condominios.find(c => c.id === activePacote.condominio_id)?.name || 'Condomínio'}
+                </h3>
+                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">
+                  Emissão {String(activePacote.mes_referencia).padStart(2,'0')}/{activePacote.ano_referencia} • <StatusBadge status={activePacote.status} />
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={() => { setActivePacote(null); setPacoteArquivos([]); }}
+              className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Lista de Arquivos do Pacote */}
+          <div className="space-y-3 mb-6">
+            {pacoteArquivos.length === 0 ? (
+              <div className="text-center py-8 border border-dashed border-white/10 rounded-2xl">
+                <FileText className="w-10 h-10 text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm">Nenhum arquivo adicionado ainda.</p>
+              </div>
+            ) : (
+              pacoteArquivos.map(arq => (
+                <div key={arq.id} className="flex items-center justify-between p-4 bg-[#0a0a0f] border border-white/10 rounded-2xl hover:bg-white/5 transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-gray-400 group-hover:text-violet-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white truncate max-w-[250px]">{arq.arquivo_nome}</p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-widest">{arq.formato} • {new Date(arq.criado_em).toLocaleString('pt-BR')}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => openFileUrl(arq.arquivo_url, arq.arquivo_nome)}
+                      className="p-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all"
+                      title="Visualizar"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
+                    {activePacote.status === 'rascunho' && (
+                      <button 
+                        onClick={(e) => handleDeleteArquivo(e, arq.id, arq.arquivo_url)}
+                        className={`p-2 rounded-lg border transition-all ${
+                          confirmDeleteArqId === arq.id 
+                            ? 'bg-rose-500 border-rose-500 text-white animate-pulse' 
+                            : 'bg-white/5 border-white/10 text-gray-400 hover:text-rose-400 hover:border-rose-500/30'
+                        }`}
+                        title={confirmDeleteArqId === arq.id ? 'Clique novamente para confirmar' : 'Remover'}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Ações do Pacote */}
+          {activePacote.status === 'rascunho' && (
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* Upload de mais arquivos */}
+              <div className="flex-1 relative">
+                <div className="border-2 border-dashed border-white/10 hover:border-violet-500/50 rounded-2xl p-4 text-center cursor-pointer transition-all bg-[#0a0a0f] group">
+                  <input
+                    type="file"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    multiple
+                    onChange={async e => { 
+                      const files = Array.from(e.target.files || []);
+                      for (const f of files) { await handleUploadArquivo(f); }
+                      e.target.value = ''; 
+                    }}
+                    accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
+                    disabled={isUploading}
+                  />
+                  {isUploading ? (
+                    <Loader2 className="w-6 h-6 text-violet-400 animate-spin mx-auto" />
+                  ) : (
+                    <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-violet-400 transition-colors">
+                      <Plus className="w-5 h-5" />
+                      <span className="text-xs font-black uppercase tracking-widest">Adicionar Arquivo</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Botão Concluir */}
+              <button
+                onClick={handleConcluirPacote}
+                className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-emerald-600/20 active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                Concluir e Enviar
+              </button>
+            </div>
+          )}
+
+          {activePacote.status === 'solicitar_correcao' && activePacote.comentario_correcao && (
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-sm text-rose-300 mt-4">
+              <span className="font-black text-rose-400 text-xs uppercase tracking-widest block mb-1">Correção Solicitada:</span>
+              {activePacote.comentario_correcao}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ═══ FORMULÁRIO CRIAR/ABRIR PACOTE ═══ */
+        <div className="border border-white/10 rounded-3xl bg-white/5 p-6 shadow-xl">
+          <h3 className="font-black text-white text-lg mb-6 flex items-center gap-2">
+            <UploadCloud className="text-violet-400 w-5 h-5"/>
+            Nova Emissão / Abrir Existente
+          </h3>
+          <form onSubmit={handleCriarOuAbrirPacote} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Condomínio</label>
+              <select
+                value={condoId} onChange={e => setCondoId(e.target.value)}
+                className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500" required
+              >
+                <option value="">Selecione...</option>
+                {condominios.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Mês / Ano</label>
+              <div className="flex gap-2">
+                <input type="number" min="1" max="12" value={mes} onChange={e => setMes(parseInt(e.target.value))}
+                  className="w-1/2 bg-[#0a0a0f] border border-white/10 rounded-xl px-3 py-3 text-sm text-white" />
+                <input type="number" value={ano} onChange={e => setAno(parseInt(e.target.value))}
+                  className="w-1/2 bg-[#0a0a0f] border border-white/10 rounded-xl px-3 py-3 text-sm text-white" />
+              </div>
+            </div>
+            <div>
+              <button type="submit" className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all flex items-center justify-center gap-2">
+                <FolderOpen className="w-4 h-4" />
+                Abrir Pacote
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ═══ VISÃO POR CARTEIRA ═══ */}
+      <div className="space-y-4">
+        <h3 className="font-black text-white text-lg flex items-center gap-2">
+          <Clock className="text-cyan-400 w-5 h-5"/>
+          Emissões por Carteira — {String(mes).padStart(2,'0')}/{ano}
         </h3>
 
-        <form onSubmit={handleUpload} className="space-y-5">
-          <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Condomínio</label>
-            <select
-              value={condoId}
-              onChange={(e) => setCondoId(e.target.value)}
-              className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500 transition-colors"
-              required
-            >
-              <option value="">Selecione...</option>
-              {condominios.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
+        {Object.entries(carteiras).map(([gerente, condos]) => {
+          const isExpanded = expandedCarteiras[gerente] !== false; // default aberto
+          return (
+            <div key={gerente} className="border border-white/10 rounded-2xl bg-[#0a0a0f] overflow-hidden">
+              <button
+                onClick={() => toggleCarteira(gerente)}
+                className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  {isExpanded ? <ChevronDown className="w-4 h-4 text-violet-400" /> : <ChevronRight className="w-4 h-4 text-gray-500" />}
+                  <span className="text-sm font-black text-white uppercase tracking-widest">{gerente}</span>
+                  <span className="text-[10px] font-bold text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">{condos.length} condos</span>
+                </div>
+              </button>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Mês</label>
-              <input type="number" min="1" max="12" value={mes} onChange={e=>setMes(e.target.value)}
-                className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Ano</label>
-              <input type="number" value={ano} onChange={e=>setAno(e.target.value)}
-                className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white" />
-            </div>
-          </div>
+              {isExpanded && (
+                <div className="border-t border-white/5">
+                  {condos.map(condo => {
+                    const key = `${condo.id}_${mes}_${ano}`;
+                    const pacote = pacotesPorCondo[key];
+                    const numArquivos = pacote?.numArquivos || 0;
 
-          <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Tipo</label>
-            <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500"
-            >
-              <option value="emissao">Emissão Normal / Planilha</option>
-              <option value="cobranca_extra">Cobrança Extra</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Arquivo PDF/XLS/IMG</label>
-            <div className="w-full border-2 border-dashed border-white/10 hover:border-violet-500/50 rounded-xl p-6 text-center transition-colors bg-[#0a0a0f] relative group cursor-pointer">
-              <input 
-                type="file" 
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={e => setFile(e.target.files[0])}
-                accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
-                required
-              />
-              {file ? (
-                <div className="text-sm font-bold text-violet-400 break-all px-2">{file.name}</div>
-              ) : (
-                <div className="text-gray-500 text-sm">
-                  <FileText className="w-8 h-8 mx-auto mb-2 opacity-50 group-hover:text-violet-400 transition-colors" />
-                  Clique ou arraste
+                    return (
+                      <div key={condo.id} className="flex items-center justify-between px-6 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 rounded-full bg-gray-600 shrink-0" />
+                          <span className="text-sm font-bold text-gray-300 truncate max-w-[250px]">{condo.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {pacote ? (
+                            <>
+                              <span className="text-[10px] font-bold text-gray-500">{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}</span>
+                              <StatusBadge status={pacote.status} />
+                              <button
+                                onClick={() => abrirPacote(pacote)}
+                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-black text-cyan-400 uppercase tracking-widest transition-all"
+                              >
+                                Abrir
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => { setCondoId(condo.id); handleCriarOuAbrirPacote(); }}
+                              className="px-3 py-1.5 bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/30 rounded-lg text-[10px] font-black text-gray-500 hover:text-violet-400 uppercase tracking-widest transition-all"
+                            >
+                              + Criar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={isUploading}
-            className="w-full py-4 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-[13px] shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all flex items-center justify-center gap-2"
-          >
-            {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enviar Arquivo'}
-          </button>
-        </form>
+          );
+        })}
       </div>
 
-      {/* Lista de Envios */}
-      <div className="lg:col-span-2">
-        <h3 className="font-black text-white text-lg mb-6 flex items-center gap-2">
-          <Clock className="text-cyan-400 w-5 h-5"/>
-          Histórico de Envios
-        </h3>
+      {/* ═══ MODAL DE CONCLUSÃO ═══ */}
+      {showConcluirModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-8 shadow-2xl">
+            <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-8 h-8 text-emerald-400" />
+            </div>
+            <h3 className="text-xl font-black text-white text-center mb-2">Concluir Emissão</h3>
+            <p className="text-sm text-gray-400 text-center mb-8">
+              {pacoteArquivos.length} arquivo{pacoteArquivos.length !== 1 ? 's' : ''} neste pacote. Selecione o nível de aprovação:
+            </p>
 
-        {emissoes.length === 0 ? (
-          <div className="text-center p-12 border border-white/10 rounded-3xl bg-white/5">
-            <span className="text-gray-500">Nenhum arquivo enviado ainda.</span>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {emissoes.map(doc => (
-              <div key={doc.id} className="flex flex-wrap items-center justify-between p-5 border border-white/10 rounded-2xl bg-[#0a0a0f] hover:bg-white/5 transition-colors group gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center group-hover:bg-violet-500/10 transition-colors">
-                    <FileText className="w-6 h-6 text-gray-400 group-hover:text-violet-400" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-white max-w-[200px] sm:max-w-xs truncate" title={doc.condominios?.name}>
-                      {doc.condominios?.name || 'Condomínio Excluído'}
-                    </h4>
-                    <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mt-1">
-                      {doc.tipo.replace('_', ' ')} • {String(doc.mes_referencia).padStart(2, '0')}/{doc.ano_referencia}
-                    </p>
-                    <p className="text-[10px] text-gray-500 truncate max-w-[200px] mt-1">{doc.arquivo_nome}</p>
-                  </div>
+            <div className="space-y-3 mb-8">
+              <button
+                onClick={() => setNivelAprovacao('Aguardando Gerente')}
+                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
+                  nivelAprovacao === 'Aguardando Gerente' 
+                    ? 'border-violet-500 bg-violet-500/10 shadow-lg shadow-violet-500/10' 
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 'Aguardando Gerente' ? 'border-violet-500' : 'border-gray-600'}`}>
+                  {nivelAprovacao === 'Aguardando Gerente' && <div className="w-2 h-2 rounded-full bg-violet-500" />}
                 </div>
-                
-                <div className="flex flex-col items-end gap-2">
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={() => handleDelete(doc.id, doc.arquivo_url)} 
-                      className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-500 hover:text-rose-400 hover:border-rose-500/50 hover:bg-rose-500/10 transition-colors"
-                      title="Apagar este envio"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                    <StatusBadge status={doc.status} />
-                  </div>
-                  {doc.status === 'solicitar_correcao' && doc.comentario_correcao && (
-                    <div className="text-xs text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-lg max-w-[200px] truncate flex items-center gap-1" title={doc.comentario_correcao}>
-                      <AlertCircle className="w-3 h-3 shrink-0" /> {doc.comentario_correcao}
-                    </div>
-                  )}
-                  <div className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
-                    {new Date(doc.criado_em).toLocaleDateString('pt-BR')}
-                  </div>
+                <div>
+                  <p className="text-sm font-black text-white">1. Gerente de Carteira</p>
+                  <p className="text-[10px] text-gray-500">O gerente revisa e encaminha para o chefe</p>
                 </div>
-              </div>
-            ))}
+              </button>
+
+              <button
+                onClick={() => setNivelAprovacao('Aguardando Chefe')}
+                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
+                  nivelAprovacao === 'Aguardando Chefe' 
+                    ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/10' 
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 'Aguardando Chefe' ? 'border-cyan-500' : 'border-gray-600'}`}>
+                  {nivelAprovacao === 'Aguardando Chefe' && <div className="w-2 h-2 rounded-full bg-cyan-500" />}
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white">2. Chefe / Supervisor de Gerentes</p>
+                  <p className="text-[10px] text-gray-500">O chefe revisa e encaminha para a supervisão</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setNivelAprovacao('Aguardando Supervisor')}
+                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
+                  nivelAprovacao === 'Aguardando Supervisor' 
+                    ? 'border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/10' 
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 'Aguardando Supervisor' ? 'border-orange-500' : 'border-gray-600'}`}>
+                  {nivelAprovacao === 'Aguardando Supervisor' && <div className="w-2 h-2 rounded-full bg-orange-500" />}
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white">3. Supervisão / Master</p>
+                  <p className="text-[10px] text-gray-500">Envia diretamente para aprovação final</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowConcluirModal(false)}
+                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarConclusao}
+                className="flex-[2] py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
+              >
+                Confirmar e Enviar
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      <FilePreviewDrawer 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)} 
+        file={selectedFile} 
+      />
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { Users, ShieldAlert, PlusCircle, Trash2, Mail, Loader2, X } from 'lucide-react';
+import { Users, ShieldAlert, PlusCircle, Trash2, Mail, Loader2, X, RefreshCw } from 'lucide-react';
 
 export default function UsuariosPage() {
   const { user } = useAuth();
@@ -49,14 +49,63 @@ export default function UsuariosPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      // Nota: Criação de usuário via auth requer Supabase Admin ou Edge Function.
-      // Por enquanto, vamos avisar que esta função está em migração se falhar.
-      addToast('A criação de usuários via painel requer configuração do Supabase Auth Admin.', 'warning');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/usuarios`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.detail || 'Erro ao criar usuário');
+      
+      addToast('Usuário criado com sucesso!', 'success');
       setModalOpen(false);
+      setFormData({ email: '', password: '', full_name: '', role: 'gerente' });
+      // Recarregar lista
+      window.location.reload(); 
     } catch (err) {
       addToast(err.message, 'error');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleSync(u) {
+    const password = prompt(`Digite uma nova senha para ${u.full_name}:`, 'Senha@1234');
+    if (!password) return;
+
+    try {
+      addToast('Aguarde, sincronizando conta...', 'info');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/usuarios/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          email: u.email,
+          password: password,
+          full_name: u.full_name,
+          role: u.role,
+          profile_id: u.id
+        })
+      });
+      
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.detail || 'Erro ao sincronizar');
+      
+      addToast(`Conta sincronizada! Senha: ${password}`, 'success');
+    } catch (err) {
+      addToast(err.message, 'error');
     }
   }
 
@@ -104,11 +153,18 @@ export default function UsuariosPage() {
                 </div>
               </div>
               
-              {user.id !== u.id && (
-                <button title="Desativar Conta" className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
+              <div className="flex flex-col gap-2">
+                {user.id !== u.id && (
+                  <button onClick={() => handleSync(u)} title="Sincronizar Acesso / Resetar Senha" className="text-slate-600 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                )}
+                {user.id !== u.id && (
+                  <button title="Desativar Conta" className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}

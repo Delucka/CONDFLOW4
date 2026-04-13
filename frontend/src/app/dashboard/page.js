@@ -1,169 +1,178 @@
 'use client';
-
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import useSWR from 'swr';
 import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
-import { createClient } from '@/utils/supabase/client';
+import { apiFetcher } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
-import { Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt } from 'lucide-react';
+import { Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt, AlertCircle, Eye } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/utils/supabase/client';
+import { useToast } from '@/components/Toast';
+import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 
 export default function DashboardPage() {
-  const [data, setData] = useState({ condos: [], stats: {}, gerentes: [] });
-  const [loading, setLoading] = useState(true);
   const [filtroGerente, setFiltroGerente] = useState('');
-  
   const { user } = useAuth();
+  const supabase = createClient();
   const { addToast } = useToast();
+  
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  useEffect(() => {
-    async function carregarDashboard() {
-      try {
-        setLoading(true);
-        const supabase = createClient();
-        
-        let queryCondos = supabase.from('condominios').select('*, gerentes(id, profiles(full_name))').order('name');
-        
-        // Se for gerente, forçar o filtro pelo seu próprio ID
-        if (user?.role === 'gerente') {
-          queryCondos = queryCondos.eq('gerente_id', user.id);
-        } else if (filtroGerente) {
-          queryCondos = queryCondos.eq('gerente_id', filtroGerente);
-        }
-        
-        const [ { data: condos }, { data: gerentes }, { data: processos } ] = await Promise.all([
-          queryCondos,
-          supabase.from('gerentes').select('id, profiles(full_name)'),
-          supabase.from('processos').select('*')
-        ]);
-        
-        const procMap = {};
-        let em_edicao = 0, pendentes = 0, aprovados = 0;
-        
-        if (processos) {
-          processos.forEach(p => {
-            procMap[p.condominio_id] = p;
-            if (p.status === 'Em edição' || p.status === 'Solicitar alteração') em_edicao++;
-            if (p.status === 'Enviado' || p.status === 'Em aprovação') pendentes++;
-            if (p.status === 'Aprovado' || p.status === 'Emitido') aprovados++;
-          });
-        }
-        
-        const formattedCondos = condos ? condos.map(c => {
-          let gName = '—';
-          if (c.gerentes?.profiles) {
-            gName = Array.isArray(c.gerentes.profiles) ? c.gerentes.profiles[0]?.full_name : c.gerentes.profiles.full_name;
-          }
-          return { ...c, gerente_name: gName };
-        }) : [];
+  // ALTO FLUXO: SWR gerencia cache e revalidação automática
+  const query = filtroGerente ? `?gerente_id=${filtroGerente}` : '';
+  const { data, error, isLoading } = useSWR(`/api/dashboard${query}`, apiFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 5000
+  });
 
-        setData({
-          condos: formattedCondos,
-          stats: { total: formattedCondos.length, em_edicao, pendentes, aprovados },
-          gerentes: gerentes || [],
-          processos: procMap,
-          year: new Date().getFullYear(),
-          semester: new Date().getMonth() < 6 ? 1 : 2
-        });
-      } catch (err) {
-        addToast(err.message || 'Erro ao carregar dashboard', 'error');
-      } finally {
-        setLoading(false);
+  const handleQuickView = async (condoId) => {
+    try {
+      const { data: fileData, error: fileError } = await supabase
+        .from('emissoes_arquivos')
+        .select('*')
+        .eq('condominio_id', condoId)
+        .order('criado_em', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fileError) throw fileError;
+      if (!fileData) {
+        addToast('Nenhum informativo disponível para visualização.', 'warning');
+        return;
       }
+
+      const { data: urlData, error: urlError } = await supabase.storage
+        .from('emissoes')
+        .createSignedUrl(fileData.arquivo_url, 60);
+
+      if (urlError) throw urlError;
+
+      setSelectedFile({
+        name: fileData.arquivo_nome,
+        url: urlData.signedUrl,
+        format: fileData.arquivo_nome.split('.').pop()
+      });
+      setIsDrawerOpen(true);
+    } catch (err) {
+      console.error(err);
+      addToast('Não foi possível abrir a prévia.', 'error');
     }
-    carregarDashboard();
-  }, [filtroGerente, addToast]);
+  };
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 text-center glass-panel rounded-3xl">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <h3 className="text-xl font-bold text-white mb-2">Erro de Conexão</h3>
+        <p className="text-slate-400 mb-6">Não foi possível carregar os dados do painel.</p>
+        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-slate-800 rounded-xl font-bold border border-slate-700">TENTAR NOVAMENTE</button>
+      </div>
+    );
+  }
+
+  // Fallback para quando os dados estão carregando ou não existem
+  const stats = data?.stats || { total: 0, em_edicao: 0, pendentes: 0, aprovados: 0 };
+  const condos = data?.condos || [];
+  const gerentes = data?.gerentes || [];
 
   return (
-    <div className="animate-fade-in w-full h-full relative">
+    <div className="animate-fade-in w-full h-full relative space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Condomínios" value={data.stats.total || 0} icon={Building} color="cyan" />
-        <StatsCard title="Em Edição" value={data.stats.em_edicao || 0} icon={FileEdit} color="orange" />
-        <StatsCard title="Pendentes" value={data.stats.pendentes || 0} icon={Clock} color="indigo" />
-        <StatsCard title="Aprovados" value={data.stats.aprovados || 0} icon={CheckCircle2} color="emerald" />
+        <StatsCard title="Total Condomínios" value={stats.total} icon={Building} color="cyan" loading={isLoading} />
+        <StatsCard title="Em Edição" value={stats.em_edicao} icon={FileEdit} color="orange" loading={isLoading} />
+        <StatsCard title="Pendentes" value={stats.pendentes} icon={Clock} color="indigo" loading={isLoading} />
+        <StatsCard title="Aprovados" value={stats.aprovados} icon={CheckCircle2} color="emerald" loading={isLoading} />
       </div>
 
       {/* Tabela de Condomínios */}
-      <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden mt-6">
-        <div className="px-5 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-800/30">
-          <h3 className="text-sm font-semibold text-slate-200">
-            Condomínios — {data.year || new Date().getFullYear()}/{data.semester === 1 ? '1º' : '2º'} Semestre
-          </h3>
+      <div className="bg-slate-900/50 backdrop-blur-md rounded-2xl border border-white/5 shadow-2xl overflow-hidden">
+        <div className="px-6 py-5 border-b border-white/5 flex flex-wrap items-center justify-between gap-4 bg-white/5">
+          <div>
+            <h3 className="text-lg font-black text-white leading-none">
+              Informativo Semestral
+            </h3>
+            <p className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold mt-1">
+              PERÍODO: {data?.year || '—'} / {data?.semester === 1 ? '1º' : '2º'} SEMESTRE
+            </p>
+          </div>
           
-          {user?.role === 'master' && (
-            <div className="flex items-center gap-2">
+          {user?.role !== 'gerente' && (
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Filtrar por Gerente:</label>
               <select
                 value={filtroGerente}
                 onChange={(e) => setFiltroGerente(e.target.value)}
-                className="text-xs border border-slate-700 bg-slate-800 rounded-lg px-3 py-1.5 text-slate-300 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
+                className="text-xs bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-slate-200 outline-none focus:border-cyan-500 transition-all cursor-pointer"
               >
-                <option value="">Todos os Gerentes</option>
-                {data.gerentes?.map((g) => {
-                  const name = g.profiles?.full_name || (Array.isArray(g.profiles) ? g.profiles[0]?.full_name : '—');
-                  return (
-                    <option key={g.id} value={g.id}>
-                      {name}
-                    </option>
-                  );
-                })}
+                <option value="">TODOS</option>
+                {gerentes.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.profiles?.full_name || '—'}
+                  </option>
+                ))}
               </select>
-              {filtroGerente && (
-                <button
-                  onClick={() => setFiltroGerente('')}
-                  className="text-xs text-slate-500 hover:text-red-400 transition-colors"
-                >
-                  Limpar
-                </button>
-              )}
             </div>
           )}
         </div>
 
-        {loading ? (
-          <div className="p-16 text-center text-slate-500">
-            <Clock className="w-8 h-8 animate-spin-slow mx-auto mb-4 text-cyan-500/50" />
-            Carregando dados...
+        {isLoading ? (
+          <div className="p-24 text-center">
+            <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-sm font-bold text-slate-500 tracking-widest uppercase">Processando Dados...</p>
           </div>
-        ) : data.condos?.length > 0 ? (
+        ) : condos.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-800/50 border-b border-slate-800 text-[11px] uppercase tracking-wider font-semibold text-slate-400">
-                  <th className="px-5 py-3">Condomínio</th>
-                  <th className="px-5 py-3">Gerente</th>
-                  <th className="px-5 py-3">Vencimento</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Ações</th>
+                <tr className="bg-white/5 border-b border-white/5 text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">
+                  <th className="px-6 py-4">Condomínio</th>
+                  <th className="px-6 py-4">Gerente Responsável</th>
+                  <th className="px-6 py-4">Status Atual</th>
+                  <th className="px-6 py-4 text-right">Ações Rápidas</th>
                 </tr>
               </thead>
-              <tbody className="text-sm divide-y divide-slate-800/50">
-                {data.condos.map((c) => {
-                  const proc = data.processos?.[c.id];
-                  const status = proc?.status || 'Sem processo';
+              <tbody className="text-sm divide-y divide-white/5">
+                {condos.map((c) => {
+                  const status = data?.processos?.[c.id]?.status || 'Sem processo';
                   
                   return (
-                    <tr key={c.id} className="hover:bg-slate-800/30 transition-colors group">
-                      <td className="px-5 py-4 font-medium text-slate-200">{c.name}</td>
-                      <td className="px-5 py-4 text-slate-400">{c.gerente_name || '—'}</td>
-                      <td className="px-5 py-4 text-slate-400">Dia {c.due_day || '—'}</td>
-                      <td className="px-5 py-4">
+                    <tr key={c.id} className="hover:bg-white/5 transition-colors group">
+                      <td className="px-6 py-5">
+                         <p className="font-bold text-gray-100 group-hover:text-cyan-400 transition-colors uppercase tracking-tight">{c.name}</p>
+                         <p className="text-[10px] text-gray-500 font-medium">Vencimento: Dia {c.due_day || '—'}</p>
+                      </td>
+                      <td className="px-6 py-5 text-gray-400 font-medium">
+                        {c.gerente_name || '—'}
+                      </td>
+                      <td className="px-6 py-5">
                         <StatusBadge status={status} />
                       </td>
-                      <td className="px-5 py-4 text-right space-x-2">
+                      <td className="px-6 py-5 text-right flex gap-2 justify-end">
                         <Link
                           href={`/condominio/${c.id}/arrecadacoes`}
-                          className="inline-flex items-center gap-1.5 text-cyan-400 border border-slate-700 bg-slate-800 hover:border-cyan-500/50 hover:bg-slate-700/50 px-3 py-1.5 rounded-lg font-semibold text-[11px] transition-all"
+                          className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500 hover:text-slate-950 transition-all shadow-lg hover:shadow-cyan-500/20"
+                          title="Arrecadações"
                         >
-                          <Layers className="w-3.5 h-3.5" /> Arrecadações
+                          <Layers className="w-4 h-4" />
                         </Link>
                         <Link
                           href={`/condominio/${c.id}/cobrancas`}
-                          className="inline-flex items-center gap-1.5 text-orange-400 border border-slate-700 bg-slate-800 hover:border-orange-500/50 hover:bg-slate-700/50 px-3 py-1.5 rounded-lg font-semibold text-[11px] transition-all"
+                          className="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500 hover:text-slate-950 transition-all shadow-lg hover:shadow-orange-500/20"
+                          title="Cobranças Extras"
                         >
-                          <Receipt className="w-3.5 h-3.5" /> Extras
+                          <Receipt className="w-4 h-4" />
                         </Link>
+                        
+                        <button
+                          onClick={() => handleQuickView(c.id)}
+                          className="p-2.5 rounded-xl bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500 hover:text-slate-950 transition-all shadow-lg hover:shadow-violet-500/20"
+                          title="Visualizar Informativo"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -172,15 +181,19 @@ export default function DashboardPage() {
             </table>
           </div>
         ) : (
-          <div className="p-16 text-center">
-            <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-700/50">
-              <Inbox className="w-8 h-8 text-slate-500" />
-            </div>
-            <p className="text-slate-300 font-semibold text-lg">Nenhum condomínio encontrado</p>
-            <p className="text-slate-500 text-sm mt-2 max-w-sm mx-auto">Não há condomínios cadastrados ou que correspondam ao filtro.</p>
+          <div className="p-20 text-center">
+            <Inbox className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+            <p className="text-slate-300 font-bold">Nenhum condomínio encontrado</p>
+            <p className="text-slate-500 text-xs mt-1">Não há registros correspondentes aos seus filtros.</p>
           </div>
         )}
       </div>
+
+      <FilePreviewDrawer 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)} 
+        file={selectedFile} 
+      />
     </div>
   );
 }

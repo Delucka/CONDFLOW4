@@ -12,13 +12,25 @@ export function AuthProvider({ children }) {
 
   async function fetchProfile(uid) {
     try {
-      const { data, error } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', uid)
         .single();
+      
       if (error) throw error;
-      setProfile(data);
+      
+      let gerenteId = null;
+      if (profile.role === 'gerente') {
+        const { data: gerente } = await supabase
+          .from('gerentes')
+          .select('id')
+          .eq('profile_id', uid)
+          .single();
+        if (gerente) gerenteId = gerente.id;
+      }
+      
+      setProfile({ ...profile, gerente_id: gerenteId });
     } catch (e) {
       console.error('Error fetching profile:', e);
     }

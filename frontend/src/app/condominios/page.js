@@ -1,77 +1,28 @@
 'use client';
-
-import { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
+import { useState } from 'react';
+import useSWR from 'swr';
+import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { Building, PlusCircle, Pencil, Trash2, Search, X } from 'lucide-react';
+import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck } from 'lucide-react';
 
 export default function CondominiosPage() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { addToast } = useToast();
 
-  const [condos, setCondos] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  
-  // Modal State
   const [modalOpen, setModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({ id: '', name: '', due_day: '', gerente_id: '', assistente: '' });
-  const [gerentes, setGerentes] = useState([]);
 
-  useEffect(() => {
-    async function carregar() {
-      try {
-        setLoading(true);
-        const supabase = createClient();
-        const canManage = ['master', 'emissor'].includes(user?.role) || ['master', 'emissor'].includes(profile?.role);
-        const isGerente = user?.role === 'gerente' || profile?.role === 'gerente';
+  // SWR para Dados de Condomínios e Gerentes
+  const { data: condosData, mutate: mutateCondos, isLoading: loadingCondos } = useSWR('/api/condominios', apiFetcher);
+  const { data: usersData } = useSWR(user?.role === 'master' ? '/api/usuarios' : null, apiFetcher);
 
-        let queryCondos = supabase.from('condominios').select('*, gerentes:gerente_id(profiles(full_name))').order('name');
-        
-        if (isGerente) {
-          queryCondos = queryCondos.eq('gerente_id', user.id);
-        }
+  const condos = condosData?.condos || [];
+  const gerentes = (usersData?.usuarios || []).filter(u => u.role === 'gerente');
 
-        // Buscar gerentes: tenta tabela 'gerentes', senão busca profiles com role gerente
-        let gerentesPromise = { data: [] };
-        if (canManage) {
-          gerentesPromise = supabase.from('gerentes').select('id, assistente, profiles(full_name)');
-        }
-
-        const [ { data: condos }, { data: resultGerentes } ] = await Promise.all([
-          queryCondos,
-          gerentesPromise
-        ]);
-
-        // Fallback: se tabela gerentes vazia, buscar profiles com role gerente
-        let finalGerentes = resultGerentes || [];
-        if (canManage && finalGerentes.length === 0) {
-          const { data: profileGerentes } = await supabase.from('profiles').select('id, full_name').eq('role', 'gerente');
-          finalGerentes = (profileGerentes || []).map(p => ({ id: p.id, profiles: { full_name: p.full_name } }));
-        }
-
-        const formattedCondos = (condos || []).map(c => {
-           let gName = '—';
-           if (c.gerentes?.profiles) {
-               gName = Array.isArray(c.gerentes.profiles) ? c.gerentes.profiles[0]?.full_name : c.gerentes.profiles.full_name;
-           }
-           return { ...c, gerente_name: gName };
-        });
-
-        setCondos(formattedCondos);
-        setGerentes(finalGerentes);
-      } catch (err) {
-        addToast(err.message || 'Erro ao carregar', 'error');
-      } finally {
-        setLoading(false);
-      }
-    }
-    carregar();
-  }, [addToast, user]);
-
-  const canEdit = ['master', 'emissor'].includes(user?.role) || ['master', 'emissor'].includes(profile?.role);
-
+  const canEdit = user?.role === 'master';
   const filtered = condos.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
 
   function openEdit(condo = null) {
@@ -91,149 +42,144 @@ export default function CondominiosPage() {
 
   async function handleSave(e) {
     e.preventDefault();
+    setIsSaving(true);
     try {
-      const supabase = createClient();
-      const payload = {
-         name: formData.name,
-         due_day: parseInt(formData.due_day) || null,
-         gerente_id: formData.gerente_id || null,
-         assistente: formData.assistente || null
-      };
-      
-      if (formData.id) {
-         const { error } = await supabase.from('condominios').update(payload).eq('id', formData.id);
-         if (error) throw error;
-      } else {
-         const { error } = await supabase.from('condominios').insert([payload]);
-         if (error) throw error;
-      }
-      
-      addToast('Condomínio salvo com sucesso!');
+      await apiPost('/api/condominios/salvar', formData);
+      addToast(formData.id ? 'Condomínio atualizado!' : 'Novo condomínio cadastrado!', 'success');
       setModalOpen(false);
-      
-      const { data: condos } = await supabase.from('condominios').select('*, gerentes:gerente_id(profiles(full_name))').order('name');
-      const formattedCondos = (condos || []).map(c => {
-           let gName = '—';
-           if (c.gerentes?.profiles) {
-               gName = Array.isArray(c.gerentes.profiles) ? c.gerentes.profiles[0]?.full_name : c.gerentes.profiles.full_name;
-           }
-           return { ...c, gerente_name: gName };
-      });
-      setCondos(formattedCondos);
+      mutateCondos(); // Atualiza a lista instantaneamente
     } catch (err) {
-      addToast(err.message || 'Erro ao salvar condomínio', 'error');
+      addToast(err.message || 'Erro ao salvar', 'error');
+    } finally {
+      setIsSaving(false);
     }
   }
 
-  if (loading) return <div className="flex w-full justify-center p-20"><div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div></div>;
-
   return (
-    <div className="animate-fade-in w-full h-full relative">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div className="relative flex-1 min-w-[250px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+    <div className="animate-fade-in w-full h-full relative space-y-8 pb-20">
+      
+      {/* Header com Busca e Ação */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-6 glass-panel p-8 rounded-[2rem] border-white/5 shadow-2xl">
+        <div className="flex-1 w-full max-w-md relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
           <input 
             type="text" 
-            placeholder="Buscar por nome..." 
+            placeholder="Pesquisar condomínio..." 
             value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-10 pr-4 text-sm text-slate-200 outline-none focus:border-cyan-500 transition-colors shadow-xl"
+            className="w-full bg-slate-950 border border-white/5 rounded-2xl py-4 pl-12 pr-6 text-sm text-slate-200 outline-none focus:border-cyan-500/50 transition-all shadow-inner"
           />
         </div>
 
         {canEdit && (
-          <button onClick={() => openEdit()} className="bg-cyan-500 text-slate-950 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.3)] transition-all">
-            <PlusCircle className="w-4 h-4" /> Novo Condomínio
+          <button 
+             onClick={() => openEdit()} 
+             className="w-full md:w-auto bg-cyan-500 text-slate-950 px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-cyan-400 shadow-xl shadow-cyan-500/20 active:scale-95 transition-all"
+          >
+            <PlusCircle className="w-5 h-5" /> NOVO CADASTRO
           </button>
         )}
       </div>
 
-      <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left bg-slate-900">
-            <thead>
-              <tr className="bg-slate-800/50 border-b border-slate-800 text-[11px] uppercase tracking-wider font-semibold text-slate-400">
-                <th className="px-5 py-4">Nome do Condomínio</th>
-                <th className="px-5 py-4">Dia Venc.</th>
-                <th className="px-5 py-4">Gerente</th>
-                <th className="px-5 py-4">Assistente</th>
-                {canEdit && <th className="px-5 py-4 text-right">Ações</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50 text-sm">
-              {filtered.map(c => (
-                <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="px-5 py-4 font-bold text-slate-200 flex items-center gap-2">
-                    <Building className="w-4 h-4 text-slate-500" /> {c.name}
-                  </td>
-                  <td className="px-5 py-4 text-slate-400">{c.due_day || '—'}</td>
-                  <td className="px-5 py-4 text-slate-400">{c.gerente_name || c.gerente_id || 'Não Definido'}</td>
-                  <td className="px-5 py-4 text-slate-400">{c.assistente || '—'}</td>
-                  
-                  {canEdit && (
-                    <td className="px-5 py-4 text-right space-x-2">
-                      <button onClick={() => openEdit(c)} className="p-2 text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan="5" className="px-5 py-10 text-center text-slate-500">
-                    Nenhum condomínio encontrado.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {/* Grid de Condomínios */}
+      {loadingCondos ? (
+        <div className="p-24 text-center">
+           <div className="w-10 h-10 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
+           <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Sincronizando Base...</p>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filtered.map(c => (
+            <div key={c.id} className="glass-panel p-6 rounded-[2rem] border-white/5 hover:border-cyan-500/30 transition-all group shadow-xl flex flex-col justify-between">
+                <div>
+                   <div className="flex items-start justify-between mb-6">
+                      <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center border border-white/5 group-hover:scale-105 transition-transform">
+                         <Building className="w-6 h-6 text-slate-500 group-hover:text-cyan-400" />
+                      </div>
+                      {canEdit && (
+                        <button onClick={() => openEdit(c)} className="p-3 bg-white/5 hover:bg-cyan-500/10 text-slate-500 hover:text-cyan-400 rounded-xl transition-all border border-transparent hover:border-cyan-500/20">
+                           <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+                   </div>
+                   
+                   <h3 className="text-xl font-black text-white uppercase tracking-tight mb-6 leading-tight group-hover:text-cyan-400 transition-colors">
+                      {c.name}
+                   </h3>
+                   
+                   <div className="space-y-3 mb-8">
+                      <div className="flex items-center gap-3 text-slate-400">
+                         <User className="w-4 h-4 text-violet-400" />
+                         <span className="text-xs font-bold">{c.gerente_name || 'Gerente não definido'}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-400">
+                         <Calendar className="w-4 h-4 text-cyan-500" />
+                         <span className="text-xs font-bold">Vencimento: Dia {c.due_day || '—'}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-slate-400">
+                         <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                         <span className="text-xs font-bold">Carteira: {c.assistente || 'Padrão'}</span>
+                      </div>
+                   </div>
+                </div>
 
-      {modalOpen && canEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm animate-fade-in p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-full">
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-200">
-                {formData.id ? 'Editar Condomínio' : 'Novo Condomínio'}
+                <div className="pt-6 border-t border-white/5 flex gap-2">
+                   <Link href={`/condominio/${c.id}/arrecadacoes`} className="flex-1 py-3 text-center bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white rounded-xl uppercase tracking-widest transition-all">Planilha</Link>
+                   <Link href={`/condominio/${c.id}/cobrancas`} className="flex-1 py-3 text-center bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white rounded-xl uppercase tracking-widest transition-all">Extras</Link>
+                </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal de Cadastro/Edição */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-fade-in">
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={() => setModalOpen(false)}></div>
+          <div className="glass-panel max-w-xl w-full rounded-[2.5rem] relative animate-fade-up border border-white/10 shadow-3xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-8 border-b border-white/5 flex items-center justify-between">
+              <h3 className="text-2xl font-black text-white uppercase tracking-tighter">
+                {formData.id ? 'Ajustar Cadastro' : 'Novo Condomínio'}
               </h3>
-              <button type="button" onClick={() => setModalOpen(false)} className="text-slate-500 hover:text-slate-300 transition-colors">
-                <X className="w-5 h-5" />
+              <button onClick={() => setModalOpen(false)} className="p-2 text-slate-500 hover:text-white transition-colors">
+                <X className="w-6 h-6" />
               </button>
             </div>
             
-            <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto">
-              <div>
-                <label className="text-[10px] text-slate-400 font-bold uppercase">Nome</label>
+            <form onSubmit={handleSave} className="p-8 space-y-6 overflow-y-auto">
+              <div className="space-y-2">
+                <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Nome do condomínio</label>
                 <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
-                       className="w-full bg-slate-800 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-cyan-500" />
+                       className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm text-slate-200 outline-none focus:border-cyan-500 shadow-inner" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] text-slate-400 font-bold uppercase">Dia Vencimento</label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Dia de Vencimento</label>
                   <input type="number" min="1" max="31" value={formData.due_day} onChange={e => setFormData({...formData, due_day: e.target.value})}
-                         className="w-full bg-slate-800 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-cyan-500" />
+                         className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm text-slate-200 outline-none focus:border-cyan-500 shadow-inner" />
                 </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 font-bold uppercase">Assistente/Carteira</label>
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Carteira / Assistente</label>
                   <input value={formData.assistente} onChange={e => setFormData({...formData, assistente: e.target.value})}
-                         className="w-full bg-slate-800 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-cyan-500" />
+                         className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm text-slate-200 outline-none focus:border-cyan-500 shadow-inner" />
                 </div>
               </div>
-              <div>
-                <label className="text-[10px] text-slate-400 font-bold uppercase">Gerente Responsável</label>
-                <select value={formData.gerente_id} onChange={e => setFormData({...formData, gerente_id: e.target.value})}
-                        className="w-full bg-slate-800 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-cyan-500">
-                  <option value="">-- Selecione o Gerente --</option>
+
+              <div className="space-y-2">
+                <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Gerente Responsável</label>
+                <select required value={formData.gerente_id} onChange={e => setFormData({...formData, gerente_id: e.target.value})}
+                        className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm text-slate-200 outline-none focus:border-cyan-500 shadow-inner cursor-pointer">
+                  <option value="">Selecione um gerente...</option>
                   {gerentes.map(g => (
-                    <option key={g.id} value={g.id}>{g.profiles?.full_name || 'Usuário Sem Nome'}</option>
+                    <option key={g.id} value={g.id}>{g.full_name}</option>
                   ))}
                 </select>
               </div>
               
-              <div className="pt-4 border-t border-slate-800">
-                <button type="submit" className="w-full py-3 bg-cyan-500 text-slate-950 font-bold rounded-lg hover:bg-cyan-400 transition-colors uppercase tracking-wider text-xs shadow-lg shadow-cyan-500/20">
-                  Salvar Condomínio
+              <div className="pt-6">
+                <button type="submit" disabled={isSaving} className="w-full py-5 bg-cyan-500 text-slate-950 font-black rounded-2xl hover:bg-cyan-400 transition-all uppercase tracking-[0.2em] text-xs shadow-2xl shadow-cyan-500/20 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50">
+                  {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
+                  {formData.id ? 'SALVAR ALTERAÇÕES' : 'EFETIVAR CADASTRO'}
                 </button>
               </div>
             </form>
