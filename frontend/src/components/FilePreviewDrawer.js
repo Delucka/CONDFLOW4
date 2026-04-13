@@ -64,6 +64,7 @@ export default function FilePreviewDrawer({ isOpen, onClose, file }) {
             />
           ) : isImage ? (
             <div className="w-full h-full flex items-center justify-center p-6 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
                 src={file.url} 
                 className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain border border-white/10" 

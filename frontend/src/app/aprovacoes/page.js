@@ -177,7 +177,7 @@ export default function AprovacoesPage() {
                         </p>
                         {log.comment && (
                            <div className="mt-2 p-3 bg-white/[0.02] border border-white/5 rounded-xl text-[11px] text-slate-400 italic">
-                             "{log.comment}"
+                             &quot;{log.comment}&quot;
                            </div>
                         )}
                     </div>

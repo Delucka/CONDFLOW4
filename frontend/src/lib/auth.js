@@ -45,11 +45,9 @@ export function AuthProvider({ children }) {
       if (!mounted) return;
       if (session?.user) {
         setUser(session.user);
-      }
-      setLoading(false);
-      if (session?.user) {
         fetchProfile(session.user.id);
       }
+      setLoading(false);
     }).catch(err => {
       console.error('[Auth] getSession fatal error:', err);
       if (mounted) setLoading(false);

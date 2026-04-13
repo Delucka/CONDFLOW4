@@ -129,6 +129,7 @@ export default function ArrecadacoesPage() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId, selectedYear]);
 
   // Permissão de edição: qualquer usuário logado pode editar (segurança via RLS no Supabase)

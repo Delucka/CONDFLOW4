@@ -27,16 +27,6 @@ export default function VisaoGerente({ profile }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  useEffect(() => {
-    fetchPacotes();
-    
-    const channel = supabase.channel('gerente_pacotes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => { fetchPacotes(); })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
   async function fetchPacotes() {
     setLoading(true);
     const { data } = await supabase
@@ -60,6 +50,17 @@ export default function VisaoGerente({ profile }) {
     }
     setLoading(false);
   }
+
+  useEffect(() => {
+    fetchPacotes();
+    
+    const channel = supabase.channel('gerente_pacotes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => { fetchPacotes(); })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleAprovar(pacoteId) {
     const { error } = await supabase

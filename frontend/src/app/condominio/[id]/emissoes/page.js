@@ -59,7 +59,8 @@ export default function CondominioEmissoesPage() {
   };
 
   useEffect(() => {
-    if (condoId) fetchData();
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId]);
 
   const handleFileSelect = (e) => {

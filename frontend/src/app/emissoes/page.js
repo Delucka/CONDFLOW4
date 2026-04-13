@@ -44,6 +44,7 @@ export default function CentralEmissoesPage() {
 
   useEffect(() => {
     if (profile) fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   const handleDownload = async (emissao) => {
