@@ -52,7 +52,7 @@ export default function UsuariosPage() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/usuarios`, {
+      const res = await fetch(`/api/usuarios`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,7 +85,7 @@ export default function UsuariosPage() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/usuarios/sync`, {
+      const res = await fetch(`/api/usuarios/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

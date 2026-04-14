@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/client';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 /**
  * Utilitário para obter headers de autenticação

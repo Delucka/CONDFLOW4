@@ -7,9 +7,22 @@ export function createClient() {
   if (!url || !key) {
     console.warn('[Supabase] Missing environment variables. Returning dummy client for build safety.')
     return {
-      auth: { getSession: async () => ({ data: { session: null }, error: null }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }) },
-      from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: null, error: null }) }) }) }),
-      storage: { from: () => ({ createSignedUrl: async () => ({ data: null, error: null }) }) }
+      auth: { 
+        getSession: async () => ({ data: { session: null }, error: null }), 
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+        getUser: async () => ({ data: { user: null }, error: null })
+      },
+      from: () => ({ 
+        select: () => ({ 
+          eq: () => ({ 
+            single: async () => ({ data: {}, error: null }),
+            maybeSingle: async () => ({ data: null, error: null }),
+            order: () => ({ limit: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) })
+          }),
+          order: () => ({ execute: async () => ({ data: [], error: null }) })
+        }) 
+      }),
+      storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: '' }, error: null }) }) }
     }
   }
 
