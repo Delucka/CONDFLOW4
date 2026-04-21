@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { apiPost, apiFetch } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { useAuth } from '@/lib/auth';
@@ -66,62 +67,24 @@ export default function ArrecadacoesPage() {
     try {
       setLoading(true);
       
-      // 1. Fetch Condo Details
-      const { data: condoData } = await supabase
-        .from('condominios')
-        .select('*, gerentes:gerente_id(profiles(full_name))')
-        .eq('id', condoId)
-        .single();
+      const payload = await apiFetch(`/api/condominio/${condoId}/arrecadacoes?ano=${selectedYear}`);
       
-      if (condoData) {
+      if (payload.condo) {
         let gName = '—';
-        if (condoData.gerentes?.profiles) {
-            gName = Array.isArray(condoData.gerentes.profiles) ? condoData.gerentes.profiles[0]?.full_name : condoData.gerentes.profiles.full_name;
+        if (payload.condo.gerentes?.profiles) {
+            gName = Array.isArray(payload.condo.gerentes.profiles) ? payload.condo.gerentes.profiles[0]?.full_name : payload.condo.gerentes.profiles.full_name;
         }
-        setCondo({ ...condoData, gerente_name: gName });
+        setCondo({ ...payload.condo, gerente_name: gName });
       }
 
-      // 2. Fetch Process (Reference)
-      const { data: procData } = await supabase
-        .from('processos')
-        .select('*')
-        .eq('condominio_id', condoId)
-        .eq('year', selectedYear)
-        .maybeSingle();
+      setProcesso(payload.processo);
+      setObsEmissao(payload.processo?.issue_notes || payload.condo?.obs_emissao || '');
+      setRateios(payload.rateios || []);
+      setRateiosVals(payload.rateios_vals || {});
       
-      setProcesso(procData);
-      setObsEmissao(procData?.issue_notes || condoData?.obs_emissao || '');
-
-      // 3. Fetch Rateios Config
-      const { data: rateiosConfig } = await supabase
-        .from('rateios_config')
-        .select('*')
-        .eq('condominio_id', condoId)
-        .order('ordem');
-      
-      setRateios(rateiosConfig || []);
-
-      if (rateiosConfig && rateiosConfig.length > 0) {
-        const ids = rateiosConfig.map(r => r.id);
-        const { data: vals } = await supabase
-          .from('rateios_valores')
-          .select('*')
-          .in('rateio_id', ids)
-          .eq('ano', selectedYear);
-        
-        const valsMap = {};
-        vals?.forEach(v => {
-          if (!valsMap[v.rateio_id]) valsMap[v.rateio_id] = {};
-          valsMap[v.rateio_id][v.month] = v.valor;
-        });
-        setRateiosVals(valsMap);
-      }
-
-      // 4. Plano de Contas now loaded via static import (ALL_CONTAS)
-
     } catch (err) {
       console.error(err);
-      addToast('Erro ao carregar dados do condomínio', 'error');
+      addToast('Erro ao turbocarregar planilha: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -132,8 +95,31 @@ export default function ArrecadacoesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId, selectedYear]);
 
-  // Permissão de edição: qualquer usuário logado pode editar (segurança via RLS no Supabase)
-  const canEdit = !!user;
+  // Permissão de edição
+  const canEdit = user?.role === 'master' || 
+                 (user?.role === 'gerente' && (!processo || ['Em edição', 'Solicitar alteração'].includes(processo?.status)));
+  
+  const isEmissor = ['master', 'emissor'].includes(user?.role);
+  
+  const handleForceStatus = async (newStatus) => {
+      // Optimistic UI - Update instantâneo local
+      const previousProcesso = { ...processo };
+      setProcesso(prev => ({ ...prev, status: newStatus }));
+      
+      try {
+          const payload = { status: newStatus, year: selectedYear };
+          const result = await apiPost(`/api/condominio/${condoId}/processo/force`, payload);
+          
+          if (result.success && result.processo) {
+              setProcesso(result.processo); // sync real com o banco
+          }
+          addToast(`Puxado para: ${newStatus}`, 'success');
+      } catch (err) {
+          // Rollback em caso de falha
+          setProcesso(previousProcesso);
+          addToast('Erro ao atualizar: ' + err.message, 'error');
+      }
+  };
 
   // Logic Helpers
   const handleRateioChange = (id, field, value) => {
@@ -206,9 +192,8 @@ export default function ArrecadacoesPage() {
     try {
       setSaving(true);
       
-      // Update Rates Config
-      for (const r of rateios) {
-        await supabase.from('rateios_config').update({
+      const configUpdates = rateios.map(r => 
+        supabase.from('rateios_config').update({
           nome: r.nome,
           conta_contabil: r.conta_contabil,
           conta_nome: r.conta_nome,
@@ -219,20 +204,28 @@ export default function ArrecadacoesPage() {
           parcela_inicio: parseInt(r.parcela_inicio) || 1,
           mes_inicio: parseInt(r.mes_inicio) || 1,
           ordem: r.ordem
-        }).eq('id', r.id);
+        }).eq('id', r.id)
+      );
 
-        // Update Values
+      // Coleta todos os valores para batch upsert
+      const allValues = [];
+      for (const r of rateios) {
         const vals = rateiosVals[r.id] || {};
         for (const m of months) {
-          const val = vals[m] || '0.00';
-          await supabase.from('rateios_valores').upsert({
+          allValues.push({
             rateio_id: r.id,
             month: m,
             ano: selectedYear,
-            valor: val
-          }, { on_conflict: 'rateio_id, month, ano' });
+            valor: vals[m] || '0.00'
+          });
         }
       }
+
+      // Executa tudo em paralelo
+      await Promise.all([
+        ...configUpdates,
+        supabase.from('rateios_valores').upsert(allValues, { on_conflict: 'rateio_id, month, ano' })
+      ]);
 
       // Update Process Notes
       if (processo) {
@@ -348,13 +341,31 @@ export default function ArrecadacoesPage() {
 
         {/* TAB NAVIGATION SIMPLES */}
         <div className="flex justify-between items-end border-t border-white/5 pt-4 mt-2">
-            <div className="flex gap-4">
-                <button className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-cyan-500 text-slate-900 shadow-[0_0_15px_rgba(34,211,238,0.5)]">
-                    Arrecadações
-                </button>
-                <Link href={`/condominio/${condoId}/emissoes`} className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
-                    Emissões (Arquivos)
-                </Link>
+            <div className="flex flex-col gap-4">
+                <div className="flex gap-4">
+                    <button className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-cyan-500 text-slate-900 shadow-[0_0_15px_rgba(34,211,238,0.5)]">
+                        Arrecadações
+                    </button>
+                    <Link href={`/condominio/${condoId}/emissoes`} className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
+                        Emissões (Arquivos)
+                    </Link>
+                </div>
+                
+                {/* HUD EMISSOR MOVIDO PARA O TOPO */}
+                {isEmissor && (
+                    <div className="flex items-center gap-2 bg-slate-900/80 p-2 rounded-full border border-white/5 shadow-inner w-max">
+                        <span className="text-[9px] font-black uppercase text-slate-500 mr-2 ml-2">Timeline (Emissor):</span>
+                        {['Em edição', 'Em produção', 'Em processo'].map(st => (
+                            <button
+                                key={st}
+                                onClick={() => handleForceStatus(st)}
+                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${processo?.status === st ? 'bg-cyan-500 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.3)]' : 'text-slate-400 hover:bg-white/5'}`}
+                            >
+                                {st}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
             <StatusBadge status={processo?.status} />
         </div>
@@ -525,6 +536,7 @@ export default function ArrecadacoesPage() {
                 <Link href="/dashboard" className="text-xs font-black text-slate-500 hover:text-white transition-colors uppercase tracking-widest flex items-center gap-2">
                     <ArrowLeft className="w-4 h-4" /> Voltar ao Painel
                 </Link>
+
 
                 <div className="flex gap-4">
                     <button className="p-3 text-slate-400 hover:text-white glass-panel hover:bg-white/5 rounded-xl transition-all" title="Imprimir Planilha">

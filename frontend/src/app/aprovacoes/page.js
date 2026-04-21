@@ -7,8 +7,10 @@ import { useToast } from '@/components/Toast';
 import { 
   CheckCircle2, AlertCircle, Clock, Search, 
   MessageSquare, Building2, 
-  Loader2, Send, FileText, History, Inbox
+  Loader2, Send, FileText, History, Inbox, Eye
 } from 'lucide-react';
+import VisualizadorConferencia from '@/components/VisualizadorConferencia';
+import { createClient } from '@/utils/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import Link from 'next/link';
 
@@ -18,6 +20,8 @@ export default function AprovacoesPage() {
   const [processing, setProcessing] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [arquivoConferencia, setArquivoConferencia] = useState(null);
+  const supabase = createClient();
 
   // SWR para Fila de Aprovações e Histórico
   const { data, error, isLoading, mutate } = useSWR('/api/aprovacoes', apiFetcher, {
@@ -40,6 +44,39 @@ export default function AprovacoesPage() {
       addToast(err.message || 'Erro ao processar ação', 'error');
     } finally {
       setProcessing(null);
+    }
+  };
+
+  const handleQuickView = async (condoId) => {
+    try {
+      const { data: fileData, error: fileError } = await supabase
+        .from('emissoes_arquivos')
+        .select('*')
+        .eq('condominio_id', condoId)
+        .order('criado_em', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fileError) throw fileError;
+
+      let signedUrl = null;
+      if (fileData) {
+        const { data: urlData } = await supabase.storage
+          .from('emissoes')
+          .createSignedUrl(fileData.arquivo_url, 300);
+        signedUrl = urlData?.signedUrl;
+      }
+
+      setArquivoConferencia({
+        id: fileData?.id || null,
+        nome: fileData?.arquivo_nome || 'Documento',
+        url: signedUrl,
+        condominio_id: condoId,
+        processo_id: fileData?.processo_id || null,
+      });
+    } catch (err) {
+      console.error(err);
+      addToast('Não foi possível abrir a prévia.', 'error');
     }
   };
 
@@ -117,10 +154,18 @@ export default function AprovacoesPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => handleQuickView(item.condominio_id)}
+                            className="p-3.5 bg-violet-500/10 hover:bg-violet-500 border border-violet-500/20 rounded-2xl text-violet-400 hover:text-slate-950 transition-all group/btn shadow-lg"
+                            title="Visualizar Emissão"
+                        >
+                            <Eye className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
+                        </button>
+                        
                         <Link 
                             href={`/condominio/${item.condominio_id}/arrecadacoes?ano=${item.year}`}
                             className="p-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-slate-400 hover:text-white transition-all group/btn shadow-lg"
-                            title="Revisar"
+                            title="Planilha"
                         >
                             <Search className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
                         </Link>
@@ -231,6 +276,14 @@ export default function AprovacoesPage() {
         </div>
       )}
 
+      {arquivoConferencia && (
+        <VisualizadorConferencia
+          arquivo={arquivoConferencia}
+          currentUser={user}
+          onClose={() => setArquivoConferencia(null)}
+          onAction={() => { mutate(); setArquivoConferencia(null); }}
+        />
+      )}
     </div>
   );
 }

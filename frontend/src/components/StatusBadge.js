@@ -1,6 +1,8 @@
 export default function StatusBadge({ status }) {
   const styles = {
     'Em edição': 'bg-slate-800 text-slate-400 border border-white/10',
+    'Em produção': 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
+    'Em processo': 'bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20',
     'Enviado': 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20',
     'Aguardando Gerente': 'bg-violet-500/10 text-violet-400 border border-violet-500/20',
     'Aguardando Supervisor': 'bg-orange-500/10 text-orange-400 border border-orange-500/20',

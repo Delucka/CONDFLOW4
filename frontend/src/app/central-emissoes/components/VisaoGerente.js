@@ -5,10 +5,13 @@ import { FileText, CheckCircle, XCircle, Search, ExternalLink, Loader2, Package,
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
-
+import VisualizadorConferencia from '@/components/VisualizadorConferencia';
+import { useAuth } from '@/lib/auth';
 export default function VisaoGerente({ profile }) {
   const supabase = createClient();
   const { addToast } = useToast();
+  const { user } = useAuth();
+  const [arquivoAberto, setArquivoAberto] = useState(null);
   
   const [pacotes, setPacotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -101,20 +104,18 @@ export default function VisaoGerente({ profile }) {
   }
 
   async function openFileUrl(doc, pacote) {
-    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(doc.arquivo_url, 60);
+    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(doc.arquivo_url, 300);
     if (error) return addToast('Erro ao gerar link.', 'error');
 
     if (data?.signedUrl) {
-      const isAwaiting = pacote.status === 'Aguardando Gerente' || pacote.status === 'pendente';
-      setSelectedFile({
-        name: doc.arquivo_nome,
+      setArquivoAberto({
+        id: doc.id,
+        nome: doc.arquivo_nome,
         url: data.signedUrl,
-        format: doc.formato || doc.arquivo_nome.split('.').pop(),
-        approveLabel: 'Aprovar Pacote → Supervisor',
-        onApprove: isAwaiting ? () => handleAprovar(pacote.id) : null,
-        onReject: isAwaiting ? () => abrirModalCorrecao(pacote) : null
+        processo_id: pacote.processo_id || null,
+        condominio_id: pacote.condominio_id,
+        emitido_por: pacote.uploaded_by
       });
-      setIsDrawerOpen(true);
     }
   }
 
@@ -280,6 +281,15 @@ export default function VisaoGerente({ profile }) {
         onClose={() => setIsDrawerOpen(false)} 
         file={selectedFile} 
       />
+
+      {arquivoAberto && (
+        <VisualizadorConferencia
+          arquivo={arquivoAberto}
+          currentUser={user}
+          onClose={() => setArquivoAberto(null)}
+          onAction={() => { setArquivoAberto(null); fetchPacotes(); }}
+        />
+      )}
     </div>
   );
 }

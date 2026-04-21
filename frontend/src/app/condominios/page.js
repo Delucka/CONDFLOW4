@@ -5,7 +5,9 @@ import useSWR from 'swr';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck } from 'lucide-react';
+import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye } from 'lucide-react';
+import VisualizadorConferencia from '@/components/VisualizadorConferencia';
+import { createClient } from '@/utils/supabase/client';
 
 export default function CondominiosPage() {
   const { user } = useAuth();
@@ -15,6 +17,8 @@ export default function CondominiosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({ id: '', name: '', due_day: '', gerente_id: '', assistente: '' });
+  const [arquivoConferencia, setArquivoConferencia] = useState(null);
+  const supabase = createClient();
 
   // SWR para Dados de Condomínios e Gerentes
   const { data: condosData, mutate: mutateCondos, isLoading: loadingCondos } = useSWR('/api/condominios', apiFetcher);
@@ -55,6 +59,39 @@ export default function CondominiosPage() {
       setIsSaving(false);
     }
   }
+
+  const handleQuickView = async (condoId) => {
+    try {
+      const { data: fileData, error: fileError } = await supabase
+        .from('emissoes_arquivos')
+        .select('*')
+        .eq('condominio_id', condoId)
+        .order('criado_em', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fileError) throw fileError;
+
+      let signedUrl = null;
+      if (fileData) {
+        const { data: urlData } = await supabase.storage
+          .from('emissoes')
+          .createSignedUrl(fileData.arquivo_url, 300);
+        signedUrl = urlData?.signedUrl;
+      }
+
+      setArquivoConferencia({
+        id: fileData?.id || null,
+        nome: fileData?.arquivo_nome || 'Documento',
+        url: signedUrl,
+        condominio_id: condoId,
+        processo_id: fileData?.processo_id || null,
+      });
+    } catch (err) {
+      console.error(err);
+      addToast('Não foi possível abrir a prévia.', 'error');
+    }
+  };
 
   return (
     <div className="animate-fade-in w-full h-full relative space-y-8 pb-20">
@@ -124,12 +161,22 @@ export default function CondominiosPage() {
                 </div>
 
                 <div className="pt-6 border-t border-white/5 flex gap-2">
+                   <button onClick={() => handleQuickView(c.id)} className="p-3 bg-violet-500/10 hover:bg-violet-500 text-violet-400 hover:text-slate-950 rounded-xl transition-all border border-violet-500/20 shadow-lg shadow-violet-500/10" title="Visualizar Emissão"><Eye className="w-4 h-4" /></button>
                    <Link href={`/condominio/${c.id}/arrecadacoes`} className="flex-1 py-3 text-center bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white rounded-xl uppercase tracking-widest transition-all">Planilha</Link>
                    <Link href={`/condominio/${c.id}/cobrancas`} className="flex-1 py-3 text-center bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white rounded-xl uppercase tracking-widest transition-all">Extras</Link>
                 </div>
             </div>
           ))}
         </div>
+      )}
+
+      {arquivoConferencia && (
+        <VisualizadorConferencia
+          arquivo={arquivoConferencia}
+          currentUser={user}
+          onClose={() => setArquivoConferencia(null)}
+          onAction={() => { mutateCondos(); setArquivoConferencia(null); }}
+        />
       )}
 
       {/* Modal de Cadastro/Edição */}

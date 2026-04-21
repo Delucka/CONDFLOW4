@@ -5,10 +5,14 @@ import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, Ch
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
+import VisualizadorConferencia from '@/components/VisualizadorConferencia';
+import { useAuth } from '@/lib/auth';
 
 export default function VisaoEmissor({ profile }) {
   const supabase = createClient();
   const { addToast } = useToast();
+  const { user } = useAuth();
+  const [arquivoAberto, setArquivoAberto] = useState(null);
   
   const [condominios, setCondominios] = useState([]);
   const [pacotes, setPacotes] = useState([]);
@@ -59,7 +63,7 @@ export default function VisaoEmissor({ profile }) {
   async function fetchCondominios() {
     const { data } = await supabase
       .from('condominios')
-      .select('*, gerentes:gerente_id(id, profiles(full_name))')
+      .select('*, gerentes:gerente_id(id, profiles!gerentes_profile_id_fkey(full_name))')
       .order('name');
     if (data) setCondominios(data);
   }
@@ -67,7 +71,7 @@ export default function VisaoEmissor({ profile }) {
   async function fetchPacotes() {
     const { data } = await supabase
       .from('emissoes_pacotes')
-      .select('*, condominios(name, gerente_id, gerentes:gerente_id(profiles(full_name)))')
+      .select('*, condominios(name, gerente_id, gerentes:gerente_id(profiles!gerentes_profile_id_fkey(full_name)))')
       .order('criado_em', { ascending: false });
     
     if (data) {
@@ -224,11 +228,17 @@ export default function VisaoEmissor({ profile }) {
   }
 
   async function openFileUrl(path, fileName) {
-    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(path, 60);
+    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(path, 300);
     if (error) return addToast('Erro ao gerar link.', 'error');
     if (data?.signedUrl) {
-      setSelectedFile({ name: fileName, url: data.signedUrl, format: fileName.split('.').pop() });
-      setIsDrawerOpen(true);
+      setArquivoAberto({
+        id: path,
+        nome: fileName,
+        url: data.signedUrl,
+        processo_id: activePacote?.processo_id || null,
+        condominio_id: activePacote?.condominio_id || condoId,
+        emitido_por: profile?.id
+      });
     }
   }
 
@@ -580,6 +590,15 @@ export default function VisaoEmissor({ profile }) {
         onClose={() => setIsDrawerOpen(false)} 
         file={selectedFile} 
       />
+
+      {arquivoAberto && (
+        <VisualizadorConferencia
+          arquivo={arquivoAberto}
+          currentUser={user}
+          onClose={() => setArquivoAberto(null)}
+          onAction={() => { setArquivoAberto(null); fetchPacotes(); }}
+        />
+      )}
     </div>
   );
 }

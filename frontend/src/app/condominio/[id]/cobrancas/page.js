@@ -47,7 +47,7 @@ export default function CobrancasPage() {
     carregar();
   }, [condoId, addToast]);
 
-  const canEdit = user?.role === 'master' || (data.processo?.status === 'Em edição' || data.processo?.status === 'Solicitar alteração');
+  const canEdit = user?.role === 'master' || (['Em edição', 'Em produção', 'Solicitar alteração'].includes(data.processo?.status));
 
   async function handleAdd(e) {
     e.preventDefault();
