@@ -656,7 +656,7 @@ def api_dados_conferencia(condo_id: str, user: dict = Depends(get_current_user),
 
     cobrancas = []
     try:
-        extras = db.table("cobrancas_extras").select("id,description,amount,created_at,attachments").eq("condominio_id", condo_id).order("created_at", desc=True).order("parcela_atual").execute().data or []
+        extras = db.table("cobrancas_extras").select("id,description,amount,created_at,attachments").eq("condominio_id", condo_id).neq("status", "cancelada").order("created_at", desc=True).order("parcela_atual").execute().data or []
         for c in extras:
             atts = c.get('attachments') or []
             signed_atts = []
@@ -672,7 +672,7 @@ def api_dados_conferencia(condo_id: str, user: dict = Depends(get_current_user),
             procs = db.table("processos").select("id").eq("condominio_id", condo_id).execute().data or []
             pids  = [p["id"] for p in procs]
             if pids:
-                for c in (db.table("cobrancas_extras").select("id,description,amount,attachments").in_("processo_id", pids).order("created_at", desc=True).order("parcela_atual").execute().data or []):
+                for c in (db.table("cobrancas_extras").select("id,description,amount,attachments").in_("processo_id", pids).neq("status", "cancelada").order("created_at", desc=True).order("parcela_atual").execute().data or []):
                     atts = c.get('attachments') or []
                     signed_atts = []
                     for a in atts:
