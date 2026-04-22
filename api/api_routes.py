@@ -656,16 +656,16 @@ def api_dados_conferencia(condo_id: str, user: dict = Depends(get_current_user),
 
     cobrancas = []
     try:
-        extras = db.table("cobrancas_extras").select("id,description,amount,created_at").eq("condominio_id", condo_id).order("created_at", desc=True).execute().data or []
+        extras = db.table("cobrancas_extras").select("id,description,amount,created_at,attachments").eq("condominio_id", condo_id).order("created_at", desc=True).execute().data or []
         for c in extras:
-            cobrancas.append({'id':c.get('id'),'descricao':c.get('description') or 'Cobrança Extra','mes':None,'mes_nome':'—','valor':parse_valor(c.get('amount'))})
+            cobrancas.append({'id':c.get('id'),'descricao':c.get('description') or 'Cobrança Extra','mes':None,'mes_nome':'—','valor':parse_valor(c.get('amount')),'attachments':c.get('attachments') or []})
     except:
         try:
             procs = db.table("processos").select("id").eq("condominio_id", condo_id).execute().data or []
             pids  = [p["id"] for p in procs]
             if pids:
-                for c in (db.table("cobrancas_extras").select("id,description,amount").in_("processo_id", pids).execute().data or []):
-                    cobrancas.append({'id':c.get('id'),'descricao':c.get('description') or 'Cobrança Extra','mes':None,'mes_nome':'—','valor':parse_valor(c.get('amount'))})
+                for c in (db.table("cobrancas_extras").select("id,description,amount,attachments").in_("processo_id", pids).execute().data or []):
+                    cobrancas.append({'id':c.get('id'),'descricao':c.get('description') or 'Cobrança Extra','mes':None,'mes_nome':'—','valor':parse_valor(c.get('amount')),'attachments':c.get('attachments') or []})
         except: pass
 
     return {

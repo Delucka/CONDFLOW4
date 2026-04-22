@@ -208,7 +208,17 @@ export default function VisualizadorConferencia({ arquivo, currentUser, onClose,
                     <tbody>
                       {cobrancas.map(c => (
                         <tr key={c.id} className="border-t border-slate-800">
-                          <td className="px-3 py-2 text-xs text-slate-300">{c.descricao}</td>
+                          <td className="px-3 py-2 text-xs text-slate-300">
+                            <div className="flex items-center gap-2">
+                              {c.descricao}
+                              {c.attachments?.length > 0 && (
+                                <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/emissoes/${c.attachments[0]}`} target="_blank" rel="noreferrer"
+                                  className="text-slate-500 hover:text-cyan-400 transition-colors" title="Ver documento anexado">
+                                  <FileText className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+                          </td>
                           <td className="text-right px-3 py-2 text-xs text-slate-200 font-mono font-bold">{fmt(c.valor)}</td>
                         </tr>
                       ))}
