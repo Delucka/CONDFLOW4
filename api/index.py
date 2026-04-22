@@ -36,7 +36,7 @@ app.include_router(api_routes.router, prefix="/api", tags=["API NextJS"])
 
 BASE_DIR = _api_dir
 STATIC = os.path.join(BASE_DIR, "static")
-os.makedirs(STATIC, exist_ok=True)
+# os.makedirs(STATIC, exist_ok=True) # Removido para compatibilidade com Vercel (Read-only filesystem)
 
 # Templates dummy — rotas legadas usam tpl() mas no deploy unificado o Next.js cuida do frontend
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates")) if os.path.isdir(os.path.join(BASE_DIR, "templates")) else None
