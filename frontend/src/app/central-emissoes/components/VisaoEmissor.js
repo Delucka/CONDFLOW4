@@ -227,13 +227,13 @@ export default function VisaoEmissor({ profile }) {
     }
   }
 
-  async function openFileUrl(path, fileName) {
-    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(path, 300);
+  async function openFileUrl(arq) {
+    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arq.arquivo_url, 300);
     if (error) return addToast('Erro ao gerar link.', 'error');
     if (data?.signedUrl) {
       setArquivoAberto({
-        id: path,
-        nome: fileName,
+        id: arq.id,
+        nome: arq.arquivo_nome,
         url: data.signedUrl,
         processo_id: activePacote?.processo_id || null,
         condominio_id: activePacote?.condominio_id || condoId,
@@ -328,7 +328,7 @@ export default function VisaoEmissor({ profile }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => openFileUrl(arq.arquivo_url, arq.arquivo_nome)}
+                      onClick={() => openFileUrl(arq)}
                       className="p-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all"
                       title="Visualizar"
                     >

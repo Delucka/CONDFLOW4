@@ -33,6 +33,12 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const planilha = data?.planilha;
   const cobrancas = data?.cobrancas_extras || [];
 
+  useEffect(() => {
+    if (arquivo) {
+      setCurrentFile(arquivo);
+    }
+  }, [arquivo]);
+
   const podeAprovar = can(currentUser?.role, 'approve_document');
   const podeAssinar = can(currentUser?.role, 'sign_document');
 
@@ -76,9 +82,9 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   }
 
   // Navegação entre arquivos
-  const currentIndex = arquivos.findIndex(a => a.id === currentFile.id);
+  const currentIndex = arquivos.findIndex(a => String(a.id) === String(currentFile?.id));
   const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex < arquivos.length - 1;
+  const hasNext = currentIndex >= 0 && currentIndex < arquivos.length - 1;
 
   async function handleNavigate(direction) {
     const nextIndex = currentIndex + direction;
@@ -123,25 +129,47 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
 
         {/* Navegação */}
-        {arquivos.length > 1 && (
-          <div className="flex items-center gap-1 bg-black/20 rounded-xl p-1 border border-white/5">
-            <button 
-              onClick={() => handleNavigate(-1)} 
-              disabled={!hasPrev || loadingFile}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <div className="w-[1px] h-4 bg-white/10 mx-1" />
-            <button 
-              onClick={() => handleNavigate(1)} 
-              disabled={!hasNext || loadingFile}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {arquivos.length > 1 && (
+            <div className="flex items-center gap-1 bg-black/20 rounded-xl p-1 border border-white/5">
+              <button 
+                onClick={() => handleNavigate(-1)} 
+                disabled={!hasPrev || loadingFile}
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
+                title="Anterior"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              
+              <select 
+                value={currentFile.id}
+                onChange={(e) => {
+                  const arq = arquivos.find(a => String(a.id) === e.target.value);
+                  if (arq) {
+                    const idx = arquivos.indexOf(arq);
+                    handleNavigate(idx - currentIndex);
+                  }
+                }}
+                className="bg-transparent text-[11px] font-bold text-white outline-none px-2 py-1 max-w-[150px] truncate cursor-pointer hover:text-cyan-400 transition-colors"
+              >
+                {arquivos.map((a, i) => (
+                  <option key={a.id} value={a.id} className="bg-slate-900">
+                    {i + 1}. {a.arquivo_nome}
+                  </option>
+                ))}
+              </select>
+
+              <button 
+                onClick={() => handleNavigate(1)} 
+                disabled={!hasNext || loadingFile}
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
+                title="Próximo"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {arquivo.url && (
             <a href={arquivo.url} target="_blank" rel="noopener noreferrer"
@@ -271,11 +299,23 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                               <div className="flex items-center gap-2">
                                 {c.descricao}
                                 {c.attachments?.length > 0 && (
-                                  <a href={c.attachments[0]} target="_blank" rel="noreferrer"
-                                    className="text-slate-500 hover:text-cyan-400 transition-colors" title="Ver documento anexado">
-                                    <FileText className="w-3 h-3" />
-                                  </a>
-                                )}
+                                   <button 
+                                     onClick={() => {
+                                       setLoadingFile(true);
+                                       setCurrentFile({
+                                         ...currentFile,
+                                         id: `att_${c.id}`,
+                                         nome: `Anexo: ${c.descricao}`,
+                                         url: c.attachments[0] // Assume que já é a Signed URL vinda da API de conferência
+                                       });
+                                       setLoadingFile(false);
+                                     }}
+                                     className="text-slate-500 hover:text-cyan-400 transition-colors" 
+                                     title="Visualizar anexo aqui"
+                                   >
+                                     <FileText className="w-3 h-3" />
+                                   </button>
+                                 )}
                               </div>
                             </td>
                             <td className="text-right px-3 py-2 text-xs text-slate-200 font-mono font-bold">{fmt(c.valor)}</td>
