@@ -875,6 +875,7 @@ class CobrancaExtraSchema(BaseModel):
     mes_inicio: int
     ano_inicio: int
     parcelas: int = 1   # 1 = sem parcelamento
+    attachments: Optional[list] = []
 
 @router.post("/cobrancas-extras/lancar")
 def api_lancar_cobranca_extra(
@@ -926,6 +927,7 @@ def api_lancar_cobranca_extra(
                 "parcela_total": data.parcelas,
                 "grupo_id": grupo_id,
                 "status": "ativa",
+                "attachments": data.attachments,
             })
 
         db.table("cobrancas_extras").insert(registros).execute()

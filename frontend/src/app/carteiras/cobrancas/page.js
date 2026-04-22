@@ -6,7 +6,8 @@ import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
 import {
   Plus, Trash2, Loader2, X, AlertCircle, CheckCircle2,
-  Receipt, Calendar, Repeat, Building2, Clock
+  Receipt, Calendar, Repeat, Building2, Clock,
+  UploadCloud, FileText
 } from 'lucide-react';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -50,6 +51,7 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
     ano_inicio: anoAtual,
     parcelas: 1,
   });
+  const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const valorParcela = form.valor_total && form.parcelas > 0
@@ -60,6 +62,18 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
     e.preventDefault();
     setLoading(true);
     try {
+      let fileUrl = null;
+      if (selectedFile) {
+        const sb = createClient();
+        const fileName = `${Date.now()}_${selectedFile.name}`;
+        const { data: uploadData, error: uploadErr } = await sb.storage
+          .from('cobrancas')
+          .upload(`${condominioId}/${fileName}`, selectedFile);
+        
+        if (uploadErr) throw uploadErr;
+        fileUrl = uploadData.path;
+      }
+
       await apiFetch('/api/cobrancas-extras/lancar', {
         method: 'POST',
         body: JSON.stringify({
@@ -69,6 +83,7 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
           mes_inicio: form.mes_inicio,
           ano_inicio: form.ano_inicio,
           parcelas: form.parcelas,
+          attachments: fileUrl ? [fileUrl] : []
         })
       });
       addToast(`Cobrança lançada em ${form.parcelas} parcela(s)!`, 'success');
@@ -171,7 +186,31 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
             </div>
           )}
 
-          <div className="pt-2">
+          {/* Anexo de Documento */}
+        <div className="pt-2">
+            <label className="block text-center border-2 border-dashed border-slate-700 
+hover:border-amber-500/50 rounded-xl p-4 cursor-pointer bg-slate-800/50 hover:bg-amber-500/5 transition-all group">
+                <input type="file" className="hidden" onChange={(e) => setSelectedFile(e.target.files[0])} />
+                <div className="flex flex-col items-center gap-2">
+                    <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center 
+group-hover:scale-110 transition-transform">
+                        {selectedFile ? <FileText className="w-5 h-5 text-amber-400" /> : <UploadCloud 
+className="w-5 h-5 text-slate-500 group-hover:text-amber-400" />}
+                    </div>
+                    <div className="text-center">
+                        <p className="text-xs font-bold text-slate-300">
+                            {selectedFile ? selectedFile.name : 'Anexar comprovante/NF'}
+                        </p>
+                    </div>
+                    {selectedFile && (
+                        <button onClick={(e) => { e.preventDefault(); setSelectedFile(null); }} 
+className="text-[10px] text-rose-400 font-bold hover:underline">Remover arquivo</button>
+                    )}
+                </div>
+            </label>
+        </div>
+
+        <div className="pt-2">
             <button type="submit" disabled={loading}
               className="w-full py-3 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-500 transition-colors flex justify-center items-center gap-2 disabled:opacity-50">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-4 h-4" />}
