@@ -936,29 +936,6 @@ def api_lancar_cobranca_extra(
         raise HTTPException(400, str(e))
 
 
-@router.get("/cobrancas-extras/{condominio_id}")
-def api_listar_cobrancas(
-    condominio_id: str,
-    mes: Optional[int] = None,
-    ano: Optional[int] = None,
-    user: dict = Depends(get_current_user),
-    db: Client = Depends(get_db)
-):
-    """Lista cobranças extras de um condomínio, opcionalmente filtradas por mês/ano."""
-    try:
-        query = db.table("cobrancas_extras").select("*") \
-            .eq("condominio_id", condominio_id) \
-            .neq("status", "cancelada") \
-            .order("ano").order("mes")
-
-        if mes and ano:
-            query = query.eq("mes", mes).eq("ano", ano)
-
-        res = query.execute()
-        return {"cobrancas": res.data or []}
-    except Exception as e:
-        raise HTTPException(400, str(e))
-
 
 class SolicitarCancelamentoSchema(BaseModel):
     grupo_id: str
@@ -1059,5 +1036,29 @@ def api_cancelamentos_pendentes(
             grupos[gid]["parcelas_pendentes"] += 1
 
         return {"pendentes": list(grupos.values())}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/cobrancas-extras/{condominio_id}")
+def api_listar_cobrancas(
+    condominio_id: str,
+    mes: Optional[int] = None,
+    ano: Optional[int] = None,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db)
+):
+    """Lista cobranças extras de um condomínio, opcionalmente filtradas por mês/ano."""
+    try:
+        query = db.table("cobrancas_extras").select("*") \
+            .eq("condominio_id", condominio_id) \
+            .neq("status", "cancelada") \
+            .order("ano").order("mes")
+
+        if mes and ano:
+            query = query.eq("mes", mes).eq("ano", ano)
+
+        res = query.execute()
+        return {"cobrancas": res.data or []}
     except Exception as e:
         raise HTTPException(400, str(e))
