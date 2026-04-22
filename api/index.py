@@ -812,7 +812,7 @@ from fastapi import UploadFile, File  # type: ignore
 import shutil, uuid as uuid_mod
 
 UPLOADS_DIR = os.path.join(STATIC, "uploads")
-os.makedirs(UPLOADS_DIR, exist_ok=True)
+# os.makedirs(UPLOADS_DIR, exist_ok=True) # Removido para Vercel
 ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".xlsx", ".xls", ".csv"}
 
 @app.get("/condominio/{condo_id}/cobrancas-extras")
