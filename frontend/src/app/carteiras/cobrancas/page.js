@@ -352,6 +352,7 @@ export default function CobrancasExtrasPage() {
         valor_parcela: c.amount || 0,
         status: c.status,
         motivo: c.motivo_cancelamento,
+        attachments: c.attachments || [],
         parcelas: []
       };
     }
@@ -445,7 +446,13 @@ export default function CobrancasExtrasPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-3 shrink-0">
+                  {grupo.attachments?.length > 0 && (
+                    <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/cobrancas/${grupo.attachments[0]}`} target="_blank" rel="noreferrer"
+                      className="text-slate-400 hover:text-cyan-400 transition-colors" title="Ver documento anexado">
+                      <FileText className="w-4 h-4" />
+                    </a>
+                  )}
                   {grupo.status === 'solicitado_cancelamento' && (
                     <span className="text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-1 rounded">
                       Cancelamento solicitado
