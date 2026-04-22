@@ -656,16 +656,32 @@ def api_dados_conferencia(condo_id: str, user: dict = Depends(get_current_user),
 
     cobrancas = []
     try:
-        extras = db.table("cobrancas_extras").select("id,description,amount,created_at,attachments").eq("condominio_id", condo_id).order("created_at", desc=True).execute().data or []
+        extras = db.table("cobrancas_extras").select("id,description,amount,created_at,attachments").eq("condominio_id", condo_id).order("created_at", desc=True).order("parcela_atual").execute().data or []
         for c in extras:
-            cobrancas.append({'id':c.get('id'),'descricao':c.get('description') or 'Cobrança Extra','mes':None,'mes_nome':'—','valor':parse_valor(c.get('amount')),'attachments':c.get('attachments') or []})
+            atts = c.get('attachments') or []
+            signed_atts = []
+            for a in atts:
+                try:
+                    res = db.storage.from_("emissoes").create_signed_url(a, 3600)
+                    signed_atts.append(res.get('signedURL', a) if isinstance(res, dict) else a)
+                except:
+                    signed_atts.append(a)
+            cobrancas.append({'id':c.get('id'),'descricao':c.get('description') or 'Cobrança Extra','mes':None,'mes_nome':'—','valor':parse_valor(c.get('amount')),'attachments':signed_atts})
     except:
         try:
             procs = db.table("processos").select("id").eq("condominio_id", condo_id).execute().data or []
             pids  = [p["id"] for p in procs]
             if pids:
-                for c in (db.table("cobrancas_extras").select("id,description,amount,attachments").in_("processo_id", pids).execute().data or []):
-                    cobrancas.append({'id':c.get('id'),'descricao':c.get('description') or 'Cobrança Extra','mes':None,'mes_nome':'—','valor':parse_valor(c.get('amount')),'attachments':c.get('attachments') or []})
+                for c in (db.table("cobrancas_extras").select("id,description,amount,attachments").in_("processo_id", pids).order("created_at", desc=True).order("parcela_atual").execute().data or []):
+                    atts = c.get('attachments') or []
+                    signed_atts = []
+                    for a in atts:
+                        try:
+                            res = db.storage.from_("emissoes").create_signed_url(a, 3600)
+                            signed_atts.append(res.get('signedURL', a) if isinstance(res, dict) else a)
+                        except:
+                            signed_atts.append(a)
+                    cobrancas.append({'id':c.get('id'),'descricao':c.get('description') or 'Cobrança Extra','mes':None,'mes_nome':'—','valor':parse_valor(c.get('amount')),'attachments':signed_atts})
         except: pass
 
     return {
@@ -1059,6 +1075,19 @@ def api_listar_cobrancas(
             query = query.eq("mes", mes).eq("ano", ano)
 
         res = query.execute()
-        return {"cobrancas": res.data or []}
+        
+        cobrancas = res.data or []
+        for c in cobrancas:
+            if c.get("attachments"):
+                signed_atts = []
+                for a in c["attachments"]:
+                    try:
+                        res_url = db.storage.from_("emissoes").create_signed_url(a, 3600)
+                        signed_atts.append(res_url.get('signedURL', a) if isinstance(res_url, dict) else a)
+                    except:
+                        signed_atts.append(a)
+                c["attachments"] = signed_atts
+
+        return {"cobrancas": cobrancas}
     except Exception as e:
         raise HTTPException(400, str(e))

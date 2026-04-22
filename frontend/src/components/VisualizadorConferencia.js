@@ -143,8 +143,8 @@ export default function VisualizadorConferencia({ arquivo, currentUser, onClose,
                       <tr className="bg-slate-950/30">
                         <th className="text-left px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Mês</th>
                         {(planilha?.colunas || []).map(col => (
-                          <th key={col} className="text-right px-3 py-2 text-[10px] font-bold uppercase text-slate-500" title={col}>
-                            {col.length > 8 ? col.slice(0, 7) + '...' : col}
+                          <th key={col} className="text-right px-3 py-2 text-[10px] font-bold uppercase text-slate-500 whitespace-nowrap" title={col}>
+                            {col}
                           </th>
                         ))}
                         <th className="text-right px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Total</th>
@@ -155,7 +155,7 @@ export default function VisualizadorConferencia({ arquivo, currentUser, onClose,
                         <tr key={m.mes} className="border-t border-slate-800">
                           <td className="px-3 py-2 text-xs font-bold text-slate-400 uppercase">{m.mes_nome}</td>
                           {(planilha?.colunas || []).map(col => (
-                            <td key={col} className="text-right px-3 py-2 text-xs text-slate-300 font-mono">
+                            <td key={col} className="text-right px-3 py-2 text-xs text-slate-300 font-mono whitespace-nowrap">
                               {fmt(m.valores?.[col])}
                             </td>
                           ))}
@@ -176,8 +176,8 @@ export default function VisualizadorConferencia({ arquivo, currentUser, onClose,
           </div>
 
           {/* Cobranças Extras — sempre visível */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col max-h-72">
+            <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-amber-400" />
                 <div>
@@ -198,32 +198,34 @@ export default function VisualizadorConferencia({ arquivo, currentUser, onClose,
                     <p className="text-sm text-slate-500">Nenhuma cobrança extra lançada</p>
                     <p className="text-xs text-slate-600 mt-1">Quando houver, aparecerão aqui.</p>
                   </div>
-                : <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-950/30">
-                        <th className="text-left px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Descrição</th>
-                        <th className="text-right px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Valor</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cobrancas.map(c => (
-                        <tr key={c.id} className="border-t border-slate-800">
-                          <td className="px-3 py-2 text-xs text-slate-300">
-                            <div className="flex items-center gap-2">
-                              {c.descricao}
-                              {c.attachments?.length > 0 && (
-                                <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/emissoes/${c.attachments[0]}`} target="_blank" rel="noreferrer"
-                                  className="text-slate-500 hover:text-cyan-400 transition-colors" title="Ver documento anexado">
-                                  <FileText className="w-3 h-3" />
-                                </a>
-                              )}
-                            </div>
-                          </td>
-                          <td className="text-right px-3 py-2 text-xs text-slate-200 font-mono font-bold">{fmt(c.valor)}</td>
+                : <div className="overflow-y-auto flex-1">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-slate-950/90 backdrop-blur z-10">
+                        <tr>
+                          <th className="text-left px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Descrição</th>
+                          <th className="text-right px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Valor</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {cobrancas.map(c => (
+                          <tr key={c.id} className="border-t border-slate-800">
+                            <td className="px-3 py-2 text-xs text-slate-300">
+                              <div className="flex items-center gap-2">
+                                {c.descricao}
+                                {c.attachments?.length > 0 && (
+                                  <a href={c.attachments[0]} target="_blank" rel="noreferrer"
+                                    className="text-slate-500 hover:text-cyan-400 transition-colors" title="Ver documento anexado">
+                                    <FileText className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                            <td className="text-right px-3 py-2 text-xs text-slate-200 font-mono font-bold">{fmt(c.valor)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
             }
           </div>
         </div>

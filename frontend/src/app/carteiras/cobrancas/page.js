@@ -101,8 +101,8 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Receipt className="w-5 h-5 text-amber-400" />
             <h3 className="text-lg font-bold text-slate-200">Nova Cobrança Extra</h3>
@@ -110,7 +110,7 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X className="w-5 h-5" /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           <div>
             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Descrição</label>
             <input required value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })}
@@ -448,7 +448,7 @@ export default function CobrancasExtrasPage() {
 
                 <div className="flex items-center gap-3 shrink-0">
                   {grupo.attachments?.length > 0 && (
-                    <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/emissoes/${grupo.attachments[0]}`} target="_blank" rel="noreferrer"
+                    <a href={grupo.attachments[0]} target="_blank" rel="noreferrer"
                       className="text-slate-400 hover:text-cyan-400 transition-colors" title="Ver documento anexado">
                       <FileText className="w-4 h-4" />
                     </a>
