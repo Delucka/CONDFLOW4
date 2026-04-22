@@ -67,8 +67,8 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
         const sb = createClient();
         const fileName = `${Date.now()}_${selectedFile.name}`;
         const { data: uploadData, error: uploadErr } = await sb.storage
-          .from('cobrancas')
-          .upload(`${condominioId}/${fileName}`, selectedFile);
+          .from('emissoes')
+          .upload(`cobrancas_extras/${condominioId}/${fileName}`, selectedFile);
         
         if (uploadErr) throw uploadErr;
         fileUrl = uploadData.path;
@@ -448,7 +448,7 @@ export default function CobrancasExtrasPage() {
 
                 <div className="flex items-center gap-3 shrink-0">
                   {grupo.attachments?.length > 0 && (
-                    <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/cobrancas/${grupo.attachments[0]}`} target="_blank" rel="noreferrer"
+                    <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/emissoes/${grupo.attachments[0]}`} target="_blank" rel="noreferrer"
                       className="text-slate-400 hover:text-cyan-400 transition-colors" title="Ver documento anexado">
                       <FileText className="w-4 h-4" />
                     </a>
