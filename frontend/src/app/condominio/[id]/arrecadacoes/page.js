@@ -221,15 +221,30 @@ export default function ArrecadacoesPage() {
         }
       }
 
-      // Executa tudo em paralelo
-      await Promise.all([
-        ...configUpdates,
-        supabase.from('rateios_valores').upsert(allValues, { on_conflict: 'rateio_id, month, ano' })
-      ]);
+      // 1. Atualiza as configurações dos rateios
+      const results = await Promise.all(configUpdates);
+      const hasConfigError = results.find(r => r && r.error);
+      if (hasConfigError) throw new Error(hasConfigError.error.message);
+
+      // 2. Salva os valores mensais (Delete + Insert para evitar problemas de constraint/duplicidade)
+      const rateioIds = rateios.map(r => r.id);
+      
+      // Deleta valores existentes para este ano/rateios
+      const { error: delErr } = await supabase.from('rateios_valores')
+        .delete()
+        .in('rateio_id', rateioIds)
+        .eq('ano', selectedYear);
+      
+      if (delErr) throw delErr;
+
+      // Insere os novos valores
+      const { error: insErr } = await supabase.from('rateios_valores').insert(allValues);
+      if (insErr) throw insErr;
 
       // Update Process Notes
       if (processo) {
-        await supabase.from('processos').update({ issue_notes: obsEmissao }).eq('id', processo.id);
+        const { error: procErr } = await supabase.from('processos').update({ issue_notes: obsEmissao }).eq('id', processo.id);
+        if (procErr) throw procErr;
       }
 
       addToast('Planilha salva com sucesso!', 'success');
