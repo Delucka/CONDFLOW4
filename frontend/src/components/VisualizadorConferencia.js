@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import { apiFetcher } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
@@ -123,7 +123,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             <FileText className="w-5 h-5 text-violet-400" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-white font-bold truncate">{currentFile.nome || 'Documento'}</h3>
+            <h3 className="text-white font-bold truncate">{currentFile?.nome || 'Documento'}</h3>
             <p className="text-[10px] uppercase tracking-widest text-cyan-400">Visualização integrada {arquivos.length > 1 ? `(${currentIndex + 1} de ${arquivos.length})` : ''}</p>
           </div>
         </div>
@@ -142,7 +142,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
               </button>
               
               <select 
-                value={currentFile.id}
+                value={currentFile?.id || ''}
                 onChange={(e) => {
                   const arq = arquivos.find(a => String(a.id) === e.target.value);
                   if (arq) {
@@ -193,7 +193,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
               <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
             </div>
           )}
-          {currentFile.url
+          {currentFile?.url
             ? <iframe src={currentFile.url} title={currentFile.nome} className="w-full h-full bg-white" />
             : <div className="flex-1 flex items-center justify-center text-slate-500 text-center">
                 <div><FileText className="w-12 h-12 mx-auto mb-2 opacity-30" /><p className="text-sm">Sem URL disponível</p></div>
