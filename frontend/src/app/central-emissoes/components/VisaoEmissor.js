@@ -237,7 +237,8 @@ export default function VisaoEmissor({ profile }) {
         url: data.signedUrl,
         processo_id: activePacote?.processo_id || null,
         condominio_id: activePacote?.condominio_id || condoId,
-        emitido_por: profile?.id
+        emitido_por: profile?.id,
+        arquivos: pacoteArquivos || []
       });
     }
   }
@@ -594,6 +595,7 @@ export default function VisaoEmissor({ profile }) {
       {arquivoAberto && (
         <VisualizadorConferencia
           arquivo={arquivoAberto}
+          arquivos={arquivoAberto.arquivos}
           currentUser={user}
           onClose={() => setArquivoAberto(null)}
           onAction={() => { setArquivoAberto(null); fetchPacotes(); }}

@@ -168,7 +168,8 @@ export default function VisaoMaster() {
         url: data.signedUrl,
         processo_id: pacote.processo_id || null,
         condominio_id: pacote.condominio_id,
-        emitido_por: pacote.uploaded_by
+        emitido_por: pacote.uploaded_by,
+        arquivos: pacote.arquivos || []
       });
     }
   }
@@ -331,6 +332,7 @@ export default function VisaoMaster() {
       {arquivoAberto && (
         <VisualizadorConferencia
           arquivo={arquivoAberto}
+          arquivos={arquivoAberto.arquivos}
           currentUser={user}
           onClose={() => setArquivoAberto(null)}
           onAction={() => { setArquivoAberto(null); fetchPacotes(); }}
