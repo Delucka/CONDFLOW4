@@ -59,8 +59,18 @@ export default function AprovacoesPage() {
 
       if (fileError) throw fileError;
 
+      let allFiles = [];
       let signedUrl = null;
+
       if (fileData) {
+        // Buscar todos os arquivos do mesmo pacote
+        const { data: arquivos } = await supabase
+          .from('emissoes_arquivos')
+          .select('*')
+          .eq('pacote_id', fileData.pacote_id);
+        
+        allFiles = arquivos || [];
+
         const { data: urlData } = await supabase.storage
           .from('emissoes')
           .createSignedUrl(fileData.arquivo_url, 300);
@@ -73,6 +83,7 @@ export default function AprovacoesPage() {
         url: signedUrl,
         condominio_id: condoId,
         processo_id: fileData?.processo_id || null,
+        arquivos: allFiles
       });
     } catch (err) {
       console.error(err);
@@ -279,6 +290,7 @@ export default function AprovacoesPage() {
       {arquivoConferencia && (
         <VisualizadorConferencia
           arquivo={arquivoConferencia}
+          arquivos={arquivoConferencia.arquivos}
           currentUser={user}
           onClose={() => setArquivoConferencia(null)}
           onAction={() => { mutate(); setArquivoConferencia(null); }}
