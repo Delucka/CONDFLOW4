@@ -5,7 +5,7 @@ import { apiFetcher } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
-import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool } from 'lucide-react';
+import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight } from 'lucide-react';
 
 
 
@@ -13,12 +13,15 @@ function fmt(v) {
   return (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function VisualizadorConferencia({ arquivo, currentUser, onClose, onAction }) {
+export default function VisualizadorConferencia({ arquivo, arquivos = [], currentUser, onClose, onAction }) {
   const { addToast } = useToast();
   const supabase = createClient();
+
+  const [currentFile, setCurrentFile] = useState(arquivo);
+  const [loadingFile, setLoadingFile] = useState(false);
   
   const { data, error, isLoading: loading, mutate } = useSWR(
-    arquivo?.condominio_id ? `/api/condominio/${arquivo.condominio_id}/conferencia` : null,
+    currentFile?.condominio_id ? `/api/condominio/${currentFile.condominio_id}/conferencia` : null,
     apiFetcher,
     { refreshInterval: 3000, revalidateOnFocus: true }
   );
@@ -72,6 +75,35 @@ export default function VisualizadorConferencia({ arquivo, currentUser, onClose,
     finally { setExecutando(false); }
   }
 
+  // Navegação entre arquivos
+  const currentIndex = arquivos.findIndex(a => a.id === currentFile.id);
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < arquivos.length - 1;
+
+  async function handleNavigate(direction) {
+    const nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= arquivos.length) return;
+
+    setLoadingFile(true);
+    const nextDoc = arquivos[nextIndex];
+    
+    try {
+      const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(nextDoc.arquivo_url, 300);
+      if (error) throw error;
+
+      setCurrentFile({
+        ...currentFile,
+        id: nextDoc.id,
+        nome: nextDoc.arquivo_nome,
+        url: data.signedUrl
+      });
+    } catch (e) {
+      addToast('Erro ao carregar próximo arquivo', 'error');
+    } finally {
+      setLoadingFile(false);
+    }
+  }
+
   // Exibe todos os meses retornados pela API (mesmo os zerados)
   const mesesParaExibir = planilha?.meses || [];
 
@@ -85,10 +117,31 @@ export default function VisualizadorConferencia({ arquivo, currentUser, onClose,
             <FileText className="w-5 h-5 text-violet-400" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-white font-bold truncate">{arquivo.nome || 'Documento'}</h3>
-            <p className="text-[10px] uppercase tracking-widest text-cyan-400">Visualização integrada</p>
+            <h3 className="text-white font-bold truncate">{currentFile.nome || 'Documento'}</h3>
+            <p className="text-[10px] uppercase tracking-widest text-cyan-400">Visualização integrada {arquivos.length > 1 ? `(${currentIndex + 1} de ${arquivos.length})` : ''}</p>
           </div>
         </div>
+
+        {/* Navegação */}
+        {arquivos.length > 1 && (
+          <div className="flex items-center gap-1 bg-black/20 rounded-xl p-1 border border-white/5">
+            <button 
+              onClick={() => handleNavigate(-1)} 
+              disabled={!hasPrev || loadingFile}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="w-[1px] h-4 bg-white/10 mx-1" />
+            <button 
+              onClick={() => handleNavigate(1)} 
+              disabled={!hasNext || loadingFile}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           {arquivo.url && (
             <a href={arquivo.url} target="_blank" rel="noopener noreferrer"
@@ -106,9 +159,14 @@ export default function VisualizadorConferencia({ arquivo, currentUser, onClose,
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-hidden">
 
         {/* PDF */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
-          {arquivo.url
-            ? <iframe src={arquivo.url} title={arquivo.nome} className="w-full h-full bg-white" />
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col relative">
+          {loadingFile && (
+            <div className="absolute inset-0 z-10 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
+              <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+            </div>
+          )}
+          {currentFile.url
+            ? <iframe src={currentFile.url} title={currentFile.nome} className="w-full h-full bg-white" />
             : <div className="flex-1 flex items-center justify-center text-slate-500 text-center">
                 <div><FileText className="w-12 h-12 mx-auto mb-2 opacity-30" /><p className="text-sm">Sem URL disponível</p></div>
               </div>
