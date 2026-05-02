@@ -13,15 +13,24 @@ import {
 const ROLES = [
   { value: 'master', label: 'Master (Acesso Total)' },
   { value: 'gerente', label: 'Gerente (Sua carteira)' },
+  { value: 'assistente', label: 'Assistente' },
   { value: 'supervisora', label: 'Supervisora (Aprovações)' },
   { value: 'supervisora_contabilidade', label: 'Sp. Contabilidade' },
+  { value: 'supervisor_gerentes', label: 'Supervisor dos Gerentes' },
+  { value: 'departamento', label: 'Departamento / Emissor' },
+  { value: 'sindico', label: 'Síndico' },
 ];
 
 const roleStyle = {
   master: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
   gerente: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+  assistente: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   supervisora: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
   supervisora_contabilidade: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+  supervisor_gerentes: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
+  departamento: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+  sindico: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  outros: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
 };
 
 async function getToken() {

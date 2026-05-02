@@ -1,0 +1,42 @@
+Preciso que aplique um patch no projeto CondoFlow em c:\projetos\condominios
+NÃO altere nenhum arquivo além dos listados abaixo.
+NÃO mova pastas. NÃO refatore nada além do solicitado.
+
+═══════════════════════════════════════════════════════
+PASSO 1 — SQL (execute no Supabase SQL Editor)
+═══════════════════════════════════════════════════════
+Execute o conteúdo do arquivo:
+  _patch\sql\migration_cobrancas.sql
+
+═══════════════════════════════════════════════════════
+PASSO 2 — Backend
+═══════════════════════════════════════════════════════
+Abra: api/api_routes.py
+Vá até o FINAL do arquivo e cole o conteúdo de:
+  _patch\api\cobrancas_endpoints.py
+
+NÃO remova nada existente — apenas adicione no final.
+
+═══════════════════════════════════════════════════════
+PASSO 3 — Frontend
+═══════════════════════════════════════════════════════
+Substitua o arquivo:
+  frontend/src/app/carteiras/cobrancas/page.js
+pelo conteúdo de:
+  _patch\frontend\src\app\carteiras\cobrancas\page.js
+
+═══════════════════════════════════════════════════════
+PASSO 4 — Git e Deploy
+═══════════════════════════════════════════════════════
+Execute na ordem:
+  cd c:\projetos\condominios
+  git add api/api_routes.py frontend/src/app/carteiras/cobrancas/page.js
+  git commit -m "feat: cobranças extras parceladas com cancelamento"
+  git push
+
+Após o git push, o Vercel fará o deploy automaticamente.
+
+═══════════════════════════════════════════════════════
+SE DER ERRO no git push, mostre o erro completo.
+NÃO tente corrigir sozinho — apenas mostre o erro.
+═══════════════════════════════════════════════════════
