@@ -24,6 +24,8 @@ export default function VisaoMaster() {
   const [showConcluirModal, setShowConcluirModal] = useState(false);
   const [activePacote, setActivePacote] = useState(null);
   const [nivelAprovacao, setNivelAprovacao] = useState(1);
+  const [showRegistroModal, setShowRegistroModal] = useState(false);
+  const [dataRegistro, setDataRegistro] = useState('');
 
   const stats = {
     gerente: pacotes.filter(p => {
@@ -164,20 +166,36 @@ export default function VisaoMaster() {
   }
 
   async function handleRegistrar(pacote) {
-    if (!confirm(`Deseja registrar esta emissão agora? (${new Date().toLocaleString()})`)) return;
+    setActivePacote(pacote);
+    const now = new Date();
+    // Ajuste para fuso local no formato do datetime-local (YYYY-MM-DDTHH:mm)
+    const localNow = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+    setDataRegistro(localNow);
+    setShowRegistroModal(true);
+  }
+
+  async function confirmarRegistro() {
+    if (!dataRegistro) return addToast('Informe a data e hora', 'error');
+    
+    const selectedDate = new Date(dataRegistro);
+    if (selectedDate < new Date(new Date().getTime() - 60000)) { // Tolerância de 1 min
+      return addToast('Não é permitido registrar no passado', 'error');
+    }
 
     const { error } = await supabase
       .from('emissoes_pacotes')
       .update({ 
         status: 'registrado', 
-        atualizado_em: new Date().toISOString() 
+        atualizado_em: selectedDate.toISOString() 
       })
-      .eq('id', pacote.id);
+      .eq('id', activePacote.id);
 
     if (error) {
       addToast('Erro ao registrar', 'error');
     } else {
       addToast('Emissão registrada com sucesso!', 'success');
+      setShowRegistroModal(false);
+      setActivePacote(null);
       fetchPacotes();
     }
   }
@@ -488,6 +506,45 @@ export default function VisaoMaster() {
                 className="flex-[2] py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
               >
                 Confirmar e Enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      {/* ═══ MODAL DE REGISTRO ═══ */}
+      {showRegistroModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-8 shadow-2xl">
+            <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <FileCheck className="w-8 h-8 text-blue-400" />
+            </div>
+            <h3 className="text-xl font-black text-white text-center mb-2">Registrar Emissão</h3>
+            <p className="text-sm text-gray-400 text-center mb-8">
+              Confirme a data e hora oficial do registro.
+            </p>
+
+            <div className="mb-8">
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Data e Hora do Registro</label>
+              <input
+                type="datetime-local"
+                value={dataRegistro}
+                onChange={(e) => setDataRegistro(e.target.value)}
+                min={new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => { setShowRegistroModal(false); setActivePacote(null); }}
+                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarRegistro}
+                className="flex-[2] py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
+              >
+                Confirmar Registro
               </button>
             </div>
           </div>
