@@ -1,11 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt, AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2 } from 'lucide-react';
+import { Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt, AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2, FileCheck, User, Users, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
@@ -23,6 +23,16 @@ export default function DashboardPage() {
   const [processing, setProcessing] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  
+  // Métricas da Central de Emissões
+  const [emissaoStats, setEmissaoStats] = useState({
+    gerente: 0,
+    supGerente: 0,
+    supContabilidade: 0,
+    aguardando: 0,
+    registrada: 0
+  });
+  const [loadingEmissoes, setLoadingEmissoes] = useState(true);
 
   // ALTO FLUXO: SWR gerencia cache e revalidação automática
   const query = filtroGerente ? `?gerente_id=${filtroGerente}` : '';
@@ -30,6 +40,54 @@ export default function DashboardPage() {
     revalidateOnFocus: true,
     dedupingInterval: 5000
   });
+
+  // Fetch das métricas de emissão via Supabase
+  useEffect(() => {
+    async function fetchEmissaoStats() {
+      setLoadingEmissoes(true);
+      try {
+        const { data: pacotes } = await supabase
+          .from('emissoes_pacotes')
+          .select('status');
+        
+        if (pacotes) {
+          const stats = {
+            gerente: 0,
+            supGerente: 0,
+            supContabilidade: 0,
+            aguardando: 0,
+            registrada: 0
+          };
+          
+          pacotes.forEach(p => {
+            const s = (p.status || '').toLowerCase();
+            if (s.includes('gerente') || s === 'pendente') stats.gerente++;
+            else if (s.includes('chefe') || s.includes('sup. gerentes')) stats.supGerente++;
+            else if (s.includes('supervisor')) stats.supContabilidade++;
+            else if (s === 'aprovado') stats.aguardando++;
+            else if (s === 'registrado') stats.registrada++;
+          });
+          setEmissaoStats(stats);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar métricas de emissão:", err);
+      } finally {
+        setLoadingEmissoes(false);
+      }
+    }
+    
+    fetchEmissaoStats();
+    
+    // Inscrição em tempo real para atualizações
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => {
+        fetchEmissaoStats();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const handleQuickView = async (condoId) => {
     try {
@@ -128,6 +186,21 @@ export default function DashboardPage() {
         <StatsCard title="Em Edição" value={stats.em_edicao} icon={FileEdit} color="orange" loading={isLoading} />
         <StatsCard title="Pendentes" value={stats.pendentes} icon={Clock} color="indigo" loading={isLoading} />
         <StatsCard title="Aprovados" value={stats.aprovados} icon={CheckCircle2} color="emerald" loading={isLoading} />
+      </div>
+
+      {/* Fluxo de Emissões (Nova Seção) */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 px-2">
+          <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Fluxo de Emissões em Tempo Real</h4>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <StatsCard title="Com o Gerente" value={emissaoStats.gerente} icon={User} color="indigo" loading={loadingEmissoes} />
+          <StatsCard title="Com Sup. Gerentes" value={emissaoStats.supGerente} icon={Activity} color="cyan" loading={loadingEmissoes} />
+          <StatsCard title="Com Sup. Contab." value={emissaoStats.supContabilidade} icon={ShieldCheck} color="orange" loading={loadingEmissoes} />
+          <StatsCard title="Aguard. Registro" value={emissaoStats.aguardando} icon={Clock} color="emerald" loading={loadingEmissoes} />
+          <StatsCard title="Registradas" value={emissaoStats.registrada} icon={FileCheck} color="blue" loading={loadingEmissoes} />
+        </div>
       </div>
 
       {/* Painel Duplo */}
