@@ -285,7 +285,6 @@ export default function VisaoMaster() {
           </div>
         ))}
       </div>
-      </div>
 
       {/* Tabela Master */}
       <div className="border border-white/10 rounded-3xl bg-white/5 overflow-hidden shadow-2xl">
