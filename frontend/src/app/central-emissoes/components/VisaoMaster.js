@@ -309,7 +309,7 @@ export default function VisaoMaster() {
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
           <h3 className="font-black text-white text-lg flex items-center gap-2">
             <Activity className="text-cyan-400 w-5 h-5"/>
-            Fluxo Geral — Pacotes de Emissão (v2)
+            Fluxo Geral - Pacotes de Emissao
           </h3>
         </div>
 
