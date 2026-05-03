@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Layers, CheckCircle, Clock, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle, User, ShieldCheck, Send, X, FileCheck } from 'lucide-react';
+import { CheckCircle, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle, User, ShieldCheck, Send, X, FileCheck } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
