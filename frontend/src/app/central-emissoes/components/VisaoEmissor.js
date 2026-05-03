@@ -701,6 +701,7 @@ export default function VisaoEmissor({ profile }) {
           onClose={() => setArquivoAberto(null)}
           onAction={() => { setArquivoAberto(null); fetchPacotes(); }}
         />
+      )}
       {/* ═══ MODAL DE REGISTRO ═══ */}
       {showRegistroModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
