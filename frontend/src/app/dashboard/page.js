@@ -19,6 +19,7 @@ export default function DashboardPage() {
   // MARCA DE ATUALIZAÇÃO SÊNIOR
   console.log("Dashboard Central v3.0 carregado com sucesso.");
   const [filtroGerente, setFiltroGerente] = useState('');
+  // TRIGGER DE BUILD FINAL v3.1
   const { user } = useAuth();
   const supabase = createClient();
   const { addToast } = useToast();
