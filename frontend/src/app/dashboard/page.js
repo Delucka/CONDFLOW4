@@ -186,26 +186,36 @@ export default function DashboardPage() {
         <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Dashboard V2 — Monitoramento Ativo</span>
       </div>
 
-      {/* Stats */}
+      {/* Stats Principais (Foco em Registro) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title="Total Condomínios" value={stats.total} icon={Building} color="cyan" loading={isLoading} />
         <StatsCard title="Em Edição" value={stats.em_edicao} icon={FileEdit} color="orange" loading={isLoading} />
-        <StatsCard title="Pendentes" value={stats.pendentes} icon={Clock} color="indigo" loading={isLoading} />
-        <StatsCard title="Aprovados" value={stats.aprovados} icon={CheckCircle2} color="emerald" loading={isLoading} />
+        <StatsCard 
+          title="Aguard. Registro" 
+          value={emissaoStats.aguardando} 
+          icon={Clock} 
+          color="emerald" 
+          loading={loadingEmissoes} 
+        />
+        <StatsCard 
+          title="Emissão Registrada" 
+          value={emissaoStats.registrada} 
+          icon={FileCheck} 
+          color="blue" 
+          loading={loadingEmissoes} 
+        />
       </div>
 
-      {/* Fluxo de Emissões (Nova Seção) */}
+      {/* Auditoria de Fluxo (Estágios Iniciais) */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 px-2">
-          <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-          <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-400">Fluxo de Emissões (Sincronizado)</h4>
+          <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Auditoria e Aprovações Pendentes</h4>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatsCard title="Com o Gerente" value={emissaoStats.gerente} icon={User} color="indigo" loading={loadingEmissoes} />
           <StatsCard title="Com Sup. Gerentes" value={emissaoStats.supGerente} icon={Activity} color="cyan" loading={loadingEmissoes} />
           <StatsCard title="Com Sup. Contab." value={emissaoStats.supContabilidade} icon={ShieldCheck} color="orange" loading={loadingEmissoes} />
-          <StatsCard title="Aguard. Registro" value={emissaoStats.aguardando} icon={Clock} color="emerald" loading={loadingEmissoes} />
-          <StatsCard title="Registradas" value={emissaoStats.registrada} icon={FileCheck} color="blue" loading={loadingEmissoes} />
         </div>
       </div>
 
