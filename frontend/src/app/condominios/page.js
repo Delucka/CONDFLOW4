@@ -16,7 +16,7 @@ export default function CondominiosPage() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', gerente_id: '', assistente: '' });
+  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', gerente_id: '', assistente: '', fluxo: 1 });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
   const supabase = createClient();
 
@@ -37,10 +37,11 @@ export default function CondominiosPage() {
         name: condo.name, 
         due_day: condo.due_day || '', 
         gerente_id: condo.gerente_id || '', 
-        assistente: condo.assistente || '' 
+        assistente: condo.assistente || '',
+        fluxo: condo.fluxo || 1
       });
     } else {
-      setFormData({ id: '', name: '', due_day: '', gerente_id: '', assistente: '' });
+      setFormData({ id: '', name: '', due_day: '', gerente_id: '', assistente: '', fluxo: 1 });
     }
     setModalOpen(true);
   }
@@ -225,15 +226,27 @@ export default function CondominiosPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Gerente Responsável</label>
-                <select required value={formData.gerente_id} onChange={e => setFormData({...formData, gerente_id: e.target.value})}
-                        className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm text-slate-200 outline-none focus:border-cyan-500 shadow-inner cursor-pointer">
-                  <option value="">Selecione um gerente...</option>
-                  {gerentes.map(g => (
-                    <option key={g.id} value={g.id}>{g.full_name}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Gerente Responsável</label>
+                  <select required value={formData.gerente_id} onChange={e => setFormData({...formData, gerente_id: e.target.value})}
+                          className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm text-slate-200 outline-none focus:border-cyan-500 shadow-inner cursor-pointer">
+                    <option value="">Selecione um gerente...</option>
+                    {gerentes.map(g => (
+                      <option key={g.id} value={g.id}>{g.full_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Nível de Aprovação (Fluxo)</label>
+                  <select required value={formData.fluxo} onChange={e => setFormData({...formData, fluxo: Number(e.target.value)})}
+                          className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm text-slate-200 outline-none focus:border-cyan-500 shadow-inner cursor-pointer">
+                    <option value={1}>Nível 1 - Fração (Gerente ➔ Sp. Contabilidade)</option>
+                    <option value={2}>Nível 2 - Sem consumos (Supervisora Direto)</option>
+                    <option value={3}>Nível 3 - Terceirizadas (Gerente ➔ Sup. Gerentes ➔ Sp. Contabilidade)</option>
+                  </select>
+                </div>
               </div>
               
               <div className="pt-6">

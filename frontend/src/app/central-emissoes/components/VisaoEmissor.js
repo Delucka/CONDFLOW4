@@ -211,9 +211,15 @@ export default function VisaoEmissor({ profile }) {
   }
 
   async function confirmarConclusao() {
+    const condo = condominios.find(c => c.id === activePacote.condominio_id);
+    let initialStatus = 'Aguardando Gerente';
+    if (condo?.fluxo === 2) {
+      initialStatus = 'Aguardando Supervisora';
+    }
+
     const { error } = await supabase
       .from('emissoes_pacotes')
-      .update({ status: nivelAprovacao, nivel_aprovacao: nivelAprovacao, atualizado_em: new Date().toISOString() })
+      .update({ status: initialStatus, nivel_aprovacao: initialStatus, atualizado_em: new Date().toISOString() })
       .eq('id', activePacote.id);
 
     if (error) {
@@ -516,56 +522,25 @@ export default function VisaoEmissor({ profile }) {
             </p>
 
             <div className="space-y-3 mb-8">
-              <button
-                onClick={() => setNivelAprovacao('Aguardando Gerente')}
-                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
-                  nivelAprovacao === 'Aguardando Gerente' 
-                    ? 'border-violet-500 bg-violet-500/10 shadow-lg shadow-violet-500/10' 
-                    : 'border-white/10 bg-white/5 hover:bg-white/10'
-                }`}
-              >
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 'Aguardando Gerente' ? 'border-violet-500' : 'border-gray-600'}`}>
-                  {nivelAprovacao === 'Aguardando Gerente' && <div className="w-2 h-2 rounded-full bg-violet-500" />}
-                </div>
-                <div>
-                  <p className="text-sm font-black text-white">1. Gerente de Carteira</p>
-                  <p className="text-[10px] text-gray-500">O gerente revisa e encaminha para o chefe</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setNivelAprovacao('Aguardando Chefe')}
-                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
-                  nivelAprovacao === 'Aguardando Chefe' 
-                    ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/10' 
-                    : 'border-white/10 bg-white/5 hover:bg-white/10'
-                }`}
-              >
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 'Aguardando Chefe' ? 'border-cyan-500' : 'border-gray-600'}`}>
-                  {nivelAprovacao === 'Aguardando Chefe' && <div className="w-2 h-2 rounded-full bg-cyan-500" />}
-                </div>
-                <div>
-                  <p className="text-sm font-black text-white">2. Chefe / Supervisor de Gerentes</p>
-                  <p className="text-[10px] text-gray-500">O chefe revisa e encaminha para a supervisão</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setNivelAprovacao('Aguardando Supervisor')}
-                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
-                  nivelAprovacao === 'Aguardando Supervisor' 
-                    ? 'border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/10' 
-                    : 'border-white/10 bg-white/5 hover:bg-white/10'
-                }`}
-              >
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 'Aguardando Supervisor' ? 'border-orange-500' : 'border-gray-600'}`}>
-                  {nivelAprovacao === 'Aguardando Supervisor' && <div className="w-2 h-2 rounded-full bg-orange-500" />}
-                </div>
-                <div>
-                  <p className="text-sm font-black text-white">3. Supervisão / Master</p>
-                  <p className="text-[10px] text-gray-500">Envia diretamente para aprovação final</p>
-                </div>
-              </button>
+              {(() => {
+                const condo = condominios.find(c => c.id === activePacote.condominio_id);
+                return (
+                  <div className="p-6 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl">
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest mb-2">
+                        {condo?.fluxo === 1 && "Nível 1 - Fração"}
+                        {condo?.fluxo === 2 && "Nível 2 - Sem Consumos"}
+                        {condo?.fluxo === 3 && "Nível 3 - Terceirizadas"}
+                        {!condo?.fluxo && "Nível Padrão"}
+                    </h4>
+                    <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                        {condo?.fluxo === 1 && "Aprovação passará por: Gerente ➔ Supervisora da Contabilidade."}
+                        {condo?.fluxo === 2 && "Aprovação passará por: Supervisora Direto."}
+                        {condo?.fluxo === 3 && "Aprovação passará por: Gerente ➔ Supervisor dos Gerentes ➔ Supervisora da Contabilidade."}
+                        {!condo?.fluxo && "Este condomínio seguirá a esteira de aprovação padrão configurada."}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex gap-3">

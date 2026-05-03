@@ -476,83 +476,6 @@ def enviar_processo(request: Request, processo_id: str):
         set_flash(request, f"Erro: {str(e)}", "error")
         return RedirectResponse("/dashboard", 303)
 
-# ═══ COBRANÇAS EXTRAS ═════════════════════════════════════════════════
-@app.get("/condominio/{condo_id}/cobrancas-extras")
-def cobrancas_page(request: Request, condo_id: str):
-    user = cur_user(request)
-    if not user:
-        return RedirectResponse("/", 303)
-    db = get_db()
-    year, sem = current_semester()
-
-    # Carregar condomínio e gerente
-    try:
-        res = db.table("condominios").select("*, gerente:gerente_id(profiles(full_name))").eq("id", condo_id).execute()
-        condo = res.data[0] if res.data else None
-        if condo and condo.get("gerente"):
-            p = condo["gerente"].get("profiles")
-            if isinstance(p, dict):
-                condo["gerente_name"] = p.get("full_name", "—")
-            elif isinstance(p, list) and p:
-                condo["gerente_name"] = p[0].get("full_name", "—")
-    except Exception as e:
-        print(f"Erro ao carregar condo: {e}")
-        condo = None
-
-    if not condo:
-        set_flash(request, "Condomínio não encontrado.", "error")
-        return RedirectResponse("/dashboard", 303)
-
-    processo = None
-    try:
-        processo = db.table("processos").select("*").eq("condominio_id", condo_id).eq("year", year).eq("semester", sem).single().execute().data
-    except Exception:
-        pass
-
-    cobrancas = []
-    if processo:
-        try:
-            cobrancas = db.table("cobrancas_extras").select("*").eq("processo_id", processo["id"]).order("created_at").execute().data or []
-        except Exception:
-            pass
-
-    can_edit = processo and processo.get("status") in ("Em edição", "Solicitar alteração")
-    return tpl(request, "cobrancas_extras.html", condo=condo, processo=processo,
-               cobrancas=cobrancas, can_edit=can_edit, page="cobrancas")
-
-@app.post("/condominio/{condo_id}/cobrancas-extras/adicionar")
-def adicionar_cobranca(request: Request, condo_id: str,
-                       descricao: str = Form(...), valor: str = Form(...)):
-    user = cur_user(request)
-    if not user:
-        return RedirectResponse("/", 303)
-    db = get_db()
-    year, sem = current_semester()
-    try:
-        proc = db.table("processos").select("id,status").eq("condominio_id", condo_id).eq("year", year).eq("semester", sem).single().execute().data
-        if proc["status"] not in ("Em edição", "Solicitar alteração"):
-            set_flash(request, "Processo bloqueado.", "error")
-        else:
-            val = float(valor.replace(".", "").replace(",", "."))
-            db.table("cobrancas_extras").insert({"processo_id": proc["id"], "description": descricao, "amount": val}).execute()
-            set_flash(request, "Cobrança adicionada!")
-    except Exception as e:
-        set_flash(request, f"Erro: {str(e)}", "error")
-    return RedirectResponse(f"/condominio/{condo_id}/cobrancas-extras", 303)
-
-@app.post("/cobranca-extra/{cobranca_id}/remover")
-def remover_cobranca(request: Request, cobranca_id: str, condo_id: str = Form(...)):
-    user = cur_user(request)
-    if not user:
-        return RedirectResponse("/", 303)
-    try:
-        db = get_db()
-        db.table("cobrancas_extras").delete().eq("id", cobranca_id).execute()
-        set_flash(request, "Cobrança removida!")
-    except Exception as e:
-        set_flash(request, f"Erro: {str(e)}", "error")
-    return RedirectResponse(f"/condominio/{condo_id}/cobrancas-extras", 303)
-
 # ═══ APROVAÇÕES ═══════════════════════════════════════════════════════
 @app.get("/aprovacoes")
 def aprovacoes_page(request: Request):
@@ -954,6 +877,6 @@ def remover_arquivo(request: Request, condo_id: str, filename: str):
 
 # ═══ RUN ══════════════════════════════════════════════════════════════
 if __name__ == "__main__":
-    import uvicorn  # type: ignore
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    import uvicorn
+    uvicorn.run("index:app", host="0.0.0.0", port=8000, reload=True)
 # end of file

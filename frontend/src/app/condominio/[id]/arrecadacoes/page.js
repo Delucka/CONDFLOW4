@@ -255,14 +255,16 @@ export default function ArrecadacoesPage() {
     }
   };
 
-  const handleSend = async (level) => {
+  const handleSend = async () => {
       if (!processo) {
           addToast('Status de processo não iniciado para este semestre', 'warning');
           return;
       }
       
       let initialStatus = 'Aguardando Gerente';
-      if (level === 1) initialStatus = 'Aguardando Supervisor';
+      if (condo?.fluxo === 2) {
+          initialStatus = 'Aguardando Supervisora';
+      }
 
       const { error } = await supabase.from('processos').update({ 
         status: initialStatus
@@ -271,7 +273,7 @@ export default function ArrecadacoesPage() {
       if (!error) {
           setProcesso({ ...processo, status: initialStatus });
           setShowConfirmSend(false);
-          addToast(`Conferência enviada para aprovação (Nível ${level})!`, 'success');
+          addToast(`Conferência enviada para aprovação!`, 'success');
       } else {
           addToast('Erro ao enviar para aprovação: ' + error.message, 'error');
       }
@@ -861,35 +863,27 @@ export default function ArrecadacoesPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                      {/* Nível 1 */}
-                      <button 
-                        onClick={() => handleSend(1)}
-                        className="p-5 bg-white/5 border border-white/10 rounded-2xl text-left hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all group"
-                      >
-                          <div className="text-[10px] font-black text-slate-500 group-hover:text-cyan-400 uppercase tracking-widest mb-2">Nível 01</div>
-                          <div className="text-sm font-black text-white mb-2 uppercase">Simplificado</div>
-                          <p className="text-[10px] text-slate-500 leading-relaxed font-bold">Direto para Supervisor. (Sem consumo de água/gás).</p>
-                      </button>
+                  <div className="flex flex-col gap-4 mb-8">
+                      <div className="p-6 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl">
+                          <h4 className="text-sm font-black text-white uppercase tracking-widest mb-2">
+                              {condo?.fluxo === 1 && "Nível 1 - Fração"}
+                              {condo?.fluxo === 2 && "Nível 2 - Sem Consumos"}
+                              {condo?.fluxo === 3 && "Nível 3 - Terceirizadas"}
+                              {!condo?.fluxo && "Nível Padrão"}
+                          </h4>
+                          <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                              {condo?.fluxo === 1 && "Aprovação passará por: Gerente ➔ Supervisora da Contabilidade."}
+                              {condo?.fluxo === 2 && "Aprovação passará por: Supervisora Direto."}
+                              {condo?.fluxo === 3 && "Aprovação passará por: Gerente ➔ Supervisor dos Gerentes ➔ Supervisora da Contabilidade."}
+                              {!condo?.fluxo && "Este condomínio seguirá a esteira de aprovação padrão configurada."}
+                          </p>
+                      </div>
 
-                      {/* Nível 2 */}
                       <button 
-                        onClick={() => handleSend(2)}
-                        className="p-5 bg-white/5 border border-white/10 rounded-2xl text-left hover:border-violet-500/50 hover:bg-violet-500/5 transition-all group"
+                        onClick={() => handleSend()}
+                        className="w-full py-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.2)] active:scale-95"
                       >
-                          <div className="text-[10px] font-black text-slate-500 group-hover:text-violet-400 uppercase tracking-widest mb-2">Nível 02</div>
-                          <div className="text-sm font-black text-white mb-2 uppercase">Padrão</div>
-                          <p className="text-[10px] text-slate-500 leading-relaxed font-bold">Gerência &gt; Supervisor. Fluxo normal de arrecadação.</p>
-                      </button>
-
-                      {/* Nível 3 */}
-                      <button 
-                        onClick={() => handleSend(3)}
-                        className="p-5 bg-white/5 border border-white/10 rounded-2xl text-left hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all group"
-                      >
-                          <div className="text-[10px] font-black text-slate-500 group-hover:text-emerald-400 uppercase tracking-widest mb-2">Nível 03</div>
-                          <div className="text-sm font-black text-white mb-2 uppercase">Complexo</div>
-                          <p className="text-[10px] text-slate-500 leading-relaxed font-bold">Gerência &gt; Chefe &gt; Supervisor. Máximo rigor.</p>
+                          Confirmar Envio
                       </button>
                   </div>
 

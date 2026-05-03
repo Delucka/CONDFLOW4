@@ -10,8 +10,13 @@ router = APIRouter()
 SB_URL = os.getenv("SUPABASE_URL", "")
 SB_SERVICE = os.getenv("SUPABASE_SERVICE_KEY", "")
 
+_db_client = None
+
 def get_db() -> Client:
-    return create_client(SB_URL, SB_SERVICE)
+    global _db_client
+    if _db_client is None:
+        _db_client = create_client(SB_URL, SB_SERVICE)
+    return _db_client
 
 # ═══ Dependency: Authentication via JWT ══════════════════════════════
 def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
@@ -125,6 +130,7 @@ class CondoData(BaseModel):
     due_day: str
     gerente_id: str
     assistente: str
+    fluxo: int = 1
 
 @router.post("/condominios/salvar")
 def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
@@ -132,7 +138,7 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
         if user["role"] != "master":
             raise HTTPException(403, "Apenas master")
         
-        payload = {"name": data.name, "due_day": data.due_day, "gerente_id": data.gerente_id, "assistente": data.assistente}
+        payload = {"name": data.name, "due_day": data.due_day, "gerente_id": data.gerente_id, "assistente": data.assistente, "fluxo": data.fluxo}
         
         if data.id:
             db.table("condominios").update(payload).eq("id", data.id).execute()
@@ -187,8 +193,43 @@ def api_carteiras(user: dict = Depends(get_current_user), db: Client = Depends(g
 @router.get("/aprovacoes")
 def api_aprovacoes(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:
-        # pending approval
-        pendentes_res = db.table("processos").select("id, year, semester, status, condominios(name)").in_('status', ['Enviado', 'Em aprovação']).execute().data
+        role = user.get('role')
+        
+        query = db.table("processos").select("id, year, semester, status, condominio_id, emitido_por, condominios(name)")
+        
+        if role in ROLES_APROVADORES or role == 'supervisor_gerentes':
+            status_target = []
+            if role == 'master':
+                pass
+            elif role == 'gerente':
+                status_target = ['Aguardando Gerente']
+            elif role == 'supervisora':
+                status_target = ['Aguardando Supervisora']
+            elif role == 'supervisora_contabilidade':
+                status_target = ['Aguardando Sp. Contabilidade']
+            elif role == 'supervisor_gerentes':
+                status_target = ['Aguardando Sup. Gerentes']
+                
+            if status_target:
+                query = query.in_("status", status_target)
+            else:
+                query = query.like("status", "Aguardando%")
+
+            # Gerente vê só dos condomínios dele
+            if role == 'gerente':
+                g_id = get_gerente_id(db, user['id'])
+                if g_id:
+                    condos_res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
+                    condo_ids = [c['id'] for c in (condos_res.data or [])]
+                    if condo_ids:
+                        query = query.in_("condominio_id", condo_ids)
+                    else:
+                        query = query.in_("condominio_id", ["00000000-0000-0000-0000-000000000000"]) # Retorna nada
+        elif role in ['emissor', 'assistente', 'departamento']:
+            query = query.eq("status", "Solicitar alteração")
+            
+        pendentes_res = query.execute().data
+        
         # historico
         hist_res = db.table("aprovacoes").select("id, action, comment, created_at, profiles(full_name), processos(year, semester, condominios(name))").order('created_at', desc=True).limit(20).execute().data
         
@@ -727,12 +768,42 @@ def api_processo_acao_v2(
         historico_action = ""
 
         if data.action == 'approve':
-            if current_status == 'Enviado':
-                update_payload['status'] = 'Em aprovação'
-            elif current_status == 'Em aprovação':
-                update_payload['status'] = 'Aprovado'
+            # Busca o nível de aprovação do condomínio associado
+            condo_res = db.table("condominios").select("fluxo").eq("id", proc.get("condominio_id")).single().execute()
+            fluxo = 1
+            if condo_res.data and condo_res.data.get("fluxo"):
+                fluxo = int(condo_res.data["fluxo"])
+
+            # Máquina de estados baseada no nível do condomínio
+            if fluxo == 1:
+                # Nível 1 - Fração: Gerente -> Sp. Contabilidade
+                if current_status == 'Aguardando Gerente':
+                    update_payload['status'] = 'Aguardando Sp. Contabilidade'
+                elif current_status == 'Aguardando Sp. Contabilidade':
+                    update_payload['status'] = 'Aprovado'
+                else:
+                    update_payload['status'] = 'Aprovado'
+
+            elif fluxo == 2:
+                # Nível 2 - Sem consumos: Supervisora -> Aprovado
+                if current_status == 'Aguardando Supervisora':
+                    update_payload['status'] = 'Aprovado'
+                else:
+                    update_payload['status'] = 'Aprovado'
+
+            elif fluxo == 3:
+                # Nível 3 - Com empresas terceirizadas: Gerente -> Sup. Gerentes -> Sp. Contabilidade
+                if current_status == 'Aguardando Gerente':
+                    update_payload['status'] = 'Aguardando Sup. Gerentes'
+                elif current_status == 'Aguardando Sup. Gerentes':
+                    update_payload['status'] = 'Aguardando Sp. Contabilidade'
+                elif current_status == 'Aguardando Sp. Contabilidade':
+                    update_payload['status'] = 'Aprovado'
+                else:
+                    update_payload['status'] = 'Aprovado'
             else:
                 update_payload['status'] = 'Aprovado'
+
             historico_action = 'Aprovado'
 
             # Assinatura digital
@@ -796,9 +867,25 @@ def api_pendentes(user: dict = Depends(get_current_user), db: Client = Depends(g
             "id, status, issue_notes, condominio_id, emitido_por, condominios(name)"
         )
 
-        if role in ROLES_APROVADORES:
-            # Quem aprova vê os aguardando sua ação
-            query = query.in_("status", ["Enviado", "Em aprovação"])
+        if role in ROLES_APROVADORES or role == 'supervisor_gerentes':
+            # Determinar qual status este usuário aprova
+            status_target = []
+            if role == 'master':
+                # Master vê tudo que está aguardando
+                pass
+            elif role == 'gerente':
+                status_target = ['Aguardando Gerente']
+            elif role == 'supervisora':
+                status_target = ['Aguardando Supervisora']
+            elif role == 'supervisora_contabilidade':
+                status_target = ['Aguardando Sp. Contabilidade']
+            elif role == 'supervisor_gerentes':
+                status_target = ['Aguardando Sup. Gerentes']
+                
+            if status_target:
+                query = query.in_("status", status_target)
+            else:
+                query = query.like("status", "Aguardando%")
 
             # Gerente vê só dos condomínios dele
             if role == 'gerente':
@@ -810,9 +897,9 @@ def api_pendentes(user: dict = Depends(get_current_user), db: Client = Depends(g
                         query = query.in_("condominio_id", condo_ids)
                     else:
                         return {"pendentes": []}
-        elif role in ['emissor', 'assistente']:
-            # Emissor/assistente vê os que voltaram pra correção (emitidos por ele)
-            query = query.eq("emitido_por", user['id']).eq("status", "Solicitar alteração")
+        elif role in ['emissor', 'assistente', 'departamento']:
+            # Emissor/assistente vê os que voltaram pra correção (emitidos por ele ou com status Solicitar alteração)
+            query = query.eq("status", "Solicitar alteração")
         else:
             return {"pendentes": []}
 
