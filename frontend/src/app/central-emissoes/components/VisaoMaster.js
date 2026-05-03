@@ -316,7 +316,7 @@ export default function VisaoMaster() {
         <div className="divide-y divide-white/5">
           {pacotes.map(pacote => {
             const numArq = pacote.arquivos?.length || 0;
-            const needsAction = ['aguardando supervisor', 'aguardando gerente', 'aguardando chefe', 'pendente', 'rascunho', 'solicitar_correcao'].includes((pacote.status || '').toLowerCase());
+            const needsAction = ['aguardando supervisor', 'aguardando gerente', 'aguardando chefe', 'pendente', 'rascunho', 'solicitar_correcao', 'aprovado'].includes((pacote.status || '').toLowerCase());
 
             return (
               <div key={pacote.id} className="hover:bg-white/[0.02] transition-colors">
