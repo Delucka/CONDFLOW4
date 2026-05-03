@@ -18,6 +18,7 @@ export default function CondominiosPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({ id: '', name: '', due_day: '', gerente_id: '', assistente: '', fluxo: 1 });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
+  const [selectedGerente, setSelectedGerente] = useState(null);
   const supabase = createClient();
 
   // SWR para Dados de Condomínios e Gerentes
@@ -130,6 +131,23 @@ export default function CondominiosPage() {
         )}
       </div>
 
+      {/* Breadcrumb / Back Button */}
+      {selectedGerente && !search && (
+        <div className="flex items-center gap-4 animate-fade-in">
+          <button 
+            onClick={() => setSelectedGerente(null)}
+            className="flex items-center gap-2 text-xs font-black text-slate-500 hover:text-cyan-400 uppercase tracking-widest transition-colors group"
+          >
+            <X className="w-4 h-4 p-0.5 border border-slate-700 rounded group-hover:border-cyan-500/50" />
+            Voltar para Gerentes
+          </button>
+          <div className="h-4 w-px bg-white/10"></div>
+          <span className="text-xs font-black text-cyan-400 uppercase tracking-[0.2em]">
+            Carteira: {selectedGerente}
+          </span>
+        </div>
+      )}
+
       {/* Grid de Condomínios */}
       {loadingCondos ? (
         <div className="p-24 text-center">
@@ -150,24 +168,46 @@ export default function CondominiosPage() {
                 return acc;
               }, {});
 
-              return Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([gName, condos]) => (
-                <div key={gName} className="space-y-6">
-                  <div className="flex items-center gap-4 ml-4">
-                    <div className="h-px flex-1 bg-white/5"></div>
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-3">
-                      <User className="w-4 h-4 text-violet-500" />
-                      Carteira: {gName} ({condos.length})
-                    </h3>
-                    <div className="h-px flex-1 bg-white/5"></div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {condos.map(c => (
-                      <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} />
+              if (!selectedGerente) {
+                // Mostrar lista de Gerentes
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                    {Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([gName, condos]) => (
+                      <button 
+                        key={gName}
+                        onClick={() => setSelectedGerente(gName)}
+                        className="glass-panel p-8 rounded-[2.5rem] border-white/5 hover:border-cyan-500/30 transition-all group text-left flex flex-col gap-6 shadow-xl hover:-translate-y-1"
+                      >
+                        <div className="w-16 h-16 bg-slate-950 rounded-3xl flex items-center justify-center border border-white/5 group-hover:scale-110 transition-transform shadow-inner">
+                           <User className="w-7 h-7 text-violet-400 group-hover:text-cyan-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-black text-white uppercase tracking-wider mb-2 leading-tight group-hover:text-cyan-400 transition-colors">
+                            {gName}
+                          </h3>
+                          <div className="flex items-center gap-2 text-slate-500">
+                             <Building className="w-3 h-3" />
+                             <span className="text-[10px] font-bold uppercase tracking-widest">{condos.length} Condomínios</span>
+                          </div>
+                        </div>
+                        <div className="mt-auto pt-4 flex items-center gap-2 text-cyan-500/50 group-hover:text-cyan-400 text-[10px] font-black uppercase tracking-widest transition-colors">
+                          Acessar Carteira <PlusCircle className="w-3 h-3" />
+                        </div>
+                      </button>
                     ))}
                   </div>
+                );
+              }
+
+              // Mostrar condomínios do gerente selecionado
+              const condos = groups[selectedGerente] || [];
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {condos.map(c => (
+                    <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} />
+                  ))}
                 </div>
-              ));
+              );
             }
 
             // Fallback para visualização simples (com busca ou para gerente)
