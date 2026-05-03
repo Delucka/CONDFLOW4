@@ -345,11 +345,16 @@ export default function VisaoMaster() {
                           <Send className="w-4 h-4" />
                         </button>
                       )}
-                      {((pacote.status || '').toLowerCase().includes('aprovado')) && (
-                        <button onClick={() => handleRegistrar(pacote)} className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-all" title="Registrar Emissão">
-                          <FileCheck className="w-4 h-4" />
-                        </button>
-                      )}
+                        {/* Botão de Registro Forçado para Aprovados */}
+                        {((pacote.status || '').toLowerCase().includes('aprovado')) && (
+                          <button 
+                            onClick={() => handleRegistrar(pacote)} 
+                            className="flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-lg font-bold text-[10px]"
+                          >
+                            <FileCheck className="w-4 h-4" />
+                            <span>REGISTRAR</span>
+                          </button>
+                        )}
                       {((pacote.status || '').toLowerCase() !== 'registrado' && (pacote.status || '').toLowerCase() !== 'aprovado' && (pacote.status || '').toLowerCase() !== 'rascunho') && (
                         <button onClick={() => handleAprovar(pacote)} className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-all" title="Aprovação">
                           <CheckCircle className="w-4 h-4" />
