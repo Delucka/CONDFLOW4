@@ -34,7 +34,7 @@ export default function VisaoGerente({ profile }) {
     setLoading(true);
     const { data } = await supabase
       .from('emissoes_pacotes')
-      .select('*, condominios(name, fluxo)')
+      .select('*, condominios(name)')
       .order('criado_em', { ascending: false });
     
     if (data) {
@@ -72,7 +72,7 @@ export default function VisaoGerente({ profile }) {
       3: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' }
     };
 
-    const fluxoId = pacote.condominios?.fluxo || 1;
+    const fluxoId = Number(pacote.nivel_aprovacao) || 1;
     const currentStatus = pacote.status;
     let nextStatus = 'aprovado';
 

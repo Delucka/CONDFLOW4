@@ -47,7 +47,7 @@ export default function VisaoMaster() {
       // Removendo o join de profiles temporariamente para garantir que a lista volte a aparecer
       const { data, error } = await supabase
         .from('emissoes_pacotes')
-        .select('*, condominios(name, fluxo)')
+        .select('*, condominios(name)')
         .order('criado_em', { ascending: false });
       
       if (error) {
@@ -93,7 +93,7 @@ export default function VisaoMaster() {
       3: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' }
     };
 
-    const fluxoId = pacote.condominios?.fluxo || 1;
+    const fluxoId = Number(pacote.nivel_aprovacao) || 1;
     const currentStatus = pacote.status;
     let nextStatus = 'aprovado';
 

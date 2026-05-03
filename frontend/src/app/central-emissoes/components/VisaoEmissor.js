@@ -217,13 +217,11 @@ export default function VisaoEmissor({ profile }) {
       initialStatus = 'Aguardando Supervisor';
     }
 
-    // Salvar o fluxo escolhido no condomínio
-    await supabase.from('condominios').update({ fluxo: nivelAprovacao }).eq('id', activePacote.condominio_id);
-
     const { error } = await supabase
       .from('emissoes_pacotes')
       .update({ 
         status: initialStatus, 
+        nivel_aprovacao: String(nivelAprovacao),
         atualizado_em: new Date().toISOString() 
       })
       .eq('id', activePacote.id);

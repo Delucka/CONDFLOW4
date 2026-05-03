@@ -837,9 +837,8 @@ def api_processo_acao_v2(
         historico_action = ""
 
         if data.action == 'approve':
-            # Busca o fluxo do condomínio
-            condo_res = db.table("condominios").select("fluxo").eq("id", proc.get("condominio_id")).single().execute()
-            fluxo = int(condo_res.data.get("fluxo", 1)) if condo_res.data else 1
+            # Busca o fluxo diretamente no processo
+            fluxo = int(proc.get("fluxo", 1))
 
             # Lógica de Próximo Status baseada no Fluxo
             if fluxo == 1:
