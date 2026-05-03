@@ -279,7 +279,7 @@ function ModalCarteira({ usuario, onClose, onUpdated }) {
 }
 
 // ─── Card Usuário ──────────────────────────────────────────────────────
-function UserCard({ u, currentUserId, onSync, onCarteira }) {
+function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted }) {
   const isMaster = u.role === 'master';
   const isGerente = u.role === 'gerente';
   const style = roleStyle[u.role] || roleStyle.gerente;
@@ -308,7 +308,7 @@ function UserCard({ u, currentUserId, onSync, onCarteira }) {
             <button onClick={() => onSync(u)} title="Resetar senha" className="text-slate-600 hover:text-cyan-400">
               <RefreshCw className="w-4 h-4" />
             </button>
-            <button title="Desativar (em breve)" className="text-slate-600 hover:text-red-400">
+            <button onClick={() => onDeleted(u)} title="Excluir usuário" className="text-slate-600 hover:text-red-400">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -393,6 +393,19 @@ export default function UsuariosPage() {
     }
   }
 
+  async function handleDelete(u) {
+    if (!confirm(`Tem certeza que deseja EXCLUIR permanentemente o usuário ${u.full_name}?\nEsta ação não pode ser desfeita.`)) return;
+    
+    try {
+      addToast('Excluindo usuário...', 'info');
+      await apiFetch(`/api/usuarios/${u.id}`, { method: 'DELETE' });
+      addToast('Usuário excluído com sucesso!', 'success');
+      carregar();
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  }
+
   if (user?.role !== 'master' && !loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -434,7 +447,7 @@ export default function UsuariosPage() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {gerentes.map(u => (
-                  <UserCard key={u.id} u={u} currentUserId={user?.id} onSync={handleSync} onCarteira={setModalCarteira} />
+                  <UserCard key={u.id} u={u} currentUserId={user?.id} onSync={handleSync} onCarteira={setModalCarteira} onDeleted={handleDelete} />
                 ))}
               </div>
             </div>
@@ -447,7 +460,7 @@ export default function UsuariosPage() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {outros.map(u => (
-                  <UserCard key={u.id} u={u} currentUserId={user?.id} onSync={handleSync} onCarteira={setModalCarteira} />
+                  <UserCard key={u.id} u={u} currentUserId={user?.id} onSync={handleSync} onCarteira={setModalCarteira} onDeleted={handleDelete} />
                 ))}
               </div>
             </div>

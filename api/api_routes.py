@@ -526,6 +526,27 @@ def api_sync_usuario(data: SyncUserSchema, user: dict = Depends(get_current_user
     except Exception as e:
         raise HTTPException(400, str(e))
 
+@router.delete("/usuarios/{profile_id}")
+def api_deletar_usuario(profile_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Deleta um usuário do Auth e do Profile (cascade)"""
+    if user["role"] != "master":
+        raise HTTPException(403, "Apenas administradores podem excluir usuários")
+    
+    if not SB_SERVICE:
+        raise HTTPException(500, "Service Key não configurada")
+
+    try:
+        # 1. Deletar no Auth (isso vai disparar o ON DELETE CASCADE no profile e gerente)
+        db.auth.admin.delete_user(profile_id)
+        
+        # 2. Por segurança, garantir que o profile foi removido (caso o cascade falhe ou demore)
+        db.table("profiles").delete().eq("id", profile_id).execute()
+
+        return {"success": True}
+    except Exception as e:
+        print(f"Erro ao deletar usuário: {e}")
+        raise HTTPException(400, str(e))
+
 
 # ═══ GERENCIAMENTO DE CARTEIRAS ═══════════════════════════════════════
 
