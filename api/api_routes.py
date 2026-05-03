@@ -837,57 +837,52 @@ def api_processo_acao_v2(
         historico_action = ""
 
         if data.action == 'approve':
-            # Busca o nível de aprovação do condomínio associado
+            # Busca o fluxo do condomínio
             condo_res = db.table("condominios").select("fluxo").eq("id", proc.get("condominio_id")).single().execute()
-            fluxo = 1
-            if condo_res.data and condo_res.data.get("fluxo"):
-                fluxo = int(condo_res.data["fluxo"])
+            fluxo = int(condo_res.data.get("fluxo", 1)) if condo_res.data else 1
 
-            # Máquina de estados baseada no nível do condomínio
+            # Lógica de Próximo Status baseada no Fluxo
             if fluxo == 1:
-                # Nível 1 - Fração: Gerente -> Sp. Contabilidade
-                if current_status == 'Aguardando Gerente':
-                    update_payload['status'] = 'Aguardando Sp. Contabilidade'
-                elif current_status == 'Aguardando Sp. Contabilidade':
-                    update_payload['status'] = 'Aprovado'
+                # Nível 1: Gerente -> Supervisora Contabilidade -> Aprovado
+                if current_status == 'Aguardando Gerente' or current_status == 'pendente':
+                    update_payload['status'] = 'Aguardando Supervisor'
                 else:
-                    update_payload['status'] = 'Aprovado'
+                    update_payload['status'] = 'aprovado'
 
             elif fluxo == 2:
-                # Nível 2 - Sem consumos: Supervisora -> Aprovado
-                if current_status == 'Aguardando Supervisora':
-                    update_payload['status'] = 'Aprovado'
-                else:
-                    update_payload['status'] = 'Aprovado'
+                # Nível 2: Direto para Supervisora Contabilidade -> Aprovado
+                update_payload['status'] = 'aprovado'
 
             elif fluxo == 3:
-                # Nível 3 - Com empresas terceirizadas: Gerente -> Sup. Gerentes -> Sp. Contabilidade
-                if current_status == 'Aguardando Gerente':
-                    update_payload['status'] = 'Aguardando Sup. Gerentes'
-                elif current_status == 'Aguardando Sup. Gerentes':
-                    update_payload['status'] = 'Aguardando Sp. Contabilidade'
-                elif current_status == 'Aguardando Sp. Contabilidade':
-                    update_payload['status'] = 'Aprovado'
+                # Nível 3: Gerente -> Sup. Gerentes -> Sp. Contabilidade -> Aprovado
+                if current_status == 'Aguardando Gerente' or current_status == 'pendente':
+                    update_payload['status'] = 'Aguardando Chefe'
+                elif current_status == 'Aguardando Chefe':
+                    update_payload['status'] = 'Aguardando Supervisor'
                 else:
-                    update_payload['status'] = 'Aprovado'
+                    update_payload['status'] = 'aprovado'
             else:
-                update_payload['status'] = 'Aprovado'
+                update_payload['status'] = 'aprovado'
 
             historico_action = 'Aprovado'
 
             # Assinatura digital
             if data.sign:
-                content_hash = hashlib.sha256(
-                    f"{processo_id}:{user['id']}:{datetime.utcnow().isoformat()}".encode()
-                ).hexdigest()
-                db.table("assinaturas").insert({
-                    "processo_id": processo_id,
-                    "signer_id": user['id'],
-                    "signer_name": user.get('full_name') or user.get('email', 'Usuário'),
-                    "signer_role": user.get('role'),
-                    "signature_hash": content_hash,
-                    "metadata": {"action": "approve"}
-                }).execute()
+                try:
+                    import hashlib
+                    content_hash = hashlib.sha256(
+                        f"{processo_id}:{user['id']}:{datetime.utcnow().isoformat()}".encode()
+                    ).hexdigest()
+                    db.table("assinaturas").insert({
+                        "processo_id": processo_id,
+                        "signer_id": user['id'],
+                        "signer_name": user.get('full_name') or user.get('email', 'Usuário'),
+                        "signer_role": user.get('role'),
+                        "signature_hash": content_hash,
+                        "metadata": {"action": "approve", "step": current_status}
+                    }).execute()
+                except Exception as sign_err:
+                    print(f"Erro ao assinar: {sign_err}")
 
         elif data.action == 'reject':
             if not data.comment or not data.comment.strip():

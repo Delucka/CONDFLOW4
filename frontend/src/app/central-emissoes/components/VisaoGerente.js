@@ -34,7 +34,7 @@ export default function VisaoGerente({ profile }) {
     setLoading(true);
     const { data } = await supabase
       .from('emissoes_pacotes')
-      .select('*, condominios(name), profiles:uploaded_by(full_name)')
+      .select('*, condominios(name, fluxo), profiles:uploaded_by(full_name)')
       .order('criado_em', { ascending: false });
     
     if (data) {
@@ -65,16 +65,30 @@ export default function VisaoGerente({ profile }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleAprovar(pacoteId) {
+  async function handleAprovar(pacote) {
+    const fluxos = {
+      1: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
+      2: { 'default': 'aprovado' },
+      3: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' }
+    };
+
+    const fluxoId = pacote.condominios?.fluxo || 1;
+    const currentStatus = pacote.status;
+    let nextStatus = 'aprovado';
+
+    if (fluxos[fluxoId]) {
+      nextStatus = fluxos[fluxoId][currentStatus] || fluxos[fluxoId]['default'] || 'aprovado';
+    }
+
     const { error } = await supabase
       .from('emissoes_pacotes')
-      .update({ status: 'Aguardando Supervisor', atualizado_em: new Date().toISOString() })
-      .eq('id', pacoteId);
+      .update({ status: nextStatus, atualizado_em: new Date().toISOString() })
+      .eq('id', pacote.id);
 
     if (error) {
       addToast('Não foi possível aprovar', 'error');
     } else {
-      addToast('Pacote aprovado e enviado para Supervisor!', 'success');
+      addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Aprovado e enviado para: ${nextStatus}`, 'success');
       setIsDrawerOpen(false);
       fetchPacotes();
     }
@@ -211,7 +225,7 @@ export default function VisaoGerente({ profile }) {
                           <XCircle className="w-5 h-5"/>
                         </button>
                         <button 
-                          onClick={() => handleAprovar(pacote.id)}
+                          onClick={() => handleAprovar(pacote)}
                           className="w-10 h-10 rounded-xl bg-violet-600 shadow-[0_0_15px_rgba(139,92,246,0.3)] text-white hover:bg-violet-500 flex items-center justify-center transition-all"
                           title="Aprovar Pacote"
                         >

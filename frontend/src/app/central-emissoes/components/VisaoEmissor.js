@@ -214,15 +214,18 @@ export default function VisaoEmissor({ profile }) {
   async function confirmarConclusao() {
     let initialStatus = 'Aguardando Gerente';
     if (nivelAprovacao === 2) {
-      initialStatus = 'Aguardando Supervisora';
+      initialStatus = 'Aguardando Supervisor';
     }
 
-    // Salvar o fluxo escolhido no condomínio para que o backend saiba a rota correta
+    // Salvar o fluxo escolhido no condomínio
     await supabase.from('condominios').update({ fluxo: nivelAprovacao }).eq('id', activePacote.condominio_id);
 
     const { error } = await supabase
       .from('emissoes_pacotes')
-      .update({ status: initialStatus, nivel_aprovacao: initialStatus, atualizado_em: new Date().toISOString() })
+      .update({ 
+        status: initialStatus, 
+        atualizado_em: new Date().toISOString() 
+      })
       .eq('id', activePacote.id);
 
     if (error) {

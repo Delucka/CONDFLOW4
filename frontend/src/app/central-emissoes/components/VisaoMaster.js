@@ -45,7 +45,7 @@ export default function VisaoMaster() {
     try {
       const { data, error } = await supabase
         .from('emissoes_pacotes')
-        .select('*, condominios(name), profiles:uploaded_by(full_name)')
+        .select('*, condominios(name, fluxo), profiles:uploaded_by(full_name)')
         .order('criado_em', { ascending: false });
       
       if (error) console.error("fetchPacotes erro:", error);
@@ -81,16 +81,30 @@ export default function VisaoMaster() {
     }
   }
 
-  async function handleAprovar(id) {
+  async function handleAprovar(pacote) {
+    const fluxos = {
+      1: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
+      2: { 'default': 'aprovado' },
+      3: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' }
+    };
+
+    const fluxoId = pacote.condominios?.fluxo || 1;
+    const currentStatus = pacote.status;
+    let nextStatus = 'aprovado';
+
+    if (fluxos[fluxoId]) {
+      nextStatus = fluxos[fluxoId][currentStatus] || fluxos[fluxoId]['default'] || 'aprovado';
+    }
+
     const { error } = await supabase
       .from('emissoes_pacotes')
-      .update({ status: 'aprovado', atualizado_em: new Date().toISOString() })
-      .eq('id', id);
+      .update({ status: nextStatus, atualizado_em: new Date().toISOString() })
+      .eq('id', pacote.id);
 
     if (error) {
-      addToast('Erro na aprovação final', 'error');
+      addToast('Erro ao processar aprovação', 'error');
     } else {
-      addToast('Pacote Aprovado e Finalizado!', 'success');
+      addToast(nextStatus === 'aprovado' ? 'Pacote Finalizado!' : `Enviado para: ${nextStatus}`, 'success');
       setIsDrawerOpen(false);
       fetchPacotes();
     }
@@ -235,7 +249,7 @@ export default function VisaoMaster() {
                         <button onClick={() => handleRejeitar(pacote)} className="p-2 rounded-lg bg-white/5 text-rose-400 hover:bg-rose-500/20 transition-all" title="Solicitar Correção">
                           <XCircle className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleAprovar(pacote.id)} className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-all" title="Aprovação Final">
+                        <button onClick={() => handleAprovar(pacote)} className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-all" title="Aprovação">
                           <CheckCircle className="w-4 h-4" />
                         </button>
                       </div>
