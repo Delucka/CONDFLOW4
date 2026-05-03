@@ -110,8 +110,8 @@ def api_dashboard(gerente_id: Optional[str] = None, user: dict = Depends(get_cur
 @router.get("/condominios")
 def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:
-        # Join para pegar o nome do gerente via profiles
-        query = db.table("condominios").select("*, gerentes(profiles(full_name))").order("name")
+        # Puxa os condomínios (sem join complexo para evitar travamentos)
+        query = db.table("condominios").select("*").order("name")
         
         if user["role"] == "gerente":
             g_id = get_gerente_id(db, user["id"])
@@ -120,18 +120,27 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
             else:
                 query = query.eq("gerente_id", "00000000-0000-0000-0000-000000000000")
                 
-        res = query.execute().data
+        condos = query.execute().data or []
         
-        # Flatten the gerente name for easier consumption
-        for c in res:
-            g = c.get("gerentes")
-            if g and g.get("profiles"):
-                c["gerente_name"] = g["profiles"].get("full_name")
-            else:
+        # Mapeamento de nomes de gerentes de forma estável
+        try:
+            # Puxa todos os gerentes e profiles para o De-para (leitura rápida)
+            gerentes_res = db.table("gerentes").select("id, profile_id").execute().data or []
+            profiles_res = db.table("profiles").select("id, full_name").execute().data or []
+            
+            p_map = {p["id"]: p["full_name"] for p in profiles_res}
+            g_map = {g["id"]: p_map.get(g["profile_id"], "Gerente desconhecido") for g in gerentes_res}
+            
+            for c in condos:
+                c["gerente_name"] = g_map.get(c.get("gerente_id"), "Gerente não definido")
+        except Exception as inner_e:
+            print(f"Erro ao mapear gerentes: {inner_e}")
+            for c in condos:
                 c["gerente_name"] = "Gerente não definido"
                 
-        return {"condos": res}
+        return {"condos": condos}
     except Exception as e:
+        print(f"Erro crítico /condominios: {e}")
         raise HTTPException(500, str(e))
 
 class CondoData(BaseModel):
