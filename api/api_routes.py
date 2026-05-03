@@ -110,7 +110,8 @@ def api_dashboard(gerente_id: Optional[str] = None, user: dict = Depends(get_cur
 @router.get("/condominios")
 def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:
-        query = db.table("condominios").select("*").order("name")
+        # Join para pegar o nome do gerente via profiles
+        query = db.table("condominios").select("*, gerentes(profiles(full_name))").order("name")
         
         if user["role"] == "gerente":
             g_id = get_gerente_id(db, user["id"])
@@ -119,8 +120,17 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
             else:
                 query = query.eq("gerente_id", "00000000-0000-0000-0000-000000000000")
                 
-        condos = query.execute().data
-        return {"condos": condos}
+        res = query.execute().data
+        
+        # Flatten the gerente name for easier consumption
+        for c in res:
+            g = c.get("gerentes")
+            if g and g.get("profiles"):
+                c["gerente_name"] = g["profiles"].get("full_name")
+            else:
+                c["gerente_name"] = "Gerente não definido"
+                
+        return {"condos": res}
     except Exception as e:
         raise HTTPException(500, str(e))
 

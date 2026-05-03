@@ -137,48 +137,48 @@ export default function CondominiosPage() {
            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Sincronizando Base...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filtered.map(c => (
-            <div key={c.id} className="glass-panel p-6 rounded-[2rem] border-white/5 hover:border-cyan-500/30 transition-all group shadow-xl flex flex-col justify-between">
-                <div>
-                   <div className="flex items-start justify-between mb-6">
-                      <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center border border-white/5 group-hover:scale-105 transition-transform">
-                         <Building className="w-6 h-6 text-slate-500 group-hover:text-cyan-400" />
-                      </div>
-                      {canEdit && (
-                        <button onClick={() => openEdit(c)} className="p-3 bg-white/5 hover:bg-cyan-500/10 text-slate-500 hover:text-cyan-400 rounded-xl transition-all border border-transparent hover:border-cyan-500/20">
-                           <Pencil className="w-4 h-4" />
-                        </button>
-                      )}
-                   </div>
-                   
-                   <h3 className="text-xl font-black text-white uppercase tracking-tight mb-6 leading-tight group-hover:text-cyan-400 transition-colors">
-                      {c.name}
-                   </h3>
-                   
-                   <div className="space-y-3 mb-8">
-                      <div className="flex items-center gap-3 text-slate-400">
-                         <User className="w-4 h-4 text-violet-400" />
-                         <span className="text-xs font-bold">{c.gerente_name || 'Gerente não definido'}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-slate-400">
-                         <Calendar className="w-4 h-4 text-cyan-500" />
-                         <span className="text-xs font-bold">Vencimento: Dia {c.due_day || '—'}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-slate-400">
-                         <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                         <span className="text-xs font-bold">Carteira: {c.assistente || 'Padrão'}</span>
-                      </div>
-                   </div>
-                </div>
+        <div className="space-y-12">
+          {(() => {
+            const isSupervisor = ['master', 'supervisor_gerentes', 'supervisora', 'supervisora_contabilidade'].includes(user?.role);
+            
+            if (isSupervisor && !search) {
+              // Agrupar por gerente
+              const groups = filtered.reduce((acc, c) => {
+                const gName = c.gerente_name || 'Sem Gerente';
+                if (!acc[gName]) acc[gName] = [];
+                acc[gName].push(c);
+                return acc;
+              }, {});
 
-                <div className="pt-6 border-t border-white/5 flex gap-2">
-                   <button onClick={() => handleQuickView(c.id)} className="p-3 bg-violet-500/10 hover:bg-violet-500 text-violet-400 hover:text-slate-950 rounded-xl transition-all border border-violet-500/20 shadow-lg shadow-violet-500/10" title="Visualizar Emissão"><Eye className="w-4 h-4" /></button>
-                   <Link href={`/condominio/${c.id}/arrecadacoes`} className="flex-1 py-3 text-center bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white rounded-xl uppercase tracking-widest transition-all">Planilha</Link>
-                   <Link href={`/condominio/${c.id}/cobrancas`} className="flex-1 py-3 text-center bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white rounded-xl uppercase tracking-widest transition-all">Extras</Link>
+              return Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([gName, condos]) => (
+                <div key={gName} className="space-y-6">
+                  <div className="flex items-center gap-4 ml-4">
+                    <div className="h-px flex-1 bg-white/5"></div>
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-3">
+                      <User className="w-4 h-4 text-violet-500" />
+                      Carteira: {gName} ({condos.length})
+                    </h3>
+                    <div className="h-px flex-1 bg-white/5"></div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {condos.map(c => (
+                      <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} />
+                    ))}
+                  </div>
                 </div>
-            </div>
-          ))}
+              ));
+            }
+
+            // Fallback para visualização simples (com busca ou para gerente)
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filtered.map(c => (
+                  <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} />
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -259,6 +259,51 @@ export default function CondominiosPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Componente Card para evitar repetição
+function CondoCard({ c, canEdit, onEdit, onQuickView }) {
+  return (
+    <div className="glass-panel p-6 rounded-[2rem] border-white/5 hover:border-cyan-500/30 transition-all group shadow-xl flex flex-col justify-between h-full">
+        <div>
+           <div className="flex items-start justify-between mb-6">
+              <div className="w-14 h-14 bg-slate-950 rounded-2xl flex items-center justify-center border border-white/5 group-hover:scale-105 transition-transform shadow-inner">
+                 <Building className="w-6 h-6 text-slate-500 group-hover:text-cyan-400" />
+              </div>
+              {canEdit && (
+                <button onClick={() => onEdit(c)} className="p-3 bg-white/5 hover:bg-cyan-500/10 text-slate-500 hover:text-cyan-400 rounded-xl transition-all border border-transparent hover:border-cyan-500/20">
+                   <Pencil className="w-4 h-4" />
+                </button>
+              )}
+           </div>
+           
+           <h3 className="text-xl font-black text-white uppercase tracking-tight mb-6 leading-tight group-hover:text-cyan-400 transition-colors">
+              {c.name}
+           </h3>
+           
+           <div className="space-y-3 mb-8">
+              <div className="flex items-center gap-3 text-slate-400">
+                 <User className="w-4 h-4 text-violet-400" />
+                 <span className="text-xs font-bold">{c.gerente_name || 'Gerente não definido'}</span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-400">
+                 <Calendar className="w-4 h-4 text-cyan-500" />
+                 <span className="text-xs font-bold">Vencimento: Dia {c.due_day || '—'}</span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-400">
+                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                 <span className="text-xs font-bold">Carteira: {c.assistente || 'Padrão'}</span>
+              </div>
+           </div>
+        </div>
+
+        <div className="pt-6 border-t border-white/5 flex gap-2">
+           <button onClick={() => onQuickView(c.id)} className="p-3 bg-violet-500/10 hover:bg-violet-500 text-violet-400 hover:text-slate-950 rounded-xl transition-all border border-violet-500/20 shadow-lg shadow-violet-500/10" title="Visualizar Emissão"><Eye className="w-4 h-4" /></button>
+           <Link href={`/condominio/${c.id}/arrecadacoes`} className="flex-1 py-3 text-center bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white rounded-xl uppercase tracking-widest transition-all">Planilha</Link>
+           <Link href={`/condominio/${c.id}/cobrancas`} className="flex-1 py-3 text-center bg-white/5 hover:bg-white/10 text-[10px] font-black text-slate-400 hover:text-white rounded-xl uppercase tracking-widest transition-all">Extras</Link>
+        </div>
     </div>
   );
 }
