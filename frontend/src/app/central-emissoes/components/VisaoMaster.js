@@ -335,26 +335,28 @@ export default function VisaoMaster() {
                   
                   <div className="flex items-center gap-3">
                     <StatusBadge status={pacote.status} />
-                    {needsAction && (
-                      <div className="flex gap-1">
+                    <div className="flex gap-1">
+                      {((pacote.status || '').toLowerCase() !== 'registrado' && (pacote.status || '').toLowerCase() !== 'rascunho') && (
                         <button onClick={() => handleRejeitar(pacote)} className="p-2 rounded-lg bg-white/5 text-rose-400 hover:bg-rose-500/20 transition-all" title="Solicitar Correção">
                           <XCircle className="w-4 h-4" />
                         </button>
-                        {((pacote.status || '').toLowerCase() === 'rascunho' || (pacote.status || '').toLowerCase() === 'solicitar_correcao') && (
-                          <button onClick={() => handleConcluirRapido(pacote)} className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 transition-all" title="Enviar para Aprovação">
-                            <Send className="w-4 h-4" />
-                          </button>
-                        )}
-                        {(pacote.status || '').toLowerCase() === 'aprovado' && (
-                          <button onClick={() => handleRegistrar(pacote)} className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-all" title="Registrar Emissão">
-                            <FileCheck className="w-4 h-4" />
-                          </button>
-                        )}
+                      )}
+                      {((pacote.status || '').toLowerCase() === 'rascunho' || (pacote.status || '').toLowerCase() === 'solicitar_correcao') && (
+                        <button onClick={() => handleConcluirRapido(pacote)} className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 transition-all" title="Enviar para Aprovação">
+                          <Send className="w-4 h-4" />
+                        </button>
+                      )}
+                      {(pacote.status || '').toLowerCase() === 'aprovado' && (
+                        <button onClick={() => handleRegistrar(pacote)} className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-all" title="Registrar Emissão">
+                          <FileCheck className="w-4 h-4" />
+                        </button>
+                      )}
+                      {((pacote.status || '').toLowerCase() !== 'registrado' && (pacote.status || '').toLowerCase() !== 'aprovado' && (pacote.status || '').toLowerCase() !== 'rascunho') && (
                         <button onClick={() => handleAprovar(pacote)} className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-all" title="Aprovação">
                           <CheckCircle className="w-4 h-4" />
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                     <button onClick={(e) => handleDelete(e, pacote.id)} className={`p-2 rounded-lg transition-all ${confirmDeleteId === pacote.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-white/5 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10'}`} title={confirmDeleteId === pacote.id ? 'Clique para confirmar' : 'Excluir'}>
                       <Trash2 className="w-4 h-4" />
                     </button>
