@@ -180,6 +180,12 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-fade-in w-full h-full relative space-y-6 pb-20">
+      {/* Etiqueta de Versão (Prova Real) */}
+      <div className="flex items-center gap-2 px-6 py-2 bg-violet-600/20 border border-violet-500/30 rounded-full w-fit">
+        <Zap className="w-4 h-4 text-violet-400 fill-violet-400" />
+        <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Dashboard V2 — Monitoramento Ativo</span>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title="Total Condomínios" value={stats.total} icon={Building} color="cyan" loading={isLoading} />
@@ -192,7 +198,7 @@ export default function DashboardPage() {
       <div className="space-y-4">
         <div className="flex items-center gap-2 px-2">
           <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Fluxo de Emissões em Tempo Real</h4>
+          <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-400">Fluxo de Emissões (Sincronizado)</h4>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <StatsCard title="Com o Gerente" value={emissaoStats.gerente} icon={User} color="indigo" loading={loadingEmissoes} />
