@@ -5,13 +5,19 @@ import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt, AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2, FileCheck, User, Activity, Zap } from 'lucide-react';
+import { 
+  Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt, 
+  AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2, 
+  FileCheck, User, Activity, Zap 
+} from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 
 export default function DashboardPage() {
+  // MARCA DE ATUALIZAÇÃO SÊNIOR
+  console.log("Dashboard Central v3.0 carregado com sucesso.");
   const [filtroGerente, setFiltroGerente] = useState('');
   const { user } = useAuth();
   const supabase = createClient();
@@ -225,8 +231,8 @@ export default function DashboardPage() {
         {/* Tabela de Condomínios (Esquerda - 2/3) */}
         <div className="lg:col-span-2 bg-slate-900/50 backdrop-blur-md rounded-[2rem] border border-white/5 shadow-2xl overflow-hidden flex flex-col h-full">
           <div className="px-6 py-5 border-b border-white/5 flex flex-wrap items-center justify-between gap-4 bg-white/5">
-            <div>
-              <h3 className="text-lg font-black text-white leading-none">Informativo Semestral</h3>
+            <div className="border-l-4 border-violet-500 pl-4">
+              <h3 className="text-lg font-black text-white leading-none">INFORMATIVO SEMESTRAL (ATUALIZADO)</h3>
               <p className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold mt-1">
                 PERÍODO: {data?.year || '—'} / {data?.semester === 1 ? '1º' : '2º'} SEMESTRE
               </p>
