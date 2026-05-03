@@ -32,7 +32,7 @@ export default function VisaoEmissor({ profile }) {
   
   // Modal de conclusão
   const [showConcluirModal, setShowConcluirModal] = useState(false);
-  const [nivelAprovacao, setNivelAprovacao] = useState('Aguardando Gerente');
+  const [nivelAprovacao, setNivelAprovacao] = useState(1);
   const [confirmDeleteArqId, setConfirmDeleteArqId] = useState(null);
 
   // Carteiras expandidas
@@ -210,12 +210,15 @@ export default function VisaoEmissor({ profile }) {
     setShowConcluirModal(true);
   }
 
+
   async function confirmarConclusao() {
-    const condo = condominios.find(c => c.id === activePacote.condominio_id);
     let initialStatus = 'Aguardando Gerente';
-    if (condo?.fluxo === 2) {
+    if (nivelAprovacao === 2) {
       initialStatus = 'Aguardando Supervisora';
     }
+
+    // Salvar o fluxo escolhido no condomínio para que o backend saiba a rota correta
+    await supabase.from('condominios').update({ fluxo: nivelAprovacao }).eq('id', activePacote.condominio_id);
 
     const { error } = await supabase
       .from('emissoes_pacotes')
@@ -518,29 +521,60 @@ export default function VisaoEmissor({ profile }) {
             </div>
             <h3 className="text-xl font-black text-white text-center mb-2">Concluir Emissão</h3>
             <p className="text-sm text-gray-400 text-center mb-8">
-              {pacoteArquivos.length} arquivo{pacoteArquivos.length !== 1 ? 's' : ''} neste pacote. Selecione o nível de aprovação:
+              {pacoteArquivos.length} arquivo{pacoteArquivos.length !== 1 ? 's' : ''} neste pacote.
             </p>
 
             <div className="space-y-3 mb-8">
-              {(() => {
-                const condo = condominios.find(c => c.id === activePacote.condominio_id);
-                return (
-                  <div className="p-6 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl">
-                    <h4 className="text-sm font-black text-white uppercase tracking-widest mb-2">
-                        {condo?.fluxo === 1 && "Nível 1 - Fração"}
-                        {condo?.fluxo === 2 && "Nível 2 - Sem Consumos"}
-                        {condo?.fluxo === 3 && "Nível 3 - Terceirizadas"}
-                        {!condo?.fluxo && "Nível Padrão"}
-                    </h4>
-                    <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                        {condo?.fluxo === 1 && "Aprovação passará por: Gerente ➔ Supervisora da Contabilidade."}
-                        {condo?.fluxo === 2 && "Aprovação passará por: Supervisora Direto."}
-                        {condo?.fluxo === 3 && "Aprovação passará por: Gerente ➔ Supervisor dos Gerentes ➔ Supervisora da Contabilidade."}
-                        {!condo?.fluxo && "Este condomínio seguirá a esteira de aprovação padrão configurada."}
-                    </p>
-                  </div>
-                );
-              })()}
+              <button
+                onClick={() => setNivelAprovacao(1)}
+                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
+                  nivelAprovacao === 1 
+                    ? 'border-violet-500 bg-violet-500/10 shadow-lg shadow-violet-500/10' 
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 1 ? 'border-violet-500' : 'border-gray-600'}`}>
+                  {nivelAprovacao === 1 && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white">Nível 1 - Fração</p>
+                  <p className="text-[10px] text-gray-400">Passa por Gerente ➔ Supervisora da Contabilidade</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setNivelAprovacao(2)}
+                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
+                  nivelAprovacao === 2 
+                    ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/10' 
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 2 ? 'border-cyan-500' : 'border-gray-600'}`}>
+                  {nivelAprovacao === 2 && <div className="w-2 h-2 rounded-full bg-cyan-500" />}
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white">Nível 2 - Sem consumos</p>
+                  <p className="text-[10px] text-gray-400">Passa direto para a Supervisora</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setNivelAprovacao(3)}
+                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
+                  nivelAprovacao === 3 
+                    ? 'border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/10' 
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 3 ? 'border-emerald-500' : 'border-gray-600'}`}>
+                  {nivelAprovacao === 3 && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white">Nível 3 - Com empresas terceirizadas</p>
+                  <p className="text-[10px] text-gray-400">Passa por Gerente ➔ Supervisor dos Gerentes ➔ Supervisora</p>
+                </div>
+              </button>
             </div>
 
             <div className="flex gap-3">

@@ -255,6 +255,8 @@ export default function ArrecadacoesPage() {
     }
   };
 
+  const [nivelAprovacao, setNivelAprovacao] = useState(1);
+
   const handleSend = async () => {
       if (!processo) {
           addToast('Status de processo não iniciado para este semestre', 'warning');
@@ -262,9 +264,12 @@ export default function ArrecadacoesPage() {
       }
       
       let initialStatus = 'Aguardando Gerente';
-      if (condo?.fluxo === 2) {
+      if (nivelAprovacao === 2) {
           initialStatus = 'Aguardando Supervisora';
       }
+
+      // Salva o nível escolhido no cadastro do condomínio
+      await supabase.from('condominios').update({ fluxo: nivelAprovacao }).eq('id', condo.id);
 
       const { error } = await supabase.from('processos').update({ 
         status: initialStatus
@@ -863,31 +868,75 @@ export default function ArrecadacoesPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-4 mb-8">
-                      <div className="p-6 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl">
-                          <h4 className="text-sm font-black text-white uppercase tracking-widest mb-2">
-                              {condo?.fluxo === 1 && "Nível 1 - Fração"}
-                              {condo?.fluxo === 2 && "Nível 2 - Sem Consumos"}
-                              {condo?.fluxo === 3 && "Nível 3 - Terceirizadas"}
-                              {!condo?.fluxo && "Nível Padrão"}
-                          </h4>
-                          <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                              {condo?.fluxo === 1 && "Aprovação passará por: Gerente ➔ Supervisora da Contabilidade."}
-                              {condo?.fluxo === 2 && "Aprovação passará por: Supervisora Direto."}
-                              {condo?.fluxo === 3 && "Aprovação passará por: Gerente ➔ Supervisor dos Gerentes ➔ Supervisora da Contabilidade."}
-                              {!condo?.fluxo && "Este condomínio seguirá a esteira de aprovação padrão configurada."}
-                          </p>
-                      </div>
+                  <div className="space-y-3 mb-8">
+                      <button
+                        onClick={() => setNivelAprovacao(1)}
+                        className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
+                          nivelAprovacao === 1 
+                            ? 'border-violet-500 bg-violet-500/10 shadow-lg shadow-violet-500/10' 
+                            : 'border-white/10 bg-white/5 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 1 ? 'border-violet-500' : 'border-gray-600'}`}>
+                          {nivelAprovacao === 1 && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-white">Nível 1 - Fração</p>
+                          <p className="text-[10px] text-gray-400">Passa por Gerente ➔ Supervisora da Contabilidade</p>
+                        </div>
+                      </button>
 
+                      <button
+                        onClick={() => setNivelAprovacao(2)}
+                        className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
+                          nivelAprovacao === 2 
+                            ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/10' 
+                            : 'border-white/10 bg-white/5 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 2 ? 'border-cyan-500' : 'border-gray-600'}`}>
+                          {nivelAprovacao === 2 && <div className="w-2 h-2 rounded-full bg-cyan-500" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-white">Nível 2 - Sem consumos</p>
+                          <p className="text-[10px] text-gray-400">Passa direto para a Supervisora</p>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => setNivelAprovacao(3)}
+                        className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
+                          nivelAprovacao === 3 
+                            ? 'border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/10' 
+                            : 'border-white/10 bg-white/5 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 3 ? 'border-emerald-500' : 'border-gray-600'}`}>
+                          {nivelAprovacao === 3 && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-white">Nível 3 - Com empresas terceirizadas</p>
+                          <p className="text-[10px] text-gray-400">Passa por Gerente ➔ Supervisor dos Gerentes ➔ Supervisora</p>
+                        </div>
+                      </button>
+                  </div>
+
+                  <div className="flex gap-3">
+                      <button 
+                        onClick={() => setShowConfirmSend(false)}
+                        className="flex-1 py-4 text-xs font-black text-slate-500 uppercase tracking-widest hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                      >
+                          Cancelar
+                      </button>
                       <button 
                         onClick={() => handleSend()}
-                        className="w-full py-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.2)] active:scale-95"
+                        className="flex-[2] py-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.2)] active:scale-95"
                       >
                           Confirmar Envio
                       </button>
                   </div>
 
-                  <div className="flex justify-between items-center pt-6 border-t border-white/5">
+                  <div className="flex justify-between items-center pt-6 border-t border-white/5 mt-6">
                       <p className="text-[10px] text-red-400/80 font-bold uppercase tracking-widest max-w-[250px]">
                         * A planilha será bloqueada para edição após o envio.
                       </p>
