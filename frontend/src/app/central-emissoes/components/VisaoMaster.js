@@ -23,10 +23,22 @@ export default function VisaoMaster() {
   const [confirmDeleteOrphanId, setConfirmDeleteOrphanId] = useState(null);
 
   const stats = {
-    gerente: pacotes.filter(p => (p.status || '').toLowerCase() === 'aguardando gerente' || (p.status || '').toLowerCase() === 'pendente').length,
-    supGerente: pacotes.filter(p => (p.status || '').toLowerCase() === 'aguardando chefe').length,
-    supContabilidade: pacotes.filter(p => (p.status || '').toLowerCase() === 'aguardando supervisor').length,
-    registro: pacotes.filter(p => (p.status || '').toLowerCase() === 'aprovado').length,
+    gerente: pacotes.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      return s.includes('gerente') || s === 'pendente';
+    }).length,
+    supGerente: pacotes.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      return s.includes('chefe') || s.includes('sup. gerentes');
+    }).length,
+    supContabilidade: pacotes.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      return s.includes('supervisor');
+    }).length,
+    registro: pacotes.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      return s.includes('aprovado');
+    }).length,
   };
 
   useEffect(() => {

@@ -5,6 +5,7 @@ export default function StatusBadge({ status }) {
     'Aguardando Gerente': { label: 'Com o Gerente', class: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
     'Aguardando Chefe': { label: 'Com o Sup. Gerente', class: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
     'Aguardando Supervisor': { label: 'Com a Sup. Contabilidade', class: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
+    'Aguardando Supervisora': { label: 'Com a Sup. Contabilidade', class: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
     'aprovado': { label: 'Aguard. Registro', class: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
     'solicitar_correcao': { label: 'Correção', class: 'bg-rose-500/10 text-rose-400 border-rose-500/20' }
   };
