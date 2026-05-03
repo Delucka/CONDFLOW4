@@ -210,6 +210,16 @@ export default function VisaoEmissor({ profile }) {
     setShowConcluirModal(true);
   }
 
+  async function handleConcluirRapido(pacote) {
+    if (pacote.numArquivos === 0) return addToast('Este pacote está vazio.', 'warning');
+    
+    // Buscar arquivos do pacote para garantir que o modal tenha a contagem correta
+    const { data } = await supabase.from('emissoes_arquivos').select('id').eq('pacote_id', pacote.id);
+    setPacoteArquivos(data || []);
+    setActivePacote(pacote);
+    setShowConcluirModal(true);
+  }
+
 
   async function confirmarConclusao() {
     let initialStatus = 'Aguardando Gerente';
@@ -488,6 +498,15 @@ export default function VisaoEmissor({ profile }) {
                             <>
                               <span className="text-[10px] font-bold text-gray-500">{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}</span>
                               <StatusBadge status={pacote.status} />
+                              {pacote.status === 'rascunho' && (
+                                <button
+                                  onClick={() => handleConcluirRapido(pacote)}
+                                  className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-emerald-400 transition-all"
+                                  title="Enviar para Aprovação"
+                                >
+                                  <Send className="w-3 h-3" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => abrirPacote(pacote)}
                                 className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-black text-cyan-400 uppercase tracking-widest transition-all"

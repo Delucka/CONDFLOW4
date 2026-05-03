@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Layers, CheckCircle, Clock, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle, User, ShieldCheck } from 'lucide-react';
+import { Layers, CheckCircle, Clock, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle, User, ShieldCheck, Send, X } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -21,6 +21,9 @@ export default function VisaoMaster() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [orphans, setOrphans] = useState([]);
   const [confirmDeleteOrphanId, setConfirmDeleteOrphanId] = useState(null);
+  const [showConcluirModal, setShowConcluirModal] = useState(false);
+  const [activePacote, setActivePacote] = useState(null);
+  const [nivelAprovacao, setNivelAprovacao] = useState(1);
 
   const stats = {
     gerente: pacotes.filter(p => {
@@ -124,6 +127,34 @@ export default function VisaoMaster() {
     } else {
       addToast(nextStatus === 'aprovado' ? 'Pacote Finalizado!' : `Enviado para: ${nextStatus}`, 'success');
       setIsDrawerOpen(false);
+      fetchPacotes();
+    }
+  }
+
+  async function handleConcluirRapido(pacote) {
+    setActivePacote(pacote);
+    setShowConcluirModal(true);
+  }
+
+  async function confirmarConclusao() {
+    let initialStatus = 'Aguardando Gerente';
+    if (nivelAprovacao === 1) initialStatus = 'Aguardando Supervisor';
+
+    const { error } = await supabase
+      .from('emissoes_pacotes')
+      .update({ 
+        status: initialStatus, 
+        nivel_aprovacao: String(nivelAprovacao),
+        atualizado_em: new Date().toISOString() 
+      })
+      .eq('id', activePacote.id);
+
+    if (error) {
+      addToast('Erro ao enviar', 'error');
+    } else {
+      addToast('Emissão enviada para aprovação!', 'success');
+      setShowConcluirModal(false);
+      setActivePacote(null);
       fetchPacotes();
     }
   }
@@ -267,6 +298,11 @@ export default function VisaoMaster() {
                         <button onClick={() => handleRejeitar(pacote)} className="p-2 rounded-lg bg-white/5 text-rose-400 hover:bg-rose-500/20 transition-all" title="Solicitar Correção">
                           <XCircle className="w-4 h-4" />
                         </button>
+                        {pacote.status === 'rascunho' && (
+                          <button onClick={() => handleConcluirRapido(pacote)} className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 transition-all" title="Enviar para Aprovação">
+                            <Send className="w-4 h-4" />
+                          </button>
+                        )}
                         <button onClick={() => handleAprovar(pacote)} className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-all" title="Aprovação">
                           <CheckCircle className="w-4 h-4" />
                         </button>
@@ -369,6 +405,64 @@ export default function VisaoMaster() {
           onClose={() => setArquivoAberto(null)}
           onAction={() => { setArquivoAberto(null); fetchPacotes(); }}
         />
+      )}
+      {/* ═══ MODAL DE CONCLUSÃO ═══ */}
+      {showConcluirModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-8 shadow-2xl">
+            <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-8 h-8 text-emerald-400" />
+            </div>
+            <h3 className="text-xl font-black text-white text-center mb-2">Concluir Emissão</h3>
+            <p className="text-sm text-gray-400 text-center mb-8">
+              {activePacote?.arquivos?.length || 0} arquivos neste pacote.
+            </p>
+
+            <div className="space-y-3 mb-8">
+              {[
+                { id: 1, label: 'Nível 1 - Sem consumos', desc: 'Passa direto para a Supervisora' },
+                { id: 2, label: 'Nível 2 - Alteração sem consumo', desc: 'Passa por Gerente ➔ Supervisora' },
+                { id: 3, label: 'Nível 3 - Fração', desc: 'Passa por Gerente ➔ Supervisora' },
+                { id: 4, label: 'Nível 4 - Com empresas terceirizadas', desc: 'Passa por Gerente ➔ Sup. Gerentes ➔ Supervisora' }
+              ].map(n => (
+                <button
+                  key={n.id}
+                  onClick={() => setNivelAprovacao(n.id)}
+                  className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
+                    nivelAprovacao === n.id
+                      ? 'border-violet-600 bg-violet-600/10 shadow-[0_0_15px_rgba(139,92,246,0.2)]'
+                      : 'border-white/5 bg-white/5 hover:border-white/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === n.id ? 'border-violet-500' : 'border-gray-600'}`}>
+                      {nivelAprovacao === n.id && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
+                    </div>
+                    <div>
+                      <p className="font-bold text-white">{n.label}</p>
+                      <p className="text-xs text-gray-400">{n.desc}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowConcluirModal(false)}
+                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarConclusao}
+                className="flex-[2] py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
+              >
+                Confirmar e Enviar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
