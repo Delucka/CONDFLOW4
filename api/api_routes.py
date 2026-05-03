@@ -453,18 +453,47 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
         raise HTTPException(403, "Apenas administradores podem criar usuários")
     
     if not SB_SERVICE:
-        raise HTTPException(500, "Service Key não configurada no servidor")
+        raise HTTPException(500, "SUPABASE_SERVICE_KEY não configurada no servidor. Contate o suporte.")
 
     try:
-        # 1. Criar no Auth
-        auth_res = db.auth.admin.create_user({
-            "email": data.email,
-            "password": data.password,
-            "email_confirm": True
-        })
-        uid = auth_res.user.id
+        # 1. Tentar criar no Auth usando admin
+        uid = None
+        try:
+            # Verifica se o admin client está disponível
+            if not hasattr(db.auth, 'admin') or db.auth.admin is None:
+                raise Exception("SDK Admin não inicializado corretamente. Verifique a SERVICE_KEY.")
 
-        # 2. Criar no Profiles
+            auth_res = db.auth.admin.create_user({
+                "email": data.email,
+                "password": data.password,
+                "email_confirm": True
+            })
+            
+            if hasattr(auth_res, 'user') and auth_res.user:
+                uid = str(auth_res.user.id)
+            else:
+                raise Exception("A resposta do Supabase não conteve os dados do usuário criado.")
+
+        except Exception as auth_e:
+            err_msg = str(auth_e)
+            if "already" in err_msg.lower() or "registered" in err_msg.lower():
+                try:
+                    users = db.auth.admin.list_users()
+                    user_list = users if isinstance(users, list) else getattr(users, 'users', [])
+                    target = next((u for u in user_list if u.email == data.email), None)
+                    if target:
+                        uid = str(target.id)
+                    else:
+                        raise Exception(f"Usuário já existe mas não pôde ser localizado: {err_msg}")
+                except:
+                    raise Exception(f"O e-mail {data.email} já está em uso.")
+            else:
+                raise Exception(f"Erro no Supabase Auth: {err_msg}")
+
+        if not uid:
+            raise Exception("Não foi possível gerar ou recuperar o ID do usuário.")
+
+        # 2. Criar ou Atualizar no Profiles
         db.table("profiles").upsert({
             "id": uid,
             "email": data.email,
@@ -472,15 +501,15 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
             "role": data.role
         }).execute()
 
-        # 3. Se for gerente, garantir registro na tabela gerentes
-        if data.role == "gerente":
-            db.table("gerentes").upsert({
-                "profile_id": uid
-            }, on_conflict="profile_id").execute()
+        # 3. Se for gerente, garantir entrada na tabela de gerentes
+        if data.role == 'gerente':
+            db.table("gerentes").upsert({"profile_id": uid}, on_conflict="profile_id").execute()
 
-        return {"success": True, "id": uid}
+        return {"success": True, "uid": uid}
+        
     except Exception as e:
-        raise HTTPException(400, str(e))
+        print(f"CRITICAL ERROR CREATE_USER: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 class SyncUserSchema(BaseModel):
     email: str
