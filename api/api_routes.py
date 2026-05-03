@@ -842,18 +842,18 @@ def api_processo_acao_v2(
 
             # Lógica de Próximo Status baseada no Fluxo
             if fluxo == 1:
-                # Nível 1: Gerente -> Supervisora Contabilidade -> Aprovado
+                # Nível 1: Direto para Supervisora Contabilidade -> Aprovado
+                update_payload['status'] = 'aprovado'
+
+            elif fluxo == 2 or fluxo == 3:
+                # Nível 2 e 3: Gerente -> Supervisora Contabilidade -> Aprovado
                 if current_status == 'Aguardando Gerente' or current_status == 'pendente':
                     update_payload['status'] = 'Aguardando Supervisor'
                 else:
                     update_payload['status'] = 'aprovado'
 
-            elif fluxo == 2:
-                # Nível 2: Direto para Supervisora Contabilidade -> Aprovado
-                update_payload['status'] = 'aprovado'
-
-            elif fluxo == 3:
-                # Nível 3: Gerente -> Sup. Gerentes -> Sp. Contabilidade -> Aprovado
+            elif fluxo == 4:
+                # Nível 4: Gerente -> Sup. Gerentes -> Sp. Contabilidade -> Aprovado
                 if current_status == 'Aguardando Gerente' or current_status == 'pendente':
                     update_payload['status'] = 'Aguardando Chefe'
                 elif current_status == 'Aguardando Chefe':

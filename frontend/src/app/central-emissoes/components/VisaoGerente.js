@@ -67,9 +67,10 @@ export default function VisaoGerente({ profile }) {
 
   async function handleAprovar(pacote) {
     const fluxos = {
-      1: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
-      2: { 'default': 'aprovado' },
-      3: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' }
+      1: { 'default': 'aprovado' },
+      2: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
+      3: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
+      4: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' }
     };
 
     const fluxoId = Number(pacote.nivel_aprovacao) || 1;

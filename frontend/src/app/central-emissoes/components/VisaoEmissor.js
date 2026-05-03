@@ -213,7 +213,8 @@ export default function VisaoEmissor({ profile }) {
 
   async function confirmarConclusao() {
     let initialStatus = 'Aguardando Gerente';
-    if (nivelAprovacao === 2) {
+    // Nível 1 passa direto para a supervisora
+    if (nivelAprovacao === 1) {
       initialStatus = 'Aguardando Supervisor';
     }
 
@@ -528,52 +529,77 @@ export default function VisaoEmissor({ profile }) {
             <div className="space-y-3 mb-8">
               <button
                 onClick={() => setNivelAprovacao(1)}
-                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
-                  nivelAprovacao === 1 
-                    ? 'border-violet-500 bg-violet-500/10 shadow-lg shadow-violet-500/10' 
-                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
+                  nivelAprovacao === 1
+                    ? 'border-violet-600 bg-violet-600/10 shadow-[0_0_15px_rgba(139,92,246,0.2)]'
+                    : 'border-white/5 bg-white/5 hover:border-white/20'
                 }`}
               >
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 1 ? 'border-violet-500' : 'border-gray-600'}`}>
-                  {nivelAprovacao === 1 && <div className="w-2 h-2 rounded-full bg-violet-500" />}
-                </div>
-                <div>
-                  <p className="text-sm font-black text-white">Nível 1 - Fração</p>
-                  <p className="text-[10px] text-gray-400">Passa por Gerente ➔ Supervisora da Contabilidade</p>
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 1 ? 'border-violet-500' : 'border-gray-600'}`}>
+                    {nivelAprovacao === 1 && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
+                  </div>
+                  <div>
+                    <p className="font-bold text-white">Nível 1 - Sem consumos</p>
+                    <p className="text-xs text-gray-400">Passa direto para a Supervisora</p>
+                  </div>
                 </div>
               </button>
 
               <button
                 onClick={() => setNivelAprovacao(2)}
-                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
-                  nivelAprovacao === 2 
-                    ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/10' 
-                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
+                  nivelAprovacao === 2
+                    ? 'border-violet-600 bg-violet-600/10 shadow-[0_0_15px_rgba(139,92,246,0.2)]'
+                    : 'border-white/5 bg-white/5 hover:border-white/20'
                 }`}
               >
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 2 ? 'border-cyan-500' : 'border-gray-600'}`}>
-                  {nivelAprovacao === 2 && <div className="w-2 h-2 rounded-full bg-cyan-500" />}
-                </div>
-                <div>
-                  <p className="text-sm font-black text-white">Nível 2 - Sem consumos</p>
-                  <p className="text-[10px] text-gray-400">Passa direto para a Supervisora</p>
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 2 ? 'border-violet-500' : 'border-gray-600'}`}>
+                    {nivelAprovacao === 2 && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
+                  </div>
+                  <div>
+                    <p className="font-bold text-white">Nível 2 - Alteração sem consumo</p>
+                    <p className="text-xs text-gray-400">Passa por Gerente ➔ Supervisora da Contabilidade</p>
+                  </div>
                 </div>
               </button>
 
               <button
                 onClick={() => setNivelAprovacao(3)}
-                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${
-                  nivelAprovacao === 3 
-                    ? 'border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/10' 
-                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
+                  nivelAprovacao === 3
+                    ? 'border-violet-600 bg-violet-600/10 shadow-[0_0_15px_rgba(139,92,246,0.2)]'
+                    : 'border-white/5 bg-white/5 hover:border-white/20'
                 }`}
               >
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 3 ? 'border-emerald-500' : 'border-gray-600'}`}>
-                  {nivelAprovacao === 3 && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 3 ? 'border-violet-500' : 'border-gray-600'}`}>
+                    {nivelAprovacao === 3 && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
+                  </div>
+                  <div>
+                    <p className="font-bold text-white">Nível 3 - Fração</p>
+                    <p className="text-xs text-gray-400">Passa por Gerente ➔ Supervisora da Contabilidade</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-black text-white">Nível 3 - Com empresas terceirizadas</p>
-                  <p className="text-[10px] text-gray-400">Passa por Gerente ➔ Supervisor dos Gerentes ➔ Supervisora</p>
+              </button>
+
+              <button
+                onClick={() => setNivelAprovacao(4)}
+                className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
+                  nivelAprovacao === 4
+                    ? 'border-violet-600 bg-violet-600/10 shadow-[0_0_15px_rgba(139,92,246,0.2)]'
+                    : 'border-white/5 bg-white/5 hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === 4 ? 'border-violet-500' : 'border-gray-600'}`}>
+                    {nivelAprovacao === 4 && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
+                  </div>
+                  <div>
+                    <p className="font-bold text-white">Nível 4 - Com empresas terceirizadas</p>
+                    <p className="text-xs text-gray-400">Passa por Gerente ➔ Supervisor dos Gerentes ➔ Supervisora</p>
+                  </div>
                 </div>
               </button>
             </div>
