@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Layers, CheckCircle, Clock, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle } from 'lucide-react';
+import { Layers, CheckCircle, Clock, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle, User, ShieldCheck } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -23,10 +23,10 @@ export default function VisaoMaster() {
   const [confirmDeleteOrphanId, setConfirmDeleteOrphanId] = useState(null);
 
   const stats = {
-    total: pacotes.length,
     gerente: pacotes.filter(p => p.status === 'Aguardando Gerente' || p.status === 'pendente').length,
-    supervisor: pacotes.filter(p => p.status === 'Aguardando Supervisor' || p.status === 'Aguardando Chefe').length,
-    aprovados: pacotes.filter(p => p.status === 'aprovado').length,
+    supGerente: pacotes.filter(p => p.status === 'Aguardando Chefe').length,
+    supContabilidade: pacotes.filter(p => p.status === 'Aguardando Supervisor').length,
+    registro: pacotes.filter(p => p.status === 'aprovado').length,
   };
 
   useEffect(() => {
@@ -182,10 +182,10 @@ export default function VisaoMaster() {
       {/* Cards de Métricas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Pacotes', value: stats.total, icon: Layers, color: 'text-violet-400', bg: 'bg-violet-500/10' },
-          { label: 'Aguard. Gerente', value: stats.gerente, icon: Clock, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-          { label: 'Nível Supervisor', value: stats.supervisor, icon: Activity, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
-          { label: 'Finalizados', value: stats.aprovados, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10' }
+          { label: 'Com o Gerente', value: stats.gerente, icon: User, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+          { label: 'Com o Sup. Gerente', value: stats.supGerente, icon: Activity, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+          { label: 'Com a Sup. Contabilidade', value: stats.supContabilidade, icon: ShieldCheck, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+          { label: 'Aguardando Registro', value: stats.registro, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10' }
         ].map((stat, i) => (
           <div key={i} className={`p-6 border border-white/10 rounded-3xl bg-[#0a0a0f] flex items-center gap-4 ${stat.bg}`}>
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 mix-blend-lighten ${stat.bg} shadow-[inset_0_0_20px_rgba(255,255,255,0.05)]`}>
@@ -193,7 +193,7 @@ export default function VisaoMaster() {
             </div>
             <div>
               <p className="text-3xl font-black text-white leading-none">{stat.value}</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mt-1">{stat.label}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mt-2">{stat.label}</p>
             </div>
           </div>
         ))}
