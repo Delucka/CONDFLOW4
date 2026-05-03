@@ -340,12 +340,12 @@ export default function VisaoMaster() {
                         <button onClick={() => handleRejeitar(pacote)} className="p-2 rounded-lg bg-white/5 text-rose-400 hover:bg-rose-500/20 transition-all" title="Solicitar Correção">
                           <XCircle className="w-4 h-4" />
                         </button>
-                        {pacote.status === 'rascunho' && (
+                        {((pacote.status || '').toLowerCase() === 'rascunho' || (pacote.status || '').toLowerCase() === 'solicitar_correcao') && (
                           <button onClick={() => handleConcluirRapido(pacote)} className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 transition-all" title="Enviar para Aprovação">
                             <Send className="w-4 h-4" />
                           </button>
                         )}
-                        {pacote.status === 'aprovado' && (
+                        {(pacote.status || '').toLowerCase() === 'aprovado' && (
                           <button onClick={() => handleRegistrar(pacote)} className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-all" title="Registrar Emissão">
                             <FileCheck className="w-4 h-4" />
                           </button>

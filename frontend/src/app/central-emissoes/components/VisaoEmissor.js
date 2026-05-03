@@ -535,7 +535,7 @@ export default function VisaoEmissor({ profile }) {
                             <>
                               <span className="text-[10px] font-bold text-gray-500">{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}</span>
                               <StatusBadge status={pacote.status} />
-                              {pacote.status === 'rascunho' && (
+                              {((pacote.status || '').toLowerCase() === 'rascunho' || (pacote.status || '').toLowerCase() === 'solicitar_correcao') && (
                                 <button
                                   onClick={() => handleConcluirRapido(pacote)}
                                   className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-emerald-400 transition-all"
@@ -544,7 +544,7 @@ export default function VisaoEmissor({ profile }) {
                                   <Send className="w-3 h-3" />
                                 </button>
                               )}
-                              {pacote.status === 'aprovado' && (
+                              {(pacote.status || '').toLowerCase() === 'aprovado' && (
                                 <button
                                   onClick={() => handleRegistrar(pacote)}
                                   className="p-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 rounded-lg text-blue-400 transition-all"
