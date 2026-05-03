@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 export default function VisaoMaster() {
   const supabase = createClient();
   const { addToast } = useToast();
-  const { user } = useAuth();
+  const { profile, user } = useAuth();
   const [arquivoAberto, setArquivoAberto] = useState(null);
   
   const [pacotes, setPacotes] = useState([]);
@@ -332,35 +332,52 @@ export default function VisaoMaster() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3">
-                    <StatusBadge status={pacote.status} />
-                    <div className="flex gap-1">
-                      {((pacote.status || '').toLowerCase() !== 'registrado' && (pacote.status || '').toLowerCase() !== 'rascunho') && (
-                        <button onClick={() => handleRejeitar(pacote)} className="p-2 rounded-lg bg-white/5 text-rose-400 hover:bg-rose-500/20 transition-all" title="Solicitar Correção">
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                      )}
-                      {((pacote.status || '').toLowerCase() === 'rascunho' || (pacote.status || '').toLowerCase() === 'solicitar_correcao') && (
-                        <button onClick={() => handleConcluirRapido(pacote)} className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 transition-all" title="Enviar para Aprovação">
-                          <Send className="w-4 h-4" />
-                        </button>
-                      )}
-                        {/* Botão de Registro Forçado para Aprovados */}
-                        {((pacote.status || '').toLowerCase().includes('aprovado')) && (
-                          <button 
-                            onClick={() => handleRegistrar(pacote)} 
-                            className="flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-lg font-bold text-[10px]"
-                          >
-                            <FileCheck className="w-4 h-4" />
-                            <span>REGISTRAR</span>
+                    <div className="flex items-center gap-3">
+                      <StatusBadge status={pacote.status} />
+                      <div className="flex gap-1">
+                        {/* Botão de Registro com Lógica Reforçada (Sugestão IA) */}
+                        {(() => {
+                          const statusLower = (pacote.status || '').toLowerCase();
+                          const podeRegistrar = 
+                            statusLower.includes('aprovado') || 
+                            statusLower.includes('aguardando_registro') ||
+                            statusLower.includes('aguard');
+                          
+                          const roleAutorizado = 
+                            profile?.role === 'master' || 
+                            profile?.role === 'departamento' ||
+                            profile?.role === 'emissor' ||
+                            profile?.role === 'supervisora';
+                          
+                          if (!podeRegistrar || !roleAutorizado) return null;
+                          
+                          return (
+                            <button 
+                              onClick={() => handleRegistrar(pacote)} 
+                              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-400 hover:to-cyan-400 transition-all shadow-lg shadow-emerald-500/20 font-black text-[10px] uppercase tracking-widest border border-white/10"
+                            >
+                              <FileCheck className="w-4 h-4" />
+                              <span>Registrar</span>
+                            </button>
+                          );
+                        })()}
+
+                        {((pacote.status || '').toLowerCase() !== 'registrado' && (pacote.status || '').toLowerCase() !== 'rascunho' && (pacote.status || '').toLowerCase() !== 'aprovado') && (
+                          <button onClick={() => handleRejeitar(pacote)} className="p-2 rounded-lg bg-white/5 text-rose-400 hover:bg-rose-500/20 transition-all" title="Solicitar Correção">
+                            <XCircle className="w-4 h-4" />
                           </button>
                         )}
-                      {((pacote.status || '').toLowerCase() !== 'registrado' && (pacote.status || '').toLowerCase() !== 'aprovado' && (pacote.status || '').toLowerCase() !== 'rascunho') && (
-                        <button onClick={() => handleAprovar(pacote)} className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-all" title="Aprovação">
-                          <CheckCircle className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
+                        {((pacote.status || '').toLowerCase() === 'rascunho' || (pacote.status || '').toLowerCase() === 'solicitar_correcao') && (
+                          <button onClick={() => handleConcluirRapido(pacote)} className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 transition-all" title="Enviar para Aprovação">
+                            <Send className="w-4 h-4" />
+                          </button>
+                        )}
+                        {((pacote.status || '').toLowerCase() !== 'registrado' && (pacote.status || '').toLowerCase() !== 'aprovado' && (pacote.status || '').toLowerCase() !== 'rascunho') && (
+                          <button onClick={() => handleAprovar(pacote)} className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-all" title="Aprovação">
+                            <CheckCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     <button onClick={(e) => handleDelete(e, pacote.id)} className={`p-2 rounded-lg transition-all ${confirmDeleteId === pacote.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-white/5 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10'}`} title={confirmDeleteId === pacote.id ? 'Clique para confirmar' : 'Excluir'}>
                       <Trash2 className="w-4 h-4" />
                     </button>
