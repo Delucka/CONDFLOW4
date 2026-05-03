@@ -309,7 +309,7 @@ export default function VisaoMaster() {
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
           <h3 className="font-black text-white text-lg flex items-center gap-2">
             <Activity className="text-cyan-400 w-5 h-5"/>
-            Fluxo Geral — Pacotes de Emissão
+            Fluxo Geral — Pacotes de Emissão (v2)
           </h3>
         </div>
 
@@ -345,7 +345,7 @@ export default function VisaoMaster() {
                           <Send className="w-4 h-4" />
                         </button>
                       )}
-                      {(pacote.status || '').toLowerCase() === 'aprovado' && (
+                      {((pacote.status || '').toLowerCase().includes('aprovado')) && (
                         <button onClick={() => handleRegistrar(pacote)} className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-all" title="Registrar Emissão">
                           <FileCheck className="w-4 h-4" />
                         </button>
