@@ -34,7 +34,7 @@ export default function VisaoGerente({ profile }) {
     setLoading(true);
     const { data } = await supabase
       .from('emissoes_pacotes')
-      .select('*, condominios(name, fluxo), profiles:uploaded_by(full_name)')
+      .select('*, condominios(name, fluxo)')
       .order('criado_em', { ascending: false });
     
     if (data) {

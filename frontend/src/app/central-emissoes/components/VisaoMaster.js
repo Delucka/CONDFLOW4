@@ -23,10 +23,10 @@ export default function VisaoMaster() {
   const [confirmDeleteOrphanId, setConfirmDeleteOrphanId] = useState(null);
 
   const stats = {
-    gerente: pacotes.filter(p => p.status === 'Aguardando Gerente' || p.status === 'pendente').length,
-    supGerente: pacotes.filter(p => p.status === 'Aguardando Chefe').length,
-    supContabilidade: pacotes.filter(p => p.status === 'Aguardando Supervisor').length,
-    registro: pacotes.filter(p => p.status === 'aprovado').length,
+    gerente: pacotes.filter(p => (p.status || '').toLowerCase() === 'aguardando gerente' || (p.status || '').toLowerCase() === 'pendente').length,
+    supGerente: pacotes.filter(p => (p.status || '').toLowerCase() === 'aguardando chefe').length,
+    supContabilidade: pacotes.filter(p => (p.status || '').toLowerCase() === 'aguardando supervisor').length,
+    registro: pacotes.filter(p => (p.status || '').toLowerCase() === 'aprovado').length,
   };
 
   useEffect(() => {
@@ -43,12 +43,17 @@ export default function VisaoMaster() {
   async function fetchPacotes() {
     setLoading(true);
     try {
+      // Tenta buscar pacotes com join de condomínio. 
+      // Removendo o join de profiles temporariamente para garantir que a lista volte a aparecer
       const { data, error } = await supabase
         .from('emissoes_pacotes')
-        .select('*, condominios(name, fluxo), profiles:uploaded_by(full_name)')
+        .select('*, condominios(name, fluxo)')
         .order('criado_em', { ascending: false });
       
-      if (error) console.error("fetchPacotes erro:", error);
+      if (error) {
+        console.error("fetchPacotes erro:", error);
+        addToast('Erro ao carregar pacotes: ' + error.message, 'error');
+      }
       
       if (data) {
         // Buscar contagem de arquivos por pacote separadamente
