@@ -5,7 +5,7 @@ import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt, AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2, FileCheck, User, Users, Activity } from 'lucide-react';
+import { Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt, AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2, FileCheck, User, Activity, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
