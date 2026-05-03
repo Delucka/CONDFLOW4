@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Layers, CheckCircle, Clock, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle, User, ShieldCheck, Send, X } from 'lucide-react';
+import { Layers, CheckCircle, Clock, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle, User, ShieldCheck, Send, X, FileCheck } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -40,7 +40,11 @@ export default function VisaoMaster() {
     }).length,
     registro: pacotes.filter(p => {
       const s = (p.status || '').toLowerCase();
-      return s.includes('aprovado');
+      return s === 'aprovado';
+    }).length,
+    registrada: pacotes.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      return s === 'registrado';
     }).length,
   };
 
@@ -159,6 +163,25 @@ export default function VisaoMaster() {
     }
   }
 
+  async function handleRegistrar(pacote) {
+    if (!confirm(`Deseja registrar esta emissão agora? (${new Date().toLocaleString()})`)) return;
+
+    const { error } = await supabase
+      .from('emissoes_pacotes')
+      .update({ 
+        status: 'registrado', 
+        atualizado_em: new Date().toISOString() 
+      })
+      .eq('id', pacote.id);
+
+    if (error) {
+      addToast('Erro ao registrar', 'error');
+    } else {
+      addToast('Emissão registrada com sucesso!', 'success');
+      fetchPacotes();
+    }
+  }
+
   async function handleRejeitar(pacote) {
     const reason = prompt("Motivo da correção:");
     if (!reason) return;
@@ -243,23 +266,25 @@ export default function VisaoMaster() {
     <div className="space-y-8">
       
       {/* Cards de Métricas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
           { label: 'Com o Gerente', value: stats.gerente, icon: User, color: 'text-violet-400', bg: 'bg-violet-500/10' },
           { label: 'Com o Sup. Gerente', value: stats.supGerente, icon: Activity, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
           { label: 'Com a Sup. Contabilidade', value: stats.supContabilidade, icon: ShieldCheck, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-          { label: 'Aguardando Registro', value: stats.registro, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10' }
+          { label: 'Aguardando Registro', value: stats.registro, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+          { label: 'Emissão Registrada', value: stats.registrada, icon: FileText, color: 'text-blue-400', bg: 'bg-blue-500/10' }
         ].map((stat, i) => (
-          <div key={i} className={`p-6 border border-white/10 rounded-3xl bg-[#0a0a0f] flex items-center gap-4 ${stat.bg}`}>
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 mix-blend-lighten ${stat.bg} shadow-[inset_0_0_20px_rgba(255,255,255,0.05)]`}>
-              <stat.icon className={`w-6 h-6 ${stat.color}`} />
-            </div>
-            <div>
+          <div key={i} className={`p-6 border border-white/10 rounded-3xl bg-[#0a0a0f] flex flex-col justify-center gap-2 ${stat.bg}`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mix-blend-lighten ${stat.bg}`}>
+                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+              </div>
               <p className="text-3xl font-black text-white leading-none">{stat.value}</p>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mt-2">{stat.label}</p>
             </div>
+            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1">{stat.label}</p>
           </div>
         ))}
+      </div>
       </div>
 
       {/* Tabela Master */}
@@ -301,6 +326,11 @@ export default function VisaoMaster() {
                         {pacote.status === 'rascunho' && (
                           <button onClick={() => handleConcluirRapido(pacote)} className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 transition-all" title="Enviar para Aprovação">
                             <Send className="w-4 h-4" />
+                          </button>
+                        )}
+                        {pacote.status === 'aprovado' && (
+                          <button onClick={() => handleRegistrar(pacote)} className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-all" title="Registrar Emissão">
+                            <FileCheck className="w-4 h-4" />
                           </button>
                         )}
                         <button onClick={() => handleAprovar(pacote)} className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-all" title="Aprovação">

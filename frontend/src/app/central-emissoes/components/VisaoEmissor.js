@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -202,6 +202,25 @@ export default function VisaoEmissor({ profile }) {
       fetchPacotes();
     } catch (err) {
       addToast('Erro: ' + err.message, 'error');
+    }
+  }
+
+  async function handleRegistrar(pacote) {
+    if (!confirm(`Deseja registrar esta emissão agora? (${new Date().toLocaleString()})`)) return;
+
+    const { error } = await supabase
+      .from('emissoes_pacotes')
+      .update({ 
+        status: 'registrado', 
+        atualizado_em: new Date().toISOString() 
+      })
+      .eq('id', pacote.id);
+
+    if (error) {
+      addToast('Erro ao registrar', 'error');
+    } else {
+      addToast('Emissão registrada com sucesso!', 'success');
+      fetchPacotes();
     }
   }
 
@@ -505,6 +524,15 @@ export default function VisaoEmissor({ profile }) {
                                   title="Enviar para Aprovação"
                                 >
                                   <Send className="w-3 h-3" />
+                                </button>
+                              )}
+                              {pacote.status === 'aprovado' && (
+                                <button
+                                  onClick={() => handleRegistrar(pacote)}
+                                  className="p-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 rounded-lg text-blue-400 transition-all"
+                                  title="Registrar Emissão"
+                                >
+                                  <FileCheck className="w-3 h-3" />
                                 </button>
                               )}
                               <button
