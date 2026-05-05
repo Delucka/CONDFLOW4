@@ -9,6 +9,7 @@ import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 
 export default function VisaoEmissor({ profile }) {
+  // VERSÃO 4.1 - BOTÃO REGISTRAR ESTABILIZADO
   const supabase = createClient();
   const { addToast } = useToast();
   const { user } = useAuth();
