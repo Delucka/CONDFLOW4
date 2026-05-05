@@ -32,7 +32,6 @@ export default function VisaoEmissor({ profile }) {
   
   // Modal de conclusão
   const [showConcluirModal, setShowConcluirModal] = useState(false);
-  const [activePacote, setActivePacote] = useState(null);
   const [nivelAprovacao, setNivelAprovacao] = useState(1);
   const [confirmDeleteArqId, setConfirmDeleteArqId] = useState(null);
   const [showRegistroModal, setShowRegistroModal] = useState(false);
