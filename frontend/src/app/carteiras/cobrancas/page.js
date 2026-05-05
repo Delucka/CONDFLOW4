@@ -420,7 +420,7 @@ export default function CobrancasExtrasPage() {
         <div className="text-center py-20 glass-panel rounded-[2rem]">
           <Receipt className="w-12 h-12 mx-auto mb-3 text-slate-700" />
           <p className="text-slate-400 font-bold">Nenhuma cobrança extra lançada</p>
-          <p className="text-slate-600 text-sm mt-1">Selecione um condomínio e clique em "Nova Cobrança"</p>
+          <p className="text-slate-600 text-sm mt-1">Selecione um condomínio e clique em &quot;Nova Cobrança&quot;</p>
         </div>
       ) : (
         <div className="space-y-4">

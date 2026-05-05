@@ -11,6 +11,11 @@ export async function updateSession(request) {
     return supabaseResponse
   }
 
+  // Sem variáveis de ambiente (dev local sem .env.local), passa sem auth
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,

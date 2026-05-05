@@ -123,7 +123,7 @@ function ModalCriarUsuario({ onClose, onCreated }) {
 
           {form.role === 'gerente' && (
             <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg p-3 text-xs text-indigo-300">
-              <strong>Dica:</strong> Após criar, clique em <strong>"Gerenciar Carteira"</strong> no card do gerente para vincular os condomínios.
+              <strong>Dica:</strong> Após criar, clique em <strong>&quot;Gerenciar Carteira&quot;</strong> no card do gerente para vincular os condomínios.
             </div>
           )}
 

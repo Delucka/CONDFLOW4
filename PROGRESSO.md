@@ -17,4 +17,4 @@
 - [x] 2.2 RLS configurada
 - [x] 2.3 Componente FilaOcorrencias criado
 - [x] 2.4 Modal de criação
-- [ ] 2.5 Drawer de detalhes
+- [x] 2.5 Drawer de detalhes

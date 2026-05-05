@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { AlertTriangle, AlertCircle, Edit, ChevronRight, CheckCircle, Plus, User, Clock, Loader2, Activity } from 'lucide-react';
 
 export default function FilaOcorrencias() {
+  const supabase = createClient();
   const { profile } = useAuth();
   const [ocorrencias, setOcorrencias] = useState([]);
   const [abaAtiva, setAbaAtiva] = useState('todas');
@@ -406,6 +407,9 @@ export default function FilaOcorrencias() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
       {/* ═══ DRAWER DE DETALHES ═══ */}
       {showDrawer && itemAtivo && (
         <div className="fixed inset-0 z-[200] flex justify-end animate-in fade-in duration-300">
@@ -447,7 +451,7 @@ export default function FilaOcorrencias() {
               <div>
                 <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Descrição</label>
                 <div className="p-5 bg-white/5 border border-white/10 rounded-2xl text-sm text-gray-300 leading-relaxed italic">
-                  "{itemAtivo.descricao}"
+                  &quot;{itemAtivo.descricao}&quot;
                 </div>
               </div>
 
@@ -523,7 +527,7 @@ export default function FilaOcorrencias() {
                         <CheckCircle className="w-4 h-4 text-emerald-400" />
                         <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Resolvido</span>
                       </div>
-                      <p className="text-sm text-gray-300 leading-relaxed italic mb-4">"{itemAtivo.resposta}"</p>
+                      <p className="text-sm text-gray-300 leading-relaxed italic mb-4">&quot;{itemAtivo.resposta}&quot;</p>
                       <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">
                         Resolvido em {new Date(itemAtivo.resolvido_em).toLocaleDateString()} às {new Date(itemAtivo.resolvido_em).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </div>
