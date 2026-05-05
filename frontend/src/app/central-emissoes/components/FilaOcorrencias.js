@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { AlertTriangle, AlertCircle, Edit, ChevronRight, CheckCircle, Plus, User, Clock, Loader2 } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Edit, ChevronRight, CheckCircle, Plus, User, Clock, Loader2, Activity } from 'lucide-react';
 
 export default function FilaOcorrencias() {
   const { profile } = useAuth();
@@ -13,6 +13,13 @@ export default function FilaOcorrencias() {
   // Modal Creation States
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Drawer Details States
+  const [showDrawer, setShowDrawer] = useState(false);
+  const [itemAtivo, setItemAtivo] = useState(null);
+  const [resposta, setResposta] = useState('');
+  const [resolvendo, setResolvendo] = useState(false);
+
   const [condominios, setCondominios] = useState([]);
   const [pacotesDisponiveis, setPacotesDisponiveis] = useState([]);
   const [formData, setFormData] = useState({
@@ -119,6 +126,53 @@ export default function FilaOcorrencias() {
     }
   };
 
+  const handleUpdateStatus = async (novoStatus) => {
+    if (!itemAtivo) return;
+    setResolvendo(true);
+    
+    try {
+      const updates = {
+        status: novoStatus,
+        atualizado_em: new Date().toISOString()
+      };
+
+      if (novoStatus === 'resolvida') {
+        if (!resposta) {
+          alert('Por favor, informe a resposta/resolução.');
+          setResolvendo(false);
+          return;
+        }
+        updates.resposta = resposta;
+        updates.resolvido_por = profile.id;
+        updates.resolvido_em = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('emissoes_ocorrencias')
+        .update(updates)
+        .eq('id', itemAtivo.id);
+
+      if (error) throw error;
+      
+      setShowDrawer(false);
+      setItemAtivo(null);
+      setResposta('');
+      fetchOcorrencias();
+    } catch (err) {
+      alert('Erro ao atualizar: ' + err.message);
+    } finally {
+      setResolvendo(false);
+    }
+  };
+
+  const abrirDetalhes = (item) => {
+    setItemAtivo(item);
+    setResposta(item.resposta || '');
+    setShowDrawer(true);
+  };
+
+  const canResolve = ['master', 'departamento', 'supervisor_gerentes', 'supervisora_contabilidade', 'supervisora'].includes(profile?.role);
+
   const itensFiltrados = useMemo(() => {
     if (abaAtiva === 'todas') return ocorrencias;
     return ocorrencias.filter(o => o.tipo === abaAtiva);
@@ -197,6 +251,7 @@ export default function FilaOcorrencias() {
             {itensFiltrados.map(item => (
               <button 
                 key={item.id}
+                onClick={() => abrirDetalhes(item)}
                 className="w-full px-6 py-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors group text-left"
               >
                 <div className="flex items-center gap-5">
@@ -350,6 +405,133 @@ export default function FilaOcorrencias() {
                 </button>
               </div>
             </form>
+          </div>
+      {/* ═══ DRAWER DE DETALHES ═══ */}
+      {showDrawer && itemAtivo && (
+        <div className="fixed inset-0 z-[200] flex justify-end animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDrawer(false)} />
+          
+          <div className="relative w-full max-w-md bg-[#0a0a0f] border-l border-white/10 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Header Drawer */}
+            <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+              <div>
+                <h3 className="text-xl font-black text-white uppercase tracking-tight">Detalhes da Pendência</h3>
+                <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mt-1">
+                  ID: {itemAtivo.id.slice(0,8)}...
+                </p>
+              </div>
+              <button onClick={() => setShowDrawer(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-500 hover:text-white">
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+
+            {/* Content Drawer */}
+            <div className="flex-1 overflow-y-auto p-8 space-y-8">
+              {/* Condomínio & Status */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Condomínio</label>
+                  <p className="text-lg font-bold text-white leading-tight">{itemAtivo.condominios?.name}</p>
+                </div>
+                <div className="text-right">
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Tipo</label>
+                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
+                    itemAtivo.tipo === 'ocorrencia' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'
+                  }`}>
+                    {itemAtivo.tipo}
+                  </span>
+                </div>
+              </div>
+
+              {/* Descrição */}
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Descrição</label>
+                <div className="p-5 bg-white/5 border border-white/10 rounded-2xl text-sm text-gray-300 leading-relaxed italic">
+                  "{itemAtivo.descricao}"
+                </div>
+              </div>
+
+              {/* Metadados */}
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Criado por</label>
+                  <div className="flex items-center gap-2">
+                    <User className="w-3 h-3 text-rose-400" />
+                    <span className="text-xs font-bold text-white">{itemAtivo.profiles?.full_name}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Data</label>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3 h-3 text-rose-400" />
+                    <span className="text-xs font-bold text-white">{new Date(itemAtivo.criado_em).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Área de Ação / Resolução */}
+              <div className="pt-8 border-t border-white/10">
+                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 ml-1">Fluxo de Resolução</label>
+                
+                {itemAtivo.status === 'aberta' && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center">
+                        <AlertCircle className="w-5 h-5 text-rose-400" />
+                      </div>
+                      <p className="text-xs text-rose-200/60 font-medium leading-tight">Aguardando conferência inicial do departamento.</p>
+                    </div>
+                    {canResolve && (
+                      <button
+                        onClick={() => handleUpdateStatus('analise')}
+                        disabled={resolvendo}
+                        className="w-full py-4 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-amber-600/20 flex items-center justify-center gap-2"
+                      >
+                        {resolvendo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+                        Marcar em Análise
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {itemAtivo.status === 'analise' && (
+                  <div className="space-y-4">
+                    <textarea
+                      placeholder="Descreva aqui a resolution ou resposta para o gerente..."
+                      value={resposta}
+                      onChange={(e) => setResposta(e.target.value)}
+                      rows={4}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-sm text-white outline-none focus:border-emerald-500 transition-all placeholder:text-gray-700"
+                    />
+                    {canResolve && (
+                      <button
+                        onClick={() => handleUpdateStatus('resolvida')}
+                        disabled={resolvendo || !resposta}
+                        className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-30"
+                      >
+                        {resolvendo ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                        Resolver Pendência
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {itemAtivo.status === 'resolvida' && (
+                  <div className="space-y-4">
+                    <div className="p-5 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
+                      <div className="flex items-center gap-2 mb-3">
+                        <CheckCircle className="w-4 h-4 text-emerald-400" />
+                        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Resolvido</span>
+                      </div>
+                      <p className="text-sm text-gray-300 leading-relaxed italic mb-4">"{itemAtivo.resposta}"</p>
+                      <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">
+                        Resolvido em {new Date(itemAtivo.resolvido_em).toLocaleDateString()} às {new Date(itemAtivo.resolvido_em).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
