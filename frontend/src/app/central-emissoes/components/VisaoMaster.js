@@ -335,17 +335,17 @@ export default function VisaoMaster() {
                     <div className="flex items-center gap-3">
                       <StatusBadge status={pacote.status} />
                       <div className="flex gap-1">
-                        {/* Botão de Registro com Lógica Reforçada (Sugestão IA) */}
+                        {/* Botão de Registro com Lógica Ultra-Permissiva */}
                         {(() => {
                           const statusLower = (pacote.status || '').toLowerCase();
+                          // Se tiver qualquer uma dessas palavras, o botão APERECE
                           const podeRegistrar = 
                             statusLower.includes('aprovado') || 
-                            statusLower.includes('aguardando_registro') ||
-                            statusLower.includes('aguard');
+                            statusLower.includes('registro') ||
+                            statusLower.includes('aguard') ||
+                            statusLower.includes('concluido');
                           
-                          const roleAutorizado = true; // FORÇANDO TRUE PARA TESTE
-                          
-                          if (!podeRegistrar || !roleAutorizado) return null;
+                          if (!podeRegistrar) return null;
                           
                           return (
                             <button 

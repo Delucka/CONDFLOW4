@@ -555,15 +555,26 @@ export default function VisaoEmissor({ profile }) {
                                   <Send className="w-3 h-3" />
                                 </button>
                               )}
-                              {(pacote.status || '').toLowerCase() === 'aprovado' && (
-                                <button
-                                  onClick={() => handleRegistrar(pacote)}
-                                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-400 hover:to-cyan-400 transition-all shadow-lg shadow-emerald-500/20 font-black text-[9px] uppercase tracking-widest border border-white/10"
-                                >
-                                  <FileCheck className="w-3.5 h-3.5" />
-                                  <span>Registrar</span>
-                                </button>
-                              )}
+                              {(() => {
+                                const statusLower = (pacote.status || '').toLowerCase();
+                                const podeRegistrar = 
+                                  statusLower.includes('aprovado') || 
+                                  statusLower.includes('registro') ||
+                                  statusLower.includes('aguard') ||
+                                  statusLower.includes('concluido');
+                                
+                                if (!podeRegistrar) return null;
+
+                                return (
+                                  <button
+                                    onClick={() => handleRegistrar(pacote)}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-400 hover:to-cyan-400 transition-all shadow-lg shadow-emerald-500/20 font-black text-[9px] uppercase tracking-widest border border-white/10"
+                                  >
+                                    <FileCheck className="w-3.5 h-3.5" />
+                                    <span>Registrar</span>
+                                  </button>
+                                );
+                              })()}
                               <button
                                 onClick={() => abrirPacote(pacote)}
                                 className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-black text-cyan-400 uppercase tracking-widest transition-all"
