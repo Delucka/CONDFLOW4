@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { CheckCircle, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle, User, ShieldCheck, Send, X, FileCheck } from 'lucide-react';
 import StatusBadge from './StatusBadge';
@@ -26,6 +26,7 @@ export default function VisaoMaster() {
   const [nivelAprovacao, setNivelAprovacao] = useState(1);
   const [showRegistroModal, setShowRegistroModal] = useState(false);
   const [dataRegistro, setDataRegistro] = useState('');
+  const [filtroAtivo, setFiltroAtivo] = useState(null);
 
   const stats = {
     gerente: pacotes.filter(p => {
@@ -48,7 +49,19 @@ export default function VisaoMaster() {
       const s = (p.status || '').toLowerCase();
       return s === 'registrado';
     }).length,
+    rascunho: pacotes.filter(p => (p.status || '').toLowerCase() === 'rascunho').length,
   };
+
+  const pacotesFiltrados = useMemo(() => {
+    if (!filtroAtivo) return pacotes;
+    return pacotes.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      if (filtroAtivo === 'pendente_gerente') return s.includes('gerente') || s === 'pendente';
+      if (filtroAtivo === 'pendente_sup_gerentes') return s.includes('chefe') || s.includes('sup. gerentes');
+      if (filtroAtivo === 'pendente_sup_contabilidade') return s.includes('supervisor');
+      return s === filtroAtivo;
+    });
+  }, [pacotes, filtroAtivo]);
 
   useEffect(() => {
     fetchPacotes();
@@ -284,37 +297,63 @@ export default function VisaoMaster() {
     <div className="space-y-8">
       
       {/* Cards de Métricas */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
         {[
-          { label: 'Com o Gerente', value: stats.gerente, icon: User, color: 'text-violet-400', bg: 'bg-violet-500/10' },
-          { label: 'Com o Sup. Gerente', value: stats.supGerente, icon: Activity, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
-          { label: 'Com a Sup. Contabilidade', value: stats.supContabilidade, icon: ShieldCheck, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-          { label: 'Aguardando Registro', value: stats.registro, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-          { label: 'Emissão Registrada', value: stats.registrada, icon: FileText, color: 'text-blue-400', bg: 'bg-blue-500/10' }
+          { label: 'Total Condomínios', value: pacotes.length, icon: Building, color: 'text-gray-400', bg: 'bg-white/5', filter: null },
+          { label: 'Em edição', value: stats.rascunho, icon: Edit, color: 'text-blue-400', bg: 'bg-blue-500/10', filter: 'rascunho' },
+          { label: 'Aguard. Registro', value: stats.registro, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', filter: 'aprovado' },
+          { label: 'Emissão Registrada', value: stats.registrada, icon: FileText, color: 'text-blue-400', bg: 'bg-blue-500/10', filter: 'registrado' },
+          { label: 'Com o Gerente', value: stats.gerente, icon: User, color: 'text-violet-400', bg: 'bg-violet-500/10', filter: 'pendente_gerente' },
+          { label: 'Com o Sup. Gerente', value: stats.supGerente, icon: Activity, color: 'text-cyan-400', bg: 'bg-cyan-500/10', filter: 'pendente_sup_gerentes' },
+          { label: 'Com a Sup. Contabilidade', value: stats.supContabilidade, icon: ShieldCheck, color: 'text-orange-400', bg: 'bg-orange-500/10', filter: 'pendente_sup_contabilidade' },
         ].map((stat, i) => (
-          <div key={i} className={`p-6 border border-white/10 rounded-3xl bg-[#0a0a0f] flex flex-col justify-center gap-2 ${stat.bg}`}>
+          <button 
+            key={i} 
+            onClick={() => setFiltroAtivo(filtroAtivo === stat.filter ? null : stat.filter)}
+            className={`p-6 border rounded-3xl bg-[#0a0a0f] flex flex-col justify-center gap-2 transition-all text-left group ${
+              filtroAtivo === stat.filter 
+                ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)] ring-2 ring-blue-500/20' 
+                : 'border-white/10 hover:border-white/20'
+            } ${stat.bg}`}
+          >
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mix-blend-lighten ${stat.bg}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mix-blend-lighten ${stat.bg} group-hover:scale-110 transition-transform`}>
                 <stat.icon className={`w-5 h-5 ${stat.color}`} />
               </div>
               <p className="text-3xl font-black text-white leading-none">{stat.value}</p>
             </div>
             <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1">{stat.label}</p>
-          </div>
+          </button>
         ))}
       </div>
 
       {/* Tabela Master */}
       <div className="border border-white/10 rounded-3xl bg-white/5 overflow-hidden shadow-2xl">
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
-          <h3 className="font-black text-white text-lg flex items-center gap-2">
-            <Activity className="text-cyan-400 w-5 h-5"/>
-            FLUXO ATUALIZADO — Pacotes de Emissão
-          </h3>
+          <div className="flex items-center gap-4">
+            <h3 className="font-black text-white text-lg flex items-center gap-2">
+              <Activity className="text-cyan-400 w-5 h-5"/>
+              FLUXO ATUALIZADO — Pacotes de Emissão
+            </h3>
+            
+            {filtroAtivo && (
+              <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full animate-in fade-in slide-in-from-left-2">
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
+                  Filtro: {filtroAtivo.replace('_', ' ')}
+                </span>
+                <button 
+                  onClick={() => setFiltroAtivo(null)}
+                  className="p-1 hover:bg-blue-500/20 rounded-full transition-colors"
+                >
+                  <X className="w-3 h-3 text-blue-400" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="divide-y divide-white/5">
-          {pacotes.map(pacote => {
+          {pacotesFiltrados.map(pacote => {
             const numArq = pacote.arquivos?.length || 0;
 
             return (
