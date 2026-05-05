@@ -15,6 +15,6 @@
 ## Tarefa 2 — Fila de ocorrências
 - [x] 2.1 Tabela emissoes_ocorrencias criada
 - [x] 2.2 RLS configurada
-- [ ] 2.3 Componente FilaOcorrencias criado
+- [x] 2.3 Componente FilaOcorrencias criado
 - [ ] 2.4 Modal de criação
 - [ ] 2.5 Drawer de detalhes
