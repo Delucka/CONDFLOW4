@@ -7,7 +7,7 @@
 - [x] 0.4 Arquivo de progresso criado
 
 ## Tarefa 1 — Painel clicável + status real
-- [ ] 1.1 Cards do topo viram filtros clicáveis
+- [x] 1.1 Cards do topo viram filtros clicáveis
 - [ ] 1.2 Tabela mostra status real
 - [ ] 1.3 Tooltip de data nas registradas
 - [ ] 1.4 Botão registrar funcionando
