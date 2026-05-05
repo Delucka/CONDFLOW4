@@ -18,3 +18,11 @@
 - [x] 2.3 Componente FilaOcorrencias criado
 - [x] 2.4 Modal de criação
 - [x] 2.5 Drawer de detalhes
+
+## Deploy
+- [x] Build local OK (14 rotas compiladas)
+- [x] Lint OK (0 erros)
+- [x] Fixes pré-deploy (JSX, import, middleware, aspas)
+- [x] Deploy Vercel realizado em 05/05/2026
+- [x] Build na Vercel OK (✓ Compiled successfully in 9.7s)
+- URL de produção: https://frontend-theta-liard-32.vercel.app
