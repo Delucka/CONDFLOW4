@@ -352,8 +352,19 @@ export default function VisaoEmissor({ profile }) {
                 <h3 className="text-lg font-black text-white uppercase tracking-tight">
                   {condominios.find(c => c.id === activePacote.condominio_id)?.name || 'Condomínio'}
                 </h3>
-                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest">
+                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest flex items-center gap-3">
                   Emissão {String(activePacote.mes_referencia).padStart(2,'0')}/{activePacote.ano_referencia} • <StatusBadge status={activePacote.status} />
+                  
+                  {/* Botão de Registro Rápido no Painel Ativo */}
+                  {(activePacote.status || '').toLowerCase() === 'aprovado' && (
+                    <button 
+                      onClick={() => handleRegistrar(activePacote)} 
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-400 hover:to-cyan-400 transition-all shadow-lg shadow-emerald-500/20 font-black text-[9px] uppercase tracking-widest border border-white/10"
+                    >
+                      <FileCheck className="w-3.5 h-3.5" />
+                      <span>Registrar Agora</span>
+                    </button>
+                  )}
                 </p>
               </div>
             </div>
@@ -547,10 +558,10 @@ export default function VisaoEmissor({ profile }) {
                               {(pacote.status || '').toLowerCase() === 'aprovado' && (
                                 <button
                                   onClick={() => handleRegistrar(pacote)}
-                                  className="p-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 rounded-lg text-blue-400 transition-all"
-                                  title="Registrar Emissão"
+                                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-400 hover:to-cyan-400 transition-all shadow-lg shadow-emerald-500/20 font-black text-[9px] uppercase tracking-widest border border-white/10"
                                 >
-                                  <FileCheck className="w-3 h-3" />
+                                  <FileCheck className="w-3.5 h-3.5" />
+                                  <span>Registrar</span>
                                 </button>
                               )}
                               <button
