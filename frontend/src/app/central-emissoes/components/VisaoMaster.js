@@ -372,7 +372,20 @@ export default function VisaoMaster() {
                   </div>
                   
                     <div className="flex items-center gap-3">
-                      <StatusBadge status={pacote.status} />
+                      <div className="relative group inline-block">
+                        <StatusBadge status={pacote.status} />
+                        {(pacote.status || '').toLowerCase() === 'registrado' && pacote.atualizado_em && (
+                          <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-emerald-950 border border-emerald-500/30 text-emerald-100 text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl shadow-black/50">
+                            <div className="text-[10px] font-black uppercase tracking-widest opacity-70 mb-0.5">Registrada em</div>
+                            <div className="font-bold">
+                              {new Date(pacote.atualizado_em).toLocaleString('pt-BR', {
+                                day: '2-digit', month: '2-digit', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                              }).replace(',', ' às')}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       <div className="flex gap-1">
                         {/* Botão de Registro com Lógica Ultra-Permissiva */}
                         {(() => {

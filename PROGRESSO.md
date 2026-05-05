@@ -8,7 +8,7 @@
 
 ## Tarefa 1 — Painel clicável + status real
 - [x] 1.1 Cards do topo viram filtros clicáveis
-- [ ] 1.2 Tabela mostra status real
+- [x] 1.2 Tabela mostra status real
 - [ ] 1.3 Tooltip de data nas registradas
 - [ ] 1.4 Botão registrar funcionando
 
