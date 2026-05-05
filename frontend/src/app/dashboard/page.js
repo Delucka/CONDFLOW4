@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
+import FilaOcorrencias from '@/app/central-emissoes/components/FilaOcorrencias';
 
 export default function DashboardPage() {
   // MARCA DE ATUALIZAÇÃO SÊNIOR
@@ -303,57 +304,9 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Quadro Lateral Diretório de Pendências (Fila de Aprovação) */}
-        <div className="bg-slate-900/80 backdrop-blur-xl rounded-[2rem] border border-cyan-500/20 shadow-[0_0_40px_rgba(6,182,212,0.1)] overflow-hidden flex flex-col relative h-full">
-           <div className="px-6 py-5 border-b border-cyan-500/20 bg-cyan-500/5">
-              <div className="flex items-center gap-3">
-                 <ShieldCheck className="w-5 h-5 text-cyan-400" />
-                 <div>
-                    <h3 className="text-lg font-black text-white leading-none tracking-tight">Fila de Conferência</h3>
-                    <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Pendentes de Ação</p>
-                 </div>
-              </div>
-           </div>
-
-           <div className="p-4 space-y-3 flex-1 overflow-y-auto">
-              {isLoading ? (
-                 <div className="py-20 text-center text-[10px] text-slate-500 font-black uppercase tracking-widest">Calculando pendências...</div>
-              ) : pendingProcesses.length > 0 ? (
-                 pendingProcesses.map(proc => (
-                   <div key={proc.id} className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:border-cyan-500/40 transition-colors shadow-lg">
-                      <div className="flex items-center justify-between mb-3">
-                         <h4 className="text-sm font-black text-white uppercase tracking-tight truncate">{proc.condo?.name || '—'}</h4>
-                         <span className="text-[9px] font-black uppercase bg-white/10 text-slate-300 px-2 py-1 rounded-md">{proc.status}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 mt-4">
-                         <button onClick={() => handleQuickView(proc.condominio_id)} className="p-2.5 bg-slate-800 hover:bg-cyan-500 text-slate-400 hover:text-slate-900 rounded-xl transition-all border border-transparent shadow" title="Visualizar Prévia"><Eye className="w-4 h-4" /></button>
-                         <button 
-                            disabled={processing === proc.id}
-                            onClick={() => setShowRejectModal(proc)}
-                            className="flex-1 py-2.5 bg-transparent hover:bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl text-[9px] font-black uppercase transition-all disabled:opacity-50"
-                         >
-                            Corrigir
-                         </button>
-                         <button 
-                            disabled={processing === proc.id}
-                            onClick={() => handleAction(proc.id, 'approve')}
-                            className="flex-1 py-2.5 bg-cyan-500/10 hover:bg-cyan-500 text-cyan-500 hover:text-slate-950 border border-cyan-500/30 rounded-xl text-[9px] font-black uppercase transition-all shadow-lg shadow-cyan-500/10 disabled:opacity-50 flex justify-center items-center gap-1"
-                         >
-                            {processing === proc.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                            Aprovar
-                         </button>
-                      </div>
-                   </div>
-                 ))
-              ) : (
-                 <div className="py-20 text-center">
-                    <CheckCircle2 className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">Tudo limpo!</p>
-                    <p className="text-[10px] text-slate-600 mt-1">Nenhuma pendência na fila.</p>
-                 </div>
-              )}
-           </div>
+        {/* Quadro Lateral Diretório de Pendências (Fila de Ocorrências) */}
+        <div className="h-full">
+           <FilaOcorrencias />
         </div>
 
       </div>
