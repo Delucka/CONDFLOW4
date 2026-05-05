@@ -557,13 +557,10 @@ export default function VisaoEmissor({ profile }) {
                               )}
                               {(() => {
                                 const statusLower = (pacote.status || '').toLowerCase();
-                                const podeRegistrar = 
-                                  statusLower.includes('aprovado') || 
-                                  statusLower.includes('registro') ||
-                                  statusLower.includes('aguard') ||
-                                  statusLower.includes('concluido');
+                                const podeRegistrar = statusLower === 'aprovado';
+                                const roleAutorizado = profile?.role === 'master' || profile?.role === 'departamento';
                                 
-                                if (!podeRegistrar) return null;
+                                if (!podeRegistrar || !roleAutorizado) return null;
 
                                 return (
                                   <button

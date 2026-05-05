@@ -387,17 +387,12 @@ export default function VisaoMaster() {
                         )}
                       </div>
                       <div className="flex gap-1">
-                        {/* Botão de Registro com Lógica Ultra-Permissiva */}
                         {(() => {
                           const statusLower = (pacote.status || '').toLowerCase();
-                          // Se tiver qualquer uma dessas palavras, o botão APERECE
-                          const podeRegistrar = 
-                            statusLower.includes('aprovado') || 
-                            statusLower.includes('registro') ||
-                            statusLower.includes('aguard') ||
-                            statusLower.includes('concluido');
+                          const podeRegistrar = statusLower === 'aprovado';
+                          const roleAutorizado = profile?.role === 'master' || profile?.role === 'departamento';
                           
-                          if (!podeRegistrar) return null;
+                          if (!podeRegistrar || !roleAutorizado) return null;
                           
                           return (
                             <button 
