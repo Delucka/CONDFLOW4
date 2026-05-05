@@ -190,7 +190,7 @@ export default function DashboardPage() {
       {/* Etiqueta de Versão (Prova Real) */}
       <div className="flex items-center gap-2 px-6 py-2 bg-violet-600/20 border border-violet-500/30 rounded-full w-fit">
         <Zap className="w-4 h-4 text-violet-400 fill-violet-400" />
-        <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Dashboard V2 — Monitoramento Ativo</span>
+        <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Dashboard V4.0 — Workflow Estabilizado</span>
       </div>
 
       {/* Stats Principais (Foco em Registro) */}
