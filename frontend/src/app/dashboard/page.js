@@ -41,6 +41,7 @@ export default function DashboardPage() {
     registrada: 0
   });
   const [loadingEmissoes, setLoadingEmissoes] = useState(true);
+  const [emissaoByCondominio, setEmissaoByCondominio] = useState({});
 
   // ALTO FLUXO: SWR gerencia cache e revalidação automática
   const query = filtroGerente ? `?gerente_id=${filtroGerente}` : '';
@@ -56,8 +57,9 @@ export default function DashboardPage() {
       try {
         const { data: pacotes } = await supabase
           .from('emissoes_pacotes')
-          .select('status');
-        
+          .select('status, condominio_id, criado_em')
+          .order('criado_em', { ascending: false });
+
         if (pacotes) {
           const stats = {
             gerente: 0,
@@ -66,7 +68,9 @@ export default function DashboardPage() {
             aguardando: 0,
             registrada: 0
           };
-          
+
+          // Mapa condominio_id → status mais recente
+          const mapaEmissao = {};
           pacotes.forEach(p => {
             const s = (p.status || '').toLowerCase();
             if (s.includes('gerente') || s === 'pendente') stats.gerente++;
@@ -74,8 +78,13 @@ export default function DashboardPage() {
             else if (s.includes('supervisor')) stats.supContabilidade++;
             else if (s === 'aprovado') stats.aguardando++;
             else if (s === 'registrado') stats.registrada++;
+            // Primeiro encontrado = mais recente (query ordenada desc)
+            if (p.condominio_id && !mapaEmissao[p.condominio_id]) {
+              mapaEmissao[p.condominio_id] = p.status || 'sem_processo';
+            }
           });
           setEmissaoStats(stats);
+          setEmissaoByCondominio(mapaEmissao);
         }
       } catch (err) {
         console.error("Erro ao carregar métricas de emissão:", err);
@@ -274,7 +283,7 @@ export default function DashboardPage() {
                 </thead>
                 <tbody className="text-sm divide-y divide-white/5">
                   {condos.map((c) => {
-                    const status = data?.processos?.[c.id]?.status || 'Sem processo';
+                    const status = emissaoByCondominio[c.id] || 'sem_processo';
                     
                     return (
                       <tr key={c.id} className="hover:bg-white/5 transition-colors group">
