@@ -33,25 +33,9 @@ export default function VisaoGerente({ profile }) {
   async function fetchPacotes() {
     setLoading(true);
     try {
-      // 1) Descobre os condomínios que pertencem a este gerente
-      const { data: condos } = await supabase
-        .from('condominios')
-        .select('id')
-        .eq('gerente_id', profile.gerente_id);
-
-      const condoIds = (condos || []).map(c => c.id);
-
-      if (condoIds.length === 0) {
-        setPacotes([]);
-        setLoading(false);
-        return;
-      }
-
-      // 2) Busca pacotes apenas desses condomínios
       const { data } = await supabase
         .from('emissoes_pacotes')
-        .select('*, condominios(name)')
-        .in('condominio_id', condoIds)
+        .select('*, condominios(name, gerente_id)')
         .order('criado_em', { ascending: false });
 
       if (data) {
@@ -66,7 +50,13 @@ export default function VisaoGerente({ profile }) {
           arqMap[a.pacote_id].push(a);
         });
 
-        setPacotes(data.map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
+        // Filtra no frontend: só pacotes dos condomínios deste gerente
+        const gerenteId = profile.gerente_id;
+        const pacotesFiltrados = gerenteId
+          ? data.filter(p => p.condominios?.gerente_id === gerenteId)
+          : data; // se gerente_id não estiver disponível, mostra tudo (RLS protege)
+
+        setPacotes(pacotesFiltrados.map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
       }
     } catch (err) {
       console.error('Erro ao carregar pacotes do gerente:', err);
