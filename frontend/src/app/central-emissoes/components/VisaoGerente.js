@@ -15,7 +15,7 @@ export default function VisaoGerente({ profile }) {
   
   const [pacotes, setPacotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filtroStatus, setFiltroStatus] = useState('Aguardando Gerente');
+  const [filtroStatus, setFiltroStatus] = useState('pendente_gerente');
   const [termoBusca, setTermoBusca] = useState('');
   
   // Pacote expandido (mostra arquivos)
@@ -32,24 +32,44 @@ export default function VisaoGerente({ profile }) {
 
   async function fetchPacotes() {
     setLoading(true);
-    const { data } = await supabase
-      .from('emissoes_pacotes')
-      .select('*, condominios(name)')
-      .order('criado_em', { ascending: false });
-    
-    if (data) {
-      const { data: arquivos } = await supabase
-        .from('emissoes_arquivos')
-        .select('id, pacote_id, arquivo_nome, arquivo_url, formato')
-        .not('pacote_id', 'is', null);
-      
-      const arqMap = {};
-      (arquivos || []).forEach(a => {
-        if (!arqMap[a.pacote_id]) arqMap[a.pacote_id] = [];
-        arqMap[a.pacote_id].push(a);
-      });
-      
-      setPacotes(data.map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
+    try {
+      // 1) Descobre os condomínios que pertencem a este gerente
+      const { data: condos } = await supabase
+        .from('condominios')
+        .select('id')
+        .eq('gerente_id', profile.gerente_id);
+
+      const condoIds = (condos || []).map(c => c.id);
+
+      if (condoIds.length === 0) {
+        setPacotes([]);
+        setLoading(false);
+        return;
+      }
+
+      // 2) Busca pacotes apenas desses condomínios
+      const { data } = await supabase
+        .from('emissoes_pacotes')
+        .select('*, condominios(name)')
+        .in('condominio_id', condoIds)
+        .order('criado_em', { ascending: false });
+
+      if (data) {
+        const { data: arquivos } = await supabase
+          .from('emissoes_arquivos')
+          .select('id, pacote_id, arquivo_nome, arquivo_url, formato')
+          .not('pacote_id', 'is', null);
+
+        const arqMap = {};
+        (arquivos || []).forEach(a => {
+          if (!arqMap[a.pacote_id]) arqMap[a.pacote_id] = [];
+          arqMap[a.pacote_id].push(a);
+        });
+
+        setPacotes(data.map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
+      }
+    } catch (err) {
+      console.error('Erro ao carregar pacotes do gerente:', err);
     }
     setLoading(false);
   }
@@ -135,11 +155,16 @@ export default function VisaoGerente({ profile }) {
     }
   }
 
+  const STATUS_PENDENTE_GERENTE = ['pendente_gerente', 'Aguardando Gerente', 'pendente'];
+  const STATUS_EM_SUPERVISOR   = ['pendente_sup_gerentes', 'pendente_sup_contabilidade', 'Aguardando Supervisor', 'Aguardando Chefe'];
+
   const filtered = pacotes.filter(p => {
-    if (p.status === 'rascunho') return false; // Não mostra rascunhos para o gerente
+    if (p.status === 'rascunho') return false;
     if (filtroStatus !== 'todos') {
-      if (filtroStatus === 'Aguardando Gerente') {
-        if (p.status !== 'Aguardando Gerente' && p.status !== 'pendente') return false;
+      if (filtroStatus === 'pendente_gerente') {
+        if (!STATUS_PENDENTE_GERENTE.includes(p.status)) return false;
+      } else if (filtroStatus === 'em_supervisor') {
+        if (!STATUS_EM_SUPERVISOR.includes(p.status)) return false;
       } else {
         if (p.status !== filtroStatus) return false;
       }
@@ -158,17 +183,23 @@ export default function VisaoGerente({ profile }) {
       {/* Filtros */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between border border-white/10 rounded-3xl bg-white/5 p-4 shadow-xl">
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
-          {['Aguardando Gerente', 'Aguardando Supervisor', 'aprovado', 'solicitar_correcao', 'todos'].map(st => (
+          {[
+            { value: 'pendente_gerente',   label: 'Pendentes'    },
+            { value: 'em_supervisor',      label: 'Em Supervisor' },
+            { value: 'aprovado',           label: 'Aprovado'     },
+            { value: 'solicitar_correcao', label: 'Correção'     },
+            { value: 'todos',              label: 'Todos'        },
+          ].map(({ value, label }) => (
             <button
-              key={st}
-              onClick={() => setFiltroStatus(st)}
+              key={value}
+              onClick={() => setFiltroStatus(value)}
               className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
-                filtroStatus === st 
-                  ? 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' 
+                filtroStatus === value
+                  ? 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]'
                   : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
               }`}
             >
-              {st === 'Aguardando Gerente' ? 'Pendentes' : st === 'Aguardando Supervisor' ? 'Em Supervisor' : st === 'solicitar_correcao' ? 'Correção' : st}
+              {label}
             </button>
           ))}
         </div>
@@ -195,7 +226,7 @@ export default function VisaoGerente({ profile }) {
         <div className="space-y-4">
           {filtered.map(pacote => {
             const numArquivos = pacote.arquivos?.length || 0;
-            const isAwaiting = pacote.status === 'Aguardando Gerente' || pacote.status === 'pendente';
+            const isAwaiting = STATUS_PENDENTE_GERENTE.includes(pacote.status);
 
             return (
               <div key={pacote.id} className="border border-white/10 rounded-2xl bg-[#0a0a0f] overflow-hidden">
