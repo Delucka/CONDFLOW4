@@ -15,7 +15,7 @@ export default function VisaoGerente({ profile }) {
   
   const [pacotes, setPacotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filtroStatus, setFiltroStatus] = useState('pendente_gerente');
+  const [filtroStatus, setFiltroStatus] = useState('todos');
   const [termoBusca, setTermoBusca] = useState('');
   
   // Pacote expandido (mostra arquivos)
