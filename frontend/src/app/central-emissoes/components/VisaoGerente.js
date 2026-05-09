@@ -33,10 +33,35 @@ export default function VisaoGerente({ profile }) {
   async function fetchPacotes() {
     setLoading(true);
     try {
-      const { data } = await supabase
+      // 1) Resolve o gerente pelo auth user id (mais confiável que profile.gerente_id)
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) { setLoading(false); return; }
+
+      const { data: gerenteRow } = await supabase
+        .from('gerentes')
+        .select('id')
+        .eq('profile_id', authUser.id)
+        .single();
+
+      // 2) Resolve os condomínios deste gerente
+      let condoIds = [];
+      if (gerenteRow?.id) {
+        const { data: condos } = await supabase
+          .from('condominios')
+          .select('id')
+          .eq('gerente_id', gerenteRow.id);
+        condoIds = (condos || []).map(c => c.id);
+      }
+
+      // 3) Busca pacotes desses condomínios (ou todos se sem condomínios — RLS protege)
+      const query = supabase
         .from('emissoes_pacotes')
-        .select('*, condominios(name, gerente_id)')
+        .select('*, condominios(name)')
         .order('criado_em', { ascending: false });
+
+      const { data } = condoIds.length > 0
+        ? await query.in('condominio_id', condoIds)
+        : await query;
 
       if (data) {
         const { data: arquivos } = await supabase
@@ -50,13 +75,7 @@ export default function VisaoGerente({ profile }) {
           arqMap[a.pacote_id].push(a);
         });
 
-        // Filtra no frontend: só pacotes dos condomínios deste gerente
-        const gerenteId = profile.gerente_id;
-        const pacotesFiltrados = gerenteId
-          ? data.filter(p => p.condominios?.gerente_id === gerenteId)
-          : data; // se gerente_id não estiver disponível, mostra tudo (RLS protege)
-
-        setPacotes(pacotesFiltrados.map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
+        setPacotes(data.map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
       }
     } catch (err) {
       console.error('Erro ao carregar pacotes do gerente:', err);
