@@ -5,6 +5,8 @@ import { Loader2 } from 'lucide-react';
 import VisaoEmissor from './components/VisaoEmissor';
 import VisaoGerente from './components/VisaoGerente';
 import VisaoMaster from './components/VisaoMaster';
+import RegistroEmissoes from './components/RegistroEmissoes';
+import { Archive } from 'lucide-react';
 
 import { useState } from 'react';
 
@@ -37,13 +39,23 @@ export default function CentralEmissoesPage() {
       >
         Fazer Emissões
       </button>
+      <button 
+        onClick={() => setMasterView('registro')}
+        className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${masterView === 'registro' ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'}`}
+      >
+        <Archive className="w-4 h-4" />
+        Registro de Emissões
+      </button>
     </div>
   );
 
   let content = null;
 
   // Se for departamento, ou um Master na aba de Upload, vê a tela de envo
-  if (profile.role === 'departamento' || (isMasterOrSup && masterView === 'upload')) {
+  if (isMasterOrSup && masterView === 'registro') {
+    content = <RegistroEmissoes />;
+  }
+  else if (profile.role === 'departamento' || (isMasterOrSup && masterView === 'upload')) {
     content = <VisaoEmissor profile={profile} />;
   } 
   // Se for gerente, vê a tela de aprovações da sua carteira
