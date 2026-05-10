@@ -26,3 +26,12 @@
 - [x] Deploy Vercel realizado em 05/05/2026
 - [x] Build na Vercel OK (✓ Compiled successfully in 9.7s)
 - URL de produção: https://frontend-theta-liard-32.vercel.app
+
+## Tarefa 3 — Sistema de lacre + Registro de Emissões
+- [x] 3.1 Diagnóstico (estrutura tabela, duplicatas, localização botão REGISTRAR)
+- [x] 3.2 SQL: campos de lacre + triggers (lacra_ao_registrar, protege_pacote, protege_arquivos)
+- [x] 3.3 SQL: tabela emissoes_retificacoes + RLS
+- [x] 3.4 Frontend: filtro lacrada=false no Painel de Gestão
+- [x] 3.5 Frontend: nova aba "Registro de Emissões" + componente RegistroEmissoes.js
+- [x] 3.6 Frontend: botões Ver arquivos, Download ZIP (jszip), Solicitar retificação
+- [ ] 3.7 Teste integrado

@@ -3,7 +3,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { Archive, Search, Calendar, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, FileText, AlertTriangle, Loader2, Building } from 'lucide-react';
+import { Archive, Search, Calendar, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, FileText, AlertTriangle, Loader2, Building, Download } from 'lucide-react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 export default function RegistroEmissoes() {
   const supabase = createClient();
@@ -109,6 +111,26 @@ export default function RegistroEmissoes() {
     const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arq.arquivo_url, 300);
     if (error || !data?.signedUrl) return addToast('Erro ao abrir arquivo', 'error');
     window.open(data.signedUrl, '_blank');
+  }
+
+  async function handleDownloadZip(pacote) {
+    addToast('Preparando download...', 'info');
+    try {
+      const zip = new JSZip();
+      for (const arq of (pacote.arquivos || [])) {
+        const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arq.arquivo_url, 300);
+        if (error || !data?.signedUrl) continue;
+        const resp = await fetch(data.signedUrl);
+        const blob = await resp.blob();
+        zip.file(arq.arquivo_nome, blob);
+      }
+      const content = await zip.generateAsync({ type: 'blob' });
+      const nome = `${(pacote.condominios?.name || 'pacote').replace(/\s+/g, '_')}_${String(pacote.mes_referencia).padStart(2,'0')}-${pacote.ano_referencia}.zip`;
+      saveAs(content, nome);
+      addToast('Download concluído!', 'success');
+    } catch (e) {
+      addToast('Erro no download: ' + e.message, 'error');
+    }
   }
 
   return (
@@ -229,6 +251,12 @@ export default function RegistroEmissoes() {
                         className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all" title="Ver arquivos">
                         <Eye className="w-4 h-4" />
                       </button>
+                      {(p.arquivos?.length || 0) > 0 && (
+                        <button onClick={() => handleDownloadZip(p)}
+                          className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-emerald-400 hover:border-emerald-500/30 transition-all" title="Baixar pacote ZIP">
+                          <Download className="w-4 h-4" />
+                        </button>
+                      )}
                       {canRetif && (
                         <button onClick={() => { setRetifPacote(p); setShowRetifModal(true); setRetifMotivo(''); setRetifDescricao(''); }}
                           className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-amber-400 hover:border-amber-500/30 transition-all" title="Solicitar retificação">
