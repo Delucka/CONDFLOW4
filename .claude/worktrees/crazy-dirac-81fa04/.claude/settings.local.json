@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/projetos/condominios/frontend/**)",
+      "Bash(npx next *)"
+    ]
+  }
+}

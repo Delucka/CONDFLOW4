@@ -53,8 +53,10 @@ export default function VisaoMaster() {
   };
 
   const pacotesFiltrados = useMemo(() => {
-    if (!filtroAtivo) return pacotes;
-    return pacotes.filter(p => {
+    // Pacotes lacrados não aparecem no Painel de Gestão — ficam na aba "Registro de Emissões"
+    const ativos = pacotes.filter(p => !p.lacrada);
+    if (!filtroAtivo) return ativos;
+    return ativos.filter(p => {
       const s = (p.status || '').toLowerCase();
       if (filtroAtivo === 'pendente_gerente') return s.includes('gerente') || s === 'pendente';
       if (filtroAtivo === 'pendente_sup_gerentes') return s.includes('chefe') || s.includes('sup. gerentes');

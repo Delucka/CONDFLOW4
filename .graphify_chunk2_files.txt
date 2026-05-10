@@ -1,0 +1,14 @@
+C:\projetos\condominios\templates\admin_usuarios.html
+C:\projetos\condominios\templates\aprovacoes.html
+C:\projetos\condominios\templates\arrecadacoes.html
+C:\projetos\condominios\templates\base.html
+C:\projetos\condominios\templates\carteiras.html
+C:\projetos\condominios\templates\cobrancas_extras.html
+C:\projetos\condominios\templates\dashboard.html
+C:\projetos\condominios\templates\login.html
+C:\projetos\condominios\_rbac_plan\README.md
+C:\projetos\condominios\frontend\public\file.svg
+C:\projetos\condominios\frontend\public\globe.svg
+C:\projetos\condominios\frontend\public\next.svg
+C:\projetos\condominios\frontend\public\vercel.svg
+C:\projetos\condominios\frontend\public\window.svg

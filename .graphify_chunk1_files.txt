@@ -1,0 +1,13 @@
+C:\projetos\condominios\CLAUDE.md
+C:\projetos\condominios\PROGRESSO.md
+C:\projetos\condominios\PROJETO_CONDFLOW_CONTEXTO.md
+C:\projetos\condominios\api\requirements.txt
+C:\projetos\condominios\frontend\AGENTS.md
+C:\projetos\condominios\frontend\build_log.txt
+C:\projetos\condominios\frontend\CLAUDE.md
+C:\projetos\condominios\frontend\codigo_fonte_completo.txt
+C:\projetos\condominios\frontend\PROJETO_CONDFLOW_CONTEXTO.md
+C:\projetos\condominios\frontend\README.md
+C:\projetos\condominios\frontend\server_log.txt
+C:\projetos\condominios\patch_temp\PROMPT_ANTIGRAVITY.txt
+C:\projetos\condominios\templates\admin_condominios.html

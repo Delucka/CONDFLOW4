@@ -1,0 +1,502 @@
+{
+  "C:\\projetos\\condominios\\add_analise_fin.sql": {
+    "mtime": 1776822474.9886067,
+    "hash": "ff21b6aa6c86485db137b198d4e2548e"
+  },
+  "C:\\projetos\\condominios\\check_gerentes.py": {
+    "mtime": 1776822474.9956992,
+    "hash": "59d0df676ba2ae0f6d3b4f6624dd6fe0"
+  },
+  "C:\\projetos\\condominios\\create_central_emissoes.sql": {
+    "mtime": 1776822474.9972296,
+    "hash": "9c7c5e4fe932df2281868a587fa0ccbd"
+  },
+  "C:\\projetos\\condominios\\create_cobrancas_extras.sql": {
+    "mtime": 1776822474.9977405,
+    "hash": "904261b335629ad64420e3afa7d2df04"
+  },
+  "C:\\projetos\\condominios\\create_emissoes.sql": {
+    "mtime": 1776822474.9987664,
+    "hash": "ac4cf2422655bf8b9970bd647113cd75"
+  },
+  "C:\\projetos\\condominios\\create_emissoes_ocorrencias.sql": {
+    "mtime": 1778021935.336556,
+    "hash": "88d9f40243f05af4507b0c7bc435b1ed"
+  },
+  "C:\\projetos\\condominios\\create_emissoes_pacotes.sql": {
+    "mtime": 1776822474.9997828,
+    "hash": "270e365465b7cb01ec8bbf1012cfd84f"
+  },
+  "C:\\projetos\\condominios\\create_gerente.js": {
+    "mtime": 1776822475.0013454,
+    "hash": "fc6c7c3a31d77de7325ad48a5ab6618d"
+  },
+  "C:\\projetos\\condominios\\create_master.py": {
+    "mtime": 1776822475.002316,
+    "hash": "cc7e9eab4c2b891671ea6fc29eac784c"
+  },
+  "C:\\projetos\\condominios\\delete_users.py": {
+    "mtime": 1776822475.0033154,
+    "hash": "875d93ca54d1cfaa13683b269dc41d6a"
+  },
+  "C:\\projetos\\condominios\\diagnostic_db.py": {
+    "mtime": 1776822475.0043142,
+    "hash": "3b658979aabd3c6a8130f85526613ce3"
+  },
+  "C:\\projetos\\condominios\\final_fix.sql": {
+    "mtime": 1776822475.0053136,
+    "hash": "ee1eb28fe83b3343701a258860762404"
+  },
+  "C:\\projetos\\condominios\\fix.js": {
+    "mtime": 1776822475.006313,
+    "hash": "f8cff5784b3ef0d3a8ba957f793fef5e"
+  },
+  "C:\\projetos\\condominios\\fix_api_routes.py": {
+    "mtime": 1776822475.0073128,
+    "hash": "2137f19de084ba48f4ada6b5d140958f"
+  },
+  "C:\\projetos\\condominios\\fix_master_profile.py": {
+    "mtime": 1776822475.008312,
+    "hash": "c2443450ea3cbcbbab95f785011b2f0e"
+  },
+  "C:\\projetos\\condominios\\fix_rateios_schema.sql": {
+    "mtime": 1776822475.0093117,
+    "hash": "8eb0ae776b897aa9f993ca015a7a331d"
+  },
+  "C:\\projetos\\condominios\\make_zip.py": {
+    "mtime": 1776822475.014309,
+    "hash": "402078f506c2edbaaab23cabf81ff204"
+  },
+  "C:\\projetos\\condominios\\migrate_12_months_archive.sql": {
+    "mtime": 1776822475.014309,
+    "hash": "c18493cc0448d70dbd025b4838a5ad3f"
+  },
+  "C:\\projetos\\condominios\\migrate_parcelamento.sql": {
+    "mtime": 1776822475.015308,
+    "hash": "3c6868ba1b31a89771cc40f11b7f2571"
+  },
+  "C:\\projetos\\condominios\\migrate_parcelamento_v2.sql": {
+    "mtime": 1776822475.0163076,
+    "hash": "2b9e6192944cc06a90d8b5dd1568bae7"
+  },
+  "C:\\projetos\\condominios\\migrate_rateios.sql": {
+    "mtime": 1776822475.0183077,
+    "hash": "e2127d018eb666bb2a41758df37165e7"
+  },
+  "C:\\projetos\\condominios\\repair_api.py": {
+    "mtime": 1776822475.0203052,
+    "hash": "5ef23f979b5b3bd75917639c2e8f458b"
+  },
+  "C:\\projetos\\condominios\\rls_emissoes_ocorrencias.sql": {
+    "mtime": 1778022127.5519001,
+    "hash": "d0cfe90442f4a6e3c7fd6ce944a4f96f"
+  },
+  "C:\\projetos\\condominios\\run_migration.py": {
+    "mtime": 1776822475.0203052,
+    "hash": "154e2ab16ac8e370a6ca3ed9aee3cfe0"
+  },
+  "C:\\projetos\\condominios\\schema.sql": {
+    "mtime": 1776822475.0223038,
+    "hash": "f8cc5f47914a234f6b7405e2dcd977e4"
+  },
+  "C:\\projetos\\condominios\\seed.py": {
+    "mtime": 1776822475.0283005,
+    "hash": "f5f671ac0b8b395f45080adaabcc70fb"
+  },
+  "C:\\projetos\\condominios\\seed_all_gerentes.py": {
+    "mtime": 1776822475.0293,
+    "hash": "0867c2fb9b71bafc4927ae59e771fff8"
+  },
+  "C:\\projetos\\condominios\\seed_condos.sql": {
+    "mtime": 1776822475.0298057,
+    "hash": "9a4f427974dcde45d8d711498c175773"
+  },
+  "C:\\projetos\\condominios\\tailwind.config.js": {
+    "mtime": 1776822475.0368001,
+    "hash": "b2e5dc57939b7e4c1d40d0d0f0257a5a"
+  },
+  "C:\\projetos\\condominios\\api\\api_routes.py": {
+    "mtime": 1777821575.0281,
+    "hash": "fab1c84d5df35b9c8c9957fbebc87807"
+  },
+  "C:\\projetos\\condominios\\api\\fix.py": {
+    "mtime": 1776822474.9906054,
+    "hash": "e5008c642b5cc5fe194064d680381402"
+  },
+  "C:\\projetos\\condominios\\api\\fix_lines.py": {
+    "mtime": 1776822474.9926043,
+    "hash": "08fa6d552909fbde8358efd821228d9a"
+  },
+  "C:\\projetos\\condominios\\api\\index.py": {
+    "mtime": 1777765245.7222457,
+    "hash": "3802440d86680f0df8898c45763fe5c6"
+  },
+  "C:\\projetos\\condominios\\frontend\\eslint.config.mjs": {
+    "mtime": 1776815539.8851166,
+    "hash": "c203a0a3beda61d4f5f8befdaf454334"
+  },
+  "C:\\projetos\\condominios\\frontend\\force_admin.js": {
+    "mtime": 1776815539.8871155,
+    "hash": "1013449025966216ff63eb89b4774cb1"
+  },
+  "C:\\projetos\\condominios\\frontend\\insert_condominio.mjs": {
+    "mtime": 1776815539.8881173,
+    "hash": "d66a3b4030ea27b6d964fa442080f160"
+  },
+  "C:\\projetos\\condominios\\frontend\\next.config.mjs": {
+    "mtime": 1776823240.735628,
+    "hash": "41b6e92776ad46640b52a13980927c56"
+  },
+  "C:\\projetos\\condominios\\frontend\\postcss.config.mjs": {
+    "mtime": 1776815539.8939378,
+    "hash": "481fac0fdecd70e1821cc30b86030c1a"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\proxy.js": {
+    "mtime": 1776815539.952103,
+    "hash": "cfc56bcc7ebd43e2d30ad50cf11b18cd"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\error.js": {
+    "mtime": 1776815539.9310186,
+    "hash": "038195fddf933e31a4684f8a026f9641"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\layout.js": {
+    "mtime": 1776815539.934016,
+    "hash": "8b597b50e4b4d02cb45fa42de0223941"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\not-found.js": {
+    "mtime": 1776815539.9362037,
+    "hash": "36195fa43a404599cdfaa474cd85d557"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\page.js": {
+    "mtime": 1776815539.937202,
+    "hash": "80e6862ea27f38321c8662d56443f8c9"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\admin\\usuarios\\layout.js": {
+    "mtime": 1776815539.9034498,
+    "hash": "4796d2fb52de8662878c58740ed2f344"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\admin\\usuarios\\page.js": {
+    "mtime": 1778023907.1367118,
+    "hash": "7db88b46675b16aec5924e43a16a09cc"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\aprovacoes\\layout.js": {
+    "mtime": 1776815539.9065266,
+    "hash": "4796d2fb52de8662878c58740ed2f344"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\aprovacoes\\page.js": {
+    "mtime": 1776830008.4096088,
+    "hash": "32c123b2b0ea703247b99a6799528b30"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\carteiras\\layout.js": {
+    "mtime": 1776815539.9115245,
+    "hash": "4796d2fb52de8662878c58740ed2f344"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\carteiras\\page.js": {
+    "mtime": 1776815539.9125242,
+    "hash": "23d2d2de7ea2be88bc760772b79c7e6c"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\carteiras\\cobrancas\\layout.js": {
+    "mtime": 1776815539.909536,
+    "hash": "4796d2fb52de8662878c58740ed2f344"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\carteiras\\cobrancas\\page.js": {
+    "mtime": 1778023911.1106315,
+    "hash": "a35c4b6fff3ab9a488fa9be82904dea5"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\central-emissoes\\layout.js": {
+    "mtime": 1776815539.91852,
+    "hash": "4796d2fb52de8662878c58740ed2f344"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\central-emissoes\\page.js": {
+    "mtime": 1776815539.9195194,
+    "hash": "fed7777efb830c40ed6fa6f7de12d9d0"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\central-emissoes\\components\\FilaOcorrencias.js": {
+    "mtime": 1778023912.4566226,
+    "hash": "4c4086eb2b90a1acb207bb8a677943ec"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\central-emissoes\\components\\StatusBadge.js": {
+    "mtime": 1778021783.9949703,
+    "hash": "24fdc0bbb59a1240a4b129361dc73cec"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\central-emissoes\\components\\VisaoEmissor.js": {
+    "mtime": 1778021904.5297263,
+    "hash": "9335037286a5875ba04a241c0e451532"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\central-emissoes\\components\\VisaoGerente.js": {
+    "mtime": 1777821561.2465758,
+    "hash": "2fc951297f677adc22a892510ff27910"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\central-emissoes\\components\\VisaoMaster.js": {
+    "mtime": 1778025109.224578,
+    "hash": "0c255ac390674da23adbe2dc5f9e76de"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\condominio\\[id]\\arrecadacoes\\page.js": {
+    "mtime": 1777768381.1653488,
+    "hash": "4d3e08c3c8e7681b8e9d2eefdcfb66bc"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\condominio\\[id]\\cobrancas\\page.js": {
+    "mtime": 1776815539.923481,
+    "hash": "4573b3d1442fca212faba9fe0ab57192"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\condominio\\[id]\\emissoes\\page.js": {
+    "mtime": 1776815539.9254801,
+    "hash": "54cdceb84230bc806fac33652c515aef"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\condominios\\page.js": {
+    "mtime": 1777818127.4095972,
+    "hash": "28b2561dda17301db70e4b0aaa251c8f"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\dashboard\\page.js": {
+    "mtime": 1778025688.4749162,
+    "hash": "a4b9dd14d5b5db7f7af818366bcfaab5"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\emissoes\\page.js": {
+    "mtime": 1776815539.9300187,
+    "hash": "ef46dd5cead9c407a1401841fdb62a51"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\login\\page.js": {
+    "mtime": 1776815539.9356933,
+    "hash": "135807f58372656fffeba727595fcf56"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\app\\seed\\page.js": {
+    "mtime": 1776815539.9382,
+    "hash": "b21d9bf075cc39a3647bb0079ff0798f"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\components\\AppShell.js": {
+    "mtime": 1776815539.9392004,
+    "hash": "f79c72894bff7259e9dccb4c0c27d2ab"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\components\\FilePreviewDrawer.js": {
+    "mtime": 1776815539.9401984,
+    "hash": "cf6fd9c521ba83e383164c8b8b43e39c"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\components\\RouteGuard.js": {
+    "mtime": 1776815539.9411995,
+    "hash": "513e525286ffbd69e322ff90bcb452ee"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\components\\Sidebar.js": {
+    "mtime": 1776815539.9421995,
+    "hash": "688cd496a8bc2838c033b2ac364ba8a2"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\components\\StatsCard.js": {
+    "mtime": 1776815539.9431973,
+    "hash": "bc1b159fb763a16e700b5616b51c47ab"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\components\\StatusBadge.js": {
+    "mtime": 1778025717.3929894,
+    "hash": "44efd9dcd7ee5f45344804dc1ccaed9b"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\components\\Toast.js": {
+    "mtime": 1776815539.9441981,
+    "hash": "b55e6ff72ba5af1452350b1477b5a217"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\components\\VisualizadorConferencia.js": {
+    "mtime": 1776829493.6614335,
+    "hash": "1ded79e4bee1460002795be8658263a6"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\lib\\api.js": {
+    "mtime": 1776815539.949505,
+    "hash": "f7ef47a1259be310b322fd7177cbf8c0"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\lib\\auth.js": {
+    "mtime": 1776815539.9507184,
+    "hash": "504dc763a9eae838f7b3857bffd41b25"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\lib\\roles.js": {
+    "mtime": 1776815539.9515955,
+    "hash": "709748109d0e1323f22f4a38bbc492b5"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\utils\\supabase\\client.js": {
+    "mtime": 1776815539.954856,
+    "hash": "61208825ce8712174e843640f6fc7cc1"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\utils\\supabase\\middleware.js": {
+    "mtime": 1778024121.8395312,
+    "hash": "c8b9a24b3a32086ac67d46ee242fe22c"
+  },
+  "C:\\projetos\\condominios\\frontend\\src\\utils\\supabase\\server.js": {
+    "mtime": 1776815539.956877,
+    "hash": "31736ac2853f345bed0ff40ab4ba9a90"
+  },
+  "C:\\projetos\\condominios\\patch_temp\\old_api_routes.py": {
+    "mtime": 1776825128.2268221,
+    "hash": "f6005fda959fad3957246395510fead6"
+  },
+  "C:\\projetos\\condominios\\patch_temp\\api\\cobrancas_endpoints.py": {
+    "mtime": 1776835086.0,
+    "hash": "24124bf14b04c32e8526c57aee9e738f"
+  },
+  "C:\\projetos\\condominios\\patch_temp\\frontend\\src\\app\\carteiras\\cobrancas\\page.js": {
+    "mtime": 1776835166.0,
+    "hash": "4875b5fa6d889485afa7560adc638b05"
+  },
+  "C:\\projetos\\condominios\\patch_temp\\sql\\migration_cobrancas.sql": {
+    "mtime": 1776835056.0,
+    "hash": "b2a289de38404192666b6594358c12e3"
+  },
+  "C:\\projetos\\condominios\\scratch\\run_sql.py": {
+    "mtime": 1777819140.888485,
+    "hash": "446f84acdec88b5dd892c6fb14fac8b1"
+  },
+  "C:\\projetos\\condominios\\scratch\\test_join.py": {
+    "mtime": 1777817703.5680344,
+    "hash": "4984b08c47a349fdb7e827b297c4b924"
+  },
+  "C:\\projetos\\condominios\\scripts\\cleanup_data.py": {
+    "mtime": 1776822475.0233035,
+    "hash": "0bb546155ff4e19ebb33e31b4e00a26b"
+  },
+  "C:\\projetos\\condominios\\scripts\\create_first_condo.py": {
+    "mtime": 1776822475.024303,
+    "hash": "17e1cd89695f28cc20c6fe268113d5bd"
+  },
+  "C:\\projetos\\condominios\\scripts\\inspect_schema.py": {
+    "mtime": 1776822475.0253024,
+    "hash": "edc51a9e01d4b1e5d4a28f40a1badb47"
+  },
+  "C:\\projetos\\condominios\\scripts\\setup_carteiras.py": {
+    "mtime": 1776822475.0263016,
+    "hash": "0063bec36a1bb988c013a8d6a2660974"
+  },
+  "C:\\projetos\\condominios\\scripts\\test_conn.py": {
+    "mtime": 1776822475.0273013,
+    "hash": "354ba87794808e19416e357cf2f31b8e"
+  },
+  "C:\\projetos\\condominios\\static\\lucide-subset.js": {
+    "mtime": 1776822475.0328033,
+    "hash": "8a8d669ef9bf84b2b1d819ce4289d32b"
+  },
+  "C:\\projetos\\condominios\\_rbac_plan\\api\\api_routes_patch.py": {
+    "mtime": 1776794700.0,
+    "hash": "51b9067d04d2d63f28c789274186aae4"
+  },
+  "C:\\projetos\\condominios\\_rbac_plan\\frontend\\src\\components\\RouteGuard.js": {
+    "mtime": 1776794598.0,
+    "hash": "45157ffba3d38f156d2786c085549691"
+  },
+  "C:\\projetos\\condominios\\_rbac_plan\\frontend\\src\\components\\Sidebar.js": {
+    "mtime": 1776794584.0,
+    "hash": "b79dd508cec810e8d566599b65a80794"
+  },
+  "C:\\projetos\\condominios\\_rbac_plan\\frontend\\src\\components\\VisualizadorConferencia.js": {
+    "mtime": 1776794654.0,
+    "hash": "0445e8c2c1fdd288232fe9ea50ab7988"
+  },
+  "C:\\projetos\\condominios\\_rbac_plan\\frontend\\src\\lib\\roles.js": {
+    "mtime": 1776794526.0,
+    "hash": "44a2e88456378071c640dc70c50045b5"
+  },
+  "C:\\projetos\\condominios\\_rbac_plan\\sql\\migration_rbac.sql": {
+    "mtime": 1776794506.0,
+    "hash": "f9f7490deb24ff78bcf63ca2ddf9aa0d"
+  },
+  "C:\\projetos\\condominios\\CLAUDE.md": {
+    "mtime": 1778329234.8468919,
+    "hash": "e1a136e6f8780ab4d1a86ba470d6083f"
+  },
+  "C:\\projetos\\condominios\\PROGRESSO.md": {
+    "mtime": 1778024764.2531729,
+    "hash": "549232d6b0e7467ad11230850a7da7ea"
+  },
+  "C:\\projetos\\condominios\\PROJETO_CONDFLOW_CONTEXTO.md": {
+    "mtime": 1776822474.9876072,
+    "hash": "d44313e8bff956f728b9ee575ae53934"
+  },
+  "C:\\projetos\\condominios\\api\\requirements.txt": {
+    "mtime": 1776822474.9951866,
+    "hash": "207326c0a0ff0dbbb1de030dba8679ce"
+  },
+  "C:\\projetos\\condominios\\frontend\\AGENTS.md": {
+    "mtime": 1776815539.8821213,
+    "hash": "9346a4897ff955555ddedb7bebf77adb"
+  },
+  "C:\\projetos\\condominios\\frontend\\build_log.txt": {
+    "mtime": 1776815539.884117,
+    "hash": "09c5e5165641b2a11e026017daa29b7c"
+  },
+  "C:\\projetos\\condominios\\frontend\\CLAUDE.md": {
+    "mtime": 1776815539.8831177,
+    "hash": "771faa62feb60b7de901a397aebb29b0"
+  },
+  "C:\\projetos\\condominios\\frontend\\codigo_fonte_completo.txt": {
+    "mtime": 1775943330.7450879,
+    "hash": "17f5629b9d0fc3274dc4266905ecdd39"
+  },
+  "C:\\projetos\\condominios\\frontend\\PROJETO_CONDFLOW_CONTEXTO.md": {
+    "mtime": 1776809601.73649,
+    "hash": "d44313e8bff956f728b9ee575ae53934"
+  },
+  "C:\\projetos\\condominios\\frontend\\README.md": {
+    "mtime": 1776815539.8831177,
+    "hash": "d446bac473f3d982730264ec4cb16fcb"
+  },
+  "C:\\projetos\\condominios\\frontend\\server_log.txt": {
+    "mtime": 1774101878.3518503,
+    "hash": "aa4f76e3a1b97defeb821bf78094b5da"
+  },
+  "C:\\projetos\\condominios\\patch_temp\\PROMPT_ANTIGRAVITY.txt": {
+    "mtime": 1776835178.0,
+    "hash": "5e19ae54c26efd9b04c2f1bf5c5b1910"
+  },
+  "C:\\projetos\\condominios\\templates\\admin_condominios.html": {
+    "mtime": 1776822475.0377996,
+    "hash": "a62c17a7f5a5a9f165d84a2b92a49fd6"
+  },
+  "C:\\projetos\\condominios\\templates\\admin_usuarios.html": {
+    "mtime": 1776822475.0398066,
+    "hash": "b52475ac79cfa2e589a3400abaf52cf5"
+  },
+  "C:\\projetos\\condominios\\templates\\aprovacoes.html": {
+    "mtime": 1776822475.040798,
+    "hash": "6a369c95e97214c313c98d18b92afebb"
+  },
+  "C:\\projetos\\condominios\\templates\\arrecadacoes.html": {
+    "mtime": 1776822475.0418334,
+    "hash": "9ef7a148a8a69ab99e42cff6f9186944"
+  },
+  "C:\\projetos\\condominios\\templates\\base.html": {
+    "mtime": 1776822475.042797,
+    "hash": "81f78caa345b306d408eb3db8b9267ad"
+  },
+  "C:\\projetos\\condominios\\templates\\carteiras.html": {
+    "mtime": 1776822475.0437965,
+    "hash": "42a302f291f4d8bd913893729a827497"
+  },
+  "C:\\projetos\\condominios\\templates\\cobrancas_extras.html": {
+    "mtime": 1776822475.0447962,
+    "hash": "51696d3ecc3a1fa09b2a8f07585d91b3"
+  },
+  "C:\\projetos\\condominios\\templates\\dashboard.html": {
+    "mtime": 1776822475.0457954,
+    "hash": "51c87e65506d6468dd9896018a6ed388"
+  },
+  "C:\\projetos\\condominios\\templates\\login.html": {
+    "mtime": 1776822475.046795,
+    "hash": "05df45715cd2d1015c0bdd1d2637c520"
+  },
+  "C:\\projetos\\condominios\\_rbac_plan\\README.md": {
+    "mtime": 1776794742.0,
+    "hash": "0cb4e5461fda34fbf2bf81422f16d592"
+  },
+  "C:\\projetos\\condominios\\frontend\\public\\file.svg": {
+    "mtime": 1776815539.8959372,
+    "hash": "d09f95206c3fa0bb9bd9fefabfd0ea71"
+  },
+  "C:\\projetos\\condominios\\frontend\\public\\globe.svg": {
+    "mtime": 1776815539.8974562,
+    "hash": "2aaafa6a49b6563925fe440891e32717"
+  },
+  "C:\\projetos\\condominios\\frontend\\public\\next.svg": {
+    "mtime": 1776815539.8984528,
+    "hash": "8e061864f388b47f33a1c3780831193e"
+  },
+  "C:\\projetos\\condominios\\frontend\\public\\vercel.svg": {
+    "mtime": 1776815539.9004517,
+    "hash": "c0af2f507b369b085b35ef4bbe3bcf1e"
+  },
+  "C:\\projetos\\condominios\\frontend\\public\\window.svg": {
+    "mtime": 1776815539.9004517,
+    "hash": "a2760511c65806022ad20adf74370ff3"
+  }
+}

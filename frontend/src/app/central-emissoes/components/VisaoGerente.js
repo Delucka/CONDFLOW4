@@ -1,73 +1,48 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { FileText, CheckCircle, XCircle, Search, ExternalLink, Loader2, Package, ChevronDown } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
-import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
+
 export default function VisaoGerente({ profile }) {
   const supabase = createClient();
   const { addToast } = useToast();
   const { user } = useAuth();
-  const [arquivoAberto, setArquivoAberto] = useState(null);
-  
+
   const [pacotes, setPacotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [termoBusca, setTermoBusca] = useState('');
-  
-  // Pacote expandido (mostra arquivos)
-  const [expandedPacote, setExpandedPacote] = useState(null);
-  const [pacoteArquivos, setPacoteArquivos] = useState([]);
-  
+  const [arquivoAberto, setArquivoAberto] = useState(null);
+
   // Modal de correção
   const [showModal, setShowModal] = useState(false);
   const [currentPacote, setCurrentPacote] = useState(null);
   const [comment, setComment] = useState('');
-  
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   async function fetchPacotes() {
     setLoading(true);
     try {
-      // 1) Resolve o gerente pelo auth user id (mais confiável que profile.gerente_id)
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) { setLoading(false); return; }
+      // Usa RPC com SECURITY DEFINER — bypassa RLS de condominios,
+      // filtra diretamente por auth.uid() → gerentes.profile_id → condominios.gerente_id
+      const { data, error } = await supabase.rpc('get_pacotes_gerente');
 
-      const { data: gerenteRow } = await supabase
-        .from('gerentes')
-        .select('id')
-        .eq('profile_id', authUser.id)
-        .single();
-
-      // 2) Resolve os condomínios deste gerente
-      let condoIds = [];
-      if (gerenteRow?.id) {
-        const { data: condos } = await supabase
-          .from('condominios')
-          .select('id')
-          .eq('gerente_id', gerenteRow.id);
-        condoIds = (condos || []).map(c => c.id);
+      if (error) {
+        console.error('[VisaoGerente] erro rpc:', error);
+        setPacotes([]);
+        setLoading(false);
+        return;
       }
 
-      // 3) Busca pacotes desses condomínios (ou todos se sem condomínios — RLS protege)
-      const query = supabase
-        .from('emissoes_pacotes')
-        .select('*, condominios(name)')
-        .order('criado_em', { ascending: false });
-
-      const { data } = condoIds.length > 0
-        ? await query.in('condominio_id', condoIds)
-        : await query;
-
-      if (data) {
+      if (data && data.length > 0) {
+        const pacoteIds = data.map(p => p.id);
         const { data: arquivos } = await supabase
           .from('emissoes_arquivos')
           .select('id, pacote_id, arquivo_nome, arquivo_url, formato')
-          .not('pacote_id', 'is', null);
+          .in('pacote_id', pacoteIds);
 
         const arqMap = {};
         (arquivos || []).forEach(a => {
@@ -75,40 +50,42 @@ export default function VisaoGerente({ profile }) {
           arqMap[a.pacote_id].push(a);
         });
 
-        setPacotes(data.map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
+        // Normaliza para ter condominios.name igual ao restante do app
+        setPacotes(data.map(p => ({
+          ...p,
+          condominios: { name: p.condo_name },
+          arquivos: arqMap[p.id] || [],
+        })));
+      } else {
+        setPacotes([]);
       }
     } catch (err) {
-      console.error('Erro ao carregar pacotes do gerente:', err);
+      console.error('[VisaoGerente] erro geral:', err);
     }
     setLoading(false);
   }
 
   useEffect(() => {
     fetchPacotes();
-    
+
     const channel = supabase.channel('gerente_pacotes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => { fetchPacotes(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => fetchPacotes())
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => supabase.removeChannel(channel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleAprovar(pacote) {
     const fluxos = {
-      1: { 'default': 'aprovado' },
+      1: { default: 'aprovado' },
       2: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
       3: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
-      4: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' }
+      4: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
     };
 
     const fluxoId = Number(pacote.nivel_aprovacao) || 1;
-    const currentStatus = pacote.status;
-    let nextStatus = 'aprovado';
-
-    if (fluxos[fluxoId]) {
-      nextStatus = fluxos[fluxoId][currentStatus] || fluxos[fluxoId]['default'] || 'aprovado';
-    }
+    const nextStatus = fluxos[fluxoId]?.[pacote.status] ?? fluxos[fluxoId]?.default ?? 'aprovado';
 
     const { error } = await supabase
       .from('emissoes_pacotes')
@@ -118,8 +95,7 @@ export default function VisaoGerente({ profile }) {
     if (error) {
       addToast('Não foi possível aprovar', 'error');
     } else {
-      addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Aprovado e enviado para: ${nextStatus}`, 'success');
-      setIsDrawerOpen(false);
+      addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success');
       fetchPacotes();
     }
   }
@@ -150,7 +126,6 @@ export default function VisaoGerente({ profile }) {
   async function openFileUrl(doc, pacote) {
     const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(doc.arquivo_url, 300);
     if (error) return addToast('Erro ao gerar link.', 'error');
-
     if (data?.signedUrl) {
       setArquivoAberto({
         id: doc.id,
@@ -159,64 +134,84 @@ export default function VisaoGerente({ profile }) {
         processo_id: pacote.processo_id || null,
         condominio_id: pacote.condominio_id,
         emitido_por: pacote.uploaded_by,
-        arquivos: pacote.arquivos || []
+        arquivos: pacote.arquivos || [],
       });
     }
   }
 
-  const STATUS_PENDENTE_GERENTE = ['pendente_gerente', 'Aguardando Gerente', 'pendente'];
-  const STATUS_EM_SUPERVISOR   = ['pendente_sup_gerentes', 'pendente_sup_contabilidade', 'Aguardando Supervisor', 'Aguardando Chefe'];
+  // Filtragem — mesma lógica do VisaoMaster (toLowerCase + includes)
+  const filtered = useMemo(() => {
+    return pacotes.filter(p => {
+      const s = (p.status || '').toLowerCase();
+      if (s === 'rascunho') return false;
 
-  const filtered = pacotes.filter(p => {
-    if (p.status === 'rascunho') return false;
-    if (filtroStatus !== 'todos') {
-      if (filtroStatus === 'pendente_gerente') {
-        if (!STATUS_PENDENTE_GERENTE.includes(p.status)) return false;
-      } else if (filtroStatus === 'em_supervisor') {
-        if (!STATUS_EM_SUPERVISOR.includes(p.status)) return false;
-      } else {
-        if (p.status !== filtroStatus) return false;
+      if (filtroStatus !== 'todos') {
+        if (filtroStatus === 'pendente_gerente') {
+          if (!(s.includes('gerente') || s === 'pendente')) return false;
+        } else if (filtroStatus === 'em_supervisor') {
+          if (!(s.includes('supervisor') || s.includes('chefe'))) return false;
+        } else {
+          if (s !== filtroStatus) return false;
+        }
       }
-    }
-    if (termoBusca) {
-      const b = termoBusca.toLowerCase();
-      const nome = p.condominios?.name?.toLowerCase() || '';
-      return nome.includes(b);
-    }
-    return true;
-  });
+
+      if (termoBusca) {
+        const b = termoBusca.toLowerCase();
+        return (p.condominios?.name || '').toLowerCase().includes(b);
+      }
+      return true;
+    });
+  }, [pacotes, filtroStatus, termoBusca]);
+
+  // Contadores para badges nas abas
+  const counts = useMemo(() => ({
+    pendente_gerente: pacotes.filter(p => { const s = (p.status||'').toLowerCase(); return s.includes('gerente') || s === 'pendente'; }).length,
+    em_supervisor:    pacotes.filter(p => { const s = (p.status||'').toLowerCase(); return s.includes('supervisor') || s.includes('chefe'); }).length,
+    aprovado:         pacotes.filter(p => (p.status||'').toLowerCase() === 'aprovado').length,
+    solicitar_correcao: pacotes.filter(p => (p.status||'').toLowerCase() === 'solicitar_correcao').length,
+    todos:            pacotes.filter(p => (p.status||'').toLowerCase() !== 'rascunho').length,
+  }), [pacotes]);
+
+  const FILTROS = [
+    { value: 'pendente_gerente',   label: 'Aguard. minha aprovação' },
+    { value: 'em_supervisor',      label: 'Em Supervisor'            },
+    { value: 'aprovado',           label: 'Aprovado'                 },
+    { value: 'solicitar_correcao', label: 'Correção'                 },
+    { value: 'todos',              label: 'Todos'                    },
+  ];
 
   return (
     <div className="space-y-6">
-      
+
       {/* Filtros */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between border border-white/10 rounded-3xl bg-white/5 p-4 shadow-xl">
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
-          {[
-            { value: 'pendente_gerente',   label: 'Pendentes'    },
-            { value: 'em_supervisor',      label: 'Em Supervisor' },
-            { value: 'aprovado',           label: 'Aprovado'     },
-            { value: 'solicitar_correcao', label: 'Correção'     },
-            { value: 'todos',              label: 'Todos'        },
-          ].map(({ value, label }) => (
+          {FILTROS.map(({ value, label }) => (
             <button
               key={value}
               onClick={() => setFiltroStatus(value)}
-              className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+              className={`relative px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
                 filtroStatus === value
                   ? 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]'
                   : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
               }`}
             >
               {label}
+              {counts[value] > 0 && (
+                <span className={`ml-2 text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                  filtroStatus === value ? 'bg-white/20 text-white' : 'bg-violet-500/20 text-violet-400'
+                }`}>
+                  {counts[value]}
+                </span>
+              )}
             </button>
           ))}
         </div>
-        
+
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-3 w-4 h-4 text-gray-500" />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="Buscar condomínio..."
             value={termoBusca}
             onChange={e => setTermoBusca(e.target.value)}
@@ -225,77 +220,91 @@ export default function VisaoGerente({ profile }) {
         </div>
       </div>
 
+      {/* Lista */}
       {loading ? (
-        <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-violet-500"/></div>
+        <div className="flex justify-center p-12">
+          <Loader2 className="animate-spin w-8 h-8 text-violet-500" />
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center p-12 border border-white/10 rounded-3xl bg-white/5">
-          <span className="text-gray-500">Nenhum pacote encontrado nesta categoria.</span>
+        <div className="text-center p-12 border border-white/10 rounded-3xl bg-white/5 flex flex-col items-center gap-3">
+          <AlertCircle className="w-8 h-8 text-gray-600" />
+          <span className="text-gray-500 text-sm">
+            {pacotes.length === 0
+              ? 'Nenhuma emissão encontrada para a sua carteira.'
+              : 'Nenhum pacote nesta categoria.'}
+          </span>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {filtered.map(pacote => {
             const numArquivos = pacote.arquivos?.length || 0;
-            const isAwaiting = STATUS_PENDENTE_GERENTE.includes(pacote.status);
+            const s = (pacote.status || '').toLowerCase();
+            const aguardandoGerente = s.includes('gerente') || s === 'pendente';
 
             return (
               <div key={pacote.id} className="border border-white/10 rounded-2xl bg-[#0a0a0f] overflow-hidden">
-                {/* Header do Pacote */}
-                <div className="p-5 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-white/10 flex items-center justify-center">
-                      <Package className="w-6 h-6 text-violet-400" />
+                {/* Header */}
+                <div className="p-5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-white/10 flex items-center justify-center shrink-0">
+                      <Package className="w-5 h-5 text-violet-400" />
                     </div>
-                    <div>
-                      <h4 className="font-black text-white text-base">{pacote.condominios?.name || '-'}</h4>
-                      <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
-                        {String(pacote.mes_referencia).padStart(2,'0')}/{pacote.ano_referencia} • {numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}
+                    <div className="min-w-0">
+                      <h4 className="font-black text-white text-sm truncate">{pacote.condominios?.name || '—'}</h4>
+                      <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+                        {String(pacote.mes_referencia).padStart(2, '0')}/{pacote.ano_referencia}
+                        {' • '}{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}
                       </p>
-                      <p className="text-[10px] text-gray-500 mt-0.5">Enviado por {pacote.profiles?.full_name}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     <StatusBadge status={pacote.status} />
-                    {isAwaiting && (
+                    {aguardandoGerente && (
                       <div className="flex gap-2">
-                        <button 
+                        <button
                           onClick={() => abrirModalCorrecao(pacote)}
-                          className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 text-rose-400 hover:bg-rose-500 hover:text-white hover:border-rose-500 flex items-center justify-center transition-all"
+                          className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 text-rose-400 hover:bg-rose-500 hover:text-white hover:border-rose-500 flex items-center justify-center transition-all"
                           title="Solicitar Correção"
                         >
-                          <XCircle className="w-5 h-5"/>
+                          <XCircle className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleAprovar(pacote)}
-                          className="w-10 h-10 rounded-xl bg-violet-600 shadow-[0_0_15px_rgba(139,92,246,0.3)] text-white hover:bg-violet-500 flex items-center justify-center transition-all"
+                          className="w-9 h-9 rounded-xl bg-violet-600 shadow-[0_0_15px_rgba(139,92,246,0.3)] text-white hover:bg-violet-500 flex items-center justify-center transition-all"
                           title="Aprovar Pacote"
                         >
-                          <CheckCircle className="w-5 h-5"/>
+                          <CheckCircle className="w-4 h-4" />
                         </button>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Lista de Arquivos (sempre visível) */}
-                <div className="border-t border-white/5 bg-white/[0.02] px-5 py-3">
-                  <div className="flex flex-wrap gap-2">
-                    {(pacote.arquivos || []).map(arq => (
-                      <button
-                        key={arq.id}
-                        onClick={() => openFileUrl(arq, pacote)}
-                        className="flex items-center gap-2 px-3 py-2 bg-[#0a0a0f] border border-white/10 rounded-xl hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all group"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-gray-500 group-hover:text-cyan-400" />
-                        <span className="text-xs font-bold text-gray-400 group-hover:text-white truncate max-w-[150px]">{arq.arquivo_nome}</span>
-                      </button>
-                    ))}
+                {/* Arquivos */}
+                {numArquivos > 0 && (
+                  <div className="border-t border-white/5 bg-white/[0.02] px-5 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      {pacote.arquivos.map(arq => (
+                        <button
+                          key={arq.id}
+                          onClick={() => openFileUrl(arq, pacote)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0a0a0f] border border-white/10 rounded-xl hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all group"
+                        >
+                          <FileText className="w-3 h-3 text-gray-500 group-hover:text-cyan-400" />
+                          <span className="text-[11px] font-bold text-gray-400 group-hover:text-white truncate max-w-[140px]">{arq.arquivo_nome}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {pacote.status === 'solicitar_correcao' && pacote.comentario_correcao && (
+                {/* Comentário de correção */}
+                {s === 'solicitar_correcao' && pacote.comentario_correcao && (
                   <div className="px-5 py-3 bg-rose-500/5 border-t border-rose-500/10">
-                    <p className="text-xs text-rose-400"><span className="font-black">Correção:</span> {pacote.comentario_correcao}</p>
+                    <p className="text-xs text-rose-400">
+                      <span className="font-black">Correção:</span> {pacote.comentario_correcao}
+                    </p>
                   </div>
                 )}
               </div>
@@ -307,24 +316,22 @@ export default function VisaoGerente({ profile }) {
       {/* Modal Correção */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-6 shadow-2xl animate-fade-in">
-            <h3 className="text-xl font-black text-white mb-2">Solicitar Correção</h3>
-            <p className="text-sm text-gray-400 mb-6 font-bold uppercase tracking-widest">
-              {currentPacote?.condominios?.name} ({currentPacote?.mes_referencia}/{currentPacote?.ano_referencia})
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-6 shadow-2xl">
+            <h3 className="text-xl font-black text-white mb-1">Solicitar Correção</h3>
+            <p className="text-xs text-gray-400 mb-5 font-bold uppercase tracking-widest">
+              {currentPacote?.condominios?.name} — {String(currentPacote?.mes_referencia).padStart(2,'0')}/{currentPacote?.ano_referencia}
             </p>
-            
             <textarea
-              className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-rose-500 outline-none min-h-[120px] mb-6"
+              className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-rose-500 outline-none min-h-[110px] mb-5"
               placeholder="Descreva o que precisa ser ajustado..."
               value={comment}
               onChange={e => setComment(e.target.value)}
             />
-
             <div className="flex items-center gap-3 justify-end">
-              <button onClick={() => setShowModal(false)} className="px-5 py-3 rounded-xl text-[13px] font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+              <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
                 Cancelar
               </button>
-              <button onClick={confirmarCorrecao} className="px-5 py-3 rounded-xl text-[13px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-lg hover:bg-rose-400 transition-colors">
+              <button onClick={confirmarCorrecao} className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest bg-rose-500 text-white hover:bg-rose-400 transition-colors">
                 Confirmar
               </button>
             </div>
@@ -332,12 +339,7 @@ export default function VisaoGerente({ profile }) {
         </div>
       )}
 
-      <FilePreviewDrawer 
-        isOpen={isDrawerOpen} 
-        onClose={() => setIsDrawerOpen(false)} 
-        file={selectedFile} 
-      />
-
+      {/* Visualizador de arquivo */}
       {arquivoAberto && (
         <VisualizadorConferencia
           arquivo={arquivoAberto}
