@@ -1,15 +1,13 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { Archive, Search, Calendar, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, FileText, AlertTriangle, Loader2, Building, Download } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-export default function RegistroEmissoes() {
+export default function RegistroEmissoes({ profile }) {
   const supabase = createClient();
-  const { profile } = useAuth();
   const { addToast } = useToast();
 
   const [pacotes, setPacotes] = useState([]);
@@ -33,11 +31,24 @@ export default function RegistroEmissoes() {
   async function fetchRegistradas() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('emissoes_pacotes')
         .select('*, condominios(name)')
         .eq('lacrada', true)
         .order('lacrada_em', { ascending: false });
+
+      // Gerentes veem apenas os condomínios da sua carteira
+      if (profile?.role === 'gerente') {
+        const { data: meusConds } = await supabase
+          .from('condominios')
+          .select('id')
+          .eq('gerente_id', profile.id);
+        const ids = (meusConds || []).map(c => c.id);
+        if (ids.length === 0) { setPacotes([]); setLoading(false); return; }
+        query = query.in('condominio_id', ids);
+      }
+
+      const { data, error } = await query;
 
       if (error) { addToast('Erro ao carregar registros: ' + error.message, 'error'); return; }
 

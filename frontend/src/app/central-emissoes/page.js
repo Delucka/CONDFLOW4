@@ -12,7 +12,7 @@ import { useState } from 'react';
 
 export default function CentralEmissoesPage() {
   const { profile, loading } = useAuth();
-  const [masterView, setMasterView] = useState('analytics'); // 'analytics' | 'upload'
+  const [activeView, setActiveView] = useState('default');
 
   if (loading || !profile) {
     return (
@@ -23,51 +23,56 @@ export default function CentralEmissoesPage() {
   }
 
   const isMasterOrSup = ['master', 'supervisora', 'supervisor_gerentes', 'supervisora_contabilidade'].includes(profile.role);
+  const isGerente = profile.role === 'gerente';
+  const isDepartamento = profile.role === 'departamento';
 
-  // Toolbar para Masters
-  const masterToolbar = isMasterOrSup && (
+  // Montar abas conforme o perfil
+  const tabs = [];
+
+  if (isMasterOrSup) {
+    tabs.push({ id: 'default', label: 'Painel de Gestão', activeClass: 'bg-cyan-500 text-slate-900 shadow-[0_0_15px_rgba(6,182,212,0.4)]' });
+    tabs.push({ id: 'upload', label: 'Fazer Emissões', activeClass: 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' });
+  } else if (isDepartamento) {
+    tabs.push({ id: 'default', label: 'Fazer Emissões', activeClass: 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' });
+  } else if (isGerente) {
+    tabs.push({ id: 'default', label: 'Meus Pacotes', activeClass: 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' });
+  }
+
+  // Aba Registro de Emissões — visível para TODOS
+  tabs.push({ id: 'registro', label: 'Registro de Emissões', icon: true, activeClass: 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' });
+
+  // Toolbar
+  const toolbar = (
     <div className="flex gap-4 mb-6 border-b border-white/5 pb-6">
-      <button 
-        onClick={() => setMasterView('analytics')}
-        className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${masterView === 'analytics' ? 'bg-cyan-500 text-slate-900 shadow-[0_0_15px_rgba(6,182,212,0.4)]' : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'}`}
-      >
-        Painel de Gestão
-      </button>
-      <button 
-        onClick={() => setMasterView('upload')}
-        className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${masterView === 'upload' ? 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'}`}
-      >
-        Fazer Emissões
-      </button>
-      <button 
-        onClick={() => setMasterView('registro')}
-        className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${masterView === 'registro' ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'}`}
-      >
-        <Archive className="w-4 h-4" />
-        Registro de Emissões
-      </button>
+      {tabs.map(tab => (
+        <button
+          key={tab.id}
+          onClick={() => setActiveView(tab.id)}
+          className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+            activeView === tab.id ? tab.activeClass : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'
+          }`}
+        >
+          {tab.icon && <Archive className="w-4 h-4" />}
+          {tab.label}
+        </button>
+      ))}
     </div>
   );
 
+  // Conteúdo
   let content = null;
 
-  // Se for departamento, ou um Master na aba de Upload, vê a tela de envo
-  if (isMasterOrSup && masterView === 'registro') {
-    content = <RegistroEmissoes />;
-  }
-  else if (profile.role === 'departamento' || (isMasterOrSup && masterView === 'upload')) {
+  if (activeView === 'registro') {
+    content = <RegistroEmissoes profile={profile} />;
+  } else if (activeView === 'upload' && isMasterOrSup) {
     content = <VisaoEmissor profile={profile} />;
-  } 
-  // Se for gerente, vê a tela de aprovações da sua carteira
-  else if (profile.role === 'gerente') {
+  } else if (isDepartamento) {
+    content = <VisaoEmissor profile={profile} />;
+  } else if (isGerente) {
     content = <VisaoGerente profile={profile} />;
-  } 
-  // Master na visão Analytics
-  else if (isMasterOrSup) {
+  } else if (isMasterOrSup) {
     content = <VisaoMaster profile={profile} />;
-  } 
-  // Fallback de erro
-  else {
+  } else {
     content = (
       <div className="p-12 text-center bg-white/5 rounded-3xl border border-white/10 max-w-2xl mx-auto mt-10 shadow-2xl">
         <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -81,7 +86,7 @@ export default function CentralEmissoesPage() {
 
   return (
     <>
-      {masterToolbar}
+      {toolbar}
       {content}
     </>
   );
