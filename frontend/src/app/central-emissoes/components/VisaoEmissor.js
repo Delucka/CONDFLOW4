@@ -1,12 +1,13 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
+import { apiPost } from '@/lib/api';
 
 export default function VisaoEmissor({ profile }) {
   // VERSÃO 4.1 - BOTÃO REGISTRAR ESTABILIZADO
@@ -41,14 +42,19 @@ export default function VisaoEmissor({ profile }) {
   // Carteiras expandidas
   const [expandedCarteiras, setExpandedCarteiras] = useState({});
 
+  // Mapa de status dos processos por condomínio { condoId: { id, status } }
+  const [processosMap, setProcessosMap] = useState({});
+  const [lockingCondo, setLockingCondo] = useState(null); // id do condo sendo alterado
+
   useEffect(() => {
     fetchDados();
     
     const channel = supabase.channel('emissor_pacotes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => { fetchPacotes(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_arquivos' }, () => { 
-        if (activePacote) fetchArquivosDoPacote(activePacote.id); 
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_arquivos' }, () => {
+        if (activePacote) fetchArquivosDoPacote(activePacote.id);
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'processos' }, fetchProcessos)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -57,9 +63,24 @@ export default function VisaoEmissor({ profile }) {
   async function fetchDados() {
     setLoading(true);
     try {
-      await Promise.all([fetchCondominios(), fetchPacotes()]);
+      await Promise.all([fetchCondominios(), fetchPacotes(), fetchProcessos()]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchProcessos() {
+    const anoAtual = new Date().getFullYear();
+    const semAtual = new Date().getMonth() < 6 ? 1 : 2;
+    const { data } = await supabase
+      .from('processos')
+      .select('id, condominio_id, status')
+      .eq('year', anoAtual)
+      .eq('semester', semAtual);
+    if (data) {
+      const map = {};
+      data.forEach(p => { map[p.condominio_id] = { id: p.id, status: p.status }; });
+      setProcessosMap(map);
     }
   }
 
@@ -100,6 +121,40 @@ export default function VisaoEmissor({ profile }) {
       .eq('pacote_id', pacoteId)
       .order('criado_em', { ascending: true });
     if (data) setPacoteArquivos(data);
+  }
+
+  // Toggle cadeado planilha por condomínio
+  async function handleToggleLock(condo) {
+    const proc = processosMap[condo.id];
+    const isLocked = proc?.status === 'Edição finalizada';
+    const novoStatus = isLocked ? 'Em edição' : 'Edição finalizada';
+
+    // Optimistic
+    setLockingCondo(condo.id);
+    setProcessosMap(prev => ({
+      ...prev,
+      [condo.id]: { ...prev[condo.id], status: novoStatus }
+    }));
+
+    try {
+      await apiPost(`/api/condominio/${condo.id}/processo/force`, {
+        status: novoStatus,
+        year: new Date().getFullYear()
+      });
+      addToast(
+        isLocked ? `Planilha de ${condo.name} reaberta` : `Planilha de ${condo.name} bloqueada`,
+        isLocked ? 'success' : 'info'
+      );
+    } catch (err) {
+      // Rollback
+      setProcessosMap(prev => ({
+        ...prev,
+        [condo.id]: proc
+      }));
+      addToast('Erro ao alterar status: ' + err.message, 'error');
+    } finally {
+      setLockingCondo(null);
+    }
   }
 
   // --- AÇÕES ---
@@ -574,7 +629,31 @@ export default function VisaoEmissor({ profile }) {
                     return (
                       <div key={condo.id} className="flex items-center justify-between px-6 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors">
                         <div className="flex items-center gap-3">
-                          <div className="w-2 h-2 rounded-full bg-gray-600 shrink-0" />
+                          {/* Cadeado — toggle bloqueio da planilha */}
+                          {(() => {
+                            const proc = processosMap[condo.id];
+                            const isLocked = proc?.status === 'Edição finalizada';
+                            const isLoading = lockingCondo === condo.id;
+                            return (
+                              <button
+                                onClick={() => handleToggleLock(condo)}
+                                disabled={isLoading}
+                                title={isLocked ? 'Planilha bloqueada — clique para reabrir' : 'Planilha aberta — clique para bloquear'}
+                                className={`w-6 h-6 rounded-md flex items-center justify-center transition-all shrink-0 ${
+                                  isLocked
+                                    ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30'
+                                    : 'bg-emerald-500/10 text-emerald-500/50 hover:bg-emerald-500/20 hover:text-emerald-400 border border-emerald-500/20'
+                                } disabled:opacity-40`}
+                              >
+                                {isLoading
+                                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                                  : isLocked
+                                    ? <Lock className="w-3 h-3" />
+                                    : <Unlock className="w-3 h-3" />
+                                }
+                              </button>
+                            );
+                          })()}
                           <span className="text-sm font-bold text-gray-300 truncate max-w-[250px]">{condo.name}</span>
                         </div>
                         <div className="flex items-center gap-3">
