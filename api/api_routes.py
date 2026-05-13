@@ -441,6 +441,65 @@ def api_processo_status_force(processo_id: str, data: ForceStatusSchema, user: d
     except Exception as e:
         raise HTTPException(400, str(e))
 
+class PipelineForceAllSchema(BaseModel):
+    status: str
+    ano: int = None
+    semestre: int = None
+
+@router.post("/pipeline/force-all")
+def api_pipeline_force_all(data: PipelineForceAllSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    try:
+        if user["role"] != "master":
+            raise HTTPException(403, "Apenas master pode forçar status global")
+
+        import datetime
+        now = datetime.datetime.now()
+        ano = data.ano or now.year
+        sem = data.semestre or (1 if now.month <= 6 else 2)
+
+        # Buscar TODOS os condomínios (não só os que já têm processo)
+        condos_res = db.table("condominios").select("id").execute()
+        condos = condos_res.data or []
+
+        updated = 0
+        for condo in condos:
+            condo_id = condo["id"]
+            # Verificar se já existe processo para este condo/ano/semestre
+            proc_res = db.table("processos").select("id").eq("condominio_id", condo_id).eq("year", ano).eq("semester", sem).execute()
+
+            if not proc_res.data:
+                # Criar processo novo
+                new_proc = db.table("processos").insert({
+                    "condominio_id": condo_id,
+                    "year": ano,
+                    "semester": sem,
+                    "status": data.status
+                }).execute()
+                processo_id = new_proc.data[0]["id"] if new_proc.data else None
+            else:
+                processo_id = proc_res.data[0]["id"]
+                db.table("processos").update({"status": data.status}).eq("id", processo_id).execute()
+
+            if processo_id:
+                try:
+                    db.table("aprovacoes").insert({
+                        "processo_id": processo_id,
+                        "approver_id": user["id"],
+                        "action": f"Status forçado globalmente para: {data.status}",
+                        "comment": "Painel de Controle Global — master"
+                    }).execute()
+                except Exception:
+                    pass
+                updated += 1
+
+        return {"success": True, "updated": updated}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("ERROR pipeline force-all:", e)
+        raise HTTPException(400, str(e))
+
+
 class CreateUserSchema(BaseModel):
     email: str
     password: str
@@ -766,8 +825,35 @@ def api_dados_conferencia(condo_id: str, user: dict = Depends(get_current_user),
 
     cobrancas = []
     try:
-        extras = db.table("cobrancas_extras").select("id,description,amount,created_at,attachments").eq("condominio_id", condo_id).neq("status", "cancelada").order("created_at", desc=True).order("parcela_atual").execute().data or []
+        # Busca o mês/ano do processo/pacote para filtrar as cobranças
+        # Se não houver pacote ainda, tenta pegar do contexto ou mostra as ativas
+        mes_ref = None
+        ano_ref = year
+        
+        proc_res = db.table("processos").select("year, semester").eq("id", condo_id).execute() # Simplificado
+        
+        query = db.table("cobrancas_extras").select("id,description,amount,created_at,attachments,status,mes,ano") \
+            .eq("condominio_id", condo_id) \
+            .neq("status", "cancelada")
+            
+        # Tenta descobrir o mês que estamos conferindo (pode vir de um parâmetro futuro)
+        # Por enquanto, se houver mes/ano na query da URL, usamos.
+        req_mes = request.query_params.get("mes")
+        req_ano = request.query_params.get("ano")
+        
+        if req_mes and req_ano:
+            query = query.eq("mes", int(req_mes)).eq("ano", int(req_ano))
+        
+        extras = query.order("created_at", desc=True).execute().data or []
+        
         for c in extras:
+            # Se for uma conferência normal, só mostra as 'ativa'
+            # Se for retificação (podemos detectar via flag), mostramos as 'processada' também
+            is_retif = request.query_params.get("retificacao") == "true"
+            
+            if not is_retif and c.get("status") == "processada":
+                continue
+
             atts = c.get('attachments') or []
             signed_atts = []
             for a in atts:
@@ -1218,11 +1304,17 @@ def api_listar_cobrancas(
     try:
         query = db.table("cobrancas_extras").select("*") \
             .eq("condominio_id", condominio_id) \
-            .neq("status", "cancelada") \
-            .order("ano").order("mes")
-
+            .neq("status", "cancelada")
+            
         if mes and ano:
             query = query.eq("mes", mes).eq("ano", ano)
+            # Ao filtrar por mês, mostramos ativas e processadas (para conferência/histórico)
+        
+        # Note: Não filtramos por status 'ativa' aqui por padrão para que o painel de 
+        # gerenciamento continue mostrando o histórico (ex: parcelas já processadas).
+        # A limpeza visual "para as próximas" acontece no endpoint api_dados_conferencia.
+            
+        query = query.order("ano").order("mes")
 
         res = query.execute()
         

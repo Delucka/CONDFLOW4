@@ -28,12 +28,19 @@ export default function Sidebar() {
   useEffect(() => {
     if (!profile || !ROLES_COM_BADGE.includes(profile.role)) return;
     const fetchCount = async () => {
-      const { count } = await supabase.from('emissoes_arquivos').select('*', { count: 'exact', head: true }).eq('status', 'pendente');
+      // Conta pacotes ativos no fluxo (não rascunho, não lacrados/registrados)
+      const { count } = await supabase
+        .from('emissoes_pacotes')
+        .select('*', { count: 'exact', head: true })
+        .neq('status', 'rascunho')
+        .neq('status', 'registrado')
+        .neq('status', 'expedida')
+        .or('lacrada.is.null,lacrada.eq.false');
       setPendingCount(count || 0);
     };
     fetchCount();
     const ch = supabase.channel('sidebar_badge')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_arquivos' }, fetchCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, fetchCount)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [profile, supabase]);

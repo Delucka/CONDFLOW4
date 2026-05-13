@@ -20,18 +20,26 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const [currentFile, setCurrentFile] = useState(arquivo);
   const [loadingFile, setLoadingFile] = useState(false);
   
-  const { data, error, isLoading: loading, mutate } = useSWR(
-    currentFile?.condominio_id ? `/api/condominio/${currentFile.condominio_id}/conferencia` : null,
+  // Se o arquivo tiver snapshot congelado (emissão registrada), não busca dados ao vivo
+  const isSnapshot = !!arquivo?.planilha_snapshot;
+
+  const { data, isLoading: loadingLive } = useSWR(
+    !isSnapshot && currentFile?.condominio_id
+      ? `/api/condominio/${currentFile.condominio_id}/conferencia?mes=${currentFile.mes}&ano=${currentFile.ano}&retificacao=${currentFile.eh_retificacao}`
+      : null,
     apiFetcher,
-    { refreshInterval: 3000, revalidateOnFocus: true }
+    { refreshInterval: 3000, revalidateOnFocus: true },
   );
+
+  const loading = isSnapshot ? false : loadingLive;
 
   const [modoCorrecao, setModoCorrecao] = useState(false);
   const [comentario, setComentario]   = useState('');
   const [executando, setExecutando]   = useState(false);
 
-  const planilha = data?.planilha;
-  const cobrancas = data?.cobrancas_extras || [];
+  // Snapshot congela os valores; dados ao vivo são mutáveis
+  const planilha = isSnapshot ? arquivo.planilha_snapshot : data?.planilha;
+  const cobrancas = isSnapshot ? [] : (data?.cobrancas_extras || []);
 
   useEffect(() => {
     if (arquivo) {
@@ -110,7 +118,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     }
   }
 
-  // Exibe todos os meses retornados pela API (mesmo os zerados)
+  // Snapshot: exibe somente o mês emitido (congelado). Ao vivo: exibe todos.
   const mesesParaExibir = planilha?.meses || [];
 
   return (
@@ -208,13 +216,19 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-cyan-400" />
+                <Building2 className={`w-4 h-4 ${isSnapshot ? 'text-amber-400' : 'text-cyan-400'}`} />
                 <div>
-                  <h4 className="text-sm font-bold text-slate-200">Planilha Anual {planilha?.ano ? `· ${planilha.ano}` : ''}</h4>
-                  <p className="text-[10px] text-slate-500">Espelho em tempo real</p>
+                  <h4 className="text-sm font-bold text-slate-200">
+                    Planilha {isSnapshot ? `· Mês ${String(arquivo.mes).padStart(2,'0')}/${arquivo.ano}` : (planilha?.ano ? `Anual · ${planilha.ano}` : 'Anual')}
+                  </h4>
+                  <p className="text-[10px] text-slate-500">
+                    {isSnapshot ? 'Valores congelados no momento da emissão' : 'Espelho em tempo real'}
+                  </p>
                 </div>
               </div>
-              <span className="text-[9px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded">Só leitura</span>
+              <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${isSnapshot ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'}`}>
+                {isSnapshot ? '🔒 Congelado' : 'Só leitura'}
+              </span>
             </div>
 
             {loading

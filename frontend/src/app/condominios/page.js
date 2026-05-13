@@ -1,11 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye } from 'lucide-react';
+import { usePipelineConfig } from '@/lib/usePipelineConfig';
+import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { createClient } from '@/utils/supabase/client';
 
@@ -20,6 +21,76 @@ export default function CondominiosPage() {
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
   const [selectedGerente, setSelectedGerente] = useState(null);
   const supabase = createClient();
+
+  // ── Pipeline Global ──────────────────────────────────────────────
+  const anoAtual = new Date().getFullYear();
+  const [pipelineAno, setPipelineAno] = useState(anoAtual);
+  const { config: pipelineConfig, update: updatePipeline } = usePipelineConfig(pipelineAno);
+
+  // prazo local (datetime-local input value)
+  const [prazoLocal, setPrazoLocal] = useState('');
+  const [savingPrazo, setSavingPrazo] = useState(false);
+  const [forcingAll, setForcingAll] = useState(false);
+  const [countdown, setCountdown] = useState(null);
+
+  // Sincronizar prazoLocal quando config carregar
+  useEffect(() => {
+    if (pipelineConfig?.prazo_edicao) {
+      const d = new Date(pipelineConfig.prazo_edicao);
+      // Formatar para datetime-local: "YYYY-MM-DDTHH:MM"
+      const pad = n => String(n).padStart(2, '0');
+      setPrazoLocal(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+    } else {
+      setPrazoLocal('');
+    }
+  }, [pipelineConfig?.prazo_edicao]);
+
+  // Countdown em tempo real
+  useEffect(() => {
+    if (!pipelineConfig?.prazo_edicao) { setCountdown(null); return; }
+    const tick = () => {
+      const diff = new Date(pipelineConfig.prazo_edicao) - new Date();
+      if (diff <= 0) { setCountdown({ expirado: true }); return; }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setCountdown({ d, h, m, s, expirado: false });
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [pipelineConfig?.prazo_edicao]);
+
+  const handlePipelineStatus = async (status) => {
+    await updatePipeline({ status });
+    addToast(`Pipeline global: ${status}`, 'success');
+  };
+
+  const handleSavePrazo = async () => {
+    setSavingPrazo(true);
+    const iso = prazoLocal ? new Date(prazoLocal).toISOString() : null;
+    const { error } = await updatePipeline({ prazo_edicao: iso });
+    setSavingPrazo(false);
+    if (error) addToast('Erro ao salvar prazo: ' + error.message, 'error');
+    else addToast(iso ? 'Prazo de edição definido!' : 'Prazo removido.', 'success');
+  };
+
+  const handleForceAll = async () => {
+    if (!pipelineConfig?.status) { addToast('Defina o status pipeline antes.', 'error'); return; }
+    setForcingAll(true);
+    try {
+      const sem = new Date().getMonth() < 6 ? 1 : 2;
+      const res = await apiPost('/api/pipeline/force-all', { status: pipelineConfig.status, ano: pipelineAno, semestre: sem });
+      addToast(`Status aplicado a ${res.updated} condomínios!`, 'success');
+    } catch (err) {
+      addToast('Erro: ' + err.message, 'error');
+    } finally {
+      setForcingAll(false);
+    }
+  };
+
+  const PIPELINE_STATUSES = ['Em edição', 'Em produção', 'Em processo'];
 
   // SWR para Dados de Condomínios e Gerentes
   const { data: condosData, mutate: mutateCondos, isLoading: loadingCondos } = useSWR('/api/condominios', apiFetcher);
@@ -108,7 +179,130 @@ export default function CondominiosPage() {
 
   return (
     <div className="animate-fade-in w-full h-full relative space-y-8 pb-20">
-      
+
+      {/* ── Painel de Controle Global (só master) ── */}
+      {user?.role === 'master' && (
+        <div className="glass-panel p-6 rounded-[2rem] border border-white/5 shadow-2xl space-y-5">
+          {/* Cabeçalho do painel */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                <Globe className="w-4 h-4 text-violet-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Painel de Controle Global</p>
+                <p className="text-xs font-bold text-white">Pipeline + Prazo de Edição</p>
+              </div>
+            </div>
+            {/* Seletor de ano */}
+            <div className="flex items-center gap-2 bg-slate-950/60 border border-white/5 rounded-xl px-3 py-2">
+              <button onClick={() => setPipelineAno(a => a - 1)} className="text-slate-400 hover:text-white transition-colors">
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-xs font-black text-slate-200 min-w-[40px] text-center">{pipelineAno}</span>
+              <button onClick={() => setPipelineAno(a => a + 1)} className="text-slate-400 hover:text-white transition-colors">
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Coluna 1 — Status Pipeline */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Status do Pipeline</p>
+              <div className="flex flex-wrap gap-2">
+                {PIPELINE_STATUSES.map(st => {
+                  const active = pipelineConfig?.status === st;
+                  return (
+                    <button key={st} onClick={() => handlePipelineStatus(st)}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                        active
+                          ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-lg shadow-cyan-500/30'
+                          : 'bg-white/5 text-slate-400 border-white/10 hover:border-cyan-500/40 hover:text-white'
+                      }`}>
+                      {st}
+                    </button>
+                  );
+                })}
+              </div>
+              <button onClick={handleForceAll} disabled={forcingAll || !pipelineConfig?.status}
+                className="w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 hover:text-white disabled:opacity-40 flex items-center justify-center gap-2">
+                {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
+                Aplicar &quot;{pipelineConfig?.status || '—'}&quot; a Todos os Condomínios
+              </button>
+            </div>
+
+            {/* Coluna 2 — Prazo de Edição + Countdown */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Prazo Limite para Edição pelos Gerentes</p>
+              <div className="flex gap-2">
+                <input
+                  type="datetime-local"
+                  value={prazoLocal}
+                  onChange={e => setPrazoLocal(e.target.value)}
+                  className="flex-1 bg-slate-950/60 border border-white/5 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50 transition-all"
+                />
+                <button onClick={handleSavePrazo} disabled={savingPrazo}
+                  className="px-4 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 hover:text-white transition-all disabled:opacity-40 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider">
+                  {savingPrazo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Salvar
+                </button>
+                {prazoLocal && (
+                  <button onClick={() => { setPrazoLocal(''); updatePipeline({ prazo_edicao: null }); }}
+                    className="px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-all" title="Remover prazo">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Countdown */}
+              {countdown && (
+                <div className={`rounded-xl px-4 py-3 border flex items-center gap-3 ${
+                  countdown.expirado
+                    ? 'bg-rose-500/10 border-rose-500/20'
+                    : 'bg-amber-500/5 border-amber-500/20'
+                }`}>
+                  {countdown.expirado ? (
+                    <>
+                      <Lock className="w-4 h-4 text-rose-400 shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Prazo Expirado</p>
+                        <p className="text-[10px] text-slate-500">Gerentes estão bloqueados para edição</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Timer className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+                      <div className="flex-1">
+                        <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1">Tempo Restante</p>
+                        <div className="flex gap-3">
+                          {[
+                            { v: countdown.d, l: 'd' },
+                            { v: countdown.h, l: 'h' },
+                            { v: countdown.m, l: 'm' },
+                            { v: countdown.s, l: 's' },
+                          ].map(({ v, l }) => (
+                            <div key={l} className="flex items-baseline gap-0.5">
+                              <span className="text-sm font-black text-white tabular-nums">{String(v).padStart(2,'0')}</span>
+                              <span className="text-[9px] text-slate-500 font-bold">{l}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <Unlock className="w-4 h-4 text-emerald-400 shrink-0" />
+                    </>
+                  )}
+                </div>
+              )}
+
+              {!pipelineConfig?.prazo_edicao && (
+                <p className="text-[10px] text-slate-600 italic">Sem prazo definido — gerentes podem editar livremente</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header com Busca e Ação */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-6 glass-panel p-8 rounded-[2rem] border-white/5 shadow-2xl">
         <div className="flex-1 w-full max-w-md relative group">

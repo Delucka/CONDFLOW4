@@ -218,24 +218,57 @@ export default function VisaoEmissor({ profile }) {
 
   async function confirmarRegistro() {
     if (!dataRegistro) return addToast('Informe a data e hora', 'error');
-    
+
     const selectedDate = new Date(dataRegistro);
     if (selectedDate < new Date(new Date().getTime() - 60000)) {
       return addToast('Não é permitido registrar no passado', 'error');
     }
 
+    // Capturar snapshot da planilha para congelar os valores no momento da emissão
+    const { data: { session } } = await supabase.auth.getSession();
+    let planilha_snapshot = null;
+    if (session?.access_token && activePacote.condominio_id) {
+      try {
+        const resp = await fetch(
+          `/api/condominio/${activePacote.condominio_id}/conferencia?mes=${activePacote.mes_referencia}&ano=${activePacote.ano_referencia}&retificacao=false`,
+          { headers: { Authorization: `Bearer ${session.access_token}` } },
+        );
+        if (resp.ok) {
+          const conf = await resp.json();
+          if (conf.planilha) {
+            planilha_snapshot = {
+              ...conf.planilha,
+              meses: (conf.planilha.meses || []).filter(m => m.mes === activePacote.mes_referencia),
+            };
+          }
+        }
+      } catch { /* snapshot é opcional — não bloqueia o registro */ }
+    }
+
+    const semestre = activePacote.mes_referencia <= 6 ? 1 : 2;
+    const { data: processo } = await supabase
+      .from('processos')
+      .select('id')
+      .eq('condominio_id', activePacote.condominio_id)
+      .eq('year', activePacote.ano_referencia)
+      .eq('semester', semestre)
+      .maybeSingle();
+
+    // status = 'registrado' | NÃO lacra (fica visível no painel até ser expedida)
     const { error } = await supabase
       .from('emissoes_pacotes')
-      .update({ 
-        status: 'registrado', 
-        atualizado_em: selectedDate.toISOString() 
+      .update({
+        status: 'registrado',
+        atualizado_em: selectedDate.toISOString(),
+        ...(processo?.id ? { processo_id: processo.id } : {}),
+        ...(planilha_snapshot ? { planilha_snapshot } : {}),
       })
       .eq('id', activePacote.id);
 
     if (error) {
-      addToast('Erro ao registrar', 'error');
+      addToast('Erro ao registrar: ' + error.message, 'error');
     } else {
-      addToast('Emissão registrada com sucesso!', 'success');
+      addToast('Emissão registrada! Aguardando expedição.', 'success');
       setShowRegistroModal(false);
       setActivePacote(null);
       fetchPacotes();
@@ -295,6 +328,9 @@ export default function VisaoEmissor({ profile }) {
         url: data.signedUrl,
         processo_id: activePacote?.processo_id || null,
         condominio_id: activePacote?.condominio_id || condoId,
+        mes: arq.mes_referencia || activePacote?.mes_referencia,
+        ano: arq.ano_referencia || activePacote?.ano_referencia,
+        eh_retificacao: activePacote?.eh_retificacao || false,
         emitido_por: profile?.id,
         arquivos: pacoteArquivos || []
       });

@@ -2,13 +2,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
-import { Archive, Search, Calendar, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, FileText, AlertTriangle, Loader2, Building, Download } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
+import { Archive, Search, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, FileText, AlertTriangle, Loader2, Building, Download, Trash2 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 
 export default function RegistroEmissoes({ profile }) {
   const supabase = createClient();
   const { addToast } = useToast();
+  const { user } = useAuth();
 
   const [pacotes, setPacotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,13 +31,17 @@ export default function RegistroEmissoes({ profile }) {
   const [showArqModal, setShowArqModal] = useState(false);
   const [arqPacote, setArqPacote] = useState(null);
 
+  // Visualizador com planilha
+  const [arquivoAberto, setArquivoAberto] = useState(null);
+
   async function fetchRegistradas() {
     setLoading(true);
     try {
+      // Traz expedidas (novo fluxo) + registrado+lacrada=true (dados legados antes da migração)
       let query = supabase
         .from('emissoes_pacotes')
         .select('*, condominios(name)')
-        .eq('lacrada', true)
+        .or('status.eq.expedida,and(status.eq.registrado,lacrada.eq.true)')
         .order('lacrada_em', { ascending: false });
 
       // Gerentes veem apenas os condomínios da sua carteira
@@ -96,6 +103,33 @@ export default function RegistroEmissoes({ profile }) {
   const pacotesPaginados = pacotesFiltrados.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA);
   const temFiltros = busca || competencia;
   const canRetif = ['master', 'departamento'].includes(profile?.role);
+  const canDelete = profile?.role === 'master';
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+  async function handleDelete(pacote) {
+    if (confirmDeleteId !== pacote.id) {
+      setConfirmDeleteId(pacote.id);
+      addToast('Clique novamente para confirmar a exclusão', 'warning');
+      setTimeout(() => setConfirmDeleteId(null), 3000);
+      return;
+    }
+    try {
+      // Remove arquivos do storage
+      if (pacote.arquivos?.length) {
+        await supabase.storage.from('emissoes').remove(pacote.arquivos.map(a => a.arquivo_url));
+      }
+      // Remove dependências antes do pacote (respeita FK)
+      await supabase.from('emissoes_retificacoes').delete().eq('pacote_original_id', pacote.id);
+      await supabase.from('emissoes_arquivos').delete().eq('pacote_id', pacote.id);
+      const { error } = await supabase.from('emissoes_pacotes').delete().eq('id', pacote.id);
+      if (error) throw error;
+      setPacotes(prev => prev.filter(p => p.id !== pacote.id));
+      setConfirmDeleteId(null);
+      addToast('Emissão excluída.', 'success');
+    } catch (e) {
+      addToast('Erro: ' + e.message, 'error');
+    }
+  }
 
   function limparFiltros() { setBusca(''); setCompetencia(''); setPagina(1); }
 
@@ -118,10 +152,23 @@ export default function RegistroEmissoes({ profile }) {
     finally { setRetifSubmitting(false); }
   }
 
-  async function openFileUrl(arq) {
+  async function openFileUrl(arq, pacote) {
     const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arq.arquivo_url, 300);
     if (error || !data?.signedUrl) return addToast('Erro ao abrir arquivo', 'error');
-    window.open(data.signedUrl, '_blank');
+    setShowArqModal(false);
+    setArquivoAberto({
+      id: arq.id,
+      nome: arq.arquivo_nome,
+      url: data.signedUrl,
+      processo_id: pacote?.processo_id || null,
+      condominio_id: pacote?.condominio_id,
+      mes: pacote?.mes_referencia,
+      ano: pacote?.ano_referencia,
+      eh_retificacao: pacote?.eh_retificacao || false,
+      emitido_por: pacote?.uploaded_by,
+      arquivos: pacote?.arquivos || [],
+      planilha_snapshot: pacote?.planilha_snapshot || null,
+    });
   }
 
   async function handleDownloadZip(pacote) {
@@ -154,7 +201,7 @@ export default function RegistroEmissoes({ profile }) {
           </div>
           <div>
             <p className="text-3xl font-black text-white">{pacotes.length}</p>
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Emissões Lacradas</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Emissões Expedidas</p>
           </div>
         </div>
         <div className="p-6 border border-white/10 rounded-3xl bg-[#0a0a0f] flex items-center gap-4">
@@ -200,7 +247,7 @@ export default function RegistroEmissoes({ profile }) {
       <div className="border border-white/10 rounded-3xl bg-white/5 overflow-hidden shadow-2xl">
         <div className="p-6 border-b border-white/10 flex items-center gap-4">
           <Archive className="w-5 h-5 text-emerald-400" />
-          <h3 className="font-black text-white text-lg">Registro de Emissões Lacradas</h3>
+          <h3 className="font-black text-white text-lg">Registro de Emissões Expedidas</h3>
           <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
             {pacotesFiltrados.length} registro{pacotesFiltrados.length !== 1 ? 's' : ''}
           </span>
@@ -225,7 +272,7 @@ export default function RegistroEmissoes({ profile }) {
           <>
             {/* Header da tabela */}
             <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-3 border-b border-white/5 bg-white/[0.02]">
-              {['Condomínio', 'Competência', 'Registrada em', 'Status', 'Ações'].map(h => (
+              {['Condomínio', 'Competência', 'Expedida em', 'Status', 'Ações'].map(h => (
                 <span key={h} className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{h}</span>
               ))}
             </div>
@@ -242,7 +289,7 @@ export default function RegistroEmissoes({ profile }) {
                       </div>
                       <div>
                         <p className="font-bold text-white text-sm">{p.condominios?.name}</p>
-                        <p className="text-[10px] text-gray-500">{numArq} arquivo{numArq !== 1 ? 's' : ''}</p>
+                        <p className="text-[10px] text-gray-500">1 emissão • {numArq} arquivo{numArq !== 1 ? 's' : ''}</p>
                       </div>
                     </div>
                     <span className="text-sm font-bold text-cyan-400">{String(p.mes_referencia).padStart(2,'0')}/{p.ano_referencia}</span>
@@ -251,7 +298,7 @@ export default function RegistroEmissoes({ profile }) {
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1">
-                        <Lock className="w-3 h-3" /> Lacrada
+                        <Lock className="w-3 h-3" /> Expedida
                       </span>
                       {p.eh_retificacao && (
                         <span className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[9px] font-black text-amber-400 uppercase tracking-widest">Retif.</span>
@@ -272,6 +319,13 @@ export default function RegistroEmissoes({ profile }) {
                         <button onClick={() => { setRetifPacote(p); setShowRetifModal(true); setRetifMotivo(''); setRetifDescricao(''); }}
                           className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-amber-400 hover:border-amber-500/30 transition-all" title="Solicitar retificação">
                           <RefreshCw className="w-4 h-4" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button onClick={() => handleDelete(p)}
+                          className={`p-2 rounded-lg border transition-all ${confirmDeleteId === p.id ? 'bg-rose-500 border-rose-500 text-white animate-pulse' : 'bg-white/5 border-white/10 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30'}`}
+                          title={confirmDeleteId === p.id ? 'Clique para confirmar' : 'Excluir emissão'}>
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -321,7 +375,7 @@ export default function RegistroEmissoes({ profile }) {
               {(arqPacote.arquivos || []).length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-8">Nenhum arquivo encontrado.</p>
               ) : arqPacote.arquivos.map(arq => (
-                <button key={arq.id} onClick={() => openFileUrl(arq)}
+                <button key={arq.id} onClick={() => openFileUrl(arq, arqPacote)}
                   className="w-full flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-xl hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all group text-left">
                   <FileText className="w-4 h-4 text-gray-500 group-hover:text-cyan-400 shrink-0" />
                   <span className="text-sm font-bold text-gray-400 group-hover:text-white truncate">{arq.arquivo_nome}</span>
@@ -330,6 +384,17 @@ export default function RegistroEmissoes({ profile }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ═══ VISUALIZADOR COM PLANILHA ═══ */}
+      {arquivoAberto && (
+        <VisualizadorConferencia
+          arquivo={arquivoAberto}
+          arquivos={arquivoAberto.arquivos}
+          currentUser={user}
+          onClose={() => setArquivoAberto(null)}
+          onAction={() => { setArquivoAberto(null); fetchRegistradas(); }}
+        />
       )}
 
       {/* ═══ MODAL RETIFICAÇÃO ═══ */}

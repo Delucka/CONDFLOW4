@@ -7,13 +7,14 @@ import { createClient } from '@/utils/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { 
-  Save, Lock, ArrowLeft, PlusCircle, X, Search, 
+import {
+  Save, Lock, ArrowLeft, PlusCircle, X, Search,
   ChevronDown, Layers, Building, Calendar, Info,
-  Printer, Send, Trash2, CheckCircle2, Settings
+  Printer, Send, Trash2, CheckCircle2, Settings, Timer
 } from 'lucide-react';
 import Link from 'next/link';
 import planoContasData from '@/data/plano_contas.json';
+import { usePipelineConfig } from '@/lib/usePipelineConfig';
 
 // Pre-compute plans with parent reference for each sub-account
 const PLANOS = Object.entries(planoContasData).map(([id, plano]) => {
@@ -63,6 +64,12 @@ export default function ArrecadacoesPage() {
 
   const supabase = useMemo(() => createClient(), []);
 
+  // Pipeline config para checar prazo de edição
+  const { config: pipelineConfig } = usePipelineConfig(selectedYear);
+  const prazoExpirado = pipelineConfig?.prazo_edicao
+    ? new Date(pipelineConfig.prazo_edicao) < new Date()
+    : false;
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -95,9 +102,9 @@ export default function ArrecadacoesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId, selectedYear]);
 
-  // Permissão de edição
-  const canEdit = user?.role === 'master' || 
-                 (user?.role === 'gerente' && (!processo || ['Em edição', 'Solicitar alteração'].includes(processo?.status)));
+  // Permissão de edição — master sempre pode; gerente bloqueado se prazo expirou
+  const canEdit = user?.role === 'master' ||
+                 (!prazoExpirado && user?.role === 'gerente' && (!processo || ['Em edição', 'Solicitar alteração'].includes(processo?.status)));
   
   const isEmissor = ['master', 'emissor'].includes(user?.role);
   
@@ -324,7 +331,18 @@ export default function ArrecadacoesPage() {
 
   return (
     <div className="animate-fade-in w-full h-full pb-20">
-      
+
+      {/* ─── Banner prazo expirado (gerentes) ─── */}
+      {prazoExpirado && user?.role !== 'master' && (
+        <div className="mb-4 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 animate-fade-in">
+          <Lock className="w-4 h-4 shrink-0" />
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest">Prazo de edição encerrado</p>
+            <p className="text-[11px] text-rose-400/80">A planilha está bloqueada para edições. Entre em contato com o administrador para exceções.</p>
+          </div>
+        </div>
+      )}
+
       {/* ─── HEADER PREMIUM ─── */}
       <div className="glass-panel p-6 mb-8 rounded-2xl flex flex-col gap-4">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-4">

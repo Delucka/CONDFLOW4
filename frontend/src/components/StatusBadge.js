@@ -31,7 +31,12 @@ const STATUS_CONFIG = {
     dot: 'bg-blue-400'
   },
   'registrado': {
-    label: 'Emissão registrada',
+    label: 'Registrada',
+    classes: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+    dot: 'bg-cyan-400'
+  },
+  'expedida': {
+    label: 'Expedida',
     classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
     dot: 'bg-emerald-400'
   },
