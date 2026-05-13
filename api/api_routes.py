@@ -260,6 +260,70 @@ def api_aprovacoes(user: dict = Depends(get_current_user), db: Client = Depends(
         print(f"CRITICAL ERROR /aprovacoes: {e}")
         return {"pendentes": [], "historico": [], "error": str(e)}
 
+@router.get("/auditoria")
+def api_auditoria(
+    condo_id: str = None,
+    gerente_id: str = None,
+    date_from: str = None,
+    date_to: str = None,
+    search: str = None,
+    limit: int = 60,
+    offset: int = 0,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db)
+):
+    try:
+        if user["role"] not in ["master", "supervisora", "supervisora_contabilidade", "supervisor_gerentes"]:
+            raise HTTPException(403, "Acesso negado")
+
+        query = db.table("aprovacoes").select(
+            "id, action, comment, created_at, "
+            "approver:approver_id(full_name), "
+            "processo:processo_id(id, year, semester, condominio_id, status, "
+            "condominios(id, name, gerente_id, gerentes:gerente_id(profiles!gerentes_profile_id_fkey(full_name))))"
+        ).order("created_at", desc=True)
+
+        if date_from:
+            query = query.gte("created_at", date_from)
+        if date_to:
+            query = query.lte("created_at", date_to + "T23:59:59")
+
+        query = query.range(offset, offset + limit - 1)
+        result = query.execute()
+        logs = result.data or []
+
+        # Filtros client-side (FK aninhada)
+        if condo_id:
+            logs = [l for l in logs if (l.get("processo") or {}).get("condominio_id") == condo_id]
+        if gerente_id:
+            logs = [l for l in logs if (((l.get("processo") or {}).get("condominios") or {}).get("gerente_id")) == gerente_id]
+        if search:
+            s = search.lower()
+            logs = [l for l in logs if
+                s in (l.get("action") or "").lower() or
+                s in (l.get("comment") or "").lower() or
+                s in ((l.get("approver") or {}).get("full_name") or "").lower() or
+                s in (((l.get("processo") or {}).get("condominios") or {}).get("name") or "").lower()
+            ]
+
+        # Contagens para stats
+        total_res = db.table("aprovacoes").select("id", count="exact", head=True).execute()
+
+        import datetime
+        hoje = datetime.date.today().isoformat()
+        hoje_res = db.table("aprovacoes").select("id", count="exact", head=True).gte("created_at", hoje).execute()
+
+        return {
+            "logs": logs,
+            "total": total_res.count or 0,
+            "hoje": hoje_res.count or 0,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"CRITICAL ERROR /auditoria: {e}")
+        return {"logs": [], "total": 0, "hoje": 0, "error": str(e)}
+
 class RateioUpdate(BaseModel):
     ano: int
     obs_emissao: str
