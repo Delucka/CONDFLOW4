@@ -64,11 +64,14 @@ export default function ArrecadacoesPage() {
 
   const supabase = useMemo(() => createClient(), []);
 
-  // Pipeline config para checar prazo de edição
+  // Pipeline config — prazo de edição com verificação em tempo real
   const { config: pipelineConfig } = usePipelineConfig(selectedYear);
-  const prazoExpirado = pipelineConfig?.prazo_edicao
-    ? new Date(pipelineConfig.prazo_edicao) < new Date()
-    : false;
+  const agora = new Date();
+  const prazoFim  = pipelineConfig?.prazo_edicao ? new Date(pipelineConfig.prazo_edicao) : null;
+  const prazoIni  = pipelineConfig?.data_inicio  ? new Date(pipelineConfig.data_inicio)  : null;
+  // Período ativo = sem datas definidas (sem restrição) OU dentro do intervalo
+  const periodoAtivo = !prazoFim || ((!prazoIni || agora >= prazoIni) && agora <= prazoFim);
+  const prazoExpirado = prazoFim && agora > prazoFim;
 
   const fetchData = async () => {
     try {
@@ -102,9 +105,13 @@ export default function ArrecadacoesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId, selectedYear]);
 
-  // Permissão de edição — master sempre pode; gerente bloqueado se prazo expirou
-  const canEdit = user?.role === 'master' ||
-                 (!prazoExpirado && user?.role === 'gerente' && (!processo || ['Em edição', 'Solicitar alteração'].includes(processo?.status)));
+  // Permissão de edição — master sempre pode
+  // Gerente bloqueado se: prazo expirou OU status é "Edição finalizada"
+  const canEdit = user?.role === 'master' || (
+    periodoAtivo &&
+    user?.role === 'gerente' &&
+    (!processo || ['Em edição', 'Solicitar alteração'].includes(processo?.status))
+  );
   
   const isEmissor = ['master', 'emissor'].includes(user?.role);
   
@@ -332,14 +339,31 @@ export default function ArrecadacoesPage() {
   return (
     <div className="animate-fade-in w-full h-full pb-20">
 
-      {/* ─── Banner prazo expirado (gerentes) ─── */}
-      {prazoExpirado && user?.role !== 'master' && (
+      {/* ─── Banner bloqueio (prazo expirado OU edição finalizada) ─── */}
+      {!canEdit && user?.role !== 'master' && (
         <div className="mb-4 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 animate-fade-in">
           <Lock className="w-4 h-4 shrink-0" />
           <div>
-            <p className="text-xs font-black uppercase tracking-widest">Prazo de edição encerrado</p>
-            <p className="text-[11px] text-rose-400/80">A planilha está bloqueada para edições. Entre em contato com o administrador para exceções.</p>
+            <p className="text-xs font-black uppercase tracking-widest">
+              {prazoExpirado ? 'Prazo de devolução encerrado' : 'Edição finalizada'}
+            </p>
+            <p className="text-[11px] text-rose-400/80">
+              {prazoExpirado
+                ? `Período encerrado em ${prazoFim?.toLocaleString('pt-BR')}. Entre em contato com o administrador para exceções.`
+                : 'Nenhuma alteração pode ser feita. Entre em contato com o administrador para exceções.'}
+            </p>
           </div>
+        </div>
+      )}
+
+      {/* ─── Banner prazo ativo (informativo para gerentes) ─── */}
+      {periodoAtivo && prazoFim && user?.role !== 'master' && (
+        <div className="mb-4 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 text-amber-300 animate-fade-in">
+          <Timer className="w-4 h-4 shrink-0" />
+          <p className="text-[11px]">
+            Prazo para devolução da planilha:{' '}
+            <span className="font-black">{prazoFim.toLocaleString('pt-BR')}</span>
+          </p>
         </div>
       )}
 
@@ -395,11 +419,17 @@ export default function ArrecadacoesPage() {
                 {isEmissor && (
                     <div className="flex items-center gap-2 bg-slate-900/80 p-2 rounded-full border border-white/5 shadow-inner w-max">
                         <span className="text-[9px] font-black uppercase text-slate-500 mr-2 ml-2">Timeline (Emissor):</span>
-                        {['Em edição', 'Em produção', 'Em processo'].map(st => (
+                        {['Em edição', 'Edição finalizada'].map(st => (
                             <button
                                 key={st}
                                 onClick={() => handleForceStatus(st)}
-                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${processo?.status === st ? 'bg-cyan-500 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.3)]' : 'text-slate-400 hover:bg-white/5'}`}
+                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${
+                                  processo?.status === st
+                                    ? st === 'Edição finalizada'
+                                      ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]'
+                                      : 'bg-cyan-500 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
+                                    : 'text-slate-400 hover:bg-white/5'
+                                }`}
                             >
                                 {st}
                             </button>

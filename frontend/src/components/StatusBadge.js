@@ -42,6 +42,16 @@ const STATUS_CONFIG = {
   },
 
   // ── Processos (arrecadações) — mantidos para compatibilidade ─────────
+  'edição finalizada': {
+    label: 'Edição Finalizada',
+    classes: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+    dot: 'bg-rose-400'
+  },
+  'em processo': {
+    label: 'Edição Finalizada',
+    classes: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+    dot: 'bg-rose-400'
+  },
   'em edição': {
     label: 'Em edição',
     classes: 'bg-gray-500/10 text-gray-400 border-gray-500/30',

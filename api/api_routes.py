@@ -445,6 +445,7 @@ class PipelineForceAllSchema(BaseModel):
     status: str
     ano: int = None
     semestre: int = None
+    gerente_id: str = None
 
 @router.post("/pipeline/force-all")
 def api_pipeline_force_all(data: PipelineForceAllSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
@@ -457,8 +458,11 @@ def api_pipeline_force_all(data: PipelineForceAllSchema, user: dict = Depends(ge
         ano = data.ano or now.year
         sem = data.semestre or (1 if now.month <= 6 else 2)
 
-        # Buscar TODOS os condomínios (não só os que já têm processo)
-        condos_res = db.table("condominios").select("id").execute()
+        # Buscar condomínios (todos ou filtrado por gerente)
+        query = db.table("condominios").select("id")
+        if data.gerente_id:
+            query = query.eq("gerente_id", data.gerente_id)
+        condos_res = query.execute()
         condos = condos_res.data or []
 
         updated = 0

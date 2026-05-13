@@ -133,6 +133,9 @@ export default function VisaoGerente({ profile }) {
         url: data.signedUrl,
         processo_id: pacote.processo_id || null,
         condominio_id: pacote.condominio_id,
+        mes: pacote.mes_referencia,
+        ano: pacote.ano_referencia,
+        eh_retificacao: pacote.eh_retificacao || false,
         emitido_por: pacote.uploaded_by,
         arquivos: pacote.arquivos || [],
       });

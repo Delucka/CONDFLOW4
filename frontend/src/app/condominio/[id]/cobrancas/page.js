@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import StatusBadge from '@/components/StatusBadge';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { Receipt, FileText, UploadCloud, Trash2, ArrowLeft } from 'lucide-react';
+import { Receipt, FileText, UploadCloud, Trash2, ArrowLeft, Lock, Timer } from 'lucide-react';
 import Link from 'next/link';
+import { usePipelineConfig } from '@/lib/usePipelineConfig';
 
 export default function CobrancasPage() {
   const params = useParams();
@@ -47,7 +48,20 @@ export default function CobrancasPage() {
     carregar();
   }, [condoId, addToast]);
 
-  const canEdit = user?.role === 'master' || (['Em edição', 'Em produção', 'Solicitar alteração'].includes(data.processo?.status));
+  // Pipeline config — auto-bloqueio por prazo
+  const anoProcesso = data.processo?.year || new Date().getFullYear();
+  const { config: pipelineConfig } = usePipelineConfig(anoProcesso);
+  const agora = new Date();
+  const prazoFim = pipelineConfig?.prazo_edicao ? new Date(pipelineConfig.prazo_edicao) : null;
+  const prazoIni = pipelineConfig?.data_inicio  ? new Date(pipelineConfig.data_inicio)  : null;
+  const periodoAtivo = !prazoFim || ((!prazoIni || agora >= prazoIni) && agora <= prazoFim);
+  const prazoExpirado = prazoFim && agora > prazoFim;
+
+  // Master sempre pode; gerente bloqueado se prazo expirou OU status "Edição finalizada"
+  const canEdit = user?.role === 'master' || (
+    periodoAtivo &&
+    ['Em edição', 'Solicitar alteração'].includes(data.processo?.status)
+  );
 
   async function handleAdd(e) {
     e.preventDefault();
@@ -99,6 +113,31 @@ export default function CobrancasPage() {
         </Link>
         <StatusBadge status={data.processo?.status} />
       </div>
+
+      {/* Banner bloqueio (prazo expirado OU edição finalizada) */}
+      {!canEdit && user?.role !== 'master' && (
+        <div className="mb-6 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300">
+          <Lock className="w-4 h-4 shrink-0" />
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest">Cobranças extras bloqueadas</p>
+            <p className="text-[11px] text-rose-400/80">
+              {prazoExpirado
+                ? `Prazo encerrado em ${prazoFim?.toLocaleString('pt-BR')}.`
+                : 'Edição finalizada — nenhuma cobrança pode ser adicionada ou removida.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Banner prazo ativo (informativo) */}
+      {periodoAtivo && prazoFim && user?.role !== 'master' && (
+        <div className="mb-4 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 text-amber-300">
+          <Timer className="w-4 h-4 shrink-0" />
+          <p className="text-[11px]">
+            Prazo para devolução: <span className="font-black">{prazoFim.toLocaleString('pt-BR')}</span>
+          </p>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Formulário */}

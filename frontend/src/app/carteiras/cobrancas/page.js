@@ -474,14 +474,17 @@ export default function CobrancasExtrasPage() {
                     {grupo.parcelas.sort((a, b) => a.parcela_atual - b.parcela_atual).map(p => {
                       const bloq = isBloqueado(p.mes, p.ano);
                       const cancelado = p.status === 'solicitado_cancelamento' || p.status === 'cancelada';
+                      const processada = p.status === 'processada';
                       return (
                         <span key={p.id}
                           className={`text-[10px] font-bold px-2.5 py-1 rounded border
                             ${cancelado ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 line-through'
+                              : processada ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                               : bloq ? 'bg-slate-800 text-slate-500 border-slate-700'
                               : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
                           {MESES[(p.mes || 1) - 1]}/{p.ano}
                           {p.parcela_total > 1 ? ` (${p.parcela_atual}/${p.parcela_total})` : ''}
+                          {processada && ' ✓'}
                         </span>
                       );
                     })}
