@@ -33,19 +33,40 @@ export default function FilaOcorrencias() {
   const fetchOcorrencias = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Query principal: ocorrências + condomínio (FK direta existe)
+      const { data: ocs, error } = await supabase
         .from('emissoes_ocorrencias')
-        .select(`
-          *,
-          condominios(name),
-          profiles!criado_por(full_name)
-        `)
+        .select(`*, condominios(name)`)
         .order('criado_em', { ascending: false });
-      
+
       if (error) throw error;
-      setOcorrencias(data || []);
+
+      // Enriquecer com perfis (FK vai para auth.users, não profiles — fazemos lookup manual)
+      const userIds = Array.from(new Set(
+        (ocs || [])
+          .flatMap(o => [o.criado_por, o.resolvido_por])
+          .filter(Boolean)
+      ));
+
+      let profilesById = {};
+      if (userIds.length) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        profilesById = Object.fromEntries((profs || []).map(p => [p.id, p]));
+      }
+
+      const enriquecido = (ocs || []).map(o => ({
+        ...o,
+        profiles: profilesById[o.criado_por] || null,
+        resolvedor: profilesById[o.resolvido_por] || null,
+      }));
+
+      setOcorrencias(enriquecido);
     } catch (err) {
       console.error('Erro ao buscar ocorrências:', err);
+      setOcorrencias([]);
     } finally {
       setLoading(false);
     }
