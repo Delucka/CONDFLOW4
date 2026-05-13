@@ -5,7 +5,6 @@ import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { usePipelineConfig } from '@/lib/usePipelineConfig';
 import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
   AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2,
@@ -141,17 +140,11 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const supabase = createClient();
   const { addToast } = useToast();
-  const { config: pipelineConfig } = usePipelineConfig(ANO_ATUAL);
-  const countdown = useCountdown(pipelineConfig);
 
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
   const [processing, setProcessing] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
-
-  const [emissaoStats, setEmissaoStats] = useState({ gerente: 0, supGerente: 0, supContabilidade: 0, aguardando: 0, registrada: 0 });
-  const [loadingEmissoes, setLoadingEmissoes] = useState(true);
-  const [emissaoByCondominio, setEmissaoByCondominio] = useState({});
 
   const query = filtroGerente ? `?gerente_id=${filtroGerente}` : '';
   const { data, error, isLoading, mutate } = useSWR(`/api/dashboard${query}`, apiFetcher, {
@@ -159,44 +152,21 @@ export default function DashboardPage() {
     dedupingInterval: 5000
   });
 
-  useEffect(() => {
-    async function fetchEmissaoStats() {
-      setLoadingEmissoes(true);
-      try {
-        const { data: pacotes } = await supabase
-          .from('emissoes_pacotes')
-          .select('status, condominio_id, criado_em')
-          .order('criado_em', { ascending: false });
+  // Single source: tudo vem do endpoint /api/dashboard agora
+  const pipelineConfig      = data?.pipeline_config || null;
+  const emissaoStats        = data?.emissao_stats   || { gerente: 0, supGerente: 0, supContabilidade: 0, aguardando: 0, registrada: 0 };
+  const emissaoByCondominio = data?.emissao_by_condo || {};
+  const countdown           = useCountdown(pipelineConfig);
 
-        if (pacotes) {
-          const stats = { gerente: 0, supGerente: 0, supContabilidade: 0, aguardando: 0, registrada: 0 };
-          const mapaEmissao = {};
-          pacotes.forEach(p => {
-            const s = (p.status || '').toLowerCase();
-            if (s.includes('gerente') || s === 'pendente') stats.gerente++;
-            else if (s.includes('chefe') || s.includes('sup. gerentes')) stats.supGerente++;
-            else if (s.includes('supervisor')) stats.supContabilidade++;
-            else if (s === 'aprovado') stats.aguardando++;
-            else if (s === 'registrado') stats.registrada++;
-            if (p.condominio_id && !mapaEmissao[p.condominio_id]) {
-              mapaEmissao[p.condominio_id] = p.status || 'sem_processo';
-            }
-          });
-          setEmissaoStats(stats);
-          setEmissaoByCondominio(mapaEmissao);
-        }
-      } catch (err) {
-        console.error("Erro ao carregar métricas de emissão:", err);
-      } finally {
-        setLoadingEmissoes(false);
-      }
-    }
-    fetchEmissaoStats();
-    const channel = supabase.channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, fetchEmissaoStats)
+  // Realtime: invalida o cache SWR quando emissoes_pacotes muda
+  useEffect(() => {
+    const channel = supabase.channel(`dash-realtime-${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => mutate())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'processos' },         () => mutate())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_config' },   () => mutate())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [mutate, supabase]);
 
   const handleQuickView = async (condoId) => {
     try {
@@ -321,8 +291,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title="Total Condomínios"  value={stats.total}            icon={Building}   color="cyan"    loading={isLoading} />
         <StatsCard title="Em Edição"          value={stats.em_edicao}        icon={FileEdit}   color="orange"  loading={isLoading} />
-        <StatsCard title="Aguard. Registro"   value={emissaoStats.aguardando} icon={Clock}      color="emerald" loading={loadingEmissoes} />
-        <StatsCard title="Emissão Registrada" value={emissaoStats.registrada} icon={FileCheck}  color="blue"    loading={loadingEmissoes} />
+        <StatsCard title="Aguard. Registro"   value={emissaoStats.aguardando} icon={Clock}      color="emerald" loading={isLoading} />
+        <StatsCard title="Emissão Registrada" value={emissaoStats.registrada} icon={FileCheck}  color="blue"    loading={isLoading} />
       </div>
 
       {/* Auditoria de Fluxo */}
@@ -332,9 +302,9 @@ export default function DashboardPage() {
           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Emissões em Andamento</h4>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatsCard title="Com o Gerente"    value={emissaoStats.gerente}           icon={User}       color="indigo" loading={loadingEmissoes} />
-          <StatsCard title="Sup. Gerentes"    value={emissaoStats.supGerente}        icon={Activity}   color="cyan"   loading={loadingEmissoes} />
-          <StatsCard title="Sup. Contab."     value={emissaoStats.supContabilidade}  icon={ShieldCheck} color="orange" loading={loadingEmissoes} />
+          <StatsCard title="Com o Gerente"    value={emissaoStats.gerente}           icon={User}       color="indigo" loading={isLoading} />
+          <StatsCard title="Sup. Gerentes"    value={emissaoStats.supGerente}        icon={Activity}   color="cyan"   loading={isLoading} />
+          <StatsCard title="Sup. Contab."     value={emissaoStats.supContabilidade}  icon={ShieldCheck} color="orange" loading={isLoading} />
         </div>
       </div>
 
@@ -407,13 +377,13 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-4 py-4">
                           {procStatus
-                            ? <StatusBadge status={procStatus} />
+                            ? <StatusBadge status={procStatus} flow="processo" />
                             : <span className="text-[10px] text-gray-600 font-bold">—</span>
                           }
                         </td>
                         <td className="px-4 py-4">
                           {emissaoStatus
-                            ? <StatusBadge status={emissaoStatus} />
+                            ? <StatusBadge status={emissaoStatus} flow="emissao" />
                             : <span className="text-[10px] text-gray-600 font-bold">—</span>
                           }
                         </td>

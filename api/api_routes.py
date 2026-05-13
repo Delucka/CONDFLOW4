@@ -3,6 +3,11 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Header, Request # type: ignore
 from supabase import create_client, Client # type: ignore
 from pydantic import BaseModel # type: ignore
+from auth_constants import (
+    APPROVE_DOCUMENT, EMIT_DOCUMENT, EDIT_COBRANCAS_EXTRAS,
+    DASHBOARD_FILTER_GERENTE, MANAGE_USERS, PIPELINE_OVERRIDE, VIEW_AUDITORIA,
+    has_role,
+)
 
 router = APIRouter()
 
@@ -68,7 +73,7 @@ def api_dashboard(gerente_id: Optional[str] = None, user: dict = Depends(get_cur
                 query = query.eq("gerente_id", g_id)
             else:
                 query = query.eq("gerente_id", "00000000-0000-0000-0000-000000000000")
-        elif gerente_id and user["role"] in ["master", "supervisora", "supervisora_contabilidade"]:
+        elif gerente_id and user["role"] in DASHBOARD_FILTER_GERENTE:
             query = query.eq("gerente_id", gerente_id)
             
         raw_condos = query.execute().data
@@ -95,13 +100,40 @@ def api_dashboard(gerente_id: Optional[str] = None, user: dict = Depends(get_cur
         if user["role"] != "gerente":
             gerentes = db.table("gerentes").select("id, profiles!gerentes_profile_id_fkey(full_name)").execute().data
 
+        # ── Emissões: stats agregados + status mais recente por condomínio ──
+        condo_ids = [c["id"] for c in raw_condos]
+        emissao_stats = {"gerente": 0, "supGerente": 0, "supContabilidade": 0, "aguardando": 0, "registrada": 0}
+        emissao_by_condo = {}
+        if condo_ids:
+            pacotes_q = db.table("emissoes_pacotes").select("status, condominio_id, criado_em") \
+                .in_("condominio_id", condo_ids) \
+                .order("criado_em", desc=True)
+            pacotes = pacotes_q.execute().data or []
+            for p in pacotes:
+                s = (p.get("status") or "").lower()
+                if "gerente" in s or s == "pendente": emissao_stats["gerente"] += 1
+                elif "chefe" in s or "sup. gerentes" in s: emissao_stats["supGerente"] += 1
+                elif "supervisor" in s: emissao_stats["supContabilidade"] += 1
+                elif s == "aprovado": emissao_stats["aguardando"] += 1
+                elif s == "registrado": emissao_stats["registrada"] += 1
+                cid = p.get("condominio_id")
+                if cid and cid not in emissao_by_condo:
+                    emissao_by_condo[cid] = p.get("status") or "sem_processo"
+
+        # ── Pipeline config do ano corrente ──
+        pipeline_res = db.table("pipeline_config").select("*").eq("ano", year).limit(1).execute()
+        pipeline_config = (pipeline_res.data or [None])[0]
+
         return {
-            "year": year, 
-            "semester": sem, 
-            "stats": stats, 
+            "year": year,
+            "semester": sem,
+            "stats": stats,
             "condos": condos,
             "processos": processos,
-            "gerentes": gerentes
+            "gerentes": gerentes,
+            "emissao_stats": emissao_stats,
+            "emissao_by_condo": emissao_by_condo,
+            "pipeline_config": pipeline_config,
         }
     except Exception as e:
         print(f"ERROR /dashboard: {e}")
@@ -273,7 +305,7 @@ def api_auditoria(
     db: Client = Depends(get_db)
 ):
     try:
-        if user["role"] not in ["master", "supervisora", "supervisora_contabilidade", "supervisor_gerentes"]:
+        if user["role"] not in VIEW_AUDITORIA and user["role"] != 'gerente':
             raise HTTPException(403, "Acesso negado")
 
         query = db.table("aprovacoes").select(
@@ -437,7 +469,7 @@ class ForceStatusSchema(BaseModel):
 @router.post("/condominio/{condo_id}/processo/force")
 def api_condo_process_status_force(condo_id: str, data: ForceStatusSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:
-        if user["role"] not in ["master", "emissor"]:
+        if user["role"] not in ROLES_EMISSORES:
             raise HTTPException(403, "Apenas emissor ou master podem forçar o status")
             
         import datetime
@@ -482,7 +514,7 @@ def api_condo_process_status_force(condo_id: str, data: ForceStatusSchema, user:
 @router.post("/processo/{processo_id}/status/force")
 def api_processo_status_force(processo_id: str, data: ForceStatusSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:
-        if user["role"] not in ["master", "emissor"]:
+        if user["role"] not in ROLES_EMISSORES:
             raise HTTPException(403, "Apenas emissor ou master podem forçar o status")
         
         proc_res = db.table("processos").select("*").eq("id", processo_id).single().execute()
@@ -820,9 +852,10 @@ MESES_PT = {
 
 # ═══ RBAC helpers ═════════════════════════════════════════════════════
 
-ROLES_APROVADORES = ['master', 'gerente', 'supervisora', 'supervisora_contabilidade']
-ROLES_EMISSORES = ['master', 'emissor']
-ROLES_LANCA_COBRANCAS = ['master', 'gerente', 'assistente']
+# NOTE: listas mantidas como aliases para compatibilidade — fonte da verdade em auth_constants.py
+ROLES_APROVADORES = APPROVE_DOCUMENT  # inclui supervisor_gerentes
+ROLES_EMISSORES = EMIT_DOCUMENT       # ['master', 'departamento']
+ROLES_LANCA_COBRANCAS = EDIT_COBRANCAS_EXTRAS
 
 
 def require_role(user: dict, roles: list):

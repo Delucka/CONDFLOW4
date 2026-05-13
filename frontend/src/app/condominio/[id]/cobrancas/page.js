@@ -111,7 +111,7 @@ export default function CobrancasPage() {
         <Link href={`/condominio/${condoId}/arrecadacoes`} className="bg-slate-800 p-2 rounded-lg hover:bg-slate-700 transition">
           <ArrowLeft className="w-5 h-5 text-slate-400" />
         </Link>
-        <StatusBadge status={data.processo?.status} />
+        <StatusBadge status={data.processo?.status} flow="processo" />
       </div>
 
       {/* Banner bloqueio (prazo expirado OU edição finalizada) */}

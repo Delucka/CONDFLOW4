@@ -437,7 +437,7 @@ export default function ArrecadacoesPage() {
                     </div>
                 )}
             </div>
-            <StatusBadge status={processo?.status} />
+            <StatusBadge status={processo?.status} flow="processo" />
         </div>
       </div>
 
