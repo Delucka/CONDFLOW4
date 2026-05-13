@@ -5,14 +5,13 @@ import { useAuth } from '@/lib/auth';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
-import { LayoutDashboard, Building, Layers, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp } from 'lucide-react';
+import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/dashboard',           icon: LayoutDashboard, label: 'Painel Central' },
   { href: '/condominios',         icon: Building,        label: 'Planilha Anual' },
-  { href: '/carteiras',           icon: Layers,          label: 'Carteiras' },
   { href: '/carteiras/cobrancas', icon: Receipt,         label: 'Lançar Cobranças' },
-  { href: '/aprovacoes',          icon: FileCheck2,      label: 'Aprovações' },
+  { href: '/aprovacoes',          icon: FileCheck2,      label: 'Aprovações & Auditoria' },
   { href: '/central-emissoes',    icon: FileUp,          label: 'Central de Emissões', showBadge: true },
 ];
 const ADMIN_ITEMS = [{ href: '/admin/usuarios', icon: Users, label: 'Acessos e Perfis' }];

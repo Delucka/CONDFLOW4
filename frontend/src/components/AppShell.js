@@ -37,7 +37,7 @@ export default function AppShell({ children }) {
     '/dashboard': 'Dashboard Central',
     '/condominios': 'Gestão de Condomínios',
     '/carteiras': 'Pastas e Carteiras',
-    '/aprovacoes': 'Fluxo de Aprovações',
+    '/aprovacoes': 'Aprovações & Auditoria',
     '/admin/usuarios': 'Usuários do Sistema'
   };
   
