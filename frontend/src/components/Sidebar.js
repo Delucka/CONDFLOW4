@@ -38,7 +38,7 @@ export default function Sidebar() {
       setPendingCount(count || 0);
     };
     fetchCount();
-    const ch = supabase.channel('sidebar_badge')
+    const ch = supabase.channel(`sidebar_badge_${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, fetchCount)
       .subscribe();
     return () => { supabase.removeChannel(ch); };

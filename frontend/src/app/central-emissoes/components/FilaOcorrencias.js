@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { AlertTriangle, AlertCircle, Edit, ChevronRight, CheckCircle, Plus, User, Clock, Loader2, Activity } from 'lucide-react';
+import { SkeletonList } from '@/components/Skeleton';
 
 export default function FilaOcorrencias() {
   const supabase = createClient();
@@ -107,7 +108,7 @@ export default function FilaOcorrencias() {
     fetchOcorrencias();
     if (profile) fetchCondominios();
     
-    const channel = supabase.channel('fila_ocorrencias')
+    const channel = supabase.channel(`fila_ocorrencias_${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_ocorrencias' }, () => {
         fetchOcorrencias();
       })
@@ -256,9 +257,8 @@ export default function FilaOcorrencias() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {loading ? (
-          <div className="flex flex-col items-center justify-center p-12 gap-3">
-            <Loader2 className="w-8 h-8 text-rose-500 animate-spin" />
-            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Carregando fila...</p>
+          <div className="p-4">
+            <SkeletonList items={4} />
           </div>
         ) : itensFiltrados.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-20 text-center">

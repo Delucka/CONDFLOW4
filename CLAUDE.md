@@ -134,4 +134,5 @@ Vercel production env vars (set via dashboard or `vercel env add`): `NEXT_PUBLIC
 | `frontend/src/utils/supabase/middleware.js` | Session refresh + auth redirect on every request |
 | `api/index.py` | FastAPI app entry point; mounts router at `/api` |
 | `api/api_routes.py` | All FastAPI endpoints; `get_current_user()` dependency |
-| `schema.sql` | Supabase table definitions (reference only; apply via Supabase dashboard) |
+| `supabase/migrations/*.sql` | Versioned Supabase migrations (apply in numeric order via SQL Editor; see `applied.txt`) |
+| `api/auth_constants.py` | RBAC source of truth — mirrors `frontend/src/lib/roles.js` |

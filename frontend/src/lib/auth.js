@@ -37,11 +37,9 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    console.log('[Auth] Initializing session check...');
     let mounted = true;
-    
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log('[Auth] getSession result:', { session, error });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
       if (session?.user) {
         setUser(session.user);
@@ -55,7 +53,6 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        console.log('[Auth] onAuthStateChange event:', _event);
         if (!mounted) return;
         if (session?.user) {
           setUser(session.user);

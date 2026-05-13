@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
@@ -16,6 +16,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import FilaOcorrencias from '@/app/central-emissoes/components/FilaOcorrencias';
+import { SkeletonTable } from '@/components/Skeleton';
 
 const ANO_ATUAL = new Date().getFullYear();
 
@@ -58,11 +59,19 @@ function useCountdown(pipelineConfig) {
 }
 
 function PipelineWidget({ processos, condosTotal, pipelineConfig, countdown }) {
-  const emEdicao   = Object.values(processos).filter(p => ['Em edição', 'Solicitar alteração'].includes(p.status)).length;
-  const finalizado = Object.values(processos).filter(p => p.status === 'Edição finalizada').length;
-  const enviado    = Object.values(processos).filter(p => ['Enviado', 'Em aprovação', 'Aprovado', 'Emitido'].includes(p.status)).length;
-  const semProc    = condosTotal - emEdicao - finalizado - enviado;
-  const total      = condosTotal || 1;
+  const { emEdicao, finalizado, enviado, semProc, total } = useMemo(() => {
+    const procs = Object.values(processos);
+    const emEdicao   = procs.filter(p => ['Em edição', 'Solicitar alteração'].includes(p.status)).length;
+    const finalizado = procs.filter(p => p.status === 'Edição finalizada').length;
+    const enviado    = procs.filter(p => ['Enviado', 'Em aprovação', 'Aprovado', 'Emitido'].includes(p.status)).length;
+    return {
+      emEdicao,
+      finalizado,
+      enviado,
+      semProc: condosTotal - emEdicao - finalizado - enviado,
+      total: condosTotal || 1,
+    };
+  }, [processos, condosTotal]);
 
   const faseColor = {
     agendado:  { bg: 'bg-violet-500/10',  border: 'border-violet-500/30',  text: 'text-violet-400', dot: 'bg-violet-400' },
@@ -218,16 +227,17 @@ export default function DashboardPage() {
   const gerentes = data?.gerentes || [];
   const processos = data?.processos || {};
 
-  const pendingProcesses = [];
-  if (data?.processos) {
-    Object.keys(data.processos).forEach(condoId => {
+  const pendingProcesses = useMemo(() => {
+    if (!data?.processos) return [];
+    const out = [];
+    for (const condoId of Object.keys(data.processos)) {
       const proc = data.processos[condoId];
-      const condo = condos.find(c => c.id === condoId);
       if (["Enviado", "Em aprovação"].includes(proc.status)) {
-        pendingProcesses.push({ ...proc, condo });
+        out.push({ ...proc, condo: condos.find(c => c.id === condoId) });
       }
-    });
-  }
+    }
+    return out;
+  }, [data?.processos, condos]);
 
   return (
     <div className="animate-fade-in w-full h-full relative space-y-6 pb-20">
@@ -339,9 +349,8 @@ export default function DashboardPage() {
           </div>
 
           {isLoading ? (
-            <div className="p-24 text-center">
-              <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-sm font-bold text-slate-500 tracking-widest uppercase">Processando Dados...</p>
+            <div className="p-6">
+              <SkeletonTable rows={8} cols={4} />
             </div>
           ) : condos.length > 0 ? (
             <div className="overflow-x-auto flex-1">

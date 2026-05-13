@@ -1,0 +1,22 @@
+# Migrations aplicadas em produção (Supabase).
+# Adicione uma linha por migration depois de rodar no SQL Editor.
+# Formato: NNNN_nome.sql
+
+0001_schema.sql
+0002_seed_condos.sql
+0003_create_cobrancas_extras.sql
+0004_create_emissoes_legacy.sql
+0005_create_central_emissoes.sql
+0006_create_emissoes_pacotes.sql
+0007_create_emissoes_ocorrencias.sql
+0008_rls_emissoes_ocorrencias.sql
+0009_create_emissoes_retificacoes.sql
+0010_migrate_rateios.sql
+0011_fix_rateios_schema.sql
+0012_migrate_parcelamento.sql
+0013_migrate_parcelamento_v2.sql
+0014_add_analise_fin.sql
+0015_update_trigger_cobrancas.sql
+0016_migrate_lacre_emissoes.sql
+0017_migrate_12_months_archive.sql
+0018_final_fix.sql
