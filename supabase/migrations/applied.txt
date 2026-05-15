@@ -25,3 +25,5 @@
 0021_planos_contas.sql
 0022_plano_0001_data.sql
 0023_condominios_planos.sql
+0024_gerentes_ghost.sql
+0025_vincula_gerentes_condos.sql

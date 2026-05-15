@@ -99,7 +99,8 @@ def api_dashboard(gerente_id: Optional[str] = None, user: dict = Depends(get_cur
             
         gerentes = []
         if user["role"] != "gerente":
-            gerentes = db.table("gerentes").select("id, profiles!gerentes_profile_id_fkey(full_name)").execute().data
+            # inclui o campo 'nome' direto da tabela gerentes pra cobrir os "ghosts" (sem profile)
+            gerentes = db.table("gerentes").select("id, nome, profiles!gerentes_profile_id_fkey(full_name)").execute().data
 
         # ── Emissões: stats agregados + status mais recente por condomínio ──
         condo_ids = [c["id"] for c in raw_condos]
@@ -158,11 +159,15 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
         # Mapeamento de nomes de gerentes de forma estável
         try:
             # Puxa todos os gerentes e profiles para o De-para (leitura rápida)
-            gerentes_res = db.table("gerentes").select("id, profile_id").execute().data or []
+            # gerente.nome cobre os "ghosts" (sem profile); profile.full_name cobre os com login
+            gerentes_res = db.table("gerentes").select("id, profile_id, nome").execute().data or []
             profiles_res = db.table("profiles").select("id, full_name").execute().data or []
-            
+
             p_map = {p["id"]: p["full_name"] for p in profiles_res}
-            g_map = {g["id"]: p_map.get(g["profile_id"], "Gerente desconhecido") for g in gerentes_res}
+            g_map = {
+                g["id"]: p_map.get(g["profile_id"]) or g.get("nome") or "Gerente desconhecido"
+                for g in gerentes_res
+            }
             
             for c in condos:
                 c["gerente_name"] = g_map.get(c.get("gerente_id"), "Gerente não definido")
@@ -662,9 +667,20 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
             "must_change_password": True,
         }).execute()
 
-        # 3. Se for gerente, garantir entrada na tabela de gerentes
+        # 3. Se for gerente: tentar vincular a um gerente-fantasma existente
+        # (importado do Ahreas com nome igual mas sem profile_id ainda).
+        # Caso não exista, cria novo gerente.
         if data.role == 'gerente':
-            db.table("gerentes").upsert({"profile_id": uid}, on_conflict="profile_id").execute()
+            ghost = db.table("gerentes").select("id").is_("profile_id", "null") \
+                .ilike("nome", data.full_name).limit(1).execute().data
+            if ghost:
+                db.table("gerentes").update({"profile_id": uid, "nome": data.full_name}) \
+                    .eq("id", ghost[0]["id"]).execute()
+            else:
+                db.table("gerentes").upsert(
+                    {"profile_id": uid, "nome": data.full_name},
+                    on_conflict="profile_id"
+                ).execute()
 
         return {"success": True, "uid": uid}
         

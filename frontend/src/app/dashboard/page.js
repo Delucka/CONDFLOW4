@@ -341,7 +341,7 @@ export default function DashboardPage() {
                 >
                   <option value="">TODOS</option>
                   {gerentes.map((g) => (
-                    <option key={g.id} value={g.id}>{g.profiles?.full_name || '—'}</option>
+                    <option key={g.id} value={g.id}>{g.profiles?.full_name || g.nome || '—'}{!g.profile_id && !g.profiles && g.nome ? ' (sem login)' : ''}</option>
                   ))}
                 </select>
               </div>
