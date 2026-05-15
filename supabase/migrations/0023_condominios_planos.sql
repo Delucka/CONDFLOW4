@@ -345,7 +345,7 @@ JOIN public.planos_contas pc ON pc.codigo = pdf.plano_codigo
 WHERE
   CASE
     -- Extrai número do início do name (ex: "066 - COND. ED. LUCRECIA" → 66)
-    WHEN c.name ~ '^[0-9]+' THEN (REGEXP_REPLACE(c.name, '^([0-9]+).*', '\\1'))::int
+    WHEN c.name ~ '^[0-9]+' THEN (SUBSTRING(c.name FROM '^[0-9]+'))::int
     ELSE -1
   END = pdf.codigo_pdf;
 
@@ -361,7 +361,7 @@ WHERE NOT EXISTS (
   SELECT 1 FROM public.condominios c
   WHERE
     CASE
-      WHEN c.name ~ '^[0-9]+' THEN (REGEXP_REPLACE(c.name, '^([0-9]+).*', '\\1'))::int
+      WHEN c.name ~ '^[0-9]+' THEN (SUBSTRING(c.name FROM '^[0-9]+'))::int
       ELSE -1
     END = pdf.codigo_pdf
 );
