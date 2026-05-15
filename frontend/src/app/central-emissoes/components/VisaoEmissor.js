@@ -181,6 +181,13 @@ export default function VisaoEmissor({ profile }) {
 
   // --- AÇÕES ---
 
+  // Helper: mes/ano selecionado está no passado (já encerrou)?
+  function mesAnoNoPassado(m, a) {
+    const lastDay = new Date(a, m, 0, 23, 59, 59);
+    return new Date() > lastDay;
+  }
+  const periodoPassado = mesAnoNoPassado(mes, ano);
+
   async function handleCriarOuAbrirPacote(e) {
     e?.preventDefault?.();
     if (!condoId) return addToast('Selecione um condomínio', 'error');
@@ -198,6 +205,9 @@ export default function VisaoEmissor({ profile }) {
       setActivePacote(existing);
       await fetchArquivosDoPacote(existing.id);
       addToast('Pacote existente aberto para edição.', 'info');
+    } else if (periodoPassado) {
+      addToast(`Não é possível criar emissão para ${String(mes).padStart(2,'0')}/${ano} — mês já encerrado.`, 'error');
+      return;
     } else {
       const { data: novo, error } = await supabase
         .from('emissoes_pacotes')
@@ -655,21 +665,40 @@ export default function VisaoEmissor({ profile }) {
               </div>
             </div>
             <div>
-              <button type="submit" className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all flex items-center justify-center gap-2">
+              <button type="submit"
+                title={periodoPassado ? 'Mês encerrado — só permite abrir pacote já existente' : 'Criar ou abrir pacote'}
+                className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg transition-all flex items-center justify-center gap-2 ${
+                  periodoPassado
+                    ? 'bg-white/5 border border-white/10 text-gray-500'
+                    : 'bg-violet-600 hover:bg-violet-500 text-white'
+                }`}>
                 <FolderOpen className="w-4 h-4" />
-                Abrir Pacote
+                {periodoPassado ? 'Apenas Abrir' : 'Abrir Pacote'}
               </button>
             </div>
           </form>
+          {periodoPassado && (
+            <div className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px]">
+              <Lock className="w-3.5 h-3.5 shrink-0" />
+              <span><strong>{String(mes).padStart(2,'0')}/{ano}</strong> já passou — só é possível abrir pacotes existentes. Novas emissões só podem ser criadas para o mês atual ou meses futuros.</span>
+            </div>
+          )}
         </div>
       )}
 
       {/* ═══ VISÃO POR CARTEIRA ═══ */}
       <div className="space-y-4">
-        <h3 className="font-black text-white text-lg flex items-center gap-2">
-          <Clock className="text-cyan-400 w-5 h-5"/>
-          Emissões por Carteira — {String(mes).padStart(2,'0')}/{ano}
-        </h3>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h3 className="font-black text-white text-lg flex items-center gap-2">
+            <Clock className="text-cyan-400 w-5 h-5"/>
+            Emissões por Carteira — {String(mes).padStart(2,'0')}/{ano}
+          </h3>
+          {periodoPassado && (
+            <span className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+              <Lock className="w-3 h-3" /> Período encerrado · só leitura
+            </span>
+          )}
+        </div>
 
         {Object.entries(carteiras).map(([gerente, condos]) => {
           const isExpanded = expandedCarteiras[gerente] !== false; // default aberto
@@ -742,6 +771,8 @@ export default function VisaoEmissor({ profile }) {
                                 Abrir
                               </button>
                             </>
+                          ) : periodoPassado ? (
+                            <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest italic">— sem pacote —</span>
                           ) : (
                             <>
                               {/* Etapa de preparação pré-emissão */}
