@@ -649,9 +649,8 @@ export default function VisaoEmissor({ profile }) {
                     const numArquivos = pacote?.numArquivos || 0;
                     const prep = preparacaoMap[`${condo.id}_${mes}_${ano}`];
                     const isPronto = prep?.etapa === 'pronto_para_emitir';
-                    const isMaster = profile?.role === 'master';
-                    // Pode criar pacote se: pronto p/ emitir, ou master (override), ou já existe pacote
-                    const canCreate = isPronto || isMaster || !!pacote;
+                    // Gate: só pode criar pacote depois de marcar como pronto p/ emitir
+                    const canCreate = isPronto || !!pacote;
 
                     return (
                       <div key={condo.id} className={`flex items-center justify-between px-6 py-3 border-b border-white/5 last:border-b-0 transition-colors ${
