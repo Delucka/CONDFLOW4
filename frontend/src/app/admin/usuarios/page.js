@@ -414,12 +414,14 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted }) {
           </div>
         </div>
         {currentUserId !== u.id && (
-          <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => onSync(u)} title="Resetar senha" className="text-slate-600 hover:text-cyan-400">
-              <RefreshCw className="w-4 h-4" />
+          <div className="flex flex-col gap-1.5 shrink-0">
+            <button onClick={() => onSync(u)} title="Resetar senha"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-all text-[10px] font-bold uppercase tracking-wider">
+              <KeyRound className="w-3.5 h-3.5" /> Senha
             </button>
-            <button onClick={() => onDeleted(u)} title="Excluir usuário" className="text-slate-600 hover:text-red-400">
-              <Trash2 className="w-4 h-4" />
+            <button onClick={() => onDeleted(u)} title="Excluir usuário"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all text-[10px] font-bold uppercase tracking-wider">
+              <Trash2 className="w-3.5 h-3.5" /> Excluir
             </button>
           </div>
         )}

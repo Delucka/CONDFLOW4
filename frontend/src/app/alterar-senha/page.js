@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { apiPost } from '@/lib/api';
 import { useToast } from '@/components/Toast';
-import { KeyRound, Loader2, Eye, EyeOff, CheckCircle2, ShieldAlert } from 'lucide-react';
+import Link from 'next/link';
+import { KeyRound, Loader2, Eye, EyeOff, CheckCircle2, ShieldAlert, Users, ChevronRight } from 'lucide-react';
 
 export default function AlterarSenhaPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function AlterarSenhaPage() {
   const [loading, setLoading] = useState(false);
 
   const isForced = !!user?.must_change_password;
+  const isMaster = user?.role === 'master';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -42,10 +44,24 @@ export default function AlterarSenhaPage() {
           <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
             <KeyRound className="w-5 h-5 text-cyan-400" />
           </div>
-          <h2 className="text-2xl font-black text-white tracking-tight">Alterar Senha</h2>
+          <h2 className="text-2xl font-black text-white tracking-tight">Alterar Minha Senha</h2>
         </div>
-        <p className="text-slate-400 text-sm">Defina uma nova senha para sua conta.</p>
+        <p className="text-slate-400 text-sm">Defina uma nova senha para <strong>sua própria conta</strong> ({user?.email}).</p>
       </div>
+
+      {isMaster && !isForced && (
+        <Link href="/admin/usuarios"
+          className="mb-6 bg-violet-500/10 border border-violet-500/30 rounded-2xl p-4 flex items-center gap-3 hover:bg-violet-500/15 transition-all group">
+          <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5 text-violet-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-violet-300 font-bold text-sm">Precisa alterar a senha de outro usuário?</p>
+            <p className="text-violet-200/70 text-xs mt-0.5">Vá em <strong>Acessos e Perfis</strong> e clique em "Senha" no card do usuário.</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-violet-400 group-hover:translate-x-1 transition-transform" />
+        </Link>
+      )}
 
       {isForced && (
         <div className="mb-6 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 flex items-start gap-3 animate-fade-in">
