@@ -44,6 +44,11 @@ export async function updateSession(request) {
   // Evitar redirecionamentos nulos em assets
   const path = request.nextUrl.pathname
 
+  // /reset-password: usuário entra com hash do email (sem sessão server-side), liberar acesso
+  if (path.startsWith('/reset-password')) {
+    return supabaseResponse
+  }
+
   if (
     !user &&
     !path.startsWith('/login')

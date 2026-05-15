@@ -11,11 +11,20 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user && pathname !== '/login') router.push('/login');
+    if (!loading && !user && pathname !== '/login' && pathname !== '/reset-password') {
+      router.push('/login');
+    }
   }, [user, loading, router, pathname]);
 
-  // Se for a tela de Login, AppShell não embala o layout, retorna puro
-  if (pathname === '/login') return children;
+  // Forçar troca de senha no primeiro acesso (ou após reset pelo master)
+  useEffect(() => {
+    if (!loading && user?.must_change_password && pathname !== '/alterar-senha' && pathname !== '/login' && pathname !== '/reset-password') {
+      router.replace('/alterar-senha');
+    }
+  }, [user?.must_change_password, loading, router, pathname]);
+
+  // Rotas que não embalam no layout (login + redefinição de senha vinda do email)
+  if (pathname === '/login' || pathname === '/reset-password') return children;
 
   if (loading) {
     return (

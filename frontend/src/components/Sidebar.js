@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
-import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp } from 'lucide-react';
+import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp, KeyRound } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/dashboard',           icon: LayoutDashboard, label: 'Painel Central' },
@@ -121,7 +121,12 @@ export default function Sidebar() {
           {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>
 
-        <div className="px-4 mt-auto mb-6 relative z-10">
+        <div className="px-4 mt-auto mb-6 relative z-10 space-y-1">
+          <Link href="/alterar-senha" title={collapsed ? 'Alterar senha' : undefined}
+            className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] text-slate-400 hover:bg-white/5 hover:text-cyan-400 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
+            <KeyRound className="w-[18px] h-[18px] shrink-0" />
+            {!collapsed && 'Alterar senha'}
+          </Link>
           <button onClick={signOut}
             className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
             <LogOut className="w-[18px] h-[18px] shrink-0" />

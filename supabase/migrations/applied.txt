@@ -20,3 +20,4 @@
 0016_migrate_lacre_emissoes.sql
 0017_migrate_12_months_archive.sql
 0018_final_fix.sql
+0019_must_change_password.sql

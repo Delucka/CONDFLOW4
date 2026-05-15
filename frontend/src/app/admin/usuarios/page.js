@@ -7,7 +7,7 @@ import { useToast } from '@/components/Toast';
 import {
   Users, ShieldAlert, PlusCircle, Trash2, Mail, Loader2, X,
   RefreshCw, Building2, Link2, Unlink, ChevronDown, ChevronUp,
-  Eye, EyeOff, UserCog, Check
+  Eye, EyeOff, UserCog, Check, KeyRound, Copy
 } from 'lucide-react';
 
 const ROLES = [
@@ -137,6 +137,116 @@ function ModalCriarUsuario({ onClose, onCreated }) {
       </div>
     </div>
   );
+}
+
+// ─── Modal Resetar Senha ──────────────────────────────────────────────
+function ModalResetSenha({ usuario, onClose }) {
+  const [pwd, setPwd] = useState(() => gerarSenhaTemp());
+  const [show, setShow] = useState(true);
+  const [force, setForce] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { addToast } = useToast();
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (pwd.length < 6) { addToast('Senha deve ter no mínimo 6 caracteres', 'error'); return; }
+    setLoading(true);
+    try {
+      await apiFetch(`/api/usuarios/${usuario.id}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({ new_password: pwd, force_change: force }),
+      });
+      addToast(`Senha de ${usuario.full_name} atualizada!`, 'success');
+      onClose();
+    } catch (err) {
+      addToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function copiar() {
+    navigator.clipboard.writeText(pwd);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <KeyRound className="w-5 h-5 text-cyan-400" />
+            <h3 className="text-lg font-bold text-slate-200">Resetar Senha</h3>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X className="w-5 h-5" /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+            <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Usuário</p>
+            <p className="text-sm text-slate-200 font-bold mt-1">{usuario.full_name}</p>
+            <p className="text-xs text-slate-500">{usuario.email}</p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Nova Senha</label>
+              <button type="button" onClick={() => setPwd(gerarSenhaTemp())}
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-wider flex items-center gap-1">
+                <RefreshCw className="w-3 h-3" /> Gerar nova
+              </button>
+            </div>
+            <div className="relative">
+              <input required type={show ? 'text' : 'password'} minLength={6} value={pwd}
+                onChange={(e) => setPwd(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 pr-20 text-sm text-cyan-300 font-mono outline-none focus:border-cyan-500" />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <button type="button" onClick={copiar}
+                  className={`p-1.5 rounded transition-colors ${copied ? 'text-emerald-400' : 'text-slate-500 hover:text-cyan-400'}`}
+                  title="Copiar">
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+                <button type="button" onClick={() => setShow(!show)}
+                  className="p-1.5 rounded text-slate-500 hover:text-cyan-400 transition-colors">
+                  {show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-2">Envie esta senha de forma segura ao usuário.</p>
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl border border-slate-800 hover:border-cyan-500/30 transition-colors">
+            <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)}
+              className="mt-0.5 accent-cyan-500" />
+            <div>
+              <p className="text-xs font-bold text-slate-200">Exigir nova troca no próximo login</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Recomendado: o usuário cria uma senha pessoal ao acessar.</p>
+            </div>
+          </label>
+
+          <div className="pt-2 flex gap-3">
+            <button type="button" onClick={onClose} className="px-5 py-3 text-xs text-slate-500 font-bold uppercase tracking-widest hover:text-white transition-colors">
+              Cancelar
+            </button>
+            <button disabled={loading} type="submit"
+              className="flex-1 py-3 bg-cyan-500 text-slate-950 font-bold rounded-xl hover:bg-cyan-400 transition-colors flex justify-center items-center gap-2 disabled:opacity-50">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+              Atualizar Senha
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function gerarSenhaTemp() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let out = '';
+  for (let i = 0; i < 10; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out + '!';
 }
 
 // ─── Modal Carteira ───────────────────────────────────────────────────
@@ -363,6 +473,7 @@ export default function UsuariosPage() {
   const [loading, setLoading] = useState(true);
   const [modalCriar, setModalCriar] = useState(false);
   const [modalCarteira, setModalCarteira] = useState(null);
+  const [modalResetSenha, setModalResetSenha] = useState(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -378,19 +489,8 @@ export default function UsuariosPage() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  async function handleSync(u) {
-    const password = prompt(`Nova senha para ${u.full_name}:`, 'Senha@1234');
-    if (!password) return;
-    try {
-      addToast('Sincronizando...', 'info');
-      await apiFetch('/api/usuarios/sync', {
-        method: 'POST',
-        body: JSON.stringify({ email: u.email, password, full_name: u.full_name, role: u.role, profile_id: u.id })
-      });
-      addToast(`Senha atualizada para ${u.full_name}!`, 'success');
-    } catch (err) {
-      addToast(err.message, 'error');
-    }
+  function handleSync(u) {
+    setModalResetSenha(u);
   }
 
   async function handleDelete(u) {
@@ -478,6 +578,9 @@ export default function UsuariosPage() {
       {modalCriar && <ModalCriarUsuario onClose={() => setModalCriar(false)} onCreated={carregar} />}
       {modalCarteira && (
         <ModalCarteira usuario={modalCarteira} onClose={() => setModalCarteira(null)} onUpdated={carregar} />
+      )}
+      {modalResetSenha && (
+        <ModalResetSenha usuario={modalResetSenha} onClose={() => setModalResetSenha(null)} />
       )}
     </div>
   );

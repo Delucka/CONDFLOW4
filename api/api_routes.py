@@ -46,7 +46,8 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         "id": user_id,
         "email": user_res.user.email,
         "role": profile.get("role", "gerente"),
-        "full_name": profile.get("full_name", "")
+        "full_name": profile.get("full_name", ""),
+        "must_change_password": bool(profile.get("must_change_password", False)),
     }
 
 def get_gerente_id(db: Client, profile_id: str) -> Optional[str]:
@@ -652,12 +653,13 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
         if not uid:
             raise Exception("Não foi possível gerar ou recuperar o ID do usuário.")
 
-        # 2. Criar ou Atualizar no Profiles
+        # 2. Criar ou Atualizar no Profiles (senha temporária — forçar troca no 1º acesso)
         db.table("profiles").upsert({
             "id": uid,
             "email": data.email,
             "full_name": data.full_name,
-            "role": data.role
+            "role": data.role,
+            "must_change_password": True,
         }).execute()
 
         # 3. Se for gerente, garantir entrada na tabela de gerentes
@@ -732,6 +734,66 @@ def api_sync_usuario(data: SyncUserSchema, user: dict = Depends(get_current_user
         return {"success": True, "id": uid}
     except Exception as e:
         raise HTTPException(400, str(e))
+
+# ═══ GESTÃO DE SENHAS ═══════════════════════════════════════════════════
+
+class AdminResetPasswordSchema(BaseModel):
+    new_password: str
+    force_change: bool = True   # se True, marca must_change_password=true
+
+@router.post("/usuarios/{profile_id}/reset-password")
+def api_admin_reset_password(profile_id: str, data: AdminResetPasswordSchema,
+                              user: dict = Depends(get_current_user),
+                              db: Client = Depends(get_db)):
+    """Master define uma nova senha para qualquer usuário (saída de funcionário, esqueci, etc)."""
+    if user["role"] != "master":
+        raise HTTPException(403, "Apenas administradores podem resetar senhas de terceiros")
+    if not SB_SERVICE:
+        raise HTTPException(500, "Service Key não configurada")
+    if not data.new_password or len(data.new_password) < 6:
+        raise HTTPException(400, "Senha deve ter no mínimo 6 caracteres")
+
+    try:
+        # 1. Atualiza senha no Supabase Auth (Admin API)
+        db.auth.admin.update_user_by_id(profile_id, {"password": data.new_password})
+
+        # 2. Marca para troca obrigatória no proximo login (recomendado)
+        db.table("profiles").update({
+            "must_change_password": bool(data.force_change),
+            "password_changed_at": __import__('datetime').datetime.utcnow().isoformat() if not data.force_change else None,
+        }).eq("id", profile_id).execute()
+
+        return {"success": True}
+    except Exception as e:
+        print(f"[reset-password] erro: {e}")
+        raise HTTPException(400, str(e))
+
+
+class ChangeOwnPasswordSchema(BaseModel):
+    new_password: str
+
+@router.post("/auth/change-password")
+def api_change_own_password(data: ChangeOwnPasswordSchema,
+                            user: dict = Depends(get_current_user),
+                            db: Client = Depends(get_db)):
+    """Usuario autenticado troca a propria senha. Limpa o flag must_change_password."""
+    if not data.new_password or len(data.new_password) < 6:
+        raise HTTPException(400, "Senha deve ter no mínimo 6 caracteres")
+    if not SB_SERVICE:
+        raise HTTPException(500, "Service Key não configurada")
+
+    try:
+        import datetime as _dt
+        db.auth.admin.update_user_by_id(user["id"], {"password": data.new_password})
+        db.table("profiles").update({
+            "must_change_password": False,
+            "password_changed_at": _dt.datetime.utcnow().isoformat(),
+        }).eq("id", user["id"]).execute()
+        return {"success": True}
+    except Exception as e:
+        print(f"[change-password] erro: {e}")
+        raise HTTPException(400, str(e))
+
 
 @router.delete("/usuarios/{profile_id}")
 def api_deletar_usuario(profile_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):

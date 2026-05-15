@@ -83,11 +83,23 @@ export function AuthProvider({ children }) {
     setProfile(null);
   }
 
+  async function sendPasswordReset(email) {
+    const redirectTo = `${window.location.origin}/reset-password`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+  }
+
+  async function refreshProfile() {
+    if (user?.id) await fetchProfile(user.id);
+  }
+
   // Merge profile data into user so user.role returns the app role ('master', 'gerente', etc.)
-  const mergedUser = user && profile ? { ...user, role: profile.role, full_name: profile.full_name, profile_id: profile.id } : user;
+  const mergedUser = user && profile
+    ? { ...user, role: profile.role, full_name: profile.full_name, profile_id: profile.id, must_change_password: !!profile.must_change_password }
+    : user;
 
   return (
-    <AuthContext.Provider value={{ user: mergedUser, profile, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user: mergedUser, profile, loading, signIn, signOut, sendPasswordReset, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
