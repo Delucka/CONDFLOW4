@@ -5,7 +5,12 @@
       "Bash(npx next *)",
       "Bash(sed -n '10,40p' /c/projetos/condominios/scripts/plano-contas/extracted/plano1.txt)",
       "Read(//c/projetos/condominios/**)",
-      "Bash(node scripts/plano-contas/parse-pdfs.js)"
+      "Bash(node scripts/plano-contas/parse-pdfs.js)",
+      "Read(//c/Users/Pichau/Downloads/**)",
+      "Bash(pdftotext -layout -enc UTF-8 \"/c/Users/Pichau/Downloads/RelCondominios.pdf\" /c/projetos/condominios/scripts/plano-contas/extracted/condominios.txt)",
+      "Bash(node scripts/plano-contas/parse-condominios.js)",
+      "Bash(grep -v \"^$\")",
+      "Bash(node scripts/plano-contas/gen-condominios-sql.js)"
     ]
   }
 }

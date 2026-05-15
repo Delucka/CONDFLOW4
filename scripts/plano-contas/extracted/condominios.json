@@ -1,0 +1,2570 @@
+[
+  {
+    "codigo": "0002",
+    "nome": "COND. ED. CAIOBA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                             Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0006",
+    "nome": "COND. ED. DOMUS CELIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0007",
+    "nome": "COND. ED. DON EUDES ORLEANS BRAGANCA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0009",
+    "nome": "COND. ED. FRA ANGELICO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0012",
+    "nome": "COND. ED. JARDIM AMERICA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0014",
+    "nome": "COND. ED. JARDIM DO VALE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0015",
+    "nome": "COND. ED. LAS VEGAS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0016",
+    "nome": "COND. ED. LUIS AUGUSTO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0018",
+    "nome": "COND. ED. PAMPLONA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0019",
+    "nome": "COND. ED. PLANALTO PLAZA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0020",
+    "nome": "COND. RES. MEDITERRANEO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0025",
+    "nome": "COND. ED. SUN GATE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0031",
+    "nome": "COND. ED. CARINA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0033",
+    "nome": "PROP STARTER - ADM. IMÓVEIS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0010",
+    "gerente_nome": "CLAUDIA R. SOUZA"
+  },
+  {
+    "codigo": "0039",
+    "nome": "COND. ED. JULIA BALDASSARRI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                                  Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0042",
+    "nome": "COND. ED. JULIA BALDASSARRI LOCACAO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0043",
+    "nome": "COND. ED. PORTO SEGURO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0045",
+    "nome": "PROP STARTER - ADM. IMOVEIS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0010",
+    "gerente_nome": "CLAUDIA R. SOUZA"
+  },
+  {
+    "codigo": "0046",
+    "nome": "COND. ED. VILA MARIANA STREET",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0047",
+    "nome": "COND. ED. SAINT PATRICK",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0048",
+    "nome": "SHOPPING MARAJOARA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0049",
+    "nome": "PRO INDIVISO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0051",
+    "nome": "COND. ED. TED LAPIDUS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0055",
+    "nome": "COND. ED. SAO LUIZ",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0056",
+    "nome": "COND. ED. BELMONT",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0059",
+    "nome": "COND. ED. GASPAR LOURENCO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0061",
+    "nome": "COND. ED. ROYAL PALACE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0063",
+    "nome": "COND. ED. PALAIS DE LUXEMBOURG",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0065",
+    "nome": "COND. ED. TUPI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                   Vencimento do rateio: Corrente",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0066",
+    "nome": "COND. ED. LUCRECIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                        Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0067",
+    "nome": "COND. ED. BRISTOL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0068",
+    "nome": "COND. ED. EÇA DE QUEIROZ",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0070",
+    "nome": "COND. ED. ANTUNES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                        Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0073",
+    "nome": "COND. ED. SAINT PAUL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0076",
+    "nome": "COND. ED. BOULEVARD BOIS DE BOULOGNE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0077",
+    "nome": "PROP STARTER - SERVICOS ESPECIAIS ME",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0010",
+    "gerente_nome": "CLAUDIA R. SOUZA"
+  },
+  {
+    "codigo": "0080",
+    "nome": "COND. ED. ITAPORANGA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                                   Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0086",
+    "nome": "COND. MORADA DOS MANACAS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0087",
+    "nome": "COND. ED. LA FONTANA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0088",
+    "nome": "COND. ED. DUQUE DI FAUSTUS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0092",
+    "nome": "COND. ED. FLEMING",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0093",
+    "nome": "COND. ED. SANTA CECILIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0094",
+    "nome": "COND. ED. GIOVANNI PASCOLI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0098",
+    "nome": "COND. ED. LA ROCHELLE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                    Vencimento do rateio: Corrente",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0102",
+    "nome": "COND. ED. ARAGUAIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                        Vencimento do rateio: Corrente",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0103",
+    "nome": "COND. ED. ORVIETO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0104",
+    "nome": "COND. ED. BARAO DE ALFENAS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0106",
+    "nome": "COND. ED. GENERAL EURICO GASPAR DUTRA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0107",
+    "nome": "COND. ED. HUASCAR",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0108",
+    "nome": "COND. ED. TIBERIO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0109",
+    "nome": "COND. ED. RIO PRETO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0111",
+    "nome": "COND. ED. VILLE MARSEILLE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0112",
+    "nome": "COND. ED. PORTO BRACUHY",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0113",
+    "nome": "COND. ED. SAINT JEAN FERRAT",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0117",
+    "nome": "COND. ED. PARQUE DA GLORIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0119",
+    "nome": "COND. ED. SAINT LEGIER",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Vencimento do rateio: Corrente",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0120",
+    "nome": "COND. ED. ITAIM GARDEN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0125",
+    "nome": "COND. ED. ELECTRA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0126",
+    "nome": "COND. ED. SOBRADAO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                     Vencimento do rateio: Corrente",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0127",
+    "nome": "COND. ED. GREGORIO SERRAO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0129",
+    "nome": "COND. ED. NICE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                     Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0131",
+    "nome": "COND. ED. PETIT PARIS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                             Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0132",
+    "nome": "COND. ED. GRANADA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0135",
+    "nome": "COND. ED. KISMET",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0136",
+    "nome": "COND. ED. PORTAL DA PENHA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0137",
+    "nome": "COND. ED. ARAN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0141",
+    "nome": "COND. INTEGRATED SYSTEM OFFICES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0143",
+    "nome": "COND. ED. DONA RACHEL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0145",
+    "nome": "COND. ED. MARIA DOMITILA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0146",
+    "nome": "COND. ED. BOULEVARD SUL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0150",
+    "nome": "COND. ED. SANTA GENOVEVA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                 Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0153",
+    "nome": "COND. ED. LE JARDIN GIVERNY",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0154",
+    "nome": "COND. ED. THEO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0155",
+    "nome": "COND. ED. FONTAINEBLEAU",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0157",
+    "nome": "COND. RESIDENCIAL STRAUSS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0160",
+    "nome": "COND. ED. ANNA ELIZABETH",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0162",
+    "nome": "COND. ED. CAROLINA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0165",
+    "nome": "COND. ED. SAN MARTIN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0166",
+    "nome": "COND. ED. CONCORDE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0168",
+    "nome": "COND. RES.JARDIM UMUARAMA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                                Vencimento do rateio: Corrente",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0169",
+    "nome": "ED. MONTE BIANCO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0171",
+    "nome": "COND. ED. VILA INGLESA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0172",
+    "nome": "COND. ED. TORRE DO SOL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0175",
+    "nome": "COND. ED. BRENO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0176",
+    "nome": "COND. ED. GREEN PARK",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0178",
+    "nome": "COND. ED. AMAZONIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0179",
+    "nome": "COND. ED. PARC ROYAL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Vencimento do rateio: Corrente",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0181",
+    "nome": "COND. ED. HELBOR LOFT EVOLUTION",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0182",
+    "nome": "COND. ED. ALCINO BRAGA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                   Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0183",
+    "nome": "COND. RESIDENCIAL SPAZIO SAN SALVATORE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0185",
+    "nome": "COND. ED. VANCOUVER",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0186",
+    "nome": "COND. PARQUE DOS PASSAROS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0193",
+    "nome": "COND. RES. QUINTESSENCE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0194",
+    "nome": "COND. ED. BARCELONA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0197",
+    "nome": "COND. ED. GUAPIRA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0199",
+    "nome": "COND. ED. LA GRAND MAISON",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0201",
+    "nome": "COND. ED. LIVING GARDEN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dias limite para desconto: 0",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0202",
+    "nome": "COND. ED. DORALIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0203",
+    "nome": "COND. PORTAL DO SAO FRANCISCO",
+    "plano_codigo": "2",
+    "plano_nome": "P. CONTAS PADRÃO 2",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0204",
+    "nome": "COND. ED. VERA MARIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0205",
+    "nome": "COND. ED. GABRIELA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0208",
+    "nome": "COND. ED. PROVENCE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0210",
+    "nome": "COND. ED. THE TRIUMPH",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0221",
+    "nome": "COND. ED. RIVOLI RESIDENCE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0222",
+    "nome": "COND. ED. ENEIDE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                        Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0224",
+    "nome": "COND. ED. PAULISTANO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                   Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0225",
+    "nome": "COND. ED. LUCILENE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0226",
+    "nome": "COND. ED. ANDREA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0227",
+    "nome": "COND. ED. ROSSINI - VILA CLEMENTINO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0228",
+    "nome": "COND. ED. MORADA MARAJOARA II",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0229",
+    "nome": "COND. ED. FLORA VIVA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0233",
+    "nome": "COND. ED. TERRA VITRIS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Vencimento do rateio: Corrente",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0234",
+    "nome": "COND. ED. PRACTICAL LIFE CAMPO BELO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0236",
+    "nome": "COND. ED. SPLENDOR PARK",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Vencimento do rateio: Corrente",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0239",
+    "nome": "COND. RES. MODIGLIANI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0240",
+    "nome": "COND. ED. MORADA TERRA BRASILIS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0242",
+    "nome": "COND. ED. PERSONA VERGUEIRO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0244",
+    "nome": "COND. ED. SAN FRANCESCO E SAN VITTORIO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0245",
+    "nome": "COND. ED. VILLA VERDE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0247",
+    "nome": "COND. ED. TRES LIRIOS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0248",
+    "nome": "COND. ED. MONT MARTRE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0249",
+    "nome": "COND. ED. MUIRAQUITA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0250",
+    "nome": "COND. ED. JOY VILA MARIANA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0251",
+    "nome": "COND. ED. CAROL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0252",
+    "nome": "RESIDENCIAL LAGUNA HOME RESORT",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0254",
+    "nome": "COND. ED. RIO AZUL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0256",
+    "nome": "COND. ED. AMADEU SANTISI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0259",
+    "nome": "COND. ED. SPORTS GARDEN LESTE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                          Vencimento do rateio: Corrente",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0260",
+    "nome": "COND. ED. PRIVILEGE RESIDENCE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0266",
+    "nome": "CENTRO EMPRESARIAL BERRINI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0267",
+    "nome": "COND. ED. ELISA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0268",
+    "nome": "COND. ED. KARINA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0270",
+    "nome": "COND. THE FIRST FREE & FLEX",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0271",
+    "nome": "COND. ED. RISERVATO ALTO DA LAPA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                     Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0273",
+    "nome": "COND. ED. CHATEAU DE VINCENNES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0274",
+    "nome": "COND. ED. PALAZZO REALE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0275",
+    "nome": "COND. RES. GRAND TERRACE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0276",
+    "nome": "COND. ED. MICHELANGELO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0277",
+    "nome": "COND. ALTOS DO BOSQUE SAUDE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Vencimento do rateio: Corrente",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0279",
+    "nome": "COND. ED. VISTA BELA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0280",
+    "nome": "COND. ED. LUCA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0281",
+    "nome": "COND. ED. MALAGA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0283",
+    "nome": "COND. EVOLUTION PARAISO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0284",
+    "nome": "COND. VILA DE BRAGANCA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0285",
+    "nome": "COND. ASTURIAS TROPICAL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0286",
+    "nome": "COND. ED. MIRABOSQUE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0288",
+    "nome": "COND. ED. VILLA INGLESA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0289",
+    "nome": "COND. ED. TERRASSE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dias limite para desconto: 0",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0290",
+    "nome": "COND. MODERN LIFE BACELAR",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0291",
+    "nome": "COND. MANSAO RIMINI E MANSAO VITERBO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                           Vencimento do rateio: Corrente",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0292",
+    "nome": "COND. ED. WISH RESIDENCE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0293",
+    "nome": "COND. ED. SAO VICENTE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0294",
+    "nome": "COND. ED. DECOR PARAISO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0296",
+    "nome": "COND. ED. MARQUES DE ABRANTES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                               Vencimento do rateio: Corrente",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0297",
+    "nome": "COND. ED. MIAMI II",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0299",
+    "nome": "COND. ED. VILA VELHA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0300",
+    "nome": "COND. RES. METROPOLITAN VILA PRUDENTE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0301",
+    "nome": "COND. INTERNATIONAL DUPLEX RESIDENCE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0302",
+    "nome": "COND. RES. REFERENCE BY HELBOR",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0303",
+    "nome": "COND. ED. REGENCY PLAZA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0304",
+    "nome": "COND. ED. VILLAGE SAINT MICHEL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0305",
+    "nome": "COND. RESIDENCIAL PAINEIRAS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                     Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0306",
+    "nome": "COND. ED. PLUMAGEM",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0307",
+    "nome": "COND. ED. INTERNATIONAL OFFICE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                  Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0308",
+    "nome": "COND. ED. MAISON CHARTRES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0309",
+    "nome": "COND. ED. CONIMBRIGA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0310",
+    "nome": "COND. ED. PARC DES PRINCES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                 Vencimento do rateio: Corrente",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0312",
+    "nome": "COND. ED. PEDRAS PRECIOSAS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                 Dias limite para desconto: 0",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0313",
+    "nome": "ECOLIFE CIDADE UNIVERSITÁRIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0314",
+    "nome": "CJ. RESIDENCIAL ARAGUAIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0315",
+    "nome": "COND. MARAJOARA BUSINESS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0316",
+    "nome": "COND. ED. TERRA BRASILIS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                    Dias limite para desconto: 0",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0318",
+    "nome": "COND. ED. BELAS ARTES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0320",
+    "nome": "COND. ED. ACCORDES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0322",
+    "nome": "COND. ED. GUARAPARI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0323",
+    "nome": "COND. RESIDENCIAL VISIONAIRE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0324",
+    "nome": "COND. ED. BARBARA IZABEL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0325",
+    "nome": "COND. ED. MIAMI KING",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0326",
+    "nome": "COND. ED. GABRIELA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0327",
+    "nome": "A.M.C. MATEUS GROU",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0328",
+    "nome": "COND. ED. GIOIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0329",
+    "nome": "COND.WIN WORK CHACARA SANTO ANTONIO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0330",
+    "nome": "COND. ED. LA PAZ",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0331",
+    "nome": "COND. ED. VILABOIM",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0332",
+    "nome": "RESIDENCIAL TRIO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                                Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0334",
+    "nome": "COND. ED. TEREBI II",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0337",
+    "nome": "COND. BLANC CAMPO BELO",
+    "plano_codigo": "3",
+    "plano_nome": "P. CONTAS PADRÃO 3",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0340",
+    "nome": "COND. ED. DONA RACHEL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0341",
+    "nome": "COND. ED. GARDEN VILLAGE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0342",
+    "nome": "COND. ED. AUGUSTA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0343",
+    "nome": "COND. ED. PATEO KLABIN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0344",
+    "nome": "COND. ED. TRIANGULUM",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                   Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0345",
+    "nome": "CONJ. RESIDENCIAL VILA PAULICEIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                     Vencimento do rateio: Corrente",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0346",
+    "nome": "CONJ . RESIDENCIAL VILA PAULICEIA -BL II",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0348",
+    "nome": "COND. ED. JARDIM ALABASTRO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0350",
+    "nome": "COND. RES. IN SÃO PAULO LIBERDADE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0351",
+    "nome": "COND. ED. PRIDE IPIRANGA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0352",
+    "nome": "COND. ED. ARGEL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0353",
+    "nome": "COND. MARAJOARA OFFICES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0354",
+    "nome": "COND. ED. BUENOS AIRES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0355",
+    "nome": "COND. ED. VERONA TROPICAL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0356",
+    "nome": "COND. ED. SAINT GERMAIN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                           Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0357",
+    "nome": "COND. ED. STYLE VIVRE MOEMA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                       Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0359",
+    "nome": "COND. RESIDENCIAL ANDORRA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0361",
+    "nome": "COND. ED. PROF. ARNALDO ROSSI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0362",
+    "nome": "COND. ED. ALCOBAÇA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0364",
+    "nome": "COND. ED. GREEN HOUSES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0365",
+    "nome": "COND. ED. PRAÇA DESIGN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0366",
+    "nome": "COND. ED. RENO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0367",
+    "nome": "COND. THE PENINSULA TORRE A E TORRE B",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0368",
+    "nome": "COND. ED. INDIANOPOLIS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                            Vencimento do rateio: Corrente",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0369",
+    "nome": "COND. ED. PRIMAVERA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0371",
+    "nome": "COND. IN PARQUE BELEM KLABIN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                                     Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0372",
+    "nome": "COND. ED. JOSE HACHEM",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0373",
+    "nome": "COND. ED. UP TOWN DUPLEX PINHEIROS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0374",
+    "nome": "COND. ED. MIAMI TOP",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                Vencimento do rateio: Corrente",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0376",
+    "nome": "COND. ED. MONTECATINI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0377",
+    "nome": "COND. ED. HEINRICH GEHLING",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                     Vencimento do rateio: Corrente",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0378",
+    "nome": "COND. ED. SUPERIA PARAISO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                     Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0379",
+    "nome": "COND. ED. ESPACO A",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                               Vencimento do rateio: Corrente",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0380",
+    "nome": "COND. ED. ROYAL PORT",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0381",
+    "nome": "COND. ED. ICON BERRINI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0382",
+    "nome": "COND. ED. NORMA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0383",
+    "nome": "COND. ED. ERNANI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0386",
+    "nome": "COND. ED. MOEMA HYDE PARK",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0387",
+    "nome": "COND. ED. PORT LIGAT",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0388",
+    "nome": "COND. ED. SAINTE THEREZE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                           Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0389",
+    "nome": "COND. ED. DUPLEX TOP TOWER PINHEIROS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0390",
+    "nome": "COND. ED. TOP ONE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0392",
+    "nome": "COND. ED. MORADA DAS FLORES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0393",
+    "nome": "COND. RES. IN SAO PAULO VILLA LOBOS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0394",
+    "nome": "COND. ESPACO MOBILE CAMPO BELO",
+    "plano_codigo": "3",
+    "plano_nome": "P. CONTAS PADRÃO 3                                               Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0397",
+    "nome": "COND. ED. VENEZA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                      Vencimento do rateio: Corrente",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0398",
+    "nome": "COND. ED. SATELITE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dias limite para desconto: 0",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0399",
+    "nome": "COND. ED. ALTO DOS PIRINEUS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0403",
+    "nome": "COND. ED. ITAPOLIS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0404",
+    "nome": "COND. ED. GOLDEN GARDEN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dias limite para desconto: 0",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0405",
+    "nome": "COND. ED. MAISON JOLIE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0407",
+    "nome": "COND. ED. ESPAÇO CORPORATIVO SILVA BUENO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0408",
+    "nome": "COND. ED. JURUCE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0409",
+    "nome": "COND. ED. MONTE CARLO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0410",
+    "nome": "COND. ED. MAISON CLASSIC",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0411",
+    "nome": "COND. ED. SWEET PARK",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0412",
+    "nome": "COND. ED. RESIDENCIAL PARADISO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0413",
+    "nome": "COND ED MIAMI PLAZA",
+    "plano_codigo": "3",
+    "plano_nome": "P. CONTAS PADRÃO 3                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0414",
+    "nome": "COND. ED. SIENA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0415",
+    "nome": "COND. ED. MARATEA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0416",
+    "nome": "COND. ED. ALFA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0417",
+    "nome": "COND. FIT JARDIM BOTANICO I",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0418",
+    "nome": "COND. ED. SAN BLAS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0419",
+    "nome": "COND. ED. PAULUS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0420",
+    "nome": "COND. ED. MAISON CLASSIQUE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                             Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0421",
+    "nome": "COND. ED. VISTA NORTE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0422",
+    "nome": "COND. ED. ESTORIL SOL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0423",
+    "nome": "COND. ED. MONTE CARLO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                        Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0424",
+    "nome": "COND. ED. MARCO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0425",
+    "nome": "RES. HELBOR ACQUALIFE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                               Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0426",
+    "nome": "COND. ED. KENZO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0427",
+    "nome": "COND. ED. ALDEMIR MARTINS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0428",
+    "nome": "COND. ED. SAMAMBAIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0429",
+    "nome": "COND. ED. RAPHAELA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0430",
+    "nome": "COND. ED. RIO DAS PEDRAS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                              Vencimento do rateio: Corrente",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0431",
+    "nome": "COND. CULLINAN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0432",
+    "nome": "COND. RES. TERRAS ALTAS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0433",
+    "nome": "COND. ED. GRANVILLE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0435",
+    "nome": "COND. ED. SANTO AGOSTINHO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0436",
+    "nome": "COND. ED. IRAPURU",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0437",
+    "nome": "COND. ED. TENIS PAULISTA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0438",
+    "nome": "COND. YOUR RESIDENCE CLUB",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                          Vencimento do rateio: Corrente",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0439",
+    "nome": "COND. ED. UNIAO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                               Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0440",
+    "nome": "COND. DOS CONTRAT. DO EMPR. LEOPOLDINA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0441",
+    "nome": "COND. ED. PLACE VENDOME",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                        Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0442",
+    "nome": "COND. ED. SAINT CYR",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0443",
+    "nome": "COND. ED. OY. CAMPO BELO BY YOU INC",
+    "plano_codigo": "4",
+    "plano_nome": "P. CONTAS PADRÃO 4                                          Vencimento do rateio: Corrente",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0444",
+    "nome": "COND. BELLAGIO ECOPARK RESIDENCE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0446",
+    "nome": "COND. ED. CAMPO BELO NEW STYLE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0447",
+    "nome": "COND. ED. FIGUEIRA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                          Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0448",
+    "nome": "COND. ED. TRISTANO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0449",
+    "nome": "COND. ED. ISOTTA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0450",
+    "nome": "COND. ED. RIO NEGRO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0451",
+    "nome": "COND. ED. JARDINS DE FRANCA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0009",
+    "gerente_nome": "RODRIGO CAVALCANTE FERNANDES"
+  },
+  {
+    "codigo": "0452",
+    "nome": "COND. ED. CRUZ ALTA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "0453",
+    "nome": "COND. ED. MONTECATINI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                            Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0454",
+    "nome": "COND. RESERVA JULIETA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0455",
+    "nome": "COND. ED. PAU BRASIL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                       Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0456",
+    "nome": "COND. ED. SANTA CLARA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0458",
+    "nome": "C. ED. GREEN WORK BOULLEVARD JABAQUARA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0015",
+    "gerente_nome": "PATRICIA F. MARINHO"
+  },
+  {
+    "codigo": "0459",
+    "nome": "COND. SOLAZ VILA MARIANA",
+    "plano_codigo": "4",
+    "plano_nome": "P. CONTAS PADRÃO 4                                                            Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0460",
+    "nome": "COND. ED. QUALITY HOUSE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0461",
+    "nome": "COND. ED. LACERDA FRANCO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0462",
+    "nome": "COND. ED. CASUAL VILA MARIANA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0463",
+    "nome": "COND. ED. INDIANOPOLIS PETROPOLIS GAL VL",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                      Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0464",
+    "nome": "COND. LIVING CLUB CHACARA FLORA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0465",
+    "nome": "COND. BOREAL MADALENA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0466",
+    "nome": "NEX ONE NHAMBIQUARAS",
+    "plano_codigo": "4",
+    "plano_nome": "P. CONTAS PADRÃO 4",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0467",
+    "nome": "ED. CENTRAL PARK",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0468",
+    "nome": "COND. ED. MONTBRISON",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                Vencimento do rateio: Corrente",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0469",
+    "nome": "COND. ED. CASABLANCA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0470",
+    "nome": "C. NEO IPIRANGA BUSINESS STATION",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                                    Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0471",
+    "nome": "COND. ED. RUI",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                       Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0013",
+    "gerente_nome": "NATALIA MARTINS"
+  },
+  {
+    "codigo": "0472",
+    "nome": "COND. ED. SPAZIO UNO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0473",
+    "nome": "COND. ED. ANTUNES",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0474",
+    "nome": "RESIDENCIAL VISTA IPIRANGA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0475",
+    "nome": "C. VIBE CAMPO BELO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                       Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0476",
+    "nome": "C. ED. RIO NOVO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0477",
+    "nome": "C. ED. MARINA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                              Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0016",
+    "gerente_nome": "ALINE BULARA"
+  },
+  {
+    "codigo": "0478",
+    "nome": "C. RES. METROCASA LAPA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                         Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0479",
+    "nome": "C. ED. SATURNO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0008",
+    "gerente_nome": "MAURO PERSSET JUNIOR"
+  },
+  {
+    "codigo": "0480",
+    "nome": "C. VILA SANTO ALBERTO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0024",
+    "gerente_nome": "DIOGO S. ANDRADE / SUP. FERNANDO D. ROSA"
+  },
+  {
+    "codigo": "0481",
+    "nome": "C. ED. MIAMI RIVER",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "0482",
+    "nome": "ED. VITORIA REGIA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                              Vencimento do rateio: Corrente",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "0483",
+    "nome": "COND. ED. BIRD'S GARDEN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                         Vencimento do rateio: Corrente",
+    "gerente_codigo": "0002",
+    "gerente_nome": "FERNANDO DELA ROSA"
+  },
+  {
+    "codigo": "0484",
+    "nome": "COND. CLUBLINE SAO JUDAS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                     Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0003",
+    "gerente_nome": "EDUARDO PESSOLATO"
+  },
+  {
+    "codigo": "0650",
+    "nome": "LECTORIUM ROSICRUCIANUM",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                               Vencimento do rateio: Corrente",
+    "gerente_codigo": "0011",
+    "gerente_nome": "LECTORIUM"
+  },
+  {
+    "codigo": "2103",
+    "nome": "ORVIETO - OBRAS",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                                                                  Vencimento do rateio: Corrente",
+    "gerente_codigo": "0007",
+    "gerente_nome": "SUELLEN TEIXEIRA"
+  },
+  {
+    "codigo": "2184",
+    "nome": "COND. ED. SANTA MARGUERITA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0005",
+    "gerente_nome": "MAURO DAMETTO"
+  },
+  {
+    "codigo": "2301",
+    "nome": "INTERNATIONAL DUPLEX RESIDENCE",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO                                        Dia inicial da prestação contas: 1",
+    "gerente_codigo": "0002",
+    "gerente_nome": "FERNANDO DELA ROSA"
+  },
+  {
+    "codigo": "2343",
+    "nome": "EDIFICIO PATEO KLABIN",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0004",
+    "gerente_nome": "JULIANA FERREIRA NAKANO"
+  },
+  {
+    "codigo": "2400",
+    "nome": "COND. MODERN TOWNHOUSE GRANJA VIANA",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0005",
+    "gerente_nome": "MAURO DAMETTO"
+  },
+  {
+    "codigo": "3327",
+    "nome": "A.M.C. MATEUS GROU",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0014",
+    "gerente_nome": "MARLEI LEITE Q. SANTOS / SUP. FERNANDO D."
+  },
+  {
+    "codigo": "9999",
+    "nome": "MODELO",
+    "plano_codigo": "1",
+    "plano_nome": "P. DE CONTAS PADRÃO",
+    "gerente_codigo": "0001",
+    "gerente_nome": "ABDON GABRIEL DE SOUZA FILHO"
+  }
+]

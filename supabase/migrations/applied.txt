@@ -24,3 +24,4 @@
 0020_emissoes_preparacao.sql
 0021_planos_contas.sql
 0022_plano_0001_data.sql
+0023_condominios_planos.sql
