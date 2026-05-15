@@ -647,9 +647,16 @@ export default function VisaoEmissor({ profile }) {
                     const key = `${condo.id}_${mes}_${ano}`;
                     const pacote = pacotesPorCondo[key];
                     const numArquivos = pacote?.numArquivos || 0;
+                    const prep = preparacaoMap[`${condo.id}_${mes}_${ano}`];
+                    const isPronto = prep?.etapa === 'pronto_para_emitir';
+                    const isMaster = profile?.role === 'master';
+                    // Pode criar pacote se: pronto p/ emitir, ou master (override), ou já existe pacote
+                    const canCreate = isPronto || isMaster || !!pacote;
 
                     return (
-                      <div key={condo.id} className="flex items-center justify-between px-6 py-3 border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors">
+                      <div key={condo.id} className={`flex items-center justify-between px-6 py-3 border-b border-white/5 last:border-b-0 transition-colors ${
+                        !pacote && isPronto ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.07]' : 'hover:bg-white/[0.02]'
+                      }`}>
                         <div className="flex items-center gap-3">
                           {/* Cadeado — toggle bloqueio da planilha */}
                           {(() => {
@@ -747,8 +754,21 @@ export default function VisaoEmissor({ profile }) {
                                 );
                               })()}
                               <button
-                                onClick={() => { setCondoId(condo.id); handleCriarOuAbrirPacote(); }}
-                                className="px-3 py-1.5 bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/30 rounded-lg text-[10px] font-black text-gray-500 hover:text-violet-400 uppercase tracking-widest transition-all"
+                                onClick={() => {
+                                  if (!canCreate) {
+                                    addToast('Marque a etapa como "Pronto p/ emitir" antes de criar o pacote.', 'warning');
+                                    setModalPrepCondo(condo);
+                                    return;
+                                  }
+                                  setCondoId(condo.id);
+                                  handleCriarOuAbrirPacote();
+                                }}
+                                title={!canCreate ? 'Conclua a preparação antes de criar o pacote' : 'Criar pacote de emissão'}
+                                className={`px-3 py-1.5 border rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                                  canCreate
+                                    ? 'bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                                    : 'bg-white/5 border-white/10 text-gray-600 cursor-not-allowed opacity-60'
+                                }`}
                               >
                                 + Criar
                               </button>
