@@ -13,23 +13,11 @@ import {
   Printer, Send, Trash2, CheckCircle2, Settings, Timer
 } from 'lucide-react';
 import Link from 'next/link';
-import planoContasData from '@/data/plano_contas.json';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
+import ModalSelecionarConta from '@/components/ModalSelecionarConta';
 import { useLockedMonths, reasonLabel } from '@/lib/useLockedMonths';
 
-// Pre-compute plans with parent reference for each sub-account
-const PLANOS = Object.entries(planoContasData).map(([id, plano]) => {
-  const sorted = (plano.contas || []).sort((a, b) => a.conta.localeCompare(b.conta));
-  // Attach parent name (last grau 1 seen) to each grau 2 account
-  let lastParent = '';
-  const enriched = sorted.map(c => {
-    if (c.grau === 1) lastParent = c.nome;
-    return { ...c, parent: c.grau === 2 ? lastParent : '' };
-  });
-  return { id, nome: plano.nome, contas: enriched };
-});
-
-const MESES = { 
+const MESES = {
     1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho', 
     7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro' 
 };
@@ -54,10 +42,7 @@ export default function ArrecadacoesPage() {
   const [obsEmissao, setObsEmissao] = useState('');
   
   // Modals / Overlays
-  const [showContaDropdown, setShowContaDropdown] = useState(null);
-  const [contaSearch, setContaSearch] = useState('');
-  const [selectedPlano, setSelectedPlano] = useState('1');
-  const [filtroMae, setFiltroMae] = useState('Todas');
+  const [showContaDropdown, setShowContaDropdown] = useState(null);  // guarda o rateio_id em edição
   const [showConfirmSend, setShowConfirmSend] = useState(false);
   const [editingRateioId, setEditingRateioId] = useState(null);
 
@@ -311,31 +296,11 @@ export default function ArrecadacoesPage() {
     );
   }
 
-  const currentPlano = PLANOS.find(p => p.id === selectedPlano) || PLANOS[0];
-  
-  const contasMaes = currentPlano?.contas.filter(c => c.grau === 1) || [];
-
-  let currentParent = null;
-  const filteredContas = (currentPlano?.contas || []).map(c => {
-      if (c.grau === 1) currentParent = c.nome;
-      return { ...c, parentName: currentParent };
-  }).filter(c => {
-    const matchSearch = c.nome.toLowerCase().includes(contaSearch.toLowerCase()) || c.conta.includes(contaSearch);
-    const matchMae = filtroMae === 'Todas' || c.parentName === filtroMae;
-    return matchSearch && matchMae;
-  });
-
-  const handleSelectConta = (rid, contaString, contaNome) => {
-      let parts = contaString.split(' - ');
-      if (parts.length >= 2) {
-          // Ajustado: 1002 -> Análise (parte 0), 86 -> Contábil (parte 1)
-          handleRateioChange(rid, 'conta_analise_fin', parts[0].trim());
-          handleRateioChange(rid, 'conta_contabil', parts[1].trim());
-      } else {
-          handleRateioChange(rid, 'conta_contabil', contaString.trim());
-      }
-      // Prepara Campo Nome com o nome da conta selecionada
-      handleRateioChange(rid, 'conta_nome', contaNome);
+  // Handler do novo modal (plano de contas do Supabase). Recebe o item completo do plano.
+  const handleSelectContaItem = (rid, item) => {
+      handleRateioChange(rid, 'plano_item_id', item.id);
+      handleRateioChange(rid, 'conta_contabil', String(item.codigo_reduzido));
+      handleRateioChange(rid, 'conta_nome', item.nome);
       setShowContaDropdown(null);
   };
 
@@ -805,124 +770,14 @@ export default function ArrecadacoesPage() {
          </div>
       )}
 
-      {/* ─── MODAL SELEÇÃO CONTA CONTÁBIL ─── */}
+      {/* ─── MODAL SELEÇÃO CONTA CONTÁBIL (novo, vinculado ao plano do condomínio) ─── */}
       {showContaDropdown && (
-          <div className="fixed inset-0 z-[210] flex items-center justify-center p-6 animate-fade-in">
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowContaDropdown(null)} />
-              <div className="relative w-full max-w-lg bg-slate-900 border border-slate-700 p-6 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
-                  
-                  <div className="flex justify-between items-center mb-4 pr-10">
-                      <h4 className="text-sm font-black text-white uppercase tracking-widest">Selecionar Conta Contábil</h4>
-                      <button 
-                          type="button" 
-                          onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              setShowContaDropdown(null);
-                          }} 
-                          className="absolute top-6 right-6 p-2 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-all cursor-pointer z-[220]"
-                      >
-                          <X className="w-5 h-5" />
-                      </button>
-                  </div>
-                  
-                  {/* Abas dos Planos */}
-                  <div className="flex gap-1 mb-4 bg-slate-800/50 p-1 rounded-lg">
-                      {PLANOS.map(p => (
-                          <button
-                              key={p.id}
-                              onClick={() => { setSelectedPlano(p.id); setContaSearch(''); setFiltroMae('Todas'); }}
-                              className={`flex-1 px-3 py-2 text-[10px] font-black uppercase tracking-wider rounded-md transition-all ${
-                                  selectedPlano === p.id 
-                                      ? 'bg-cyan-500 text-slate-950 shadow-lg' 
-                                      : 'text-slate-400 hover:text-white hover:bg-slate-700'
-                              }`}
-                          >
-                              Plano {p.id}
-                          </button>
-                      ))}
-                  </div>
-
-                  <div className="space-y-3 mb-4 bg-black/20 p-4 rounded-xl border border-white/5">
-                      <div className="flex flex-col md:flex-row md:items-center gap-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[50px]">Conta:</label>
-                          <select 
-                              value={filtroMae}
-                              onChange={e => setFiltroMae(e.target.value)}
-                              className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white font-bold outline-none focus:border-cyan-500"
-                          >
-                              <option value="Todas">Todas as Contas</option>
-                              {contasMaes.map(m => (
-                                  <option key={m.conta} value={m.nome}>{m.conta} - {m.nome}</option>
-                              ))}
-                          </select>
-                      </div>
-                      
-                      <div className="flex flex-col md:flex-row md:items-center gap-2">
-                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest min-w-[50px]">Nome:</label>
-                          <div className="relative flex-1">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-                              <input 
-                                  value={contaSearch} 
-                                  onChange={e => setContaSearch(e.target.value)}
-                                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-900 border border-slate-700 rounded-lg text-slate-200 outline-none focus:border-cyan-500" 
-                                  placeholder="Filtrar subcontas..."
-                              />
-                          </div>
-                      </div>
-                  </div>
-
-                  <p className="text-[10px] text-slate-500 font-bold mb-3">{currentPlano?.nome} — {filteredContas.length} subcontas</p>
-                  <div className="max-h-80 overflow-y-auto space-y-0 pr-1">
-                      {filteredContas.length === 0 && <p className="text-xs text-slate-500 text-center py-4">Nenhuma conta encontrada</p>}
-                      {contaSearch ? (
-                          /* Busca ativa: lista plana */
-                          filteredContas.map(c => (
-                              <button 
-                                  key={c.conta}
-                                  onClick={() => handleSelectConta(showContaDropdown, c.conta, c.nome)}
-                                  className="w-full text-left p-3 hover:bg-cyan-500/20 rounded-lg transition-colors flex items-start gap-3 border border-transparent hover:border-cyan-500/30"
-                              >
-                                  <div className="flex-1">
-                                      <span className="text-[10px] font-black text-cyan-400">{c.conta}</span>
-                                      <div className="text-sm font-bold text-slate-200">{c.nome}</div>
-                                  </div>
-                                  {c.parent && <span className="text-[8px] font-black text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-2 py-0.5 mt-1 whitespace-nowrap">{c.parent}</span>}
-                              </button>
-                          ))
-                      ) : (
-                          /* Sem busca: lista hierárquica agrupada */
-                          filteredContas.map(c => (
-                              c.grau === 1 ? (
-                                  /* Cabeçalho de grupo (grau 1) NÂO CLICÁVEL */
-                                  <div key={c.conta} className="mt-3 first:mt-0">
-                                      <div
-                                          className="w-full text-left px-3 py-2.5 flex items-center gap-2 rounded-lg"
-                                      >
-                                          <div className="w-1 h-6 bg-violet-500 rounded-full flex-shrink-0" />
-                                          <div>
-                                              <span className="text-[10px] font-black text-violet-400">{c.conta}</span>
-                                              <div className="text-xs font-black text-white uppercase">{c.nome}</div>
-                                          </div>
-                                      </div>
-                                  </div>
-                              ) : (
-                                  /* Subconta (grau 2) - indentada */
-                                  <button 
-                                      key={c.conta}
-                                      onClick={() => handleSelectConta(showContaDropdown, c.conta, c.nome)}
-                                      className="w-full text-left pl-7 pr-3 py-2 hover:bg-cyan-500/15 rounded-lg transition-colors flex flex-col border border-transparent hover:border-cyan-500/20 ml-2"
-                                  >
-                                      <span className="text-[9px] font-black text-cyan-400/70">{c.conta}</span>
-                                      <span className="text-[12px] font-bold text-slate-300">{c.nome}</span>
-                                  </button>
-                              )
-                          ))
-                      )}
-                  </div>
-                  <button onClick={() => setShowContaDropdown(null)} className="mt-4 w-full py-2.5 text-xs font-bold text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors uppercase tracking-widest">Fechar</button>
-              </div>
-          </div>
+        <ModalSelecionarConta
+          planoId={condo?.plano_contas_id || null}
+          selectedId={(rateios.find(r => r.id === showContaDropdown) || {}).plano_item_id}
+          onSelect={(item) => handleSelectContaItem(showContaDropdown, item)}
+          onClose={() => setShowContaDropdown(null)}
+        />
       )}
 
       {/* ─── MODAL CONFIRMAÇÃO ENVIO ─── */}

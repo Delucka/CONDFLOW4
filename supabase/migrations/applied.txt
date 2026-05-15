@@ -22,3 +22,5 @@
 0018_final_fix.sql
 0019_must_change_password.sql
 0020_emissoes_preparacao.sql
+0021_planos_contas.sql
+0022_plano_0001_data.sql
