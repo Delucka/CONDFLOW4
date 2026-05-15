@@ -57,14 +57,12 @@ export default function CobrancasPage() {
   const periodoAtivo = !prazoFim || ((!prazoIni || agora >= prazoIni) && agora <= prazoFim);
   const prazoExpirado = prazoFim && agora > prazoFim;
 
-  // Lock universal: status "Edição finalizada" (ou "Em processo" legado) trava TODOS os perfis.
-  // Master pode destravar via cadeado na Central de Emissões.
-  const isPlanilhaTravada = ['Edição finalizada', 'Em processo'].includes(data.processo?.status);
-  const canEdit = !isPlanilhaTravada && (
-    user?.role === 'master' || (
-      periodoAtivo &&
-      ['Em edição', 'Solicitar alteração'].includes(data.processo?.status)
-    )
+  // Edição em nível de página — fluxo semestral.
+  // O lock por MÊS é aplicado individualmente no modal de lançamento (carteiras/cobrancas)
+  // e na própria planilha (arrecadações), via useLockedMonths.
+  const canEdit = user?.role === 'master' || (
+    periodoAtivo &&
+    ['Em edição', 'Solicitar alteração', 'Edição finalizada'].includes(data.processo?.status)
   );
 
   async function handleAdd(e) {

@@ -15,6 +15,7 @@ import {
 import Link from 'next/link';
 import planoContasData from '@/data/plano_contas.json';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
+import { useLockedMonths, reasonLabel } from '@/lib/useLockedMonths';
 
 // Pre-compute plans with parent reference for each sub-account
 const PLANOS = Object.entries(planoContasData).map(([id, plano]) => {
@@ -105,15 +106,15 @@ export default function ArrecadacoesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId, selectedYear]);
 
-  // Lock universal: status "Edição finalizada" (ou "Em processo" legado) trava TODOS os perfis.
-  // Master pode desbloquear via toggle do cadeado, mas enquanto bloqueado a planilha eh readonly.
-  const isPlanilhaTravada = ['Edição finalizada', 'Em processo'].includes(processo?.status);
-  const canEdit = !isPlanilhaTravada && (
-    user?.role === 'master' || (
-      periodoAtivo &&
-      user?.role === 'gerente' &&
-      (!processo || ['Em edição', 'Solicitar alteração'].includes(processo?.status))
-    )
+  // Lock por mês — passado, etapa 'pronto p/ emitir' ou pacote registrado
+  const { isLocked, reasonFor } = useLockedMonths(condoId, selectedYear);
+
+  // Permissão de edição em nível de página (ações gerais como "salvar observações", "adicionar verba")
+  // Per-célula adicional: !isLocked(mes)
+  const canEdit = user?.role === 'master' || (
+    periodoAtivo &&
+    user?.role === 'gerente' &&
+    (!processo || ['Em edição', 'Solicitar alteração', 'Edição finalizada'].includes(processo?.status))
   );
   
   const isEmissor = ['master', 'emissor'].includes(user?.role);
@@ -342,22 +343,30 @@ export default function ArrecadacoesPage() {
   return (
     <div className="animate-fade-in w-full h-full pb-20">
 
-      {/* ─── Banner bloqueio (prazo expirado OU edição finalizada) ─── */}
+      {/* ─── Banner bloqueio em nível de pagina (prazo expirado / status invalido) ─── */}
       {!canEdit && (
         <div className="mb-4 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 animate-fade-in">
           <Lock className="w-4 h-4 shrink-0" />
           <div className="flex-1">
             <p className="text-xs font-black uppercase tracking-widest">
-              {prazoExpirado ? 'Prazo de devolução encerrado' : 'Planilha bloqueada — edição finalizada'}
+              {prazoExpirado ? 'Prazo de devolução encerrado' : 'Planilha não disponível para edição'}
             </p>
             <p className="text-[11px] text-rose-400/80">
               {prazoExpirado
                 ? `Período encerrado em ${prazoFim?.toLocaleString('pt-BR')}.`
-                : user?.role === 'master'
-                  ? 'A planilha foi bloqueada para a emissão. Para destravar, abra o cadeado na Central de Emissões.'
-                  : 'Nenhuma alteração pode ser feita. Entre em contato com o administrador para exceções.'}
+                : 'Status atual não permite edição. Entre em contato com o administrador.'}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* ─── Banner informativo: lock automatico por mês ─── */}
+      {canEdit && (
+        <div className="mb-4 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-amber-500/5 border border-amber-500/15 text-amber-300/80 animate-fade-in">
+          <Lock className="w-3 h-3 shrink-0" />
+          <p className="text-[10px] uppercase font-bold tracking-widest">
+            Meses passados, com etapa "pronto p/ emitir" ou com emissão registrada ficam <strong>automaticamente bloqueados</strong> e não podem ser alterados.
+          </p>
         </div>
       )}
 
@@ -510,17 +519,27 @@ export default function ArrecadacoesPage() {
                             {/* MONTHS VALUES */}
                             {months.map(m => {
                                 const val = rateiosVals[r.id]?.[m] || '0.00';
+                                const mesTravado = isLocked(m);
+                                const cellDisabled = !canEdit || mesTravado;
+                                const reason = reasonFor(m);
                                 return (
-                                    <td key={m} className="p-1 border-r border-white/5 min-w-[120px] relative">
-                                        <input 
+                                    <td key={m} className={`p-1 border-r border-white/5 min-w-[120px] relative ${mesTravado ? 'bg-rose-500/[0.04]' : ''}`}
+                                        title={mesTravado ? `Mês bloqueado: ${reasonLabel(reason)}` : undefined}>
+                                        <input
                                             value={val}
                                             onChange={e => handleValueChange(r.id, m, e.target.value)}
-                                            disabled={!canEdit}
+                                            disabled={cellDisabled}
                                             className={`w-full text-right bg-transparent border-none text-xs font-bold px-2 py-2 focus:bg-white/5 transition-colors focus:ring-0
                                                 ${val === 'PLANILHA' ? 'text-indigo-400 font-black text-center' : 'text-slate-300'}
-                                                ${!canEdit ? 'opacity-50' : ''}
+                                                ${cellDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                                                ${mesTravado ? 'text-rose-300/70' : ''}
                                             `}
                                         />
+                                        {mesTravado && (
+                                          <span className="absolute top-0.5 right-1 text-[8px] font-black uppercase tracking-tighter text-rose-400/70 pointer-events-none">
+                                            <Lock className="w-2.5 h-2.5" />
+                                          </span>
+                                        )}
                                         <div className="text-center h-4">
                                             {getParcelaBadge(r, m)}
                                         </div>

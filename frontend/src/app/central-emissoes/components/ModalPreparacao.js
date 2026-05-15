@@ -121,22 +121,15 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
         if (error) throw error;
       }
 
-      // 🔒 Auto-lock da planilha quando marca "pronto p/ emitir"
-      // (impede gerente de mexer em planilha/cobranças durante a emissão)
-      if (etapa === 'pronto_para_emitir') {
-        try {
-          await apiPost(`/api/condominio/${condo.id}/processo/force`, {
-            status: 'Edição finalizada',
-            year: ano,
-          });
-          addToast('Etapa salva e planilha bloqueada para edição!', 'success');
-        } catch (lockErr) {
-          // Se o lock falhar, ainda assim a etapa foi salva
-          addToast('Etapa salva, mas falha ao bloquear planilha: ' + lockErr.message, 'warning');
-        }
-      } else {
-        addToast('Etapa de preparação atualizada!', 'success');
-      }
+      // O lock acontece automaticamente por mês via useLockedMonths
+      // — quando etapa = 'pronto_para_emitir' o mês X fica travado para edição.
+      // Não há mais auto-lock semestral.
+      addToast(
+        etapa === 'pronto_para_emitir'
+          ? `Etapa salva! O mês ${String(mes).padStart(2,'0')}/${ano} fica bloqueado para edição.`
+          : 'Etapa de preparação atualizada!',
+        'success'
+      );
 
       onSaved?.();
       onClose();
@@ -223,12 +216,12 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
                 className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-sm text-slate-200 focus:border-cyan-500 outline-none transition-all placeholder:text-slate-700" />
             </div>
 
-            {/* Aviso quando vai bloquear a planilha */}
+            {/* Aviso quando vai bloquear o mes */}
             {etapa === 'pronto_para_emitir' && (
               <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2">
                 <Lock className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-rose-300 leading-relaxed">
-                  <strong>Atenção:</strong> ao salvar nesta etapa, a planilha e cobranças extras do condomínio serão <strong>bloqueadas automaticamente</strong> para edição pelo gerente.
+                  <strong>Atenção:</strong> ao salvar nesta etapa, o mês <strong>{String(mes).padStart(2,'0')}/{ano}</strong> da planilha e das cobranças extras será <strong>bloqueado automaticamente</strong>. Os demais meses continuam editáveis.
                 </p>
               </div>
             )}

@@ -702,32 +702,7 @@ export default function VisaoEmissor({ profile }) {
                         !pacote && isPronto ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.07]' : 'hover:bg-white/[0.02]'
                       }`}>
                         <div className="flex items-center gap-3">
-                          {/* Cadeado — toggle bloqueio da planilha */}
-                          {(() => {
-                            const proc = processosMap[condo.id];
-                            const isLocked = proc?.status === 'Edição finalizada';
-                            const isLoading = lockingCondo === condo.id;
-                            return (
-                              <button
-                                onClick={() => handleToggleLock(condo)}
-                                disabled={isLoading}
-                                title={isLocked ? 'Planilha bloqueada — clique para reabrir' : 'Planilha aberta — clique para bloquear'}
-                                className={`w-6 h-6 rounded-md flex items-center justify-center transition-all shrink-0 ${
-                                  isLocked
-                                    ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30'
-                                    : 'bg-emerald-500/10 text-emerald-500/50 hover:bg-emerald-500/20 hover:text-emerald-400 border border-emerald-500/20'
-                                } disabled:opacity-40`}
-                              >
-                                {isLoading
-                                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                                  : isLocked
-                                    ? <Lock className="w-3 h-3" />
-                                    : <Unlock className="w-3 h-3" />
-                                }
-                              </button>
-                            );
-                          })()}
-                          <span className="text-sm font-bold text-gray-300 truncate max-w-[250px]">{condo.name}</span>
+                          <span className="text-sm font-bold text-gray-300 truncate max-w-[280px]">{condo.name}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           {pacote ? (

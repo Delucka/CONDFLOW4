@@ -1,14 +1,16 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
 import {
   Plus, Trash2, Loader2, X, AlertCircle, CheckCircle2,
-  Receipt, Calendar, Repeat, Building2, Clock,
+  Receipt, Calendar, Repeat, Building2, Clock, Lock,
   UploadCloud, FileText
 } from 'lucide-react';
+
+import { useLockedMonths } from '@/lib/useLockedMonths';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -17,7 +19,9 @@ function getMesAtual() {
   return { mes: n.getMonth() + 1, ano: n.getFullYear() };
 }
 
-function isBloqueado(mes, ano) {
+// Lock por (condo, ano) é calculado no hook useLockedMonths; aqui mantemos só
+// a verificação de "mês passou" para casos sem condo selecionado.
+function isMesNoPassado(mes, ano) {
   const { mes: ma, ano: aa } = getMesAtual();
   return ano < aa || (ano === aa && mes < ma);
 }
@@ -58,8 +62,29 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
     ? (parseFloat(form.valor_total.replace(',', '.')) / form.parcelas).toFixed(2)
     : '—';
 
+  // Lock por mês para o condomínio + ano selecionados
+  const { isLocked: isMesTravado } = useLockedMonths(condominioId, form.ano_inicio);
+
+  // Lista de parcelas que vão cair em mês bloqueado
+  const parcelasEmMesBloqueado = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < form.parcelas; i++) {
+      let m = form.mes_inicio + i;
+      let a = form.ano_inicio;
+      while (m > 12) { m -= 12; a += 1; }
+      if (a === form.ano_inicio && isMesTravado(m)) arr.push({ mes: m, ano: a });
+      // Se cair em ano diferente, useLockedMonths não cobre — usa só "passado"
+      else if (a !== form.ano_inicio && isMesNoPassado(m, a)) arr.push({ mes: m, ano: a });
+    }
+    return arr;
+  }, [form.parcelas, form.mes_inicio, form.ano_inicio, isMesTravado]);
+
   async function handleSubmit(e) {
     e.preventDefault();
+    if (parcelasEmMesBloqueado.length > 0) {
+      addToast('Alguma parcela cai em mês bloqueado. Escolha outro mês inicial.', 'error');
+      return;
+    }
     setLoading(true);
     try {
       let fileUrl = null;
@@ -153,8 +178,9 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
               <select value={form.mes_inicio} onChange={e => setForm({ ...form, mes_inicio: Number(e.target.value) })}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-amber-500">
                 {MESES.map((m, i) => {
-                  const bloq = isBloqueado(i + 1, form.ano_inicio);
-                  return <option key={i} value={i + 1} disabled={bloq}>{m}{bloq ? ' 🔒' : ''}</option>;
+                  const mes = i + 1;
+                  const bloq = isMesTravado(mes) || isMesNoPassado(mes, form.ano_inicio);
+                  return <option key={i} value={mes} disabled={bloq}>{m}{bloq ? ' 🔒' : ''}</option>;
                 })}
               </select>
             </div>
@@ -176,13 +202,25 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
                   let m = form.mes_inicio + i;
                   let a = form.ano_inicio;
                   while (m > 12) { m -= 12; a += 1; }
+                  const bloq = (a === form.ano_inicio && isMesTravado(m)) || (a !== form.ano_inicio && isMesNoPassado(m, a));
                   return (
-                    <span key={i} className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">
-                      {MESES[m-1]}/{a}
+                    <span key={i} className={`text-[10px] px-2 py-0.5 rounded border ${
+                      bloq
+                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/30 line-through'
+                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                    }`}>
+                      {MESES[m-1]}/{a}{bloq ? ' 🔒' : ''}
                     </span>
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {parcelasEmMesBloqueado.length > 0 && (
+            <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 text-xs text-rose-300 flex items-start gap-2">
+              <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>{parcelasEmMesBloqueado.length} parcela{parcelasEmMesBloqueado.length !== 1 ? 's' : ''} cai{parcelasEmMesBloqueado.length === 1 ? '' : 'em'} em mês bloqueado. Ajuste o <strong>mês inicial</strong> ou reduza as parcelas.</span>
             </div>
           )}
 
