@@ -352,6 +352,41 @@ export default function VisaoEmissor({ profile }) {
     }
   }
 
+  async function handleCancelarRascunho() {
+    if (!activePacote || activePacote.status !== 'rascunho') return;
+    const confirma = window.confirm(
+      `Tem certeza que deseja CANCELAR o rascunho de ${activePacote.condominios?.name || 'este condomínio'}?\n\n` +
+      `Esta ação:\n` +
+      `• Apaga o pacote (rascunho)\n` +
+      `• Apaga todos os ${pacoteArquivos.length} arquivo${pacoteArquivos.length !== 1 ? 's' : ''} enviado${pacoteArquivos.length !== 1 ? 's' : ''}\n` +
+      `• NÃO pode ser desfeita`
+    );
+    if (!confirma) return;
+
+    try {
+      // 1. Apaga arquivos do storage + tabela
+      const paths = (pacoteArquivos || []).map(a => a.arquivo_url).filter(Boolean);
+      if (paths.length) {
+        try { await supabase.storage.from('emissoes').remove(paths); } catch {}
+      }
+      const { error: errArq } = await supabase
+        .from('emissoes_arquivos').delete().eq('pacote_id', activePacote.id);
+      if (errArq) throw errArq;
+
+      // 2. Apaga o pacote
+      const { error: errPac } = await supabase
+        .from('emissoes_pacotes').delete().eq('id', activePacote.id);
+      if (errPac) throw errPac;
+
+      addToast('Rascunho cancelado e arquivos removidos.', 'success');
+      setActivePacote(null);
+      setPacoteArquivos([]);
+      fetchPacotes();
+    } catch (err) {
+      addToast('Erro ao cancelar: ' + (err.message || err), 'error');
+    }
+  }
+
   async function handleConcluirPacote() {
     if (pacoteArquivos.length === 0) return addToast('Adicione pelo menos 1 arquivo antes de concluir.', 'warning');
     setShowConcluirModal(true);
@@ -563,6 +598,16 @@ export default function VisaoEmissor({ profile }) {
                   )}
                 </div>
               </div>
+
+              {/* Botão Cancelar Rascunho */}
+              <button
+                onClick={handleCancelarRascunho}
+                className="px-6 py-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 flex items-center justify-center gap-2"
+                title="Apaga o rascunho e todos os arquivos enviados"
+              >
+                <Trash2 className="w-4 h-4" />
+                Cancelar Rascunho
+              </button>
 
               {/* Botão Concluir */}
               <button
