@@ -510,7 +510,7 @@ export default function CobrancasExtrasPage() {
                 <div className="border-t border-white/5">
                   <div className="flex flex-wrap gap-2 px-5 py-3">
                     {grupo.parcelas.sort((a, b) => a.parcela_atual - b.parcela_atual).map(p => {
-                      const bloq = isBloqueado(p.mes, p.ano);
+                      const bloq = isMesNoPassado(p.mes, p.ano);
                       const cancelado = p.status === 'solicitado_cancelamento' || p.status === 'cancelada';
                       const processada = p.status === 'processada';
                       return (
