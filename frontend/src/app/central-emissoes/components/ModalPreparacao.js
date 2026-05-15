@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { X, Loader2, Save, FileText, FileBarChart, CheckCircle, Calendar } from 'lucide-react';
+import { X, Loader2, Save, FileText, FileBarChart, CheckCircle, Calendar, Trash2, Lock } from 'lucide-react';
+import { apiPost } from '@/lib/api';
 
 const ETAPAS = [
   {
@@ -78,6 +79,23 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
     carregar();
   }, [condo.id, mes, ano, supabase]);
 
+  async function handleLimpar() {
+    if (!existingId) return;
+    if (!window.confirm('Tem certeza que deseja limpar a etapa? Ela voltará para "Definir Etapa".')) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('emissoes_preparacao').delete().eq('id', existingId);
+      if (error) throw error;
+      addToast('Etapa removida.', 'success');
+      onSaved?.();
+      onClose();
+    } catch (err) {
+      addToast('Erro ao limpar: ' + (err.message || err), 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
@@ -102,7 +120,24 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
         const { error } = await supabase.from('emissoes_preparacao').insert(payload);
         if (error) throw error;
       }
-      addToast('Etapa de preparação atualizada!', 'success');
+
+      // 🔒 Auto-lock da planilha quando marca "pronto p/ emitir"
+      // (impede gerente de mexer em planilha/cobranças durante a emissão)
+      if (etapa === 'pronto_para_emitir') {
+        try {
+          await apiPost(`/api/condominio/${condo.id}/processo/force`, {
+            status: 'Edição finalizada',
+            year: ano,
+          });
+          addToast('Etapa salva e planilha bloqueada para edição!', 'success');
+        } catch (lockErr) {
+          // Se o lock falhar, ainda assim a etapa foi salva
+          addToast('Etapa salva, mas falha ao bloquear planilha: ' + lockErr.message, 'warning');
+        }
+      } else {
+        addToast('Etapa de preparação atualizada!', 'success');
+      }
+
       onSaved?.();
       onClose();
     } catch (err) {
@@ -187,18 +222,36 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
                 placeholder="Observações relevantes para esta etapa..."
                 className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-sm text-slate-200 focus:border-cyan-500 outline-none transition-all placeholder:text-slate-700" />
             </div>
+
+            {/* Aviso quando vai bloquear a planilha */}
+            {etapa === 'pronto_para_emitir' && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2">
+                <Lock className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-rose-300 leading-relaxed">
+                  <strong>Atenção:</strong> ao salvar nesta etapa, a planilha e cobranças extras do condomínio serão <strong>bloqueadas automaticamente</strong> para edição pelo gerente.
+                </p>
+              </div>
+            )}
           </form>
         )}
 
-        <div className="px-6 py-4 border-t border-white/10 flex items-center justify-end gap-3 shrink-0">
-          <button onClick={onClose} className="px-5 py-2.5 text-xs text-slate-500 font-bold uppercase tracking-widest hover:text-white transition-colors">
-            Cancelar
-          </button>
-          <button onClick={handleSubmit} disabled={saving || loading}
-            className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 flex items-center gap-2">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Salvar Etapa
-          </button>
+        <div className="px-6 py-4 border-t border-white/10 flex items-center justify-between gap-3 shrink-0">
+          {existingId ? (
+            <button onClick={handleLimpar} disabled={saving || loading}
+              className="flex items-center gap-1.5 px-3 py-2 text-[10px] text-rose-400 font-black uppercase tracking-widest hover:bg-rose-500/10 rounded-lg transition-colors disabled:opacity-50">
+              <Trash2 className="w-3.5 h-3.5" /> Limpar etapa
+            </button>
+          ) : <div />}
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="px-5 py-2.5 text-xs text-slate-500 font-bold uppercase tracking-widest hover:text-white transition-colors">
+              Cancelar
+            </button>
+            <button onClick={handleSubmit} disabled={saving || loading}
+              className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 flex items-center gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Salvar Etapa
+            </button>
+          </div>
         </div>
       </div>
     </div>

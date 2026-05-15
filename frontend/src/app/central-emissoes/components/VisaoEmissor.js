@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -739,6 +739,21 @@ export default function VisaoEmissor({ profile }) {
                                       <span className="hidden md:inline-flex items-center gap-1.5">
                                         <StatusBadge status={etapa} />
                                         {dataStr && <span className="text-[10px] font-bold text-gray-500">{dataStr}</span>}
+                                        {prep?.notas && (
+                                          <span className="relative group/notas">
+                                            <button
+                                              type="button"
+                                              className="w-5 h-5 flex items-center justify-center rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 transition-all"
+                                              aria-label="Ver observações"
+                                            >
+                                              <StickyNote className="w-3 h-3" />
+                                            </button>
+                                            <span className="absolute right-0 top-full mt-1 z-50 hidden group-hover/notas:block w-64 p-3 bg-slate-950 border border-cyan-500/30 rounded-xl shadow-2xl shadow-cyan-500/10 pointer-events-none">
+                                              <span className="block text-[9px] font-black text-cyan-400 uppercase tracking-widest mb-1">Observações</span>
+                                              <span className="block text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">{prep.notas}</span>
+                                            </span>
+                                          </span>
+                                        )}
                                       </span>
                                     )}
                                     <button
