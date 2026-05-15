@@ -1,13 +1,14 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { apiPost } from '@/lib/api';
+import ModalPreparacao from './ModalPreparacao';
 
 export default function VisaoEmissor({ profile }) {
   // VERSÃO 4.1 - BOTÃO REGISTRAR ESTABILIZADO
@@ -46,26 +47,47 @@ export default function VisaoEmissor({ profile }) {
   const [processosMap, setProcessosMap] = useState({});
   const [lockingCondo, setLockingCondo] = useState(null); // id do condo sendo alterado
 
+  // Mapa de etapas de preparação { `${condoId}_${mes}_${ano}`: { etapa, data_fatura, data_relatorio, ... } }
+  const [preparacaoMap, setPreparacaoMap] = useState({});
+  const [modalPrepCondo, setModalPrepCondo] = useState(null);
+
   useEffect(() => {
     fetchDados();
     
-    const channel = supabase.channel('emissor_pacotes')
+    const channel = supabase.channel(`emissor_pacotes_${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => { fetchPacotes(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_arquivos' }, () => {
         if (activePacote) fetchArquivosDoPacote(activePacote.id);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'processos' }, fetchProcessos)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_preparacao' }, () => fetchPreparacao())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // Refaz a busca de preparacao quando mes/ano mudam
+  useEffect(() => { fetchPreparacao(); }, [mes, ano]);
+
   async function fetchDados() {
     setLoading(true);
     try {
-      await Promise.all([fetchCondominios(), fetchPacotes(), fetchProcessos()]);
+      await Promise.all([fetchCondominios(), fetchPacotes(), fetchProcessos(), fetchPreparacao()]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchPreparacao() {
+    const { data } = await supabase
+      .from('emissoes_preparacao')
+      .select('*')
+      .eq('mes_referencia', mes)
+      .eq('ano_referencia', ano);
+    if (data) {
+      const map = {};
+      data.forEach(p => { map[`${p.condominio_id}_${p.mes_referencia}_${p.ano_referencia}`] = p; });
+      setPreparacaoMap(map);
     }
   }
 
@@ -695,12 +717,42 @@ export default function VisaoEmissor({ profile }) {
                               </button>
                             </>
                           ) : (
-                            <button
-                              onClick={() => { setCondoId(condo.id); handleCriarOuAbrirPacote(); }}
-                              className="px-3 py-1.5 bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/30 rounded-lg text-[10px] font-black text-gray-500 hover:text-violet-400 uppercase tracking-widest transition-all"
-                            >
-                              + Criar
-                            </button>
+                            <>
+                              {/* Etapa de preparação pré-emissão */}
+                              {(() => {
+                                const prep = preparacaoMap[`${condo.id}_${mes}_${ano}`];
+                                const etapa = prep?.etapa;
+                                const dataStr = etapa === 'aguardando_fatura' && prep?.data_fatura
+                                  ? new Date(prep.data_fatura + 'T00:00:00').toLocaleDateString('pt-BR')
+                                  : etapa === 'aguardando_relatorio' && prep?.data_relatorio
+                                    ? new Date(prep.data_relatorio + 'T00:00:00').toLocaleDateString('pt-BR')
+                                    : null;
+                                return (
+                                  <>
+                                    {etapa && (
+                                      <span className="hidden md:inline-flex items-center gap-1.5">
+                                        <StatusBadge status={etapa} />
+                                        {dataStr && <span className="text-[10px] font-bold text-gray-500">{dataStr}</span>}
+                                      </span>
+                                    )}
+                                    <button
+                                      onClick={() => setModalPrepCondo(condo)}
+                                      title={etapa ? 'Editar etapa de preparação' : 'Definir etapa de preparação'}
+                                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-lg text-[10px] font-black text-amber-400 uppercase tracking-widest transition-all"
+                                    >
+                                      <ClipboardCheck className="w-3 h-3" />
+                                      {etapa ? 'Etapa' : 'Definir etapa'}
+                                    </button>
+                                  </>
+                                );
+                              })()}
+                              <button
+                                onClick={() => { setCondoId(condo.id); handleCriarOuAbrirPacote(); }}
+                                className="px-3 py-1.5 bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/30 rounded-lg text-[10px] font-black text-gray-500 hover:text-violet-400 uppercase tracking-widest transition-all"
+                              >
+                                + Criar
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -834,6 +886,16 @@ export default function VisaoEmissor({ profile }) {
           currentUser={user}
           onClose={() => setArquivoAberto(null)}
           onAction={() => { setArquivoAberto(null); fetchPacotes(); }}
+        />
+      )}
+
+      {modalPrepCondo && (
+        <ModalPreparacao
+          condo={modalPrepCondo}
+          mes={mes}
+          ano={ano}
+          onClose={() => setModalPrepCondo(null)}
+          onSaved={fetchPreparacao}
         />
       )}
       {/* ═══ MODAL DE REGISTRO ═══ */}

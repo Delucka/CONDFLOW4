@@ -21,3 +21,4 @@
 0017_migrate_12_months_archive.sql
 0018_final_fix.sql
 0019_must_change_password.sql
+0020_emissoes_preparacao.sql

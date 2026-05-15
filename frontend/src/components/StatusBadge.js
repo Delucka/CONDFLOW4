@@ -5,6 +5,11 @@
 
 const EMISSAO_STATUS = {
   'sem_processo':              { label: 'Sem processo',         classes: 'bg-slate-500/10 text-slate-500 border-slate-500/30', dot: 'bg-slate-500' },
+  // Etapas de preparação pré-emissão (tabela emissoes_preparacao)
+  'aguardando_fatura':         { label: 'Aguardando fatura',    classes: 'bg-amber-500/10 text-amber-400 border-amber-500/30', dot: 'bg-amber-400' },
+  'aguardando_relatorio':      { label: 'Aguardando relatório', classes: 'bg-sky-500/10 text-sky-400 border-sky-500/30',       dot: 'bg-sky-400' },
+  'pronto_para_emitir':        { label: 'Pronto p/ emitir',     classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', dot: 'bg-emerald-400' },
+  // Pacote de emissão (emissoes_pacotes)
   'rascunho':                  { label: 'Em edição',            classes: 'bg-gray-500/10 text-gray-400 border-gray-500/30',    dot: 'bg-gray-400' },
   'pendente':                  { label: 'Com gerente',          classes: 'bg-pink-500/10 text-pink-400 border-pink-500/30',    dot: 'bg-pink-400' },
   'pendente_gerente':          { label: 'Com gerente',          classes: 'bg-pink-500/10 text-pink-400 border-pink-500/30',    dot: 'bg-pink-400' },
