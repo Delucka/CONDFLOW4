@@ -929,7 +929,7 @@ export default function VisaoEmissor({ profile }) {
           mes={mes}
           ano={ano}
           onClose={() => setModalPrepCondo(null)}
-          onSaved={fetchPreparacao}
+          onSaved={() => { fetchPreparacao(); fetchProcessos(); }}
         />
       )}
       {/* ═══ MODAL DE REGISTRO ═══ */}

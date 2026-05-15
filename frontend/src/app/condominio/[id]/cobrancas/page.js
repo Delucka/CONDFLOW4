@@ -57,10 +57,14 @@ export default function CobrancasPage() {
   const periodoAtivo = !prazoFim || ((!prazoIni || agora >= prazoIni) && agora <= prazoFim);
   const prazoExpirado = prazoFim && agora > prazoFim;
 
-  // Master sempre pode; gerente bloqueado se prazo expirou OU status "Edição finalizada"
-  const canEdit = user?.role === 'master' || (
-    periodoAtivo &&
-    ['Em edição', 'Solicitar alteração'].includes(data.processo?.status)
+  // Lock universal: status "Edição finalizada" (ou "Em processo" legado) trava TODOS os perfis.
+  // Master pode destravar via cadeado na Central de Emissões.
+  const isPlanilhaTravada = ['Edição finalizada', 'Em processo'].includes(data.processo?.status);
+  const canEdit = !isPlanilhaTravada && (
+    user?.role === 'master' || (
+      periodoAtivo &&
+      ['Em edição', 'Solicitar alteração'].includes(data.processo?.status)
+    )
   );
 
   async function handleAdd(e) {
@@ -115,15 +119,17 @@ export default function CobrancasPage() {
       </div>
 
       {/* Banner bloqueio (prazo expirado OU edição finalizada) */}
-      {!canEdit && user?.role !== 'master' && (
+      {!canEdit && (
         <div className="mb-6 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300">
           <Lock className="w-4 h-4 shrink-0" />
-          <div>
+          <div className="flex-1">
             <p className="text-xs font-black uppercase tracking-widest">Cobranças extras bloqueadas</p>
             <p className="text-[11px] text-rose-400/80">
               {prazoExpirado
                 ? `Prazo encerrado em ${prazoFim?.toLocaleString('pt-BR')}.`
-                : 'Edição finalizada — nenhuma cobrança pode ser adicionada ou removida.'}
+                : user?.role === 'master'
+                  ? 'A planilha foi bloqueada para a emissão. Para destravar, abra o cadeado na Central de Emissões.'
+                  : 'Nenhuma cobrança pode ser adicionada ou removida durante a emissão.'}
             </p>
           </div>
         </div>

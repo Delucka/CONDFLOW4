@@ -105,12 +105,15 @@ export default function ArrecadacoesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId, selectedYear]);
 
-  // Permissão de edição — master sempre pode
-  // Gerente bloqueado se: prazo expirou OU status é "Edição finalizada"
-  const canEdit = user?.role === 'master' || (
-    periodoAtivo &&
-    user?.role === 'gerente' &&
-    (!processo || ['Em edição', 'Solicitar alteração'].includes(processo?.status))
+  // Lock universal: status "Edição finalizada" (ou "Em processo" legado) trava TODOS os perfis.
+  // Master pode desbloquear via toggle do cadeado, mas enquanto bloqueado a planilha eh readonly.
+  const isPlanilhaTravada = ['Edição finalizada', 'Em processo'].includes(processo?.status);
+  const canEdit = !isPlanilhaTravada && (
+    user?.role === 'master' || (
+      periodoAtivo &&
+      user?.role === 'gerente' &&
+      (!processo || ['Em edição', 'Solicitar alteração'].includes(processo?.status))
+    )
   );
   
   const isEmissor = ['master', 'emissor'].includes(user?.role);
@@ -340,17 +343,19 @@ export default function ArrecadacoesPage() {
     <div className="animate-fade-in w-full h-full pb-20">
 
       {/* ─── Banner bloqueio (prazo expirado OU edição finalizada) ─── */}
-      {!canEdit && user?.role !== 'master' && (
+      {!canEdit && (
         <div className="mb-4 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 animate-fade-in">
           <Lock className="w-4 h-4 shrink-0" />
-          <div>
+          <div className="flex-1">
             <p className="text-xs font-black uppercase tracking-widest">
-              {prazoExpirado ? 'Prazo de devolução encerrado' : 'Edição finalizada'}
+              {prazoExpirado ? 'Prazo de devolução encerrado' : 'Planilha bloqueada — edição finalizada'}
             </p>
             <p className="text-[11px] text-rose-400/80">
               {prazoExpirado
-                ? `Período encerrado em ${prazoFim?.toLocaleString('pt-BR')}. Entre em contato com o administrador para exceções.`
-                : 'Nenhuma alteração pode ser feita. Entre em contato com o administrador para exceções.'}
+                ? `Período encerrado em ${prazoFim?.toLocaleString('pt-BR')}.`
+                : user?.role === 'master'
+                  ? 'A planilha foi bloqueada para a emissão. Para destravar, abra o cadeado na Central de Emissões.'
+                  : 'Nenhuma alteração pode ser feita. Entre em contato com o administrador para exceções.'}
             </p>
           </div>
         </div>
