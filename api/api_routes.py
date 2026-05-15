@@ -867,7 +867,7 @@ def require_role(user: dict, roles: list):
 # ═══ Endpoint: Dados de conferência (Planilha + Cobranças) ════════════
 
 @router.get("/condominio/{condo_id}/conferencia")
-def api_dados_conferencia(condo_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     import traceback
     from datetime import datetime
 
@@ -926,32 +926,23 @@ def api_dados_conferencia(condo_id: str, user: dict = Depends(get_current_user),
 
     cobrancas = []
     try:
-        # Busca o mês/ano do processo/pacote para filtrar as cobranças
-        # Se não houver pacote ainda, tenta pegar do contexto ou mostra as ativas
-        mes_ref = None
-        ano_ref = year
-        
-        proc_res = db.table("processos").select("year, semester").eq("id", condo_id).execute() # Simplificado
-        
-        query = db.table("cobrancas_extras").select("id,description,amount,created_at,attachments,status,mes,ano") \
+        # Filtra por mes/ano do pacote sendo conferido (frontend envia via query string)
+        req_mes  = request.query_params.get("mes")
+        req_ano  = request.query_params.get("ano")
+        is_retif = request.query_params.get("retificacao") == "true"
+
+        query = db.table("cobrancas_extras") \
+            .select("id,description,amount,created_at,attachments,status,mes,ano") \
             .eq("condominio_id", condo_id) \
             .neq("status", "cancelada")
-            
-        # Tenta descobrir o mês que estamos conferindo (pode vir de um parâmetro futuro)
-        # Por enquanto, se houver mes/ano na query da URL, usamos.
-        req_mes = request.query_params.get("mes")
-        req_ano = request.query_params.get("ano")
-        
+
         if req_mes and req_ano:
             query = query.eq("mes", int(req_mes)).eq("ano", int(req_ano))
-        
+
         extras = query.order("created_at", desc=True).execute().data or []
-        
+
         for c in extras:
-            # Se for uma conferência normal, só mostra as 'ativa'
-            # Se for retificação (podemos detectar via flag), mostramos as 'processada' também
-            is_retif = request.query_params.get("retificacao") == "true"
-            
+            # Conferência normal: só 'ativa'. Retificação: inclui 'processada' também.
             if not is_retif and c.get("status") == "processada":
                 continue
 
@@ -961,25 +952,22 @@ def api_dados_conferencia(condo_id: str, user: dict = Depends(get_current_user),
                 try:
                     res = db.storage.from_("emissoes").create_signed_url(a, 3600)
                     signed_atts.append(res.get('signedURL', a) if isinstance(res, dict) else a)
-                except:
+                except Exception:
                     signed_atts.append(a)
-            cobrancas.append({'id':c.get('id'),'descricao':c.get('description') or 'Cobrança Extra','mes':None,'mes_nome':'—','valor':parse_valor(c.get('amount')),'attachments':signed_atts})
-    except:
-        try:
-            procs = db.table("processos").select("id").eq("condominio_id", condo_id).execute().data or []
-            pids  = [p["id"] for p in procs]
-            if pids:
-                for c in (db.table("cobrancas_extras").select("id,description,amount,attachments").in_("processo_id", pids).neq("status", "cancelada").order("created_at", desc=True).order("parcela_atual").execute().data or []):
-                    atts = c.get('attachments') or []
-                    signed_atts = []
-                    for a in atts:
-                        try:
-                            res = db.storage.from_("emissoes").create_signed_url(a, 3600)
-                            signed_atts.append(res.get('signedURL', a) if isinstance(res, dict) else a)
-                        except:
-                            signed_atts.append(a)
-                    cobrancas.append({'id':c.get('id'),'descricao':c.get('description') or 'Cobrança Extra','mes':None,'mes_nome':'—','valor':parse_valor(c.get('amount')),'attachments':signed_atts})
-        except: pass
+
+            mes_int = c.get('mes')
+            cobrancas.append({
+                'id':          c.get('id'),
+                'descricao':   c.get('description') or 'Cobrança Extra',
+                'mes':         mes_int,
+                'mes_nome':    MESES_PT.get(mes_int, '—'),
+                'ano':         c.get('ano'),
+                'valor':       parse_valor(c.get('amount')),
+                'attachments': signed_atts,
+            })
+    except Exception as e:
+        # Loga o erro real em vez de engolir silenciosamente
+        print(f"[CONFERENCIA] Erro cobrancas_extras: {e}"); traceback.print_exc()
 
     return {
         'planilha': {
