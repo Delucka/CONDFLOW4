@@ -1,0 +1,797 @@
+                                 Relatório de Plano de Contas
+
+                                 Plano de Contas: 0002 - P. CONTAS PADRÃO 2
+                                                 Contas a imprimir: Todas
+                                                   Tipo de Conta: Receita
+
+Nome                             Conta        Código Reduzido                Tipo     Analítica/Sintética
+
+ORDINARIA-COMUM                  01.000 - 00                    12247        Receita  Sintética
+  COTAS EM ABERTO                01.001 - 00                    12251        Receita  Sintética
+  CONDOMINIO - GUBBIO            01.002 - 00                    12261        Receita  Sintética
+  CONDOMINIO - PERUGIA           01.003 - 00                    12878        Receita  Sintética
+  CONDOMINIO - ASSISI            01.004 - 00                    12879        Receita  Sintética
+  CONDOMINIO - SPOLETO           01.005 - 00                    12880        Receita  Sintética
+  CONDOMINIO - AREZZO            01.006 - 00                    12881        Receita  Sintética
+  UTILIZAÇÃO SALÃO DE FESTAS     01.007 - 00                    12262        Receita  Sintética
+  MULTA INFRAÇÃO REGULAMENTO     01.012 - 00                    12263        Receita  Sintética
+  GARAGEM                        01.014 - 00                    12274        Receita  Sintética
+  CORREIOS                       01.033 - 00                    12264        Receita  Sintética
+  PAGAMENTO EFETUADO A MAIOR     01.039 - 00                    16231        Receita  Sintética
+  PAGAMENTO EFETUADO A MENOR     01.040 - 00                    16232        Receita  Sintética
+  CONTROLE REMOTO                01.041 - 00                    12265        Receita  Sintética
+  SEGUROS                        01.044 - 00                    13218        Receita  Sintética
+  DEFICIT.CAIXA                  01.050 - 00                    12931        Receita  Sintética
+  REEMBOLSOS                     01.064 - 00                    12266        Receita  Sintética
+  ALUGUEL                        01.079 - 00                    12272        Receita  Sintética
+  ESTORNOS                       01.154 - 00                    12267        Receita  Sintética
+  TRANSFERÊNCIAS                 01.161 - 00                    12271        Receita  Sintética
+  N. FISCAL PAULISTA/PAULISTANA  01.300 - 00                    13133        Receita  Sintética
+  RECEITAS DIVERSAS              01.450 - 00                    12273        Receita  Sintética
+  XX                             01.501 - 00                    12288        Receita  Sintética
+  A.V.C.B.                       01.760 - 00                    14538        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      01.800 - 00                    15875        Receita  Sintética
+  HONORARIOS                     01.980 - 00                    12275        Receita  Sintética
+  CUSTAS PROCESSUAIS             01.981 - 00                    12276        Receita  Sintética
+  DESCONTOS                      01.991 - 00                    12257        Receita  Sintética
+  ACORDOS SOBRE DÉBITOS          01.992 - 00                    12268        Receita  Sintética
+  ACORDOS JUDICIAIS              01.993 - 00                    12269        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            01.994 - 00                    12259        Receita  Sintética
+  JUROS S/ DEBITOS               01.995 - 00                    12270        Receita  Sintética
+  MULTA ATRASO PAGAMENTO         01.998 - 00                    12253        Receita  Sintética
+  COTAS ANTECIPADAS              01.999 - 00                    12255        Receita
+                                 02.000 - 00                    12306        Receita  Sintética
+FDO RESERVA-COMUM                02.001 - 00                    12307        Receita  Sintética
+  COTAS EM ABERTO                02.002 - 00                    12312        Receita  Sintética
+  FUNDO DE RESERVA - GUBBIO      02.003 - 00                    12882        Receita  Sintética
+  FUNDO DE RESERVA - PERUGIA     02.004 - 00                    12883        Receita  Sintética
+  FUNDO DE RESERVA - ASSISI      02.005 - 00                    12884        Receita  Sintética
+  FUNDO DE RESERVA - SPOLETO     02.006 - 00                    12885        Receita  Sintética
+  FUNDO DE RESERVA - AREZZO      02.007 - 00                    12313        Receita  Sintética
+  UTILIZACAO SALAO DE FESTAS     02.012 - 00                    12314        Receita  Sintética
+  MULTA INFRAÇÃO REGULAMENTO     02.014 - 00                    12315        Receita  Sintética
+  GARAGEM                        02.033 - 00                    12316        Receita  Sintética
+  CORREIOS                       02.041 - 00                    12317        Receita  Sintética
+  CONTROLE REMOTO                02.064 - 00                    12318        Receita  Sintética
+  REEMBOLSOS                     02.079 - 00                    12319        Receita  Sintética
+  ALUGUEL                        02.154 - 00                    12320        Receita  Sintética
+  ESTORNOS                       02.161 - 00                    12321        Receita  Sintética
+  TRANSFERÊNCIAS                 02.450 - 00                    12322        Receita  Sintética
+  RECEITAS DIVERSAS              02.800 - 00                    15876        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      02.991 - 00                    12311        Receita  Sintética
+  DESCONTOS                      02.994 - 00                    12310        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            02.995 - 00                    12913        Receita  Sintética
+  JUROS S/ DEBITOS               02.998 - 00                    12308        Receita  Sintética
+  MULTAS                         02.999 - 00                    12309        Receita
+  ANTECIPAÇÕES                   03.000 - 00                    12323        Receita  Sintética
+                                 03.001 - 00                    12324        Receita  Sintética
+FDO OBRAS-COMUM                  03.002 - 00                    12329        Receita  Sintética
+  COTAS EM ABERTO                03.003 - 00                    12887        Receita  Sintética
+  FUNDO OBRAS - GUBBIO           03.004 - 00                    12888        Receita  Sintética
+  FUNDO OBRAS - PERUGIA          03.005 - 00                    12889        Receita  Sintética
+  FUNDO OBRAS - ASSISI           03.006 - 00                    12890        Receita  Sintética
+  FUNDO OBRAS - SPOLETO          03.007 - 00                    12330        Receita  Sintética
+  FUNDO OBRAS - AREZZO           03.012 - 00                    12331        Receita  Sintética
+  UTILIZAÇÃO SALÃO DE FESTAS     03.014 - 00                    12332        Receita  Sintética
+  MULTA INFRAÇÃO REGULAMENTO     03.033 - 00                    12333        Receita  Sintética
+  GARAGEM                        03.041 - 00                    12334        Receita  Sintética
+  CORREIOS                       03.064 - 00                    12335        Receita  Sintética
+  CONTROLE REMOTO                03.079 - 00                    12336        Receita
+  REEMBOLSOS
+  ALUGUEL
+
+                                                                             Emitido em 15/ 05/2026 15:16: 16 - Página 1 de 10
+                              Relatório de Plano de Contas
+
+                              Plano de Contas: 0002 - P. CONTAS PADRÃO 2
+                                              Contas a imprimir: Todas
+                                                Tipo de Conta: Receita
+
+Nome                          Conta        Código Reduzido                Tipo     Analítica/Sintética
+                                                                                   Sintética
+  ESTORNOS                    03.154 - 00                    12337        Receita  Sintética
+  TRANSFERÊNCIAS              03.161 - 00                    12338        Receita  Sintética
+  RECEITAS DIVERSAS           03.450 - 00                    12339        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES   03.800 - 00                    15877        Receita  Sintética
+  DESCONTOS                   03.991 - 00                    12328        Receita  Sintética
+  CORREÇÃO S/ DEBITOS         03.994 - 00                    12327        Receita  Sintética
+  JUROS S/ DEBITOS            03.995 - 00                    12914        Receita  Sintética
+  MULTAS                      03.998 - 00                    12325        Receita  Sintética
+  ANTECIPAÇÕES                03.999 - 00                    12326        Receita
+FDO 13º SALARIO - COMUM       04.000 - 00                    12340        Receita  Sintética
+  COTAS EM ABERTO             04.001 - 00                    12341        Receita  Sintética
+  13º SALARIO - GUBBIO        04.002 - 00                    12346        Receita  Sintética
+  13º SALARIO - PERUGIA       04.003 - 00                    12891        Receita  Sintética
+  13º SALARIO - ASSISI        04.004 - 00                    12892        Receita  Sintética
+  13º SALARIO - SPOLETO       04.005 - 00                    12893        Receita  Sintética
+  13º SALARIO - AREZZO        04.006 - 00                    12894        Receita  Sintética
+  UTILIZAÇÃO SALÃO DE FESTAS  04.007 - 00                    12347        Receita  Sintética
+  MULTA INFRAÇÃO REGULAMENTO  04.012 - 00                    12348        Receita  Sintética
+  GARAGEM                     04.014 - 00                    12349        Receita  Sintética
+  CORREIOS                    04.033 - 00                    12350        Receita  Sintética
+  CONTROLE REMOTO             04.041 - 00                    12351        Receita  Sintética
+  REEMBOLSOS                  04.064 - 00                    12352        Receita  Sintética
+  ALUGUEL                     04.079 - 00                    12353        Receita  Sintética
+  ESTORNOS                    04.154 - 00                    12354        Receita  Sintética
+  TRANSFERÊNCIAS              04.161 - 00                    12355        Receita  Sintética
+  RECEITAS DIVERSAS           04.450 - 00                    12356        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES   04.800 - 00                    15878        Receita  Sintética
+  DESCONTOS                   04.991 - 00                    12345        Receita  Sintética
+  CORREÇÃO S/ DEBITOS         04.994 - 00                    12344        Receita  Sintética
+  JUROS S/ DEBITOS            04.995 - 00                    12915        Receita  Sintética
+  MULTAS                      04.998 - 00                    12342        Receita  Sintética
+  ANTECIPAÇÕES                04.999 - 00                    12343        Receita
+EXTRAORDINARIAS - COMUM       05.000 - 00                    12357        Receita  Sintética
+  COTAS EM ABERTO             05.001 - 00                    12358        Receita  Sintética
+  FDO.BENFEITORIAS - GUBBIO   05.002 - 00                    12363        Receita  Sintética
+  FDO.BENFEITORIAS - PERUGIA  05.003 - 00                    12895        Receita  Sintética
+  FDO.BENFEITORIAS - ASSISI   05.004 - 00                    12896        Receita  Sintética
+  FDO.BENFEITORIAS - SPOLETO  05.005 - 00                    12897        Receita  Sintética
+  FDO.BENFEITORIAS - AREZZO   05.006 - 00                    12898        Receita  Sintética
+  UTILIZAÇÃO SALÃO DE FESTAS  05.007 - 00                    12364        Receita  Sintética
+  MULTA INFRAÇÃO REGULAMENTO  05.012 - 00                    12365        Receita  Sintética
+  GARAGEM                     05.014 - 00                    12366        Receita  Sintética
+  CORREIOS                    05.033 - 00                    12367        Receita  Sintética
+  CONTROLE REMOTO             05.041 - 00                    12368        Receita  Sintética
+  REEMBOLSOS                  05.064 - 00                    12369        Receita  Sintética
+  ALUGUEL                     05.079 - 00                    12370        Receita  Sintética
+  ESTORNOS                    05.154 - 00                    12371        Receita  Sintética
+  TRANSFERÊNCIAS              05.161 - 00                    12372        Receita  Sintética
+  RECEITAS DIVERSAS           05.450 - 00                    12373        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES   05.800 - 00                    15879        Receita  Sintética
+  DESCONTOS                   05.991 - 00                    12362        Receita  Sintética
+  CORREÇÃO S/ DEBITOS         05.994 - 00                    12361        Receita  Sintética
+  JUROS S/ DEBITOS            05.995 - 00                    12916        Receita  Sintética
+  MULTAS                      05.998 - 00                    12359        Receita  Sintética
+  ANTECIPAÇÕES                05.999 - 00                    12360        Receita
+CAIXINHA PEQUENAS DESPESAS    06.000 - 00                    12374        Receita  Sintética
+  COTAS EM ABERTO             06.001 - 00                    12375        Receita  Sintética
+  CAIXINHA PEQUENAS DESPESAS  06.002 - 00                    12380        Receita  Sintética
+  UTILIZAÇÃO SALÃO DE FESTAS  06.007 - 00                    12381        Receita  Sintética
+  MULTA INFRAÇÃO REGULAMENTO  06.012 - 00                    12382        Receita  Sintética
+  GARAGEM                     06.014 - 00                    12383        Receita  Sintética
+  CORREIOS                    06.033 - 00                    12384        Receita  Sintética
+  CONTROLE REMOTO             06.041 - 00                    12385        Receita  Sintética
+  REEMBOLSOS                  06.064 - 00                    12386        Receita  Sintética
+  ALUGUEL                     06.079 - 00                    12387        Receita  Sintética
+  ESTORNOS                    06.154 - 00                    12388        Receita  Sintética
+  TRANSFERÊNCIAS              06.161 - 00                    12389        Receita  Sintética
+  RECEITAS DIVERSAS           06.450 - 00                    12390        Receita  Sintética
+  DESCONTOS                   06.991 - 00                    12379        Receita  Sintética
+  CORREÇÃO S/ DEBITOS         06.994 - 00                    12378        Receita  Sintética
+  JUROS S/ DEBITOS            06.995 - 00                    14607        Receita
+
+                                                                          Emitido em 15/ 05/2026 15:16: 16 - Página 2 de 10
+                                Relatório de Plano de Contas
+
+                                Plano de Contas: 0002 - P. CONTAS PADRÃO 2
+                                                Contas a imprimir: Todas
+                                                  Tipo de Conta: Receita
+
+Nome                            Conta        Código Reduzido                Tipo     Analítica/Sintética
+                                                                                     Sintética
+  MULTAS                        06.998 - 00                    12376        Receita  Sintética
+  ANTECIPAÇÕES                  06.999 - 00                    12377        Receita
+ORDINARIA - GUBBIO              08.000 - 00                    12391        Receita  Sintética
+  COTAS EM ABERTO               08.001 - 00                    12392        Receita  Sintética
+  CONDOMINIO - COMUM            08.002 - 00                    12397        Receita  Sintética
+  RECEITAS DIVERSAS             08.005 - 00                    12398        Receita  Sintética
+  ESTORNOS                      08.010 - 00                    12399        Receita  Sintética
+  REPAROS / REFORMAS            08.015 - 00                    12400        Receita  Sintética
+  TRANSFERÊNCIAS                08.020 - 00                    12401        Receita  Sintética
+  PAGAMENTO EFETUADO A MAIOR    08.039 - 00                    16233        Receita  Sintética
+  PAGAMENTO EFETUADO A MENOR    08.040 - 00                    16234        Receita  Sintética
+  A.V.C.B.                      08.045 - 00                    14654        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES     08.090 - 00                    12402        Receita  Sintética
+  DESCONTOS                     08.991 - 00                    12396        Receita  Sintética
+  CORREÇÃO S/ DEBITOS           08.994 - 00                    12395        Receita  Sintética
+  JUROS S/ DEBITOS              08.995 - 00                    12917        Receita  Sintética
+  MULTAS                        08.998 - 00                    12393        Receita  Sintética
+  ANTECIPAÇÕES                  08.999 - 00                    12394        Receita
+GUBBIO - FUNDO DE RESERVA       09.000 - 00                    12405        Receita  Sintética
+  COTAS EM ABERTO               09.001 - 00                    12406        Receita  Sintética
+  FUNDO DE RESERVA              09.002 - 00                    12411        Receita  Sintética
+  RECEITAS DIVERSAS             09.005 - 00                    12412        Receita  Sintética
+  ESTORNOS                      09.010 - 00                    12413        Receita  Sintética
+  REPAROS / REFORMAS            09.015 - 00                    12414        Receita  Sintética
+  TRANSFERÊNCIAS                09.020 - 00                    12415        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES     09.090 - 00                    12416        Receita  Sintética
+  XX                            09.500 - 00                    12417        Receita  Sintética
+  XX                            09.520 - 00                    12418        Receita  Sintética
+  DESCONTOS                     09.991 - 00                    12410        Receita  Sintética
+  CORREÇÃO S/ DEBITOS           09.994 - 00                    12409        Receita  Sintética
+  JUROS S/ DEBITOS              09.995 - 00                    14608        Receita  Sintética
+  MULTAS                        09.998 - 00                    12407        Receita  Sintética
+  ANTECIPAÇÕES                  09.999 - 00                    12408        Receita
+GUBBIO - FUNDO DE OBRAS         10.000 - 00                    12421        Receita  Sintética
+  COTAS EM ABERTO               10.001 - 00                    12422        Receita  Sintética
+  FUNDO OBRAS - COMUM           10.002 - 00                    12427        Receita  Sintética
+  RECEITAS DIVERSAS             10.005 - 00                    12428        Receita  Sintética
+  ESTORNOS                      10.010 - 00                    12429        Receita  Sintética
+  REPAROS / REFORMAS            10.015 - 00                    12430        Receita  Sintética
+  TRANSFERÊNCIAS                10.020 - 00                    12431        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES     10.090 - 00                    12432        Receita  Sintética
+  DESCONTOS                     10.991 - 00                    12426        Receita  Sintética
+  CORREÇÃO S/ DEBITOS           10.994 - 00                    12425        Receita  Sintética
+  JUROS S/ DEBITOS              10.995 - 00                    14609        Receita  Sintética
+  MULTAS                        10.998 - 00                    12423        Receita  Sintética
+  ANTECIPAÇÕES                  10.999 - 00                    12424        Receita
+GUBBIO - FDO. EXTRAORDINARIO    11.000 - 00                    12435        Receita  Sintética
+  COTAS EM ABERTO               11.001 - 00                    12436        Receita  Sintética
+  FUNDO EXTRAORDINARIO - COMUM  11.002 - 00                    12441        Receita  Sintética
+  RECEITAS DIVERSAS             11.005 - 00                    12442        Receita  Sintética
+  ESTORNOS                      11.010 - 00                    12443        Receita  Sintética
+  REPAROS / REFORMAS            11.015 - 00                    12444        Receita  Sintética
+  TRANSFERÊNCIAS                11.020 - 00                    12445        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES     11.090 - 00                    12446        Receita  Sintética
+  DESCONTOS                     11.991 - 00                    12440        Receita  Sintética
+  CORREÇÃO S/ DEBITOS           11.994 - 00                    12439        Receita  Sintética
+  JUROS S/ DEBITOS              11.995 - 00                    14610        Receita  Sintética
+  MULTAS                        11.998 - 00                    12437        Receita  Sintética
+  ANTECIPAÇÕES                  11.999 - 00                    12438        Receita
+GUBBIO - ORDINARIA PARTICULAR   12.000 - 00                    12449        Receita  Sintética
+  COTAS EM ABERTO               12.001 - 00                    12450        Receita  Sintética
+  ORDINARIA - PARTICULAR        12.002 - 00                    12455        Receita  Sintética
+  DEFICIT.CAIXA - GUBBIO        12.003 - 00                    12901        Receita  Sintética
+  RECEITAS DIVERSAS             12.005 - 00                    12456        Receita  Sintética
+  GAS                           12.009 - 00                    12886        Receita  Sintética
+  ESTORNOS                      12.010 - 00                    12457        Receita  Sintética
+  REPAROS / REFORMAS            12.015 - 00                    12458        Receita  Sintética
+  TRANSFERÊNCIAS                12.020 - 00                    12459        Receita  Sintética
+  A.V.C.B.                      12.045 - 00                    14659        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES     12.090 - 00                    12460        Receita  Sintética
+  DESCONTOS                     12.991 - 00                    12454        Receita
+
+                                                                            Emitido em 15/ 05/2026 15:16: 16 - Página 3 de 10
+                                  Relatório de Plano de Contas
+
+                                  Plano de Contas: 0002 - P. CONTAS PADRÃO 2
+                                                  Contas a imprimir: Todas
+                                                    Tipo de Conta: Receita
+
+Nome                              Conta        Código Reduzido                Tipo     Analítica/Sintética
+                                                                                       Sintética
+  CORREÇÃO S/ DEBITOS             12.994 - 00                    12453        Receita  Sintética
+  JUROS S/ DEBITOS                12.995 - 00                    12918        Receita  Sintética
+  MULTAS                          12.998 - 00                    12451        Receita  Sintética
+  ANTECIPAÇÕES                    12.999 - 00                    12452        Receita
+GUBBIO-FDO.RESERVA PARTICULAR     13.000 - 00                    12463        Receita  Sintética
+  COTAS EM ABERTO                 13.001 - 00                    12464        Receita  Sintética
+  F. RESERVA - PARTICULAR         13.002 - 00                    12469        Receita  Sintética
+  RECEITAS DIVERSAS               13.005 - 00                    12470        Receita  Sintética
+  ESTORNOS                        13.010 - 00                    12471        Receita  Sintética
+  REPAROS / REFORMAS              13.015 - 00                    12472        Receita  Sintética
+  TRANSFERÊNCIAS                  13.020 - 00                    12473        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       13.090 - 00                    12474        Receita  Sintética
+  XX                              13.500 - 00                    12475        Receita  Sintética
+  DESCONTOS                       13.991 - 00                    12468        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             13.994 - 00                    12467        Receita  Sintética
+  JUROS S/ DEBITOS                13.995 - 00                    14611        Receita  Sintética
+  MULTAS                          13.998 - 00                    12465        Receita  Sintética
+  ANTECIPAÇÕES                    13.999 - 00                    12466        Receita
+GUBBIO-EXTRAORD.PARTICULAR        15.000 - 00                    12478        Receita  Sintética
+  COTAS EM ABERTO                 15.001 - 00                    12479        Receita  Sintética
+  F. EXTRAORDINARIO - PARTICULAR  15.002 - 00                    12484        Receita  Sintética
+  RECEITAS DIVERSAS               15.005 - 00                    12485        Receita  Sintética
+  ESTORNOS                        15.010 - 00                    12486        Receita  Sintética
+  TRANSFERÊNCIAS                  15.020 - 00                    12487        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       15.090 - 00                    12488        Receita  Sintética
+  TRANSFERÊNCIAS                  15.520 - 00                    12490        Receita  Sintética
+  DESCONTOS                       15.991 - 00                    12483        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             15.994 - 00                    12482        Receita  Sintética
+  JUROS S/ DEBITOS                15.995 - 00                    14612        Receita  Sintética
+  MULTAS                          15.998 - 00                    12480        Receita  Sintética
+  ANTECIPAÇÕES                    15.999 - 00                    12481        Receita
+PERUGIA - ORDINARIA               16.000 - 00                    12491        Receita  Sintética
+  COTAS EM ABERTO                 16.001 - 00                    12492        Receita  Sintética
+  ORDINARIA - COMUM               16.002 - 00                    12497        Receita  Sintética
+  RECEITAS DIVERSAS               16.005 - 00                    12498        Receita  Sintética
+  ESTORNOS                        16.010 - 00                    12499        Receita  Sintética
+  TRANSFERÊNCIAS                  16.020 - 00                    12500        Receita  Sintética
+  PAGAMENTO EFETUADO A MAIOR      16.039 - 00                    16235        Receita  Sintética
+  PAGAMENTO EFETUADO A MENOR      16.040 - 00                    16236        Receita  Sintética
+  A.V.C.B.                        16.045 - 00                    14655        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       16.090 - 00                    12501        Receita  Sintética
+  DESCONTOS                       16.991 - 00                    12496        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             16.994 - 00                    12495        Receita  Sintética
+  JUROS S/ DEBITOS                16.995 - 00                    14613        Receita  Sintética
+  MULTAS                          16.998 - 00                    12493        Receita  Sintética
+  ANTECIPAÇÕES                    16.999 - 00                    12494        Receita
+PERUGIA - FDO. DE RESERVA         17.000 - 00                    12504        Receita  Sintética
+  COTAS EM ABERTO                 17.001 - 00                    12505        Receita  Sintética
+  FUNDO DE RESERVA - COMUM        17.002 - 00                    12510        Receita  Sintética
+  RECEITAS DIVERSAS               17.005 - 00                    12511        Receita  Sintética
+  ESTORNOS                        17.010 - 00                    12512        Receita  Sintética
+  TRANSFERÊNCIAS                  17.020 - 00                    12513        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       17.090 - 00                    12514        Receita  Sintética
+  DESCONTOS                       17.991 - 00                    12509        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             17.994 - 00                    12508        Receita  Sintética
+  JUROS S/ DEBITOS                17.995 - 00                    14614        Receita  Sintética
+  MULTAS                          17.998 - 00                    12506        Receita  Sintética
+  ANTECIPAÇÕES                    17.999 - 00                    12507        Receita
+PERUGIA - FUNDO DE OBRAS          18.000 - 00                    12517        Receita  Sintética
+  COTAS EM ABERTO                 18.001 - 00                    12518        Receita  Sintética
+  FUNDO DE OBRAS - COMUM          18.002 - 00                    12523        Receita  Sintética
+  RECEITAS DIVERSAS               18.005 - 00                    12524        Receita  Sintética
+  ESTORNOS                        18.010 - 00                    12525        Receita  Sintética
+  TRANSFERÊNCIAS                  18.020 - 00                    12526        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       18.090 - 00                    12527        Receita  Sintética
+  DESCONTOS                       18.991 - 00                    12522        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             18.994 - 00                    12521        Receita  Sintética
+  JUROS S/ DEBITOS                18.995 - 00                    14615        Receita  Sintética
+  MULTAS                          18.998 - 00                    12519        Receita  Sintética
+  ANTECIPAÇÕES                    18.999 - 00                    12520        Receita
+PERUGIA - FUNDO EXTRAORDINARIO    19.000 - 00                    12530        Receita
+
+                                                                              Emitido em 15/ 05/2026 15:16: 16 - Página 4 de 10
+                                  Relatório de Plano de Contas
+
+                                  Plano de Contas: 0002 - P. CONTAS PADRÃO 2
+                                                  Contas a imprimir: Todas
+                                                    Tipo de Conta: Receita
+
+Nome                              Conta        Código Reduzido                Tipo     Analítica/Sintética
+                                                                                       Sintética
+  COTAS EM ABERTO                 19.001 - 00                    12531        Receita  Sintética
+  FUNDO EXTRAORDINARIO - COMUM    19.002 - 00                    12536        Receita  Sintética
+  RECEITAS DIVERSAS               19.005 - 00                    12537        Receita  Sintética
+  ESTORNOS                        19.010 - 00                    12538        Receita  Sintética
+  TRANSFERÊNCIAS                  19.020 - 00                    12539        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       19.090 - 00                    12540        Receita  Sintética
+  DESCONTOS                       19.991 - 00                    12535        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             19.994 - 00                    12534        Receita  Sintética
+  JUROS S/ DEBITOS                19.995 - 00                    14616        Receita  Sintética
+  MULTAS                          19.998 - 00                    12532        Receita  Sintética
+  ANTECIPAÇÕES                    19.999 - 00                    12533        Receita
+PERUGIA-ORDINARIA PARTICULAR      20.000 - 00                    12543        Receita  Sintética
+  COTAS EM ABERTO                 20.001 - 00                    12544        Receita  Sintética
+  ORDINARIA - PARTICULAR          20.002 - 00                    12549        Receita  Sintética
+  DEFICIT.CAIXA - PERUGIA         20.003 - 00                    12908        Receita  Sintética
+  RECEITAS DIVERSAS               20.005 - 00                    12550        Receita  Sintética
+  ESTORNOS                        20.010 - 00                    12552        Receita  Sintética
+  TRANSFERÊNCIAS                  20.020 - 00                    12551        Receita  Sintética
+  A.V.C.B.                        20.045 - 00                    14660        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       20.090 - 00                    12553        Receita  Sintética
+  DESCONTOS                       20.991 - 00                    12548        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             20.994 - 00                    12547        Receita  Sintética
+  JUROS S/ DEBITOS                20.995 - 00                    12919        Receita  Sintética
+  MULTAS                          20.998 - 00                    12545        Receita  Sintética
+  ANTECIPAÇÕES                    20.999 - 00                    12546        Receita
+PERUGIA-FDO.RESERVA PARTICULAR    22.000 - 00                    12556        Receita  Sintética
+  COTAS EM ABERTO                 22.001 - 00                    12557        Receita  Sintética
+  FUNDO RESERVA - PARTICULAR      22.002 - 00                    12562        Receita  Sintética
+  RECEITAS DIVERSAS               22.005 - 00                    12563        Receita  Sintética
+  ESTORNOS                        22.010 - 00                    12564        Receita  Sintética
+  TRANSFERÊNCIAS                  22.020 - 00                    12565        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       22.090 - 00                    12965        Receita  Sintética
+  DESCONTOS                       22.991 - 00                    12561        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             22.994 - 00                    12560        Receita  Sintética
+  JUROS S/ DEBITOS                22.995 - 00                    14617        Receita  Sintética
+  MULTAS                          22.998 - 00                    12558        Receita  Sintética
+  ANTECIPAÇÕES                    22.999 - 00                    12559        Receita
+PERUGIA- EXTRAORD.PARTICULAR      23.000 - 00                    12568        Receita  Sintética
+  COTAS EM ABERTO                 23.001 - 00                    12569        Receita  Sintética
+  FDO EXTRAORDINARIO- PARTICULAR  23.002 - 00                    12574        Receita  Sintética
+  RECEITAS DIVERSAS               23.005 - 00                    12575        Receita  Sintética
+  ESTORNOS                        23.010 - 00                    12576        Receita  Sintética
+  TRANSFERÊNCIAS                  23.020 - 00                    12577        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       23.090 - 00                    12578        Receita  Sintética
+  TRANSFERÊNCIAS                  23.520 - 00                    12580        Receita  Sintética
+  DESCONTOS                       23.991 - 00                    12573        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             23.994 - 00                    12572        Receita  Sintética
+  JUROS S/ DEBITOS                23.995 - 00                    14618        Receita  Sintética
+  MULTAS                          23.998 - 00                    12570        Receita  Sintética
+  ANTECIPAÇÕES                    23.999 - 00                    12571        Receita
+ASSISI - ORDINARIA                24.000 - 00                    12581        Receita  Sintética
+  COTAS EM ABERTO                 24.001 - 00                    12582        Receita  Sintética
+  ORDINARIA - COMUM               24.002 - 00                    12587        Receita  Sintética
+  RECEITAS DIVERSAS               24.005 - 00                    12588        Receita  Sintética
+  ESTORNOS                        24.010 - 00                    12589        Receita  Sintética
+  TRANSFERÊNCIAS                  24.020 - 00                    12590        Receita  Sintética
+  PAGAMENTO EFETUADO A MAIOR      24.039 - 00                    16237        Receita  Sintética
+  PAGAMENTO EFETUADO A MENOR      24.040 - 00                    16238        Receita  Sintética
+  A.V.C.B.                        24.045 - 00                    14656        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       24.090 - 00                    15880        Receita  Sintética
+  TRANSFERÊNCIAS                  24.520 - 00                    12592        Receita  Sintética
+  DESCONTOS                       24.991 - 00                    12586        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             24.994 - 00                    12585        Receita  Sintética
+  JUROS S/ DEBITOS                24.995 - 00                    14619        Receita  Sintética
+  MULTAS                          24.998 - 00                    12583        Receita  Sintética
+  ANTECIPAÇÕES                    24.999 - 00                    12584        Receita
+ASSISI - FUNDO DE RESERVA         25.000 - 00                    12593        Receita  Sintética
+  COTAS EM ABERTO                 25.001 - 00                    12594        Receita  Sintética
+  FUNDO DE RESERVA - COMUM        25.002 - 00                    12599        Receita  Sintética
+  RECEITAS DIVERSAS               25.005 - 00                    12600        Receita  Sintética
+  ESTORNOS                        25.010 - 00                    12601        Receita
+
+                                                                              Emitido em 15/ 05/2026 15:16: 16 - Página 5 de 10
+                                 Relatório de Plano de Contas
+
+                                 Plano de Contas: 0002 - P. CONTAS PADRÃO 2
+                                                 Contas a imprimir: Todas
+                                                   Tipo de Conta: Receita
+
+Nome                             Conta        Código Reduzido                Tipo     Analítica/Sintética
+                                                                                      Sintética
+  TRANSFERÊNCIAS                 25.020 - 00                    12602        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      25.090 - 00                    15881        Receita  Sintética
+  DESCONTOS                      25.991 - 00                    12598        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            25.994 - 00                    12597        Receita  Sintética
+  JUROS S/ DEBITOS               25.995 - 00                    14620        Receita  Sintética
+  MULTAS                         25.998 - 00                    12595        Receita  Sintética
+  ANTECIPAÇÕES                   25.999 - 00                    12596        Receita
+ASSISI - FUNDO DE OBRAS          26.000 - 00                    12605        Receita  Sintética
+  COTAS EM ABERTO                26.001 - 00                    12606        Receita  Sintética
+  FUNDO OBRAS - COMUM            26.002 - 00                    12611        Receita  Sintética
+  RECEITAS DIVERSAS              26.005 - 00                    12612        Receita  Sintética
+  ESTORNOS                       26.010 - 00                    12613        Receita  Sintética
+  TRANSFERÊNCIAS                 26.020 - 00                    12614        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      26.090 - 00                    15882        Receita  Sintética
+  DESCONTOS                      26.991 - 00                    12610        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            26.994 - 00                    12609        Receita  Sintética
+  JUROS S/ DEBITOS               26.995 - 00                    14621        Receita  Sintética
+  MULTAS                         26.998 - 00                    12607        Receita  Sintética
+  ANTECIPAÇÕES                   26.999 - 00                    12608        Receita
+ASSISI - FUNDO EXTRAORDINARIO    27.000 - 00                    12617        Receita  Sintética
+  COTAS EM ABERTO                27.001 - 00                    12618        Receita  Sintética
+  FUNDO EXTRAORDINARIO - COMUM   27.002 - 00                    12623        Receita  Sintética
+  RECEITAS DIVERSAS              27.005 - 00                    12624        Receita  Sintética
+  ESTORNOS                       27.010 - 00                    12625        Receita  Sintética
+  TRANSFERÊNCIAS                 27.020 - 00                    12626        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      27.090 - 00                    15883        Receita  Sintética
+  DESCONTOS                      27.991 - 00                    12622        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            27.994 - 00                    12621        Receita  Sintética
+  JUROS S/ DEBITOS               27.995 - 00                    14622        Receita  Sintética
+  MULTAS                         27.998 - 00                    12619        Receita  Sintética
+  ANTECIPAÇÕES                   27.999 - 00                    12620        Receita
+ASSISI - ORDINARIA PARTICULAR    29.000 - 00                    12629        Receita  Sintética
+  COTAS EM ABERTO                29.001 - 00                    12630        Receita  Sintética
+  ORDINARIA - PARTICULAR         29.002 - 00                    12635        Receita  Sintética
+  DEFICIT.CAIXA - ASSISI         29.003 - 00                    12907        Receita  Sintética
+  RECEITAS DIVERSAS              29.005 - 00                    12636        Receita  Sintética
+  ESTORNOS                       29.010 - 00                    12637        Receita  Sintética
+  TRANSFERÊNCIAS                 29.020 - 00                    12638        Receita  Sintética
+  A.V.C.B.                       29.045 - 00                    14661        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      29.090 - 00                    15884        Receita  Sintética
+  DESCONTOS                      29.991 - 00                    12634        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            29.994 - 00                    12633        Receita  Sintética
+  JUROS S/ DEBITOS               29.995 - 00                    12920        Receita  Sintética
+  MULTAS                         29.998 - 00                    12631        Receita  Sintética
+  ANTECIPAÇÕES                   29.999 - 00                    12632        Receita
+ASSISI - F. RESERVA PARTICULAR   30.000 - 00                    12641        Receita  Sintética
+  COTAS EM ABERTO                30.001 - 00                    12642        Receita  Sintética
+  FDO.RESERVA - PARTICULAR       30.002 - 00                    12647        Receita  Sintética
+  RECEITAS DIVERSAS              30.005 - 00                    12648        Receita  Sintética
+  ESTORNOS                       30.010 - 00                    12649        Receita  Sintética
+  TRANSFERÊNCIAS                 30.020 - 00                    12650        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      30.090 - 00                    12966        Receita  Sintética
+  DESCONTOS                      30.991 - 00                    12646        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            30.994 - 00                    12645        Receita  Sintética
+  JUROS S/ DEBITOS               30.995 - 00                    14623        Receita  Sintética
+  MULTAS                         30.998 - 00                    12643        Receita  Sintética
+  ANTECIPAÇÕES                   30.999 - 00                    12644        Receita
+ASSISI - EXTRAORD. PARTICULAR    31.000 - 00                    12653        Receita  Sintética
+  COTAS EM ABERTO                31.001 - 00                    12654        Receita  Sintética
+  F. EXTRAORDINARIO- PARTICULAR  31.002 - 00                    12659        Receita  Sintética
+  RECEITAS DIVERSAS              31.005 - 00                    12660        Receita  Sintética
+  ESTORNOS                       31.010 - 00                    12661        Receita  Sintética
+  TRANSFERÊNCIAS                 31.020 - 00                    12662        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      31.090 - 00                    12967        Receita  Sintética
+  DESCONTOS                      31.991 - 00                    12658        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            31.994 - 00                    12657        Receita  Sintética
+  JUROS S/ DEBITOS               31.995 - 00                    14624        Receita  Sintética
+  MULTAS                         31.998 - 00                    12655        Receita  Sintética
+  ANTECIPAÇÕES                   31.999 - 00                    12656        Receita
+SPOLETO - ORDINARIA              32.000 - 00                    12665        Receita  Sintética
+  COTAS EM ABERTO                32.001 - 00                    12666        Receita
+
+                                                                             Emitido em 15/ 05/2026 15:16: 16 - Página 6 de 10
+                                Relatório de Plano de Contas
+
+                                Plano de Contas: 0002 - P. CONTAS PADRÃO 2
+                                                Contas a imprimir: Todas
+                                                  Tipo de Conta: Receita
+
+Nome                            Conta        Código Reduzido                Tipo     Analítica/Sintética
+                                                                                     Sintética
+  ORDINARIA - COMUM             32.002 - 00                    12671        Receita  Sintética
+  RECEITAS DIVERSAS             32.005 - 00                    12672        Receita  Sintética
+  ESTORNOS                      32.010 - 00                    12673        Receita  Sintética
+  TRANSFERÊNCIAS                32.020 - 00                    12674        Receita  Sintética
+  PAGAMENTO EFETUADO A MAIOR    32.039 - 00                    16239        Receita  Sintética
+  PAGAMENTO EFETUADO A MENOR    32.040 - 00                    16240        Receita  Sintética
+  A.V.C.B.                      32.045 - 00                    14657        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES     32.090 - 00                    15885        Receita  Sintética
+  DESCONTOS                     32.991 - 00                    12670        Receita  Sintética
+  CORREÇÃO S/ DEBITOS           32.994 - 00                    12669        Receita  Sintética
+  JUROS S/ DEBITOS              32.995 - 00                    14625        Receita  Sintética
+  MULTAS                        32.998 - 00                    12667        Receita  Sintética
+  ANTECIPAÇÕES                  32.999 - 00                    12668        Receita
+SPOLETO - FUNDO DE RESERVA      33.000 - 00                    12677        Receita  Sintética
+  COTAS EM ABERTO               33.001 - 00                    12678        Receita  Sintética
+  FUNDO DE RESERVA - COMUM      33.002 - 00                    12683        Receita  Sintética
+  RECEITAS DIVERSAS             33.005 - 00                    12684        Receita  Sintética
+  ESTORNOS                      33.010 - 00                    12685        Receita  Sintética
+  TRANSFERÊNCIAS                33.020 - 00                    12686        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES     33.090 - 00                    15886        Receita  Sintética
+  DESCONTOS                     33.991 - 00                    12682        Receita  Sintética
+  CORREÇÃO S/ DEBITOS           33.994 - 00                    12681        Receita  Sintética
+  JUROS S/ DEBITOS              33.995 - 00                    14626        Receita  Sintética
+  MULTAS                        33.998 - 00                    12679        Receita  Sintética
+  ANTECIPAÇÕES                  33.999 - 00                    12680        Receita
+SPOLETO - FUNDO DE OBRAS        34.000 - 00                    12689        Receita  Sintética
+  COTAS EM ABERTO               34.001 - 00                    12690        Receita  Sintética
+  FUNDO OBRAS - COMUM           34.002 - 00                    12695        Receita  Sintética
+  RECEITAS DIVERSAS             34.005 - 00                    12696        Receita  Sintética
+  ESTORNOS                      34.010 - 00                    12697        Receita  Sintética
+  TRANSFERÊNCIAS                34.020 - 00                    12698        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES     34.090 - 00                    15887        Receita  Sintética
+  DESCONTOS                     34.991 - 00                    12694        Receita  Sintética
+  CORREÇÃO S/ DEBITOS           34.994 - 00                    12693        Receita  Sintética
+  JUROS S/ DEBITOS              34.995 - 00                    14627        Receita  Sintética
+  MULTAS                        34.998 - 00                    12691        Receita  Sintética
+  ANTECIPAÇÕES                  34.999 - 00                    12692        Receita
+SPOLETO - FDO. EXTRAORDINARIO   35.000 - 00                    12710        Receita  Sintética
+  COTAS EM ABERTO               35.001 - 00                    12711        Receita  Sintética
+  FUNDO EXTRAORDINARIO - COMUM  35.002 - 00                    12716        Receita  Sintética
+  RECEITAS DIVERSAS             35.005 - 00                    12717        Receita  Sintética
+  ESTORNOS                      35.010 - 00                    12718        Receita  Sintética
+  REPAROS/REFORMAS              35.015 - 00                    12719        Receita  Sintética
+  TRANSFERENCIAS                35.020 - 00                    12720        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES     35.090 - 00                    12721        Receita  Sintética
+  DESCONTOS                     35.991 - 00                    12715        Receita  Sintética
+  CORREÇÃO S/ DEBITOS           35.994 - 00                    12714        Receita  Sintética
+  JUROS S/ DEBITOS              35.995 - 00                    14628        Receita  Sintética
+  MULTAS                        35.998 - 00                    12712        Receita  Sintética
+  ANTECIPAÇÕES                  35.999 - 00                    12713        Receita
+SPOLETO - ORDINARIA PARTICULAR  36.000 - 00                    12724        Receita  Sintética
+  COTAS EM ABERTO               36.001 - 00                    12725        Receita  Sintética
+  ORDINARIA - PARTICULAR        36.002 - 00                    12730        Receita  Sintética
+  RECEITAS DIVERSAS             36.005 - 00                    12731        Receita  Sintética
+  CONSUMO AGUA/GAS              36.006 - 00                    12863        Receita  Sintética
+  ESTORNOS                      36.010 - 00                    12732        Receita  Sintética
+  REPAROS / REFORMAS            36.015 - 00                    12733        Receita  Sintética
+  TRANSFERENCIAS                36.020 - 00                    12734        Receita  Sintética
+  A.V.C.B.                      36.045 - 00                    14662        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES     36.090 - 00                    12735        Receita  Sintética
+  DESCONTOS                     36.991 - 00                    12729        Receita  Sintética
+  CORREÇÃO S/ DEBITOS           36.994 - 00                    12728        Receita  Sintética
+  JUROS S/ DEBITOS              36.995 - 00                    12921        Receita  Sintética
+  MULTAS                        36.998 - 00                    12726        Receita  Sintética
+  ANTECIPAÇÕES                  36.999 - 00                    12727        Receita
+SPOLETO-FDO.RESERVA PARTICULAR  37.000 - 00                    12738        Receita  Sintética
+  COTAS EM ABERTO               37.001 - 00                    12739        Receita  Sintética
+  FDO. RESERVA - PARTICULAR     37.002 - 00                    12744        Receita  Sintética
+  RECEITAS DIVERSAS             37.005 - 00                    12745        Receita  Sintética
+  ESTORNOS                      37.010 - 00                    12746        Receita  Sintética
+  REPAROS / REFORMAS            37.015 - 00                    12747        Receita
+
+                                                                            Emitido em 15/ 05/2026 15:16: 16 - Página 7 de 10
+                                  Relatório de Plano de Contas
+
+                                  Plano de Contas: 0002 - P. CONTAS PADRÃO 2
+                                                  Contas a imprimir: Todas
+                                                    Tipo de Conta: Receita
+
+Nome                              Conta        Código Reduzido                Tipo     Analítica/Sintética
+                                                                                       Sintética
+  TRANSFERENCIAS                  37.020 - 00                    12748        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       37.090 - 00                    12749        Receita  Sintética
+  DESCONTOS                       37.991 - 00                    12743        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             37.994 - 00                    12742        Receita  Sintética
+  JUROS S/ DEBITOS                37.995 - 00                    14629        Receita  Sintética
+  MULTAS                          37.998 - 00                    12740        Receita  Sintética
+  ANTECIPAÇÕES                    37.999 - 00                    12741        Receita
+SPOLETO-F.EXTRAORD.PARTICULAR     38.000 - 00                    12752        Receita  Sintética
+  COTAS EM ABERTO                 38.001 - 00                    12753        Receita  Sintética
+  F. EXTRAORDINARIO - PARTICULAR  38.002 - 00                    12758        Receita  Sintética
+  RECEITAS DIVERSAS               38.005 - 00                    12759        Receita  Sintética
+  ESTORNOS                        38.010 - 00                    12760        Receita  Sintética
+  TRANSFERENCIAS                  38.020 - 00                    12761        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       38.090 - 00                    12762        Receita  Sintética
+  TRANSFERENCIAS                  38.520 - 00                    12764        Receita  Sintética
+  DESCONTOS                       38.991 - 00                    12757        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             38.994 - 00                    12756        Receita  Sintética
+  JUROS S/ DEBITOS                38.995 - 00                    14630        Receita  Sintética
+  MULTAS                          38.998 - 00                    12754        Receita  Sintética
+  ANTECIPAÇÕES                    38.999 - 00                    12755        Receita
+AREZZO - ORDINARIA                39.000 - 00                    12765        Receita  Sintética
+  COTAS EM ABERTO                 39.001 - 00                    12766        Receita  Sintética
+  ORDINARIA - COMUM               39.002 - 00                    12771        Receita  Sintética
+  RECEITAS DIVERSAS               39.005 - 00                    12772        Receita  Sintética
+  ESTORNOS                        39.010 - 00                    12773        Receita  Sintética
+  REPAROS / REFORMAS              39.015 - 00                    12774        Receita  Sintética
+  TRANSFERENCIAS                  39.020 - 00                    12775        Receita  Sintética
+  PAGAMENTO EFETUADO A MAIOR      39.039 - 00                    16241        Receita  Sintética
+  PAGAMENTO EFETUADO A MENOR      39.040 - 00                    16242        Receita  Sintética
+  A.V.C.B.                        39.045 - 00                    14658        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       39.090 - 00                    12776        Receita  Sintética
+  DESCONTOS                       39.991 - 00                    12770        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             39.994 - 00                    12769        Receita  Sintética
+  JUROS S/ DEBITOS                39.995 - 00                    14631        Receita  Sintética
+  MULTAS                          39.998 - 00                    12767        Receita  Sintética
+  ANTECIPAÇÕES                    39.999 - 00                    12768        Receita
+AREZZO - FUNDO DE RESERVA         40.000 - 00                    12779        Receita  Sintética
+  COTAS EM ABERTO                 40.001 - 00                    12780        Receita  Sintética
+  FUNDO DE RESERVA - COMUM        40.002 - 00                    12785        Receita  Sintética
+  RECEITAS DIVERSAS               40.005 - 00                    12786        Receita  Sintética
+  ESTORNOS                        40.010 - 00                    12787        Receita  Sintética
+  REPAROS / REFORMAS              40.015 - 00                    12788        Receita  Sintética
+  TRANSFERENCIAS                  40.020 - 00                    12789        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       40.090 - 00                    12790        Receita  Sintética
+  DESCONTOS                       40.991 - 00                    12784        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             40.994 - 00                    12783        Receita  Sintética
+  JUROS S/ DEBITOS                40.995 - 00                    14632        Receita  Sintética
+  MULTAS                          40.998 - 00                    12781        Receita  Sintética
+  ANTECIPAÇÕES                    40.999 - 00                    12782        Receita
+AREZZO - FUNDO DE OBRAS           41.000 - 00                    12793        Receita  Sintética
+  COTAS EM ABERTO                 41.001 - 00                    12794        Receita  Sintética
+  FUNDO OBRAS - COMUM             41.002 - 00                    12799        Receita  Sintética
+  RECEITAS DIVERSAS               41.005 - 00                    12800        Receita  Sintética
+  ESTORNOS                        41.010 - 00                    12801        Receita  Sintética
+  REPAROS / REFORMAS              41.015 - 00                    12802        Receita  Sintética
+  TRANSFERENCIAS                  41.020 - 00                    12803        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       41.090 - 00                    12804        Receita  Sintética
+  DESCONTOS                       41.991 - 00                    12798        Receita  Sintética
+  CORREÇÃO S/ DEBITOS             41.994 - 00                    12797        Receita  Sintética
+  JUROS S/ DEBITOS                41.995 - 00                    14633        Receita  Sintética
+  MULTAS                          41.998 - 00                    12795        Receita  Sintética
+  ANTECIPAÇÕES                    41.999 - 00                    12796        Receita
+AREZZO - F. EXTRAORDINARIO        42.000 - 00                    12807        Receita  Sintética
+  COTAS EM ABERTO                 42.001 - 00                    12808        Receita  Sintética
+  FUNDO EXTRAORDINARIO - COMUM    42.002 - 00                    12813        Receita  Sintética
+  RECEITAS DIVERSAS               42.005 - 00                    12814        Receita  Sintética
+  ESTORNOS                        42.010 - 00                    12815        Receita  Sintética
+  REPAROS / REFORMAS              42.015 - 00                    12816        Receita  Sintética
+  TRANSFERENCIAS                  42.020 - 00                    12820        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES       42.090 - 00                    12817        Receita  Sintética
+  DESCONTOS                       42.991 - 00                    12812        Receita
+
+                                                                              Emitido em 15/ 05/2026 15:16: 16 - Página 8 de 10
+                                 Relatório de Plano de Contas
+
+                                 Plano de Contas: 0002 - P. CONTAS PADRÃO 2
+                                                 Contas a imprimir: Todas
+                                                   Tipo de Conta: Receita
+
+Nome                             Conta        Código Reduzido                Tipo     Analítica/Sintética
+                                                                                      Sintética
+  CORREÇÃO S/ DEBITOS            42.994 - 00                    12811        Receita  Sintética
+  JUROS S/ DEBITOS               42.995 - 00                    14634        Receita  Sintética
+  MULTAS                         42.998 - 00                    12809        Receita  Sintética
+  ANTECIPAÇÕES                   42.999 - 00                    12810        Receita
+AREZZO - ORDINARIA PARTICULAR    43.000 - 00                    12821        Receita  Sintética
+  COTAS EM ABERTO                43.001 - 00                    12822        Receita  Sintética
+  ORDINARIA - PARTICULAR         43.002 - 00                    12827        Receita  Sintética
+  RECEITAS DIVERSAS              43.005 - 00                    12828        Receita  Sintética
+  CONSUMO AGUA/ GAS              43.006 - 00                    12864        Receita  Sintética
+  ESTORNOS                       43.010 - 00                    12829        Receita  Sintética
+  REPAROS / REFORMAS             43.015 - 00                    12830        Receita  Sintética
+  TRANSFERENCIAS                 43.020 - 00                    12831        Receita  Sintética
+  DEFICIT DE CAIXA - AREZZO      43.030 - 00                    13015        Receita  Sintética
+  PAGAMENTO EFETUADO A MAIOR     43.039 - 00                    16244        Receita  Sintética
+  PAGAMENTO EFETUADO A MENOR     43.040 - 00                    16245        Receita  Sintética
+  A.V.C.B.                       43.045 - 00                    14663        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      43.090 - 00                    12832        Receita  Sintética
+  DESCONTOS                      43.991 - 00                    12826        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            43.994 - 00                    12825        Receita  Sintética
+  JUROS S/ DEBITOS               43.995 - 00                    12922        Receita  Sintética
+  MULTAS                         43.998 - 00                    12823        Receita  Sintética
+  ANTECIPAÇÕES                   43.999 - 00                    12824        Receita
+AREZZO-FDO.RESERVA PARTICULAR    44.000 - 00                    12835        Receita  Sintética
+  COTAS EM ABERTO                44.001 - 00                    12836        Receita  Sintética
+  FDO. RESERVA - PARTICULAR      44.002 - 00                    12841        Receita  Sintética
+  RECEITAS DIVERSAS              44.005 - 00                    12843        Receita  Sintética
+  ESTORNOS                       44.010 - 00                    12844        Receita  Sintética
+  REPAROS / REFORMAS             44.015 - 00                    12845        Receita  Sintética
+  TRANSFERENCIAS                 44.020 - 00                    12846        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      44.090 - 00                    12848        Receita  Sintética
+  DESCONTOS                      44.991 - 00                    12840        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            44.994 - 00                    12839        Receita  Sintética
+  JUROS S/ DEBITOS               44.995 - 00                    14635        Receita  Sintética
+  MULTAS                         44.998 - 00                    12837        Receita  Sintética
+  ANTECIPAÇÕES                   44.999 - 00                    12838        Receita
+AREZZO - F.EXTRAORD.PARTICULAR   45.000 - 00                    12849        Receita  Sintética
+  COTAS EM ABERTO                45.001 - 00                    12850        Receita  Sintética
+  F.EXTRAORDINARIO - PARTICULAR  45.002 - 00                    12855        Receita  Sintética
+  RECEITAS DIVERSAS              45.005 - 00                    12856        Receita  Sintética
+  ESTORNOS                       45.010 - 00                    12857        Receita  Sintética
+  REPAROS / REFORMAS             45.015 - 00                    12858        Receita  Sintética
+  TRANSFERENCIAS                 45.020 - 00                    12859        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      45.090 - 00                    12860        Receita  Sintética
+  DESCONTOS                      45.991 - 00                    12854        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            45.994 - 00                    12853        Receita  Sintética
+  JUROS S/ DEBITOS               45.995 - 00                    14636        Receita  Sintética
+  MULTAS                         45.998 - 00                    12851        Receita  Sintética
+  ANTECIPAÇÕES                   45.999 - 00                    12852        Receita
+SEGUROS                          55.000 - 00                    13221        Receita  Sintética
+  COTAS EM ABERTO                55.001 - 00                    13222        Receita  Sintética
+  SEGUROS                        55.005 - 00                    13227        Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES      55.090 - 00                    15888        Receita  Sintética
+  DESCONTOS                      55.991 - 00                    13226        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            55.994 - 00                    13225        Receita  Sintética
+  JUROS S/ DEBITOS               55.995 - 00                    14637        Receita  Sintética
+  MULTA ATRASO PAGAMENTO         55.998 - 00                    13223        Receita  Sintética
+  COTAS ANTECIPADAS              55.999 - 00                    13224        Receita
+A.V.C.B.                         56.000 - 00                    14640        Receita  Sintética
+  COTAS EM ABERTO                56.001 - 00                    14641        Receita  Sintética
+  A.V.C.B. - GUBBIO              56.002 - 00                    14647        Receita  Sintética
+  A.V.C.B. - PERUGIA             56.003 - 00                    14648        Receita  Sintética
+  A.V.C.B. - ASSISI              56.004 - 00                    14649        Receita  Sintética
+  A.V.C.B. - SPOLETO             56.005 - 00                    14650        Receita  Sintética
+  A.V.C.B. - AREZZO              56.006 - 00                    14651        Receita  Sintética
+  TRANSFERÊNCIAS                 56.450 - 00                    14652        Receita  Sintética
+  DESCONTOS                      56.991 - 00                    14644        Receita  Sintética
+  CORREÇÃO S/ DEBITOS            56.994 - 00                    14645        Receita  Sintética
+  JUROS S/ DEBITOS               56.995 - 00                    14646        Receita  Sintética
+  MULTA ATRASO PAGAMENTO         56.998 - 00                    14642        Receita  Sintética
+  COTAS ANTECIPADAS              56.999 - 00                    14643        Receita
+VENDA                            57.000 - 00                    14880        Receita
+
+                                                                             Emitido em 15/ 05/2026 15:16: 16 - Página 9 de 10
+                                 Relatório de Plano de Contas
+
+                                 Plano de Contas: 0002 - P. CONTAS PADRÃO 2
+                                                 Contas a imprimir: Todas
+                                                   Tipo de Conta: Receita
+
+Nome                             Conta        Código Reduzido                Tipo     Analítica/Sintética
+                                                                                      Sintética
+  COTAS EM ABERTO                57.001 - 00                       14881     Receita  Sintética
+  VENDA                                                                      Receita  Sintética
+  TRANSFERÊNCIAS                 57.005 - 00                       14887     Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES                                                  Receita  Sintética
+  DESCONTOS                      57.020 - 00                       14890     Receita  Sintética
+  CORREÇÃO S/ DEBITOS                                                        Receita  Sintética
+  JUROS S/ DEBITOS               57.090 - 00                       14889     Receita  Sintética
+  MULTA ATRASO PAGAMENTO                                                     Receita  Sintética
+  COTAS ANTECIPADAS              57.991 - 00                       14884     Receita
+CAIXINHA PEQUENAS DESPESAS                                                   Receita  Sintética
+  COTAS EM ABERTO                57.994 - 00                       14885     Receita  Sintética
+  COMPROVAÇÃO CAIXINHA                                                       Receita  Sintética
+  DESCONTOS                      57.995 - 00                       14886     Receita  Sintética
+  CORREÇÃO S/ DEBITOS                                                        Receita  Sintética
+  JUROS S/ DEBITOS               57.998 - 00                       14882     Receita  Sintética
+  MULTAS                                                                     Receita  Sintética
+  ANTECIPAÇÕES                   57.999 - 00                       14883     Receita
+ACORDOS E PARCELAMENTOS                                                      Receita  Sintética
+  COTAS EM ABERTO                80.000 - 00                       12701     Receita  Sintética
+  RECEBIMENTOS                                                               Receita  Sintética
+  QUITAÇÃO                       80.001 - 00                       12702     Receita  Sintética
+  RENDIMENTOS S/ APLICAÇÕES                                                  Receita  Sintética
+  DESCONTOS                      80.002 - 00                       12707     Receita  Sintética
+  CORREÇÃO S/ DEBITOS                                                        Receita  Sintética
+  JUROS S/ DEBITOS               80.991 - 00                       12706     Receita  Sintética
+  MULTA ATRASO PAGAMENTO                                                     Receita  Sintética
+  COTAS ANTECIPADAS              80.994 - 00                       12705     Receita  Total: 666
+Quantidade - Contas 1º grau: 46
+                                 80.995 - 00                       14638
+
+                                 80.998 - 00                       12703
+
+                                 80.999 - 00                       12704
+
+                                 99.000 - 00                       12248
+
+                                 99.001 - 00                       12252
+
+                                 99.002 - 00                       12249
+
+                                 99.003 - 00                       12250
+
+                                 99.090 - 00                       15889
+
+                                 99.991 - 00                       12258
+
+                                 99.994 - 00                       12260
+
+                                 99.995 - 00                       14639
+
+                                 99.998 - 00                       12254
+
+                                 99.999 - 00                       12256
+
+                                              Contas 2º grau: 620
+
+                                                                             Emitido em 15/ 05/2026 15:16: 16 - Página 10 de 10
+
