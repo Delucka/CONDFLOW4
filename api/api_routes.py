@@ -1500,3 +1500,96 @@ def api_listar_cobrancas(
         return {"cobrancas": cobrancas}
     except Exception as e:
         raise HTTPException(400, str(e))
+
+class WelcomeEmailSchema(BaseModel):
+    email: str
+    name: str
+    password: str
+
+@router.post("/email/welcome")
+def api_send_welcome_email(data: WelcomeEmailSchema, user: dict = Depends(get_current_user)):
+    """Envia email de boas-vindas com credenciais do gerente recem-criado."""
+    if user["role"] != "master":
+        raise HTTPException(403, "Apenas master pode enviar emails de boas-vindas")
+
+    import smtplib, os
+    from email.message import EmailMessage
+
+    SMTP_USER = os.getenv("SMTP_USER", "")
+    SMTP_PASS = os.getenv("SMTP_PASS", "")
+    SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
+    SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+    APP_URL   = os.getenv("APP_URL", "https://condominios-gamma.vercel.app")
+
+    if not SMTP_USER or not SMTP_PASS:
+        raise HTTPException(500, "SMTP nao configurado. Defina SMTP_USER e SMTP_PASS no env.")
+
+    msg = EmailMessage()
+    msg["Subject"] = "Seu acesso ao CondoFlow"
+    msg["From"] = f"CondoFlow <{SMTP_FROM}>"
+    msg["To"] = data.email
+
+    plain = (
+        f"Ola {data.name},\n\n"
+        f"Seu acesso ao CondoFlow foi criado.\n\n"
+        f"Login: {data.email}\n"
+        f"Senha temporaria: {data.password}\n\n"
+        f"Acesse: {APP_URL}\n\n"
+        f"No primeiro login voce sera solicitado a trocar a senha por uma pessoal.\n"
+    )
+    msg.set_content(plain)
+
+    html = f"""<!DOCTYPE html>
+<html><body style=\"margin:0;padding:0;background:#0f172a;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;\">
+<table cellpadding=0 cellspacing=0 border=0 width=100% style=\"background:#0f172a;padding:40px 20px;\">
+<tr><td align=center>
+<table cellpadding=0 cellspacing=0 border=0 width=600 style=\"max-width:600px;background:#1e293b;border-radius:16px;overflow:hidden;\">
+  <tr><td style=\"padding:32px 32px 16px 32px;\">
+    <h1 style=\"margin:0;color:#06b6d4;font-size:28px;font-weight:900;letter-spacing:-0.5px;\">CONDO<span style=\"color:#fff;\">FLOW</span></h1>
+    <p style=\"margin:8px 0 0 0;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:700;\">SISTEMA DE GESTAO E ARRECADACOES</p>
+  </td></tr>
+  <tr><td style=\"padding:0 32px;\">
+    <h2 style=\"color:#fff;font-size:22px;margin:24px 0 8px 0;\">Ola, {data.name}!</h2>
+    <p style=\"color:#cbd5e1;font-size:14px;line-height:1.6;margin:0 0 24px 0;\">Seu acesso ao sistema CondoFlow foi criado. Use os dados abaixo para entrar pela primeira vez.</p>
+
+    <table cellpadding=0 cellspacing=0 border=0 width=100% style=\"background:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px;margin:0 0 24px 0;\">
+      <tr><td>
+        <p style=\"margin:0 0 4px 0;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;\">Email de login</p>
+        <p style=\"margin:0 0 16px 0;color:#fff;font-size:14px;font-family:Consolas,Monaco,monospace;\">{data.email}</p>
+        <p style=\"margin:0 0 4px 0;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;\">Senha temporaria</p>
+        <p style=\"margin:0;color:#22d3ee;font-size:18px;font-family:Consolas,Monaco,monospace;font-weight:700;\">{data.password}</p>
+      </td></tr>
+    </table>
+
+    <table cellpadding=0 cellspacing=0 border=0 width=100%>
+      <tr><td align=center>
+        <a href=\"{APP_URL}/login\" style=\"display:inline-block;background:#06b6d4;color:#0f172a;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:900;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;\">Acessar o CondoFlow</a>
+      </td></tr>
+    </table>
+
+    <p style=\"color:#f59e0b;font-size:12px;line-height:1.6;margin:32px 0 8px 0;padding:14px;background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;border-radius:4px;\">
+      <strong>Importante:</strong> no primeiro login, voce sera solicitado a trocar a senha por uma pessoal.
+    </p>
+  </td></tr>
+  <tr><td style=\"padding:32px;text-align:center;\">
+    <p style=\"color:#475569;font-size:11px;margin:0;\">CondoFlow &copy; 2026 - Gestao Inteligente</p>
+  </td></tr>
+</table>
+</td></tr></table></body></html>"""
+
+    msg.add_alternative(html, subtype="html")
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+        return {"success": True}
+    except smtplib.SMTPAuthenticationError as e:
+        raise HTTPException(500, f"Falha de autenticacao SMTP. Verifique SMTP_USER/SMTP_PASS (use App Password do Gmail). {e}")
+    except Exception as e:
+        raise HTTPException(500, f"Erro ao enviar email: {e}")
+

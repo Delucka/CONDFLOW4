@@ -14,7 +14,8 @@
       "Bash(curl -sI \"https://condominios-gamma.vercel.app/admin/importar-gerentes\")",
       "Bash(ffmpeg -version)",
       "Bash(where ffmpeg *)",
-      "Bash(powershell -Command \"Get-Command ffmpeg -ErrorAction SilentlyContinue\")"
+      "Bash(powershell -Command \"Get-Command ffmpeg -ErrorAction SilentlyContinue\")",
+      "Bash(echo \" *)"
     ]
   }
 }
