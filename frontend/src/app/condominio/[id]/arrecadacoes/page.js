@@ -18,9 +18,44 @@ import ModalSelecionarConta from '@/components/ModalSelecionarConta';
 import { useLockedMonths, reasonLabel } from '@/lib/useLockedMonths';
 
 const MESES = {
-    1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho', 
-    7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro' 
+    1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
+    7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
 };
+
+// ─── Helpers de formatação BRL ─────────────────────────────────────────
+function parseValorNumerico(v) {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'number') return v;
+  const s = String(v).trim();
+  if (!s || s === 'PLANILHA' || s === '-' || s === '—') return 0;
+  // Aceita "R$ 53.000,00" | "53.000,00" | "53000.00" | "53000,00" | "53000"
+  const limpo = s.replace(/R\$\s?/gi, '').replace(/\s/g, '');
+  // Decide se vírgula é decimal ou ponto é decimal
+  // Brasil: vírgula é decimal sempre. Ponto = milhar.
+  // Se tem vírgula: ponto é milhar
+  if (limpo.includes(',')) {
+    const num = parseFloat(limpo.replace(/\./g, '').replace(',', '.'));
+    return isNaN(num) ? 0 : num;
+  }
+  // Sem vírgula: ponto é decimal (formato "5000.00")
+  const num = parseFloat(limpo);
+  return isNaN(num) ? 0 : num;
+}
+
+function formatBRL(v) {
+  if (v === 'PLANILHA') return v; // caso especial
+  const n = parseValorNumerico(v);
+  return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Formato pra edição (sem R$, sem milhar — só vírgula como decimal)
+function formatParaEdicao(v) {
+  if (v === 'PLANILHA') return v;
+  const n = parseValorNumerico(v);
+  if (n === 0) return '';
+  // "53000,00" sem milhares
+  return n.toFixed(2).replace('.', ',');
+}
 
 export default function ArrecadacoesPage() {
   const params = useParams();
@@ -44,6 +79,7 @@ export default function ArrecadacoesPage() {
   // Modals / Overlays
   const [showContaDropdown, setShowContaDropdown] = useState(null);  // guarda o rateio_id em edição
   const [showConfirmSend, setShowConfirmSend] = useState(false);
+  const [focusedCell, setFocusedCell] = useState(null); // ex: "rateioId-mes"
   const [editingRateioId, setEditingRateioId] = useState(null);
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
@@ -488,15 +524,28 @@ export default function ArrecadacoesPage() {
                                 const mesTravado = isLocked(m);
                                 const cellDisabled = !canEdit || mesTravado;
                                 const reason = reasonFor(m);
+                                const cellKey = `${r.id}-${m}`;
+                                const isFocused = focusedCell === cellKey;
+                                const isPlanilhaSpecial = val === 'PLANILHA';
+                                // Display: foco usa raw, fora de foco usa formato BRL
+                                const displayValue = isPlanilhaSpecial
+                                    ? val
+                                    : isFocused
+                                        ? formatParaEdicao(val)
+                                        : formatBRL(val);
+                                const isZero = !isPlanilhaSpecial && parseValorNumerico(val) === 0;
                                 return (
                                     <td key={m} className={`p-1 border-r border-white/5 min-w-[120px] relative ${mesTravado ? 'bg-rose-500/[0.04]' : ''}`}
                                         title={mesTravado ? `Mês bloqueado: ${reasonLabel(reason)}` : undefined}>
                                         <input
-                                            value={val}
+                                            value={displayValue}
                                             onChange={e => handleValueChange(r.id, m, e.target.value)}
+                                            onFocus={() => setFocusedCell(cellKey)}
+                                            onBlur={() => setFocusedCell(null)}
                                             disabled={cellDisabled}
+                                            placeholder={isFocused ? '0,00' : 'R$ 0,00'}
                                             className={`w-full text-right bg-transparent border-none text-xs font-bold px-2 py-2 focus:bg-white/5 transition-colors focus:ring-0
-                                                ${val === 'PLANILHA' ? 'text-indigo-400 font-black text-center' : 'text-slate-300'}
+                                                ${isPlanilhaSpecial ? 'text-indigo-400 font-black text-center' : isZero ? 'text-slate-600' : 'text-slate-200'}
                                                 ${cellDisabled ? 'opacity-50 cursor-not-allowed' : ''}
                                                 ${mesTravado ? 'text-rose-300/70' : ''}
                                             `}
