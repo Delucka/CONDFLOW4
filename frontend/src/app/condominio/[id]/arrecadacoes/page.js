@@ -28,33 +28,28 @@ function parseValorNumerico(v) {
   if (typeof v === 'number') return v;
   const s = String(v).trim();
   if (!s || s === 'PLANILHA' || s === '-' || s === '—') return 0;
-  // Aceita "R$ 53.000,00" | "53.000,00" | "53000.00" | "53000,00" | "53000"
   const limpo = s.replace(/R\$\s?/gi, '').replace(/\s/g, '');
-  // Decide se vírgula é decimal ou ponto é decimal
-  // Brasil: vírgula é decimal sempre. Ponto = milhar.
-  // Se tem vírgula: ponto é milhar
   if (limpo.includes(',')) {
     const num = parseFloat(limpo.replace(/\./g, '').replace(',', '.'));
     return isNaN(num) ? 0 : num;
   }
-  // Sem vírgula: ponto é decimal (formato "5000.00")
   const num = parseFloat(limpo);
   return isNaN(num) ? 0 : num;
 }
 
 function formatBRL(v) {
-  if (v === 'PLANILHA') return v; // caso especial
+  if (v === 'PLANILHA') return v;
   const n = parseValorNumerico(v);
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Formato pra edição (sem R$, sem milhar — só vírgula como decimal)
-function formatParaEdicao(v) {
-  if (v === 'PLANILHA') return v;
-  const n = parseValorNumerico(v);
-  if (n === 0) return '';
-  // "53000,00" sem milhares
-  return n.toFixed(2).replace('.', ',');
+// Pega os dígitos e converte para valor (centavos acumulam à direita)
+// Ex: digita "5300000" → retorna 53000.00
+//     digita "1" → 0.01
+function digitosParaValor(rawString) {
+  const digits = String(rawString || '').replace(/\D/g, '');
+  if (!digits) return 0;
+  return parseInt(digits, 10) / 100;
 }
 
 export default function ArrecadacoesPage() {
@@ -79,7 +74,6 @@ export default function ArrecadacoesPage() {
   // Modals / Overlays
   const [showContaDropdown, setShowContaDropdown] = useState(null);  // guarda o rateio_id em edição
   const [showConfirmSend, setShowConfirmSend] = useState(false);
-  const [focusedCell, setFocusedCell] = useState(null); // ex: "rateioId-mes"
   const [editingRateioId, setEditingRateioId] = useState(null);
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
@@ -170,6 +164,18 @@ export default function ArrecadacoesPage() {
       ...prev,
       [rid]: { ...prev[rid], [month]: value }
     }));
+  };
+
+  // Mascara de moeda em tempo real: extrai digitos do input e converte
+  const handleCurrencyInput = (rid, month, rawValue) => {
+    const num = digitosParaValor(rawValue);
+    // Armazena sempre com 2 casas como string "53000.00"
+    handleValueChange(rid, month, num.toFixed(2));
+  };
+
+  // Seleciona tudo ao focar (facilita substituir o valor)
+  const handleCurrencyFocus = (e) => {
+    setTimeout(() => e.target.select(), 0);
   };
 
   const getParcelaBadge = (rateio, m) => {
@@ -524,26 +530,23 @@ export default function ArrecadacoesPage() {
                                 const mesTravado = isLocked(m);
                                 const cellDisabled = !canEdit || mesTravado;
                                 const reason = reasonFor(m);
-                                const cellKey = `${r.id}-${m}`;
-                                const isFocused = focusedCell === cellKey;
                                 const isPlanilhaSpecial = val === 'PLANILHA';
-                                // Display: foco usa raw, fora de foco usa formato BRL
-                                const displayValue = isPlanilhaSpecial
-                                    ? val
-                                    : isFocused
-                                        ? formatParaEdicao(val)
-                                        : formatBRL(val);
                                 const isZero = !isPlanilhaSpecial && parseValorNumerico(val) === 0;
+                                // Sempre mostra formatado em BRL (mascara em tempo real no onChange)
+                                const displayValue = isPlanilhaSpecial ? val : formatBRL(val);
                                 return (
                                     <td key={m} className={`p-1 border-r border-white/5 min-w-[120px] relative ${mesTravado ? 'bg-rose-500/[0.04]' : ''}`}
                                         title={mesTravado ? `Mês bloqueado: ${reasonLabel(reason)}` : undefined}>
                                         <input
+                                            type="text"
+                                            inputMode="numeric"
                                             value={displayValue}
-                                            onChange={e => handleValueChange(r.id, m, e.target.value)}
-                                            onFocus={() => setFocusedCell(cellKey)}
-                                            onBlur={() => setFocusedCell(null)}
+                                            onChange={isPlanilhaSpecial
+                                                ? (e) => handleValueChange(r.id, m, e.target.value)
+                                                : (e) => handleCurrencyInput(r.id, m, e.target.value)}
+                                            onFocus={isPlanilhaSpecial ? undefined : handleCurrencyFocus}
                                             disabled={cellDisabled}
-                                            placeholder={isFocused ? '0,00' : 'R$ 0,00'}
+                                            placeholder="R$ 0,00"
                                             className={`w-full text-right bg-transparent border-none text-xs font-bold px-2 py-2 focus:bg-white/5 transition-colors focus:ring-0
                                                 ${isPlanilhaSpecial ? 'text-indigo-400 font-black text-center' : isZero ? 'text-slate-600' : 'text-slate-200'}
                                                 ${cellDisabled ? 'opacity-50 cursor-not-allowed' : ''}
