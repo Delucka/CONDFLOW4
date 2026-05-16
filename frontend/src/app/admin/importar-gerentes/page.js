@@ -6,7 +6,7 @@ import { apiPost } from '@/lib/api';
 import gerentesEmails from '@/data/gerentes-emails.json';
 import {
   Users, Mail, Copy, Loader2, Check, AlertCircle,
-  ChevronRight, RefreshCw, Eye, EyeOff, Building2, ShieldAlert, Send
+  ChevronRight, RefreshCw, Eye, EyeOff, Building2, ShieldAlert
 } from 'lucide-react';
 
 function gerarSenhaTemp() {
@@ -112,35 +112,10 @@ export default function ImportarGerentesPage() {
         full_name: row.nome,
         role: 'gerente',
       });
-      atualizar(g.id, { criando: false, resultado: 'ok', mensagem: 'Criado ✓', email_enviado: false });
+      atualizar(g.id, { criando: false, resultado: 'ok', mensagem: 'Criado ✓' });
     } catch (err) {
       atualizar(g.id, { criando: false, resultado: 'erro', mensagem: (err.message || String(err)).slice(0, 150) });
     }
-  }
-
-  async function enviarEmail(g) {
-    const row = rows[g.id];
-    if (!row || row.resultado !== 'ok') return;
-    atualizar(g.id, { enviando_email: true, email_err: '' });
-    try {
-      await apiPost('/api/email/welcome', {
-        email: row.email,
-        name: row.nome,
-        password: row.senha,
-      });
-      atualizar(g.id, { enviando_email: false, email_enviado: true, email_err: '' });
-    } catch (err) {
-      atualizar(g.id, { enviando_email: false, email_err: (err.message || String(err)).slice(0, 200) });
-    }
-  }
-
-  async function enviarTodosEmails() {
-    const prontos = ghosts.filter(g => rows[g.id]?.resultado === 'ok' && !rows[g.id]?.email_enviado);
-    setMsg(`Enviando ${prontos.length} email${prontos.length !== 1 ? 's' : ''}...`);
-    for (const g of prontos) {
-      await enviarEmail(g);
-    }
-    setMsg('Envio finalizado.');
   }
 
   async function criarTodos() {
@@ -168,14 +143,6 @@ export default function ImportarGerentesPage() {
     [ghosts, rows]
   );
   const totalSemEmail = Math.max(0, ghosts.length - totalCriaveis);
-  const totalCriados = useMemo(
-    () => ghosts.filter(g => rows[g.id]?.resultado === 'ok').length,
-    [ghosts, rows]
-  );
-  const totalEmailsPendentes = useMemo(
-    () => ghosts.filter(g => rows[g.id]?.resultado === 'ok' && !rows[g.id]?.email_enviado).length,
-    [ghosts, rows]
-  );
 
   // ── Estados de tela ─────────────────────────────────────────────
   if (authLoading) {
@@ -239,12 +206,6 @@ export default function ImportarGerentesPage() {
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
           Criar todos ({totalCriaveis})
         </button>
-        {totalEmailsPendentes > 0 && (
-          <button onClick={enviarTodosEmails}
-            className="flex-1 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all">
-            <Send className="w-4 h-4" /> Enviar todos os emails ({totalEmailsPendentes})
-          </button>
-        )}
         <button onClick={fetchGhosts} disabled={loading}
           className="px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition-colors">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -340,27 +301,9 @@ export default function ImportarGerentesPage() {
                     </td>
                     <td className="px-4 py-3 text-right align-top whitespace-nowrap">
                       {status === 'ok' ? (
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="inline-flex items-center gap-1 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
-                            <Check className="w-3 h-3" /> Criado
-                          </span>
-                          {row.email_enviado ? (
-                            <span className="inline-flex items-center gap-1 text-cyan-400 text-[10px] font-black uppercase tracking-widest">
-                              <Check className="w-3 h-3" /> Email enviado
-                            </span>
-                          ) : (
-                            <button onClick={() => enviarEmail(g)} disabled={row.enviando_email}
-                              className="px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 rounded text-[10px] font-black uppercase tracking-widest disabled:opacity-30 flex items-center gap-1">
-                              {row.enviando_email ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                              {row.enviando_email ? 'Enviando...' : 'Enviar email'}
-                            </button>
-                          )}
-                          {row.email_err && (
-                            <p className="text-[9px] text-rose-400 mt-1 max-w-[200px] break-words text-right" title={row.email_err}>
-                              {row.email_err}
-                            </p>
-                          )}
-                        </div>
+                        <span className="inline-flex items-center gap-1 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
+                          <Check className="w-3 h-3" /> Criado
+                        </span>
                       ) : (
                         <button onClick={() => criarUm(g)} disabled={row.criando || !row.email}
                           className="px-3 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-400 rounded text-[10px] font-black uppercase tracking-widest disabled:opacity-30">
