@@ -31,3 +31,4 @@
 0027_diogo_merge_fix.sql
 0028_fecha_maio_2026.sql
 0029_alteracoes_rateio.sql
+0030_emissoes_arquivos_categoria.sql

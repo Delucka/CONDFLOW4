@@ -5,7 +5,7 @@ import { apiFetcher } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
-import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen } from 'lucide-react';
 
 
 
@@ -340,6 +340,76 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   </div>
             }
           </div>
+
+          {/* Concessionárias — só se houver anexos dessa categoria */}
+          {(() => {
+            const concessionarias = arquivos.filter(a => a.categoria === 'concessionaria');
+            if (concessionarias.length === 0) return null;
+            return (
+              <div className="bg-slate-900 border border-orange-500/30 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-orange-500/20 bg-orange-500/5 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-orange-400" />
+                  <h4 className="text-sm font-bold text-orange-300">Concessionárias</h4>
+                  <span className="ml-auto text-[10px] text-orange-400/70 font-bold">{concessionarias.length} arquivo{concessionarias.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="divide-y divide-slate-800/50">
+                  {concessionarias.map(a => {
+                    const eAtual = currentFile?.id === a.id;
+                    return (
+                      <button key={a.id} onClick={() => {
+                          setLoadingFile(true);
+                          setCurrentFile({ id: a.id, nome: a.arquivo_nome, url: a.url, condominio_id: a.condominio_id, mes: a.mes_referencia, ano: a.ano_referencia, eh_retificacao: a.eh_retificacao || false });
+                          setTimeout(() => setLoadingFile(false), 200);
+                        }}
+                        className={`w-full px-4 py-2.5 flex items-center gap-3 hover:bg-orange-500/5 transition-colors text-left ${eAtual ? 'bg-orange-500/10' : ''}`}>
+                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30 shrink-0">
+                          {a.subtipo || 'Outra'}
+                        </span>
+                        <span className="text-xs text-slate-300 truncate flex-1">{a.arquivo_nome}</span>
+                        {eAtual && <Check className="w-3.5 h-3.5 text-orange-400 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Outros anexos (relatórios, atas, etc) */}
+          {(() => {
+            const outros = arquivos.filter(a => a.categoria === 'outros');
+            if (outros.length === 0) return null;
+            return (
+              <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/50 flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4 text-slate-400" />
+                  <h4 className="text-sm font-bold text-slate-200">Outros Anexos</h4>
+                  <span className="ml-auto text-[10px] text-slate-500 font-bold">{outros.length} arquivo{outros.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="divide-y divide-slate-800/50">
+                  {outros.map(a => {
+                    const eAtual = currentFile?.id === a.id;
+                    return (
+                      <button key={a.id} onClick={() => {
+                          setLoadingFile(true);
+                          setCurrentFile({ id: a.id, nome: a.arquivo_nome, url: a.url, condominio_id: a.condominio_id, mes: a.mes_referencia, ano: a.ano_referencia, eh_retificacao: a.eh_retificacao || false });
+                          setTimeout(() => setLoadingFile(false), 200);
+                        }}
+                        className={`w-full px-4 py-2.5 flex items-center gap-3 hover:bg-slate-800/50 transition-colors text-left ${eAtual ? 'bg-slate-800/70' : ''}`}>
+                        {a.subtipo && (
+                          <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/20 text-slate-300 border border-slate-500/30 shrink-0 truncate max-w-[100px]" title={a.subtipo}>
+                            {a.subtipo}
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-300 truncate flex-1">{a.arquivo_nome}</span>
+                        {eAtual && <Check className="w-3.5 h-3.5 text-slate-300 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

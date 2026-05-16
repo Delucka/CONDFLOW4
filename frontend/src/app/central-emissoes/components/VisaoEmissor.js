@@ -55,6 +55,11 @@ export default function VisaoEmissor({ profile }) {
   // Mapa de alterações prevista: { `${condoId}_${mes}_${ano}`: [alteracoes...] }
   const [alteracoesPrevMap, setAlteracoesPrevMap] = useState({});
 
+  // Picker de concessionaria (dropdown que abre antes do file picker)
+  const [showConcessionariaPicker, setShowConcessionariaPicker] = useState(false);
+  const [pendingCategoria, setPendingCategoria] = useState(null); // categoria escolhida, esperando arquivo
+  const [pendingSubtipo, setPendingSubtipo]     = useState(null);
+
   useEffect(() => {
     fetchDados();
     
@@ -255,15 +260,19 @@ export default function VisaoEmissor({ profile }) {
     }
   }
 
-  async function handleUploadArquivo(fileInput) {
+  async function handleUploadArquivo(fileInput, opts = {}) {
     if (!fileInput || !activePacote) return;
-    
+    // categoria: 'emissao' (default) | 'concessionaria' | 'outros'
+    // subtipo:   string livre (ex: SABESP, COMGAS, ENEL)
+    const categoria = opts.categoria || 'emissao';
+    const subtipo   = opts.subtipo || null;
+
     setIsUploading(true);
     try {
       const extensao = fileInput.name.split('.').pop().toLowerCase();
       const randomId = Math.random().toString(36).substring(7);
-      const filePath = `${activePacote.condominio_id}/${ano}/${mes}/${randomId}_${fileInput.name}`;
-      
+      const filePath = `${activePacote.condominio_id}/${ano}/${mes}/${categoria}/${randomId}_${fileInput.name}`;
+
       const { error: uploadError } = await supabase.storage.from('emissoes').upload(filePath, fileInput);
       if (uploadError) throw uploadError;
 
@@ -273,6 +282,8 @@ export default function VisaoEmissor({ profile }) {
           condominio_id: activePacote.condominio_id,
           pacote_id: activePacote.id,
           tipo: 'emissao',
+          categoria,
+          subtipo,
           arquivo_url: filePath,
           arquivo_nome: fileInput.name,
           formato: extensao,
@@ -565,13 +576,25 @@ export default function VisaoEmissor({ profile }) {
                 <p className="text-gray-500 text-sm">Nenhum arquivo adicionado ainda.</p>
               </div>
             ) : (
-              pacoteArquivos.map(arq => (
+              pacoteArquivos.map(arq => {
+                const catColor = arq.categoria === 'concessionaria' ? 'orange'
+                              : arq.categoria === 'outros'          ? 'slate'
+                              : 'violet';
+                const catLabel = arq.categoria === 'concessionaria' ? (arq.subtipo || 'Concessionária')
+                              : arq.categoria === 'outros'          ? (arq.subtipo || 'Outros')
+                              : 'Emissão';
+                return (
                 <div key={arq.id} className="flex items-center justify-between p-4 bg-[#0a0a0f] border border-white/10 rounded-2xl hover:bg-white/5 transition-colors group">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-gray-400 group-hover:text-violet-400" />
+                    <div className={`w-10 h-10 bg-${catColor}-500/10 rounded-xl flex items-center justify-center border border-${catColor}-500/20`}>
+                      <FileText className={`w-5 h-5 text-${catColor}-400`} />
                     </div>
                     <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-${catColor}-500/10 text-${catColor}-300 border border-${catColor}-500/30`}>
+                          {catLabel}
+                        </span>
+                      </div>
                       <p className="text-sm font-bold text-white truncate max-w-[250px]">{arq.arquivo_nome}</p>
                       <p className="text-[10px] text-gray-500 uppercase tracking-widest">{arq.formato} • {new Date(arq.criado_em).toLocaleString('pt-BR')}</p>
                     </div>
@@ -599,57 +622,82 @@ export default function VisaoEmissor({ profile }) {
                     )}
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
 
           {/* Ações do Pacote */}
           {activePacote.status === 'rascunho' && (
-            <div className="flex flex-col sm:flex-row gap-4">
-              {/* Upload de mais arquivos */}
-              <div className="flex-1 relative">
-                <div className="border-2 border-dashed border-white/10 hover:border-violet-500/50 rounded-2xl p-4 text-center cursor-pointer transition-all bg-[#0a0a0f] group">
-                  <input
-                    type="file"
+            <div className="space-y-3">
+              {/* 3 zonas de upload por categoria */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* EMISSÃO (violeta) */}
+                <div className="relative border-2 border-dashed border-violet-500/20 hover:border-violet-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-violet-500/5 group">
+                  <input type="file" multiple disabled={isUploading}
                     className="absolute inset-0 opacity-0 cursor-pointer"
-                    multiple
-                    onChange={async e => { 
-                      const files = Array.from(e.target.files || []);
-                      for (const f of files) { await handleUploadArquivo(f); }
-                      e.target.value = ''; 
-                    }}
                     accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
-                    disabled={isUploading}
+                    onChange={async e => {
+                      const files = Array.from(e.target.files || []);
+                      for (const f of files) { await handleUploadArquivo(f, { categoria: 'emissao' }); }
+                      e.target.value = '';
+                    }}
                   />
-                  {isUploading ? (
-                    <Loader2 className="w-6 h-6 text-violet-400 animate-spin mx-auto" />
-                  ) : (
-                    <div className="flex items-center justify-center gap-2 text-gray-500 group-hover:text-violet-400 transition-colors">
-                      <Plus className="w-5 h-5" />
-                      <span className="text-xs font-black uppercase tracking-widest">Adicionar Arquivo</span>
-                    </div>
-                  )}
+                  <div className="flex flex-col items-center gap-1 text-violet-400 group-hover:text-violet-300">
+                    <FileText className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">+ Emissão</span>
+                    <span className="text-[9px] text-violet-500/70">Boleto/PDF principal</span>
+                  </div>
+                </div>
+
+                {/* CONCESSIONÁRIA (laranja) — abre menu antes do file picker */}
+                <div className="relative border-2 border-dashed border-orange-500/20 hover:border-orange-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-orange-500/5 group"
+                  onClick={() => !isUploading && setShowConcessionariaPicker(true)}>
+                  <div className="flex flex-col items-center gap-1 text-orange-400 group-hover:text-orange-300">
+                    <Package className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">+ Concessionária</span>
+                    <span className="text-[9px] text-orange-500/70">SABESP / COMGAS / ENEL</span>
+                  </div>
+                </div>
+
+                {/* OUTROS (cinza) */}
+                <div className="relative border-2 border-dashed border-slate-500/20 hover:border-slate-400/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-slate-500/5 group">
+                  <input type="file" multiple disabled={isUploading}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx"
+                    onChange={async e => {
+                      const files = Array.from(e.target.files || []);
+                      const subtipo = window.prompt('Descreva este anexo (ex: Ata da reunião, relatório de leitura):', '');
+                      for (const f of files) { await handleUploadArquivo(f, { categoria: 'outros', subtipo: subtipo || null }); }
+                      e.target.value = '';
+                    }}
+                  />
+                  <div className="flex flex-col items-center gap-1 text-slate-400 group-hover:text-slate-300">
+                    <FolderOpen className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">+ Outros</span>
+                    <span className="text-[9px] text-slate-500/70">Atas, relatórios, etc</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Botão Cancelar Rascunho */}
-              <button
-                onClick={handleCancelarRascunho}
-                className="px-6 py-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 flex items-center justify-center gap-2"
-                title="Apaga o rascunho e todos os arquivos enviados"
-              >
-                <Trash2 className="w-4 h-4" />
-                Cancelar Rascunho
-              </button>
-
-              {/* Botão Concluir */}
-              <button
-                onClick={handleConcluirPacote}
-                className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-emerald-600/20 active:scale-95 flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Concluir e Enviar
-              </button>
+              {/* Botões de ação do rascunho */}
+              <div className="flex flex-col sm:flex-row gap-3 justify-end">
+                <button
+                  onClick={handleCancelarRascunho}
+                  className="px-6 py-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95 flex items-center justify-center gap-2"
+                  title="Apaga o rascunho e todos os arquivos enviados"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Cancelar Rascunho
+                </button>
+                <button
+                  onClick={handleConcluirPacote}
+                  className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-emerald-600/20 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  Concluir e Enviar
+                </button>
+              </div>
             </div>
           )}
 
@@ -1030,6 +1078,53 @@ export default function VisaoEmissor({ profile }) {
           onClose={() => setModalPrepCondo(null)}
           onSaved={() => { fetchPreparacao(); fetchProcessos(); }}
         />
+      )}
+
+      {/* ═══ MODAL ESCOLHER CONCESSIONÁRIA ═══ */}
+      {showConcessionariaPicker && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+          <div className="bg-[#0a0a0f] border border-orange-500/30 rounded-3xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
+                <Package className="w-5 h-5 text-orange-400" /> Anexar Concessionária
+              </h3>
+              <button onClick={() => setShowConcessionariaPicker(false)} className="text-slate-500 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">Qual concessionária?</p>
+            <div className="grid grid-cols-2 gap-3">
+              {['SABESP', 'COMGAS', 'ENEL', 'Outra'].map(sub => (
+                <label key={sub}
+                  className="cursor-pointer border-2 border-dashed border-orange-500/20 hover:border-orange-500/60 rounded-2xl p-4 text-center transition-all bg-orange-500/5 group relative">
+                  <input type="file" multiple
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
+                    onChange={async e => {
+                      let finalSub = sub;
+                      if (sub === 'Outra') {
+                        finalSub = window.prompt('Nome da concessionária:', '') || 'Outra';
+                      }
+                      const files = Array.from(e.target.files || []);
+                      setShowConcessionariaPicker(false);
+                      for (const f of files) {
+                        await handleUploadArquivo(f, { categoria: 'concessionaria', subtipo: finalSub });
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                  <div className="flex flex-col items-center gap-1 text-orange-300 group-hover:text-orange-200">
+                    <Package className="w-6 h-6" />
+                    <span className="text-sm font-black uppercase tracking-widest">{sub}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-600 mt-4 text-center">
+              Clique em uma opção pra selecionar o arquivo
+            </p>
+          </div>
+        </div>
       )}
       {/* ═══ MODAL DE REGISTRO ═══ */}
       {showRegistroModal && (
