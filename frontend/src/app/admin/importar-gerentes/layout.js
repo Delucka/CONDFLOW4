@@ -2,5 +2,6 @@
 import RouteGuard from '@/components/RouteGuard';
 
 export default function Layout({ children }) {
-  return <RouteGuard allowedRoles={['master']}>{children}</RouteGuard>;
+  // Não passa allowedRoles — usa canAccessPath que tem master-bypass automático
+  return <RouteGuard>{children}</RouteGuard>;
 }

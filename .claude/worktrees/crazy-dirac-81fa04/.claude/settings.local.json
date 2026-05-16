@@ -10,7 +10,8 @@
       "Bash(pdftotext -layout -enc UTF-8 \"/c/Users/Pichau/Downloads/RelCondominios.pdf\" /c/projetos/condominios/scripts/plano-contas/extracted/condominios.txt)",
       "Bash(node scripts/plano-contas/parse-condominios.js)",
       "Bash(grep -v \"^$\")",
-      "Bash(node scripts/plano-contas/gen-condominios-sql.js)"
+      "Bash(node scripts/plano-contas/gen-condominios-sql.js)",
+      "Bash(curl -sI \"https://condominios-gamma.vercel.app/admin/importar-gerentes\")"
     ]
   }
 }
