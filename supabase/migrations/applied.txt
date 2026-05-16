@@ -27,3 +27,4 @@
 0023_condominios_planos.sql
 0024_gerentes_ghost.sql
 0025_vincula_gerentes_condos.sql
+0026_cleanup_gerentes.sql

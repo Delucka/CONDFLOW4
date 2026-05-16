@@ -530,10 +530,16 @@ export default function UsuariosPage() {
           <h2 className="text-xl font-bold text-white mb-1">Usuários do Sistema</h2>
           <p className="text-sm text-slate-400">Gerencie contas, acessos e carteiras de condomínios.</p>
         </div>
-        <button onClick={() => setModalCriar(true)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.4)] transition-all">
-          <PlusCircle className="w-4 h-4" /> Novo Usuário
-        </button>
+        <div className="flex items-center gap-3">
+          <a href="/admin/importar-gerentes"
+            className="bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all">
+            <Users className="w-4 h-4" /> Importar Gerentes
+          </a>
+          <button onClick={() => setModalCriar(true)}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-500 shadow-[0_0_15px_rgba(79,70,229,0.4)] transition-all">
+            <PlusCircle className="w-4 h-4" /> Novo Usuário
+          </button>
+        </div>
       </div>
 
       {loading ? (
