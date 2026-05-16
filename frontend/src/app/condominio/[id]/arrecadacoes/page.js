@@ -330,7 +330,8 @@ export default function ArrecadacoesPage() {
         <div className="mb-4 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-amber-500/5 border border-amber-500/15 text-amber-300/80 animate-fade-in">
           <Lock className="w-3 h-3 shrink-0" />
           <p className="text-[10px] uppercase font-bold tracking-widest">
-            Meses passados, com etapa "pronto p/ emitir" ou com emissão registrada ficam <strong>automaticamente bloqueados</strong> e não podem ser alterados.
+            Cada mês pode ser editado até <strong>dia 15</strong>. A partir do dia 16, fecha automaticamente.
+            Também fica travado quando a etapa é marcada como <strong>"pronto p/ emitir"</strong> ou a <strong>emissão é registrada</strong>.
           </p>
         </div>
       )}

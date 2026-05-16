@@ -29,3 +29,4 @@
 0025_vincula_gerentes_condos.sql
 0026_cleanup_gerentes.sql
 0027_diogo_merge_fix.sql
+0028_fecha_maio_2026.sql

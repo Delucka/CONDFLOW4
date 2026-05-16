@@ -7,8 +7,10 @@ import { createClient } from '@/utils/supabase/client';
  * para edição da planilha e cobranças extras.
  *
  * Regras:
- *   1. Mês passou (hoje > último dia do mês) → trava
- *   2. Etapa de preparação = 'pronto_para_emitir' → trava
+ *   1. Prazo do mês encerrado: hoje >= dia 16 do mês X → trava
+ *      (cada mês é trabalhado no mês anterior; tem até dia 15 inclusivo
+ *       para finalizar/corrigir, no dia 16 fecha de vez)
+ *   2. Etapa de preparação = 'pronto_para_emitir' → trava (fechamento antecipado)
  *   3. Pacote de emissão registrado/expedido → trava
  *
  * O lock se aplica a TODOS os perfis (nem master destrava).
@@ -51,14 +53,15 @@ export function useLockedMonths(condoId, ano) {
   }, [condoId, ano, fetchAll]);
 
   const lockedMap = useMemo(() => {
-    const map = {}; // { 1: { locked: true, reason: 'passado' }, ... }
+    const map = {}; // { 1: { locked: true, reason: 'prazo_encerrado' }, ... }
     const today = new Date();
     for (let mes = 1; mes <= 12; mes++) {
-      // Regra 1: mês passou
-      const lastDay = new Date(ano, mes, 0, 23, 59, 59);
-      if (today > lastDay) { map[mes] = { locked: true, reason: 'passado' }; continue; }
+      // Regra 1: hoje >= dia 16 do próprio mês (prazo de 15 dias do mês X encerrado)
+      // JS: new Date(ano, mes-1, 16) = dia 16 do mês 'mes' às 00:00
+      const cutoff = new Date(ano, mes - 1, 16, 0, 0, 0);
+      if (today >= cutoff) { map[mes] = { locked: true, reason: 'prazo_encerrado' }; continue; }
 
-      // Regra 2: etapa pronto p/ emitir
+      // Regra 2: etapa pronto p/ emitir (fechamento antecipado)
       const prep = preparacoes.find(p => p.mes_referencia === mes);
       if (prep?.etapa === 'pronto_para_emitir') {
         map[mes] = { locked: true, reason: 'pronto_para_emitir' }; continue;
@@ -83,8 +86,9 @@ export function useLockedMonths(condoId, ano) {
 
 export function reasonLabel(reason) {
   switch (reason) {
-    case 'passado':            return 'Mês encerrado';
-    case 'pronto_para_emitir': return 'Pronto p/ emitir';
+    case 'passado':            return 'Mês encerrado';                  // legado
+    case 'prazo_encerrado':    return 'Prazo encerrado (após dia 15)';
+    case 'pronto_para_emitir': return 'Fechado antecipadamente';
     case 'emitido':            return 'Emissão registrada';
     default:                   return 'Bloqueado';
   }
