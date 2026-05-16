@@ -486,31 +486,28 @@ export default function ArrecadacoesPage() {
                             const temPrevista = altList.some(a => a.status === 'prevista');
                             const totalAlts = altList.length;
                             return (
-                                <th key={m} className="px-2 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-white/5 min-w-[120px] bg-black/20 relative">
+                                <th key={m} className="px-2 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-white/5 min-w-[120px] bg-black/20 relative">
                                     <div className="flex items-center justify-center gap-1.5">
                                         <span>{MESES[m]} / {String(selectedYear).slice(-2)}</span>
-                                        {totalAlts > 0 && (
-                                            <button onClick={() => setModalAlteracoesMes(m)}
-                                                title={`${totalAlts} alteração${totalAlts > 1 ? 'ões' : ''} ${temPrevista ? '(há previstas)' : ''}`}
-                                                className={`relative flex items-center justify-center w-5 h-5 rounded-full transition-all ${
-                                                    temPrevista
-                                                        ? 'bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 ring-1 ring-amber-500/40 animate-pulse'
-                                                        : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400'
-                                                }`}>
-                                                <FileWarning className="w-3 h-3" />
-                                                <span className="absolute -top-1 -right-1 text-[8px] font-black bg-slate-900 rounded-full w-3.5 h-3.5 flex items-center justify-center border border-current">
-                                                    {totalAlts}
-                                                </span>
-                                            </button>
-                                        )}
-                                        {totalAlts === 0 && canEdit && (
-                                            <button onClick={() => setModalAlteracoesMes(m)}
-                                                title="Marcar alteração (AGO/AGE/Reunião)"
-                                                className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-amber-400 transition-opacity">
-                                                <FileWarning className="w-3 h-3" />
-                                            </button>
-                                        )}
                                     </div>
+                                    {canEdit && (
+                                      <button onClick={() => setModalAlteracoesMes(m)}
+                                        title={
+                                          totalAlts > 0
+                                            ? `${totalAlts} alteração${totalAlts > 1 ? 'ões' : ''} ${temPrevista ? '(há previstas)' : 'registrada(s)'}`
+                                            : 'Marcar alteração (AGO/AGE/Reunião)'
+                                        }
+                                        className={`mt-1.5 mx-auto flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${
+                                          totalAlts === 0
+                                            ? 'bg-white/5 hover:bg-amber-500/10 border border-white/10 hover:border-amber-500/40 text-slate-500 hover:text-amber-400'
+                                            : temPrevista
+                                              ? 'bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 ring-1 ring-amber-500/30 animate-pulse'
+                                              : 'bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
+                                        }`}>
+                                        <FileWarning className="w-3 h-3" />
+                                        {totalAlts === 0 ? '+ AGO/AGE/Reunião' : `${totalAlts} alt.`}
+                                      </button>
+                                    )}
                                 </th>
                             );
                         })}
