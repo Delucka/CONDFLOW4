@@ -10,12 +10,14 @@ import { useToast } from '@/components/Toast';
 import {
   Save, Lock, ArrowLeft, PlusCircle, X, Search,
   ChevronDown, Layers, Building, Calendar, Info,
-  Printer, Send, Trash2, CheckCircle2, Settings, Timer
+  Printer, Send, Trash2, CheckCircle2, Settings, Timer, FileWarning
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
 import ModalSelecionarConta from '@/components/ModalSelecionarConta';
 import { useLockedMonths, reasonLabel } from '@/lib/useLockedMonths';
+import { useAlteracoesRateio } from '@/lib/useAlteracoesRateio';
+import ModalAlteracoesRateio from '@/components/ModalAlteracoesRateio';
 
 const MESES = {
     1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
@@ -123,6 +125,10 @@ export default function ArrecadacoesPage() {
 
   // Lock por mês — passado, etapa 'pronto p/ emitir' ou pacote registrado
   const { isLocked, reasonFor } = useLockedMonths(condoId, selectedYear);
+
+  // Alterações de rateio (AGO/AGE/Reuniao) — indicador no cabeçalho do mês
+  const { porMes: alteracoesPorMes } = useAlteracoesRateio(condoId, selectedYear);
+  const [modalAlteracoesMes, setModalAlteracoesMes] = useState(null); // null | número do mês
 
   // Permissão de edição em nível de página (ações gerais como "salvar observações", "adicionar verba")
   // Per-célula adicional: !isLocked(mes)
@@ -475,11 +481,39 @@ export default function ArrecadacoesPage() {
                         <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-white/5 min-w-[220px] sticky left-[200px] z-30 bg-slate-950/95 backdrop-blur-md">
                             Verbas / Descritivo
                         </th>
-                        {months.map(m => (
-                            <th key={m} className="px-2 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-white/5 min-w-[120px] bg-black/20">
-                                {MESES[m]} / {String(selectedYear).slice(-2)}
-                            </th>
-                        ))}
+                        {months.map(m => {
+                            const altList = alteracoesPorMes[m] || [];
+                            const temPrevista = altList.some(a => a.status === 'prevista');
+                            const totalAlts = altList.length;
+                            return (
+                                <th key={m} className="px-2 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-white/5 min-w-[120px] bg-black/20 relative">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <span>{MESES[m]} / {String(selectedYear).slice(-2)}</span>
+                                        {totalAlts > 0 && (
+                                            <button onClick={() => setModalAlteracoesMes(m)}
+                                                title={`${totalAlts} alteração${totalAlts > 1 ? 'ões' : ''} ${temPrevista ? '(há previstas)' : ''}`}
+                                                className={`relative flex items-center justify-center w-5 h-5 rounded-full transition-all ${
+                                                    temPrevista
+                                                        ? 'bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 ring-1 ring-amber-500/40 animate-pulse'
+                                                        : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400'
+                                                }`}>
+                                                <FileWarning className="w-3 h-3" />
+                                                <span className="absolute -top-1 -right-1 text-[8px] font-black bg-slate-900 rounded-full w-3.5 h-3.5 flex items-center justify-center border border-current">
+                                                    {totalAlts}
+                                                </span>
+                                            </button>
+                                        )}
+                                        {totalAlts === 0 && canEdit && (
+                                            <button onClick={() => setModalAlteracoesMes(m)}
+                                                title="Marcar alteração (AGO/AGE/Reunião)"
+                                                className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-amber-400 transition-opacity">
+                                                <FileWarning className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </th>
+                            );
+                        })}
                         <th className="px-2 py-4 w-12 bg-black/40"></th>
                     </tr>
                 </thead>
@@ -830,6 +864,16 @@ export default function ArrecadacoesPage() {
           selectedId={(rateios.find(r => r.id === showContaDropdown) || {}).plano_item_id}
           onSelect={(item) => handleSelectContaItem(showContaDropdown, item)}
           onClose={() => setShowContaDropdown(null)}
+        />
+      )}
+
+      {/* ─── MODAL ALTERAÇÕES DE RATEIO (AGO/AGE/Reunião) ─── */}
+      {modalAlteracoesMes !== null && (
+        <ModalAlteracoesRateio
+          condoId={condoId}
+          ano={selectedYear}
+          mesInicial={modalAlteracoesMes}
+          onClose={() => setModalAlteracoesMes(null)}
         />
       )}
 

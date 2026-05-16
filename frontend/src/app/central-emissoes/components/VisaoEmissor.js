@@ -9,6 +9,7 @@ import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { apiPost } from '@/lib/api';
 import ModalPreparacao from './ModalPreparacao';
+import { FileWarning } from 'lucide-react';
 
 export default function VisaoEmissor({ profile }) {
   // VERSÃO 4.1 - BOTÃO REGISTRAR ESTABILIZADO
@@ -51,6 +52,9 @@ export default function VisaoEmissor({ profile }) {
   const [preparacaoMap, setPreparacaoMap] = useState({});
   const [modalPrepCondo, setModalPrepCondo] = useState(null);
 
+  // Mapa de alterações prevista: { `${condoId}_${mes}_${ano}`: [alteracoes...] }
+  const [alteracoesPrevMap, setAlteracoesPrevMap] = useState({});
+
   useEffect(() => {
     fetchDados();
     
@@ -61,13 +65,32 @@ export default function VisaoEmissor({ profile }) {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'processos' }, fetchProcessos)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_preparacao' }, () => fetchPreparacao())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'alteracoes_rateio' }, () => fetchAlteracoes())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, []);
 
   // Refaz a busca de preparacao quando mes/ano mudam
-  useEffect(() => { fetchPreparacao(); }, [mes, ano]);
+  useEffect(() => { fetchPreparacao(); fetchAlteracoes(); }, [mes, ano]);
+
+  async function fetchAlteracoes() {
+    const { data } = await supabase
+      .from('alteracoes_rateio')
+      .select('id, condominio_id, mes_referencia, ano_referencia, tipo, data_evento, descricao, status')
+      .eq('mes_referencia', mes)
+      .eq('ano_referencia', ano)
+      .eq('status', 'prevista');
+    if (data) {
+      const map = {};
+      data.forEach(a => {
+        const k = `${a.condominio_id}_${a.mes_referencia}_${a.ano_referencia}`;
+        if (!map[k]) map[k] = [];
+        map[k].push(a);
+      });
+      setAlteracoesPrevMap(map);
+    }
+  }
 
   async function fetchDados() {
     setLoading(true);
@@ -723,15 +746,29 @@ export default function VisaoEmissor({ profile }) {
                     const numArquivos = pacote?.numArquivos || 0;
                     const prep = preparacaoMap[`${condo.id}_${mes}_${ano}`];
                     const isPronto = prep?.etapa === 'pronto_para_emitir';
-                    // Gate: só pode criar pacote depois de marcar como pronto p/ emitir
-                    const canCreate = isPronto || !!pacote;
+                    // Alterações previstas (AGO/AGE/Reunião) BLOQUEIAM criação do pacote
+                    const altsPrevistas = alteracoesPrevMap[`${condo.id}_${mes}_${ano}`] || [];
+                    const temAltPrevista = altsPrevistas.length > 0;
+                    // Gate: só pode criar pacote depois de marcar como pronto p/ emitir E sem alteração pendente
+                    const canCreate = !temAltPrevista && (isPronto || !!pacote);
 
                     return (
                       <div key={condo.id} className={`flex items-center justify-between px-6 py-3 border-b border-white/5 last:border-b-0 transition-colors ${
-                        !pacote && isPronto ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.07]' : 'hover:bg-white/[0.02]'
+                        temAltPrevista ? 'bg-amber-500/[0.05] hover:bg-amber-500/[0.08]'
+                          : !pacote && isPronto ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.07]'
+                          : 'hover:bg-white/[0.02]'
                       }`}>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <span className="text-sm font-bold text-gray-300 truncate max-w-[280px]">{condo.name}</span>
+                          {temAltPrevista && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black uppercase tracking-widest animate-pulse"
+                                  title={altsPrevistas.map(a => `${a.tipo} em ${new Date(a.data_evento + 'T00:00:00').toLocaleDateString('pt-BR')}${a.descricao ? ' — ' + a.descricao : ''}`).join('\n')}>
+                              <FileWarning className="w-3 h-3" />
+                              {altsPrevistas.length === 1
+                                ? `${altsPrevistas[0].tipo} em ${new Date(altsPrevistas[0].data_evento + 'T00:00:00').toLocaleDateString('pt-BR')}`
+                                : `${altsPrevistas.length} alterações previstas`}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-3">
                           {pacote ? (
@@ -820,6 +857,13 @@ export default function VisaoEmissor({ profile }) {
                               })()}
                               <button
                                 onClick={() => {
+                                  if (temAltPrevista) {
+                                    addToast(
+                                      `Alteração prevista (${altsPrevistas[0].tipo}). Confirme com o gerente se já ocorreu antes de emitir.`,
+                                      'warning'
+                                    );
+                                    return;
+                                  }
                                   if (!canCreate) {
                                     addToast('Marque a etapa como "Pronto p/ emitir" antes de criar o pacote.', 'warning');
                                     setModalPrepCondo(condo);
@@ -828,7 +872,11 @@ export default function VisaoEmissor({ profile }) {
                                   setCondoId(condo.id);
                                   handleCriarOuAbrirPacote();
                                 }}
-                                title={!canCreate ? 'Conclua a preparação antes de criar o pacote' : 'Criar pacote de emissão'}
+                                title={
+                                  temAltPrevista
+                                    ? `BLOQUEADO: alteração prevista (${altsPrevistas[0].tipo}). Gerente precisa marcar como realizada/cancelada.`
+                                    : !canCreate ? 'Conclua a preparação antes de criar o pacote' : 'Criar pacote de emissão'
+                                }
                                 className={`px-3 py-1.5 border rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
                                   canCreate
                                     ? 'bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
