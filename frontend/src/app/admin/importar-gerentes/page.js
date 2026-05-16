@@ -1,11 +1,12 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@/lib/auth';
 import { createClient } from '@/utils/supabase/client';
 import { apiPost } from '@/lib/api';
 import gerentesEmails from '@/data/gerentes-emails.json';
 import {
   Users, Mail, Copy, Loader2, Check, AlertCircle,
-  ChevronRight, RefreshCw, Eye, EyeOff, Building2
+  ChevronRight, RefreshCw, Eye, EyeOff, Building2, ShieldAlert
 } from 'lucide-react';
 
 function gerarSenhaTemp() {
@@ -16,6 +17,7 @@ function gerarSenhaTemp() {
 }
 
 export default function ImportarGerentesPage() {
+  const { profile, loading: authLoading } = useAuth();
   const [supabase] = useState(() => createClient());
 
   const [ghosts, setGhosts]   = useState([]);
@@ -25,9 +27,10 @@ export default function ImportarGerentesPage() {
   const [running, setRunning] = useState(false);
   const [showPass, setShowPass] = useState({});
   const [copiou, setCopiou]   = useState({});
-  const [msg, setMsg] = useState(''); // mensagem inline em vez de useToast
+  const [msg, setMsg] = useState('');
 
   async function fetchGhosts() {
+    console.log('[importar-gerentes] fetchGhosts start');
     setLoading(true);
     setErroLoad(null);
     try {
@@ -37,9 +40,14 @@ export default function ImportarGerentesPage() {
         .is('profile_id', null)
         .order('codigo_externo');
 
-      if (error) throw error;
+      if (error) {
+        console.error('[importar-gerentes] erro supabase:', error);
+        throw error;
+      }
 
       const list = data || [];
+      console.log('[importar-gerentes] ghosts:', list.length);
+
       const ids = list.map(g => g.id);
       let condoCounts = {};
       if (ids.length) {
@@ -69,14 +77,22 @@ export default function ImportarGerentesPage() {
       }
       setRows(init);
     } catch (err) {
-      console.error('[importar-gerentes] erro fetch:', err);
+      console.error('[importar-gerentes] catch:', err);
       setErroLoad(err.message || String(err));
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { fetchGhosts(); }, []);
+  // Só fetch quando o profile estiver carregado e for master
+  useEffect(() => {
+    if (authLoading) return;
+    if (profile?.role === 'master') {
+      fetchGhosts();
+    } else {
+      setLoading(false);
+    }
+  }, [authLoading, profile?.role]);
 
   function atualizar(id, patch) {
     setRows(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -98,7 +114,7 @@ export default function ImportarGerentesPage() {
       });
       atualizar(g.id, { criando: false, resultado: 'ok', mensagem: 'Criado ✓' });
     } catch (err) {
-      atualizar(g.id, { criando: false, resultado: 'erro', mensagem: (err.message || String(err)).slice(0, 120) });
+      atualizar(g.id, { criando: false, resultado: 'erro', mensagem: (err.message || String(err)).slice(0, 150) });
     }
   }
 
@@ -110,7 +126,7 @@ export default function ImportarGerentesPage() {
       await criarUm(g);
     }
     setRunning(false);
-    setMsg(`Processo finalizado.`);
+    setMsg('Processo finalizado.');
     setTimeout(() => fetchGhosts(), 1500);
   }
 
@@ -128,6 +144,29 @@ export default function ImportarGerentesPage() {
   );
   const totalSemEmail = Math.max(0, ghosts.length - totalCriaveis);
 
+  // ── Estados de tela ─────────────────────────────────────────────
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
+      </div>
+    );
+  }
+
+  if (profile?.role !== 'master') {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <ShieldAlert className="w-12 h-12 text-red-400 mx-auto mb-3" />
+          <p className="text-red-400 font-bold">Acesso restrito</p>
+          <p className="text-slate-500 text-sm mt-1">Apenas o master pode importar gerentes.</p>
+          <p className="text-slate-600 text-xs mt-2">Seu role: {profile?.role || 'desconhecido'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── UI principal ────────────────────────────────────────────────
   return (
     <div className="animate-fade-in w-full max-w-6xl mx-auto py-6 px-4">
       <div className="mb-8">
