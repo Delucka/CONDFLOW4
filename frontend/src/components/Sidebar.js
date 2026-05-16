@@ -2,9 +2,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { createClient } from '@/utils/supabase/client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
+import { usePendingCount } from '@/lib/usePendingCount';
 import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp, KeyRound } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -15,34 +15,14 @@ const NAV_ITEMS = [
   { href: '/central-emissoes',    icon: FileUp,          label: 'Central de Emissões', showBadge: true },
 ];
 const ADMIN_ITEMS = [{ href: '/admin/usuarios', icon: Users, label: 'Acessos e Perfis' }];
-const ROLES_COM_BADGE = ['master','gerente','supervisora','supervisora_contabilidade','supervisor_gerentes'];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
-  const supabase = createClient();
 
-  useEffect(() => {
-    if (!profile || !ROLES_COM_BADGE.includes(profile.role)) return;
-    const fetchCount = async () => {
-      // Conta pacotes ativos no fluxo (não rascunho, não lacrados/registrados)
-      const { count } = await supabase
-        .from('emissoes_pacotes')
-        .select('*', { count: 'exact', head: true })
-        .neq('status', 'rascunho')
-        .neq('status', 'registrado')
-        .neq('status', 'expedida')
-        .or('lacrada.is.null,lacrada.eq.false');
-      setPendingCount(count || 0);
-    };
-    fetchCount();
-    const ch = supabase.channel(`sidebar_badge_${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, fetchCount)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [profile, supabase]);
+  // Conta pendências SUAS (filtradas por role)
+  const { count: pendingCount } = usePendingCount();
 
   const isActive = (href) => href === '/dashboard' ? pathname === href : pathname.startsWith(href);
   const role = profile?.role;
@@ -83,7 +63,7 @@ export default function Sidebar() {
           {visibleNav.length > 0 && <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-3">Menu Principal</div>}
           {visibleNav.map((item) => {
             const active = isActive(item.href);
-            const showBadge = item.showBadge && ROLES_COM_BADGE.includes(role) && pendingCount > 0;
+            const showBadge = item.showBadge && pendingCount > 0;
             return (
               <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}
                 className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-bold transition-all relative ${active ? 'bg-violet-600 shadow-[0_0_20px_rgba(139,92,246,0.4)] text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'} ${collapsed ? 'justify-center px-0' : ''}`}>

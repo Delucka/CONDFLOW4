@@ -9,8 +9,9 @@ import {
   MessageSquare, Building2, Loader2, Send,
   History, Inbox, Eye, ShieldCheck, Filter,
   FileText, Lock, Unlock, Globe, User, Calendar,
-  ChevronDown, X, RefreshCw
+  ChevronDown, X, RefreshCw, FileUp, ArrowRight
 } from 'lucide-react';
+import { usePendingCount } from '@/lib/usePendingCount';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { createClient } from '@/utils/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
@@ -40,6 +41,7 @@ export default function AprovacoesPage() {
   const supabase = createClient();
 
   const [aba, setAba] = useState('fila'); // 'fila' | 'auditoria'
+  const { count: minhasPendenciasEmissao } = usePendingCount();
   const [processing, setProcessing] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -125,7 +127,12 @@ export default function AprovacoesPage() {
       <div className="glass-panel p-7 rounded-[2rem] border border-white/5 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
         <div>
           <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Aprovações & Auditoria</h1>
-          <p className="text-slate-500 text-xs font-bold tracking-widest mt-1 uppercase">Validação de planilhas + registro completo de atividades</p>
+          <p className="text-slate-500 text-xs font-bold tracking-widest mt-1 uppercase">
+            Aprovação de planilhas semestrais + Histórico completo do sistema
+          </p>
+          <p className="text-slate-600 text-[10px] tracking-wider mt-1">
+            Aprovação de emissões mensais → <Link href="/central-emissoes" className="text-cyan-400 hover:underline">Central de Emissões → Painel de Gestão</Link>
+          </p>
         </div>
         <div className="flex gap-3">
           <div className="bg-white/5 border border-white/10 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
@@ -143,10 +150,34 @@ export default function AprovacoesPage() {
         </div>
       </div>
 
+      {/* ── Atalho pra aprovação de emissões (vive no Painel de Gestão) ── */}
+      {minhasPendenciasEmissao > 0 && (
+        <Link href="/central-emissoes"
+          className="block glass-panel p-5 rounded-2xl border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all group">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0">
+                <FileUp className="w-6 h-6 text-cyan-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Aprovação de emissões</p>
+                <p className="text-white font-bold mt-0.5">
+                  <span className="text-2xl font-black text-cyan-300">{minhasPendenciasEmissao}</span>
+                  <span className="ml-2 text-sm">pacote{minhasPendenciasEmissao !== 1 ? 's' : ''} esperando você no Painel de Gestão</span>
+                </p>
+              </div>
+            </div>
+            <div className="text-cyan-400 group-hover:translate-x-1 transition-transform">
+              <ArrowRight className="w-6 h-6" />
+            </div>
+          </div>
+        </Link>
+      )}
+
       {/* ── Tabs ── */}
       <div className="flex gap-2 bg-white/[0.03] p-1.5 rounded-2xl border border-white/5 w-fit">
         {[
-          { id: 'fila',      label: `Fila de Aprovações${pendentes.length > 0 ? ` (${pendentes.length})` : ''}`, icon: Clock },
+          { id: 'fila',      label: `Fila de Planilhas${pendentes.length > 0 ? ` (${pendentes.length})` : ''}`, icon: Clock },
           { id: 'auditoria', label: 'Histórico de Atividades', icon: History },
         ].map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setAba(id)}

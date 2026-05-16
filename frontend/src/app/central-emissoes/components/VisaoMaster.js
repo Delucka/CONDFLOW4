@@ -11,6 +11,8 @@ import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
+import { isPendingForRole } from '@/lib/usePendingCount';
+import { Inbox } from 'lucide-react';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -33,6 +35,7 @@ export default function VisaoMaster() {
   const [showRegistroModal, setShowRegistroModal] = useState(false);
   const [dataRegistro, setDataRegistro] = useState('');
   const [filtroAtivo, setFiltroAtivo] = useState(null);
+  const [apenasMinhasPendencias, setApenasMinhasPendencias] = useState(false);
 
   // ── Mês ativo ─────────────────────────────────────────────────────────────
   const hoje = new Date();
@@ -97,15 +100,32 @@ export default function VisaoMaster() {
   }), [pacotesAtivos]);
 
   const pacotesFiltrados = useMemo(() => {
-    if (!filtroAtivo) return pacotesAtivos;
-    return pacotesAtivos.filter(p => {
-      const s = (p.status || '').toLowerCase();
-      if (filtroAtivo === 'pendente_gerente')           return s.includes('gerente') || s === 'pendente';
-      if (filtroAtivo === 'pendente_sup_gerentes')      return s.includes('chefe') || s.includes('sup. gerentes');
-      if (filtroAtivo === 'pendente_sup_contabilidade') return s.includes('supervisor');
-      return s === filtroAtivo;
-    });
-  }, [pacotesAtivos, filtroAtivo]);
+    let lista = pacotesAtivos;
+
+    // Filtro: só minhas pendências (baseado no role do usuário logado)
+    if (apenasMinhasPendencias && profile?.role) {
+      lista = lista.filter(p => isPendingForRole(p.status, profile.role));
+    }
+
+    // Filtro: clique em um card de status (pendente_gerente, etc)
+    if (filtroAtivo) {
+      lista = lista.filter(p => {
+        const s = (p.status || '').toLowerCase();
+        if (filtroAtivo === 'pendente_gerente')           return s.includes('gerente') || s === 'pendente';
+        if (filtroAtivo === 'pendente_sup_gerentes')      return s.includes('chefe') || s.includes('sup. gerentes');
+        if (filtroAtivo === 'pendente_sup_contabilidade') return s.includes('supervisor');
+        return s === filtroAtivo;
+      });
+    }
+
+    return lista;
+  }, [pacotesAtivos, filtroAtivo, apenasMinhasPendencias, profile?.role]);
+
+  // Quantidade de pendências MINHAS no mês atual (pra mostrar no toggle)
+  const totalMinhasPendencias = useMemo(() => {
+    if (!profile?.role) return 0;
+    return pacotesAtivos.filter(p => isPendingForRole(p.status, profile.role)).length;
+  }, [pacotesAtivos, profile?.role]);
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -478,20 +498,43 @@ export default function VisaoMaster() {
 
       {/* ── Lista do mês ── */}
       <div className="border border-white/10 rounded-3xl bg-white/5 overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-white/10 flex items-center gap-4">
-          <h3 className="font-black text-white text-lg flex items-center gap-2">
-            <Activity className="text-cyan-400 w-5 h-5"/>
-            FLUXO — {MESES[mesAtivo - 1]}/{anoAtivo}
-          </h3>
-          {filtroAtivo && (
-            <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full">
-              <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-                Filtro: {filtroAtivo.replace(/_/g, ' ')}
+        <div className="p-6 border-b border-white/10 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h3 className="font-black text-white text-lg flex items-center gap-2">
+              <Activity className="text-cyan-400 w-5 h-5"/>
+              FLUXO — {MESES[mesAtivo - 1]}/{anoAtivo}
+            </h3>
+            {filtroAtivo && (
+              <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full">
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
+                  Filtro: {filtroAtivo.replace(/_/g, ' ')}
+                </span>
+                <button onClick={() => setFiltroAtivo(null)} className="p-1 hover:bg-blue-500/20 rounded-full transition-colors">
+                  <X className="w-3 h-3 text-blue-400" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Toggle "Só minhas pendências" — destaque pros supervisores */}
+          {totalMinhasPendencias > 0 && (
+            <button
+              onClick={() => setApenasMinhasPendencias(v => !v)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all ${
+                apenasMinhasPendencias
+                  ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
+                  : 'bg-rose-500/5 hover:bg-rose-500/10 border-rose-500/20 text-rose-400'
+              }`}
+              title={apenasMinhasPendencias ? 'Mostrar todos os pacotes do mês' : 'Filtrar só pacotes que pendem da sua aprovação'}
+            >
+              <Inbox className="w-4 h-4" />
+              {apenasMinhasPendencias ? 'Mostrando suas pendências' : 'Só minhas pendências'}
+              <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
+                apenasMinhasPendencias ? 'bg-rose-500 text-white' : 'bg-rose-500/30 text-rose-200'
+              }`}>
+                {totalMinhasPendencias}
               </span>
-              <button onClick={() => setFiltroAtivo(null)} className="p-1 hover:bg-blue-500/20 rounded-full transition-colors">
-                <X className="w-3 h-3 text-blue-400" />
-              </button>
-            </div>
+            </button>
           )}
         </div>
 
