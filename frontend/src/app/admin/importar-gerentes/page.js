@@ -2,14 +2,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { apiPost } from '@/lib/api';
-import { useToast } from '@/components/Toast';
 import gerentesEmails from '@/data/gerentes-emails.json';
 import {
-  Users, Mail, KeyRound, Copy, Loader2, Check, X, AlertCircle,
+  Users, Mail, Copy, Loader2, Check, AlertCircle,
   ChevronRight, RefreshCw, Eye, EyeOff, Building2
 } from 'lucide-react';
 
-// Gera senha temporária aleatória (10 chars + !)
 function gerarSenhaTemp() {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
   let out = '';
@@ -18,58 +16,61 @@ function gerarSenhaTemp() {
 }
 
 export default function ImportarGerentesPage() {
-  const supabase = createClient();
-  const { addToast } = useToast();
+  const [supabase] = useState(() => createClient());
 
   const [ghosts, setGhosts]   = useState([]);
   const [loading, setLoading] = useState(true);
-  const [rows, setRows]       = useState({}); // por gerente_id: { nome, email, senha, ja_existe, criando, resultado }
+  const [erroLoad, setErroLoad] = useState(null);
+  const [rows, setRows]       = useState({});
   const [running, setRunning] = useState(false);
   const [showPass, setShowPass] = useState({});
   const [copiou, setCopiou]   = useState({});
+  const [msg, setMsg] = useState(''); // mensagem inline em vez de useToast
 
   async function fetchGhosts() {
     setLoading(true);
+    setErroLoad(null);
     try {
-      // Ghosts: gerentes sem profile_id (importados do Ahreas, ainda sem login)
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('gerentes')
         .select('id, nome, codigo_externo, profile_id')
         .is('profile_id', null)
         .order('codigo_externo');
 
-      // Conta condos por gerente
-      const ids = (data || []).map(g => g.id);
-      const condoCounts = {};
+      if (error) throw error;
+
+      const list = data || [];
+      const ids = list.map(g => g.id);
+      let condoCounts = {};
       if (ids.length) {
         const { data: condos } = await supabase
           .from('condominios')
           .select('gerente_id')
           .in('gerente_id', ids);
         (condos || []).forEach(c => {
-          condoCounts[c.gerente_id] = (condoCounts[c.gerente_id] || 0) + 1;
+          if (c.gerente_id) condoCounts[c.gerente_id] = (condoCounts[c.gerente_id] || 0) + 1;
         });
       }
 
-      const enriched = (data || []).map(g => ({ ...g, condos_count: condoCounts[g.id] || 0 }));
+      const enriched = list.map(g => ({ ...g, condos_count: condoCounts[g.id] || 0 }));
       setGhosts(enriched);
 
-      // Inicializa rows com email/nome do JSON
       const init = {};
       for (const g of enriched) {
         const cfg = gerentesEmails[g.codigo_externo] || {};
         init[g.id] = {
-          nome: cfg.nome || g.nome,
+          nome: cfg.nome || g.nome || '',
           email: cfg.email || '',
           senha: gerarSenhaTemp(),
           criando: false,
-          resultado: null, // 'ok' | 'erro' | null
+          resultado: null,
           mensagem: '',
         };
       }
       setRows(init);
     } catch (err) {
-      addToast('Erro ao carregar ghosts: ' + err.message, 'error');
+      console.error('[importar-gerentes] erro fetch:', err);
+      setErroLoad(err.message || String(err));
     } finally {
       setLoading(false);
     }
@@ -81,18 +82,10 @@ export default function ImportarGerentesPage() {
     setRows(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }
 
-  function regenerarSenha(id) {
-    atualizar(id, { senha: gerarSenhaTemp() });
-  }
-
   async function criarUm(g) {
     const row = rows[g.id];
-    if (!row.email || !row.email.includes('@')) {
+    if (!row || !row.email || !row.email.includes('@')) {
       atualizar(g.id, { resultado: 'erro', mensagem: 'Email inválido' });
-      return;
-    }
-    if (row.senha.length < 6) {
-      atualizar(g.id, { resultado: 'erro', mensagem: 'Senha curta' });
       return;
     }
     atualizar(g.id, { criando: true, resultado: null, mensagem: '' });
@@ -103,45 +96,37 @@ export default function ImportarGerentesPage() {
         full_name: row.nome,
         role: 'gerente',
       });
-      atualizar(g.id, { criando: false, resultado: 'ok', mensagem: 'Criado e vinculado ao ghost' });
+      atualizar(g.id, { criando: false, resultado: 'ok', mensagem: 'Criado ✓' });
     } catch (err) {
-      const msg = err.message || String(err);
-      // Se já existe no Auth, tenta via sync
-      if (/already|registered|exists/i.test(msg)) {
-        try {
-          // Apenas atualiza nome via reset-password
-          atualizar(g.id, { criando: false, resultado: 'aviso', mensagem: 'Email já existe — verifique manualmente' });
-        } catch (e2) {
-          atualizar(g.id, { criando: false, resultado: 'erro', mensagem: e2.message });
-        }
-      } else {
-        atualizar(g.id, { criando: false, resultado: 'erro', mensagem: msg });
-      }
+      atualizar(g.id, { criando: false, resultado: 'erro', mensagem: (err.message || String(err)).slice(0, 120) });
     }
   }
 
   async function criarTodos() {
     setRunning(true);
+    setMsg('Criando usuários...');
     const pendentes = ghosts.filter(g => rows[g.id]?.email && rows[g.id]?.resultado !== 'ok');
     for (const g of pendentes) {
       await criarUm(g);
     }
     setRunning(false);
-    // Recarrega lista (alguns ghosts viraram users e não devem mais aparecer)
-    fetchGhosts();
+    setMsg(`Processo finalizado.`);
+    setTimeout(() => fetchGhosts(), 1500);
   }
 
   function copiar(id, txt) {
-    navigator.clipboard.writeText(txt);
-    setCopiou(prev => ({ ...prev, [id]: true }));
-    setTimeout(() => setCopiou(prev => ({ ...prev, [id]: false })), 1500);
+    try {
+      navigator.clipboard.writeText(txt);
+      setCopiou(prev => ({ ...prev, [id]: true }));
+      setTimeout(() => setCopiou(prev => ({ ...prev, [id]: false })), 1500);
+    } catch {}
   }
 
   const totalCriaveis = useMemo(
     () => ghosts.filter(g => rows[g.id]?.email).length,
     [ghosts, rows]
   );
-  const totalSemEmail = ghosts.length - totalCriaveis;
+  const totalSemEmail = Math.max(0, ghosts.length - totalCriaveis);
 
   return (
     <div className="animate-fade-in w-full max-w-6xl mx-auto py-6 px-4">
@@ -155,8 +140,13 @@ export default function ImportarGerentesPage() {
         <p className="text-slate-400 text-sm">Cria os usuários dos gerentes-fantasma (importados do Ahreas) em lote.</p>
       </div>
 
-      {/* Stats + ação principal */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+      {erroLoad && (
+        <div className="mb-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 text-rose-300 text-sm">
+          <strong>Erro ao carregar:</strong> {erroLoad}
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-violet-500/10 border border-violet-500/30 rounded-2xl px-5 py-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-violet-400">Ghosts pendentes</p>
           <p className="text-3xl font-black text-white mt-1">{ghosts.length}</p>
@@ -173,7 +163,7 @@ export default function ImportarGerentesPage() {
 
       <div className="flex items-center gap-3 mb-6">
         <button onClick={criarTodos} disabled={running || loading || totalCriaveis === 0}
-          className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-violet-500/20 transition-all">
+          className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all">
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
           Criar todos ({totalCriaveis})
         </button>
@@ -183,18 +173,18 @@ export default function ImportarGerentesPage() {
         </button>
       </div>
 
+      {msg && (
+        <div className="mb-4 px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-300 text-xs">{msg}</div>
+      )}
+
       <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 mb-6 text-xs text-amber-200/80 flex items-start gap-2">
         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
         <div>
-          <strong className="text-amber-300">Como funciona:</strong> os gerentes serão criados com a senha temporária ao lado.
-          Eles vão ser <strong>obrigados a trocar a senha no primeiro acesso</strong>.
-          O sistema <strong>vincula automaticamente</strong> ao ghost correspondente, preservando os condomínios.
-          <br /><br />
-          <strong>📋 Anote ou copie as senhas antes</strong> e mande pelos canais habituais (WhatsApp, e-mail interno).
+          Senhas temporárias são geradas automaticamente. <strong>Copie cada uma antes de criar</strong> e envie aos gerentes.
+          Eles serão obrigados a trocar a senha no primeiro acesso.
         </div>
       </div>
 
-      {/* Tabela */}
       {loading ? (
         <div className="p-20 flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
@@ -206,13 +196,13 @@ export default function ImportarGerentesPage() {
           <p className="text-slate-400 text-sm mt-1">Não há mais ghosts pendentes de criação.</p>
         </div>
       ) : (
-        <div className="bg-slate-900/50 border border-white/5 rounded-3xl overflow-hidden">
-          <table className="w-full">
+        <div className="bg-slate-900/50 border border-white/5 rounded-3xl overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm">
             <thead className="bg-white/5 border-b border-white/5">
               <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                <th className="px-4 py-3 text-left">Código / Nome</th>
+                <th className="px-4 py-3 text-left">Cód / Nome</th>
                 <th className="px-4 py-3 text-left">Email</th>
-                <th className="px-4 py-3 text-left">Senha temporária</th>
+                <th className="px-4 py-3 text-left">Senha</th>
                 <th className="px-4 py-3 text-left">Condos</th>
                 <th className="px-4 py-3 text-right">Ação</th>
               </tr>
@@ -223,7 +213,7 @@ export default function ImportarGerentesPage() {
                 const status = row.resultado;
                 return (
                   <tr key={g.id} className={status === 'ok' ? 'bg-emerald-500/5' : ''}>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-top">
                       <p className="text-[10px] font-mono text-violet-300">{g.codigo_externo}</p>
                       <input
                         value={row.nome || ''}
@@ -231,7 +221,7 @@ export default function ImportarGerentesPage() {
                         className="text-sm font-bold text-white bg-transparent border-none outline-none w-full focus:bg-white/5 px-1 rounded"
                       />
                     </td>
-                    <td className="px-4 py-3 min-w-[280px]">
+                    <td className="px-4 py-3 min-w-[260px] align-top">
                       <div className="relative">
                         <Mail className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
                         <input
@@ -243,53 +233,46 @@ export default function ImportarGerentesPage() {
                         />
                       </div>
                     </td>
-                    <td className="px-4 py-3 min-w-[240px]">
+                    <td className="px-4 py-3 min-w-[220px] align-top">
                       <div className="flex items-center gap-1">
                         <input
                           type={showPass[g.id] ? 'text' : 'password'}
                           value={row.senha || ''}
                           onChange={(e) => atualizar(g.id, { senha: e.target.value })}
-                          className="flex-1 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-cyan-300 font-mono focus:border-cyan-500 outline-none"
+                          className="flex-1 min-w-0 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-cyan-300 font-mono focus:border-cyan-500 outline-none"
                         />
                         <button onClick={() => setShowPass(p => ({ ...p, [g.id]: !p[g.id] }))}
-                          className="p-1.5 text-slate-500 hover:text-cyan-400" title="Ver/esconder">
+                          className="p-1.5 text-slate-500 hover:text-cyan-400 shrink-0">
                           {showPass[g.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                         </button>
                         <button onClick={() => copiar(g.id, row.senha)}
-                          className={`p-1.5 transition-colors ${copiou[g.id] ? 'text-emerald-400' : 'text-slate-500 hover:text-cyan-400'}`}
-                          title="Copiar senha">
+                          className={`p-1.5 shrink-0 ${copiou[g.id] ? 'text-emerald-400' : 'text-slate-500 hover:text-cyan-400'}`}>
                           {copiou[g.id] ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                         </button>
-                        <button onClick={() => regenerarSenha(g.id)}
-                          className="p-1.5 text-slate-500 hover:text-cyan-400" title="Gerar nova senha">
+                        <button onClick={() => atualizar(g.id, { senha: gerarSenhaTemp() })}
+                          className="p-1.5 text-slate-500 hover:text-cyan-400 shrink-0">
                           <RefreshCw className="w-3 h-3" />
                         </button>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                    <td className="px-4 py-3 align-top">
+                      <span className="text-xs text-slate-400 flex items-center gap-1 whitespace-nowrap">
                         <Building2 className="w-3 h-3" /> {g.condos_count}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right align-top whitespace-nowrap">
                       {status === 'ok' ? (
                         <span className="inline-flex items-center gap-1 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
                           <Check className="w-3 h-3" /> Criado
                         </span>
-                      ) : status === 'erro' || status === 'aviso' ? (
-                        <button onClick={() => criarUm(g)} disabled={row.criando}
-                          className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded text-[10px] font-black uppercase tracking-widest"
-                          title={row.mensagem}>
-                          Tentar de novo
-                        </button>
                       ) : (
                         <button onClick={() => criarUm(g)} disabled={row.criando || !row.email}
                           className="px-3 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-400 rounded text-[10px] font-black uppercase tracking-widest disabled:opacity-30">
                           {row.criando ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Criar'}
                         </button>
                       )}
-                      {(status === 'erro' || status === 'aviso') && row.mensagem && (
-                        <p className="text-[9px] text-rose-400 mt-1 max-w-[180px] truncate" title={row.mensagem}>
+                      {status === 'erro' && row.mensagem && (
+                        <p className="text-[9px] text-rose-400 mt-1 max-w-[200px] break-words" title={row.mensagem}>
                           {row.mensagem}
                         </p>
                       )}
