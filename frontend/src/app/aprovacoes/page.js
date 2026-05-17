@@ -1,5 +1,6 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -55,6 +56,13 @@ export default function AprovacoesPage() {
   const verAbasPacotes = !isMaster && !isDepartamento && (isGerente || isSupervisor);
 
   const [aba, setAba] = useState('fila'); // 'fila' | 'auditoria' | 'pacotes' | 'registro'
+
+  // Permite abrir uma aba via ?tab=...
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && ['fila', 'auditoria', 'pacotes', 'registro'].includes(t)) setAba(t);
+  }, [searchParams]);
   const { count: minhasPendenciasEmissao } = usePendingCount();
   const [processing, setProcessing] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(null);
