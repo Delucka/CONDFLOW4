@@ -320,7 +320,7 @@ function ModalCancelar({ cobranca, onClose, onSaved }) {
 
 // ─── Página Principal ──────────────────────────────────────────────
 export default function CobrancasExtrasPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { addToast } = useToast();
   const supabase = createClient();
 
@@ -331,19 +331,47 @@ export default function CobrancasExtrasPage() {
   const [loading, setLoading] = useState(false);
   const [modalLancar, setModalLancar] = useState(false);
   const [modalCancelar, setModalCancelar] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState('todos'); // 'todos' | 'ativa' | 'cancelamento'
+  const [loadingCondos, setLoadingCondos] = useState(true);
 
-  const podeLancar   = can(user?.role, 'edit_cobrancas_extras');
-  const podeExecutar = user?.role === 'master' || user?.role === 'departamento';
-  const podeSolicitar = user?.role === 'master' || user?.role === 'gerente';
+  const role = profile?.role || user?.role;
+  const podeLancar   = can(role, 'edit_cobrancas_extras');
+  const podeExecutar = role === 'master' || role === 'departamento';
+  const podeSolicitar = role === 'master' || role === 'gerente';
 
-  // Carrega condomínios
+  // Carrega condomínios filtrados por carteira (gerente/assistente)
   useEffect(() => {
+    if (!profile?.id) return;
     (async () => {
-      const { data } = await supabase.from('condominios').select('id, name').order('name');
-      setCondominios(data || []);
-      if (data?.length) setCondoSel(data[0].id);
+      setLoadingCondos(true);
+      try {
+        if (role === 'gerente') {
+          const { data: g } = await supabase.from('gerentes').select('id').eq('profile_id', profile.id).maybeSingle();
+          if (!g?.id) { setCondominios([]); setLoadingCondos(false); return; }
+          const { data } = await supabase.from('condominios').select('id, name').eq('gerente_id', g.id).order('name');
+          setCondominios(data || []);
+          if (data?.length) setCondoSel(data[0].id);
+        } else if (role === 'assistente') {
+          // assistente: gerentes onde a coluna 'assistente' (texto) bate com o full_name do profile
+          const { data: gers } = await supabase.from('gerentes').select('id, assistente').not('assistente', 'is', null);
+          const fullName = (profile.full_name || '').trim().toLowerCase();
+          const gIds = (gers || []).filter(g => (g.assistente || '').trim().toLowerCase() === fullName).map(g => g.id);
+          if (gIds.length === 0) { setCondominios([]); setLoadingCondos(false); return; }
+          const { data } = await supabase.from('condominios').select('id, name').in('gerente_id', gIds).order('name');
+          setCondominios(data || []);
+          if (data?.length) setCondoSel(data[0].id);
+        } else {
+          // master / supervisores / departamento: veem todos
+          const { data } = await supabase.from('condominios').select('id, name').order('name');
+          setCondominios(data || []);
+          if (data?.length) setCondoSel(data[0].id);
+        }
+      } finally {
+        setLoadingCondos(false);
+      }
     })();
-  }, [supabase]);
+  }, [supabase, profile?.id, profile?.full_name, role]);
 
   // Carrega cobranças e cancelamentos pendentes
   const carregar = useCallback(async () => {
@@ -379,6 +407,9 @@ export default function CobrancasExtrasPage() {
     }
   }
 
+  // Stats
+  const condoNome = condominios.find(c => c.id === condoSel)?.name || '';
+
   // Agrupa cobranças por grupo_id para exibição
   const grupos = cobrancas.reduce((acc, c) => {
     const gid = c.grupo_id || c.id;
@@ -402,21 +433,58 @@ export default function CobrancasExtrasPage() {
 
   const { mes: mesAtual, ano: anoAtual } = getMesAtual();
 
+  // Stats agregadas
+  const todosGrupos = Object.values(grupos);
+  const stats = useMemo(() => {
+    const ativas = todosGrupos.filter(g => g.status !== 'solicitado_cancelamento');
+    const cancel = todosGrupos.filter(g => g.status === 'solicitado_cancelamento');
+    const valorTotal = ativas.reduce((s, g) => {
+      const parcelasAtivas = (g.parcelas || []).filter(p => p.status !== 'cancelada' && p.status !== 'solicitado_cancelamento');
+      return s + parcelasAtivas.reduce((sp, p) => sp + Number(p.amount || g.valor_parcela || 0), 0);
+    }, 0);
+    return { ativas: ativas.length, cancel: cancel.length, total: todosGrupos.length, valorTotal };
+  }, [todosGrupos]);
+
+  // Filtros aplicados
+  const gruposFiltrados = useMemo(() => {
+    let list = todosGrupos;
+    if (filtroStatus === 'ativa') list = list.filter(g => g.status !== 'solicitado_cancelamento');
+    else if (filtroStatus === 'cancelamento') list = list.filter(g => g.status === 'solicitado_cancelamento');
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter(g => (g.descricao_base || '').toLowerCase().includes(s));
+    }
+    return list;
+  }, [todosGrupos, filtroStatus, search]);
+
   return (
     <div className="animate-fade-in w-full space-y-6 pb-20">
 
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-panel p-6 rounded-[2rem] border-white/5 shadow-xl">
-        <div>
-          <h2 className="text-xl font-black text-white uppercase tracking-tight">Cobranças Extras</h2>
-          <p className="text-xs text-slate-400 mt-1">Lançamentos vinculados por mês — sem retroativo</p>
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
+            <Receipt className="w-7 h-7 text-amber-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-white uppercase tracking-tight">Cobranças Extras</h2>
+            <p className="text-xs text-slate-400 mt-1">
+              {role === 'gerente' ? 'Sua carteira' : role === 'assistente' ? 'Carteira do seu gerente' : 'Todos os condomínios'} · Lançamentos vinculados por mês
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <select value={condoSel} onChange={e => setCondoSel(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 outline-none focus:border-amber-500">
-            {condominios.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          {podeLancar && (
+          {condominios.length === 0 ? (
+            <span className="text-xs text-slate-500 italic">
+              {loadingCondos ? 'Carregando carteira...' : 'Nenhum condomínio na sua carteira'}
+            </span>
+          ) : (
+            <select value={condoSel} onChange={e => setCondoSel(e.target.value)}
+              className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 outline-none focus:border-amber-500 min-w-[260px]">
+              {condominios.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+          {podeLancar && condominios.length > 0 && (
             <button onClick={() => setModalLancar(true)}
               className="bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-amber-500 transition-all shadow-[0_0_15px_rgba(217,119,6,0.3)]">
               <Plus className="w-4 h-4" /> Nova Cobrança
@@ -424,6 +492,60 @@ export default function CobrancasExtrasPage() {
           )}
         </div>
       </div>
+
+      {/* Stats cards (só quando tem condo + cobrancas) */}
+      {condoSel && todosGrupos.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="glass-panel p-4 rounded-2xl border border-white/5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total</p>
+            <p className="text-2xl font-black text-white mt-1">{stats.total}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">cobrança{stats.total !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="glass-panel p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Ativas</p>
+            <p className="text-2xl font-black text-emerald-300 mt-1">{stats.ativas}</p>
+            <p className="text-[10px] text-emerald-500/70 mt-0.5">em vigor</p>
+          </div>
+          <div className="glass-panel p-4 rounded-2xl border border-rose-500/20 bg-rose-500/5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Aguardando cancel.</p>
+            <p className="text-2xl font-black text-rose-300 mt-1">{stats.cancel}</p>
+            <p className="text-[10px] text-rose-500/70 mt-0.5">pendentes</p>
+          </div>
+          <div className="glass-panel p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Valor estimado</p>
+            <p className="text-xl font-black text-amber-300 mt-1 truncate">R$ {stats.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <p className="text-[10px] text-amber-500/70 mt-0.5">parcelas restantes</p>
+          </div>
+        </div>
+      )}
+
+      {/* Toolbar (busca + filtro de status) */}
+      {condoSel && todosGrupos.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[240px]">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+            </svg>
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Pesquisar descrição..."
+              className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-10 pr-3 py-2 text-sm text-slate-200 outline-none focus:border-amber-500/50 placeholder-slate-600" />
+          </div>
+          <div className="flex gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/5">
+            {[
+              { id: 'todos',        label: 'Todas' },
+              { id: 'ativa',        label: 'Ativas' },
+              { id: 'cancelamento', label: 'Em cancelamento' },
+            ].map(opt => (
+              <button key={opt.id} onClick={() => setFiltroStatus(opt.id)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  filtroStatus === opt.id ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                }`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Cancelamentos pendentes — só para Emissor/Master */}
       {podeExecutar && cancelamentos.length > 0 && (
@@ -454,15 +576,26 @@ export default function CobrancasExtrasPage() {
       {/* Lista de cobranças */}
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>
-      ) : Object.keys(grupos).length === 0 ? (
+      ) : !condoSel ? (
+        <div className="text-center py-20 glass-panel rounded-[2rem]">
+          <Building2 className="w-12 h-12 mx-auto mb-3 text-slate-700" />
+          <p className="text-slate-400 font-bold">Nenhum condomínio na sua carteira</p>
+          <p className="text-slate-600 text-sm mt-1">Fale com o master pra ser atribuído a um condomínio.</p>
+        </div>
+      ) : todosGrupos.length === 0 ? (
         <div className="text-center py-20 glass-panel rounded-[2rem]">
           <Receipt className="w-12 h-12 mx-auto mb-3 text-slate-700" />
           <p className="text-slate-400 font-bold">Nenhuma cobrança extra lançada</p>
-          <p className="text-slate-600 text-sm mt-1">Selecione um condomínio e clique em &quot;Nova Cobrança&quot;</p>
+          <p className="text-slate-600 text-sm mt-1">Clique em &quot;Nova Cobrança&quot; pra começar.</p>
+        </div>
+      ) : gruposFiltrados.length === 0 ? (
+        <div className="text-center py-12 glass-panel rounded-[2rem]">
+          <p className="text-slate-400 font-bold">Nada encontrado com esses filtros</p>
+          <p className="text-slate-600 text-sm mt-1">Limpe a busca ou troque o filtro de status.</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {Object.values(grupos).map(grupo => (
+          {gruposFiltrados.map(grupo => (
             <div key={grupo.grupo_id}
               className={`glass-panel rounded-2xl border overflow-hidden shadow-lg
                 ${grupo.status === 'solicitado_cancelamento' ? 'border-rose-500/30' : 'border-white/5'}`}>
