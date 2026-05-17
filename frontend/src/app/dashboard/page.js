@@ -157,8 +157,8 @@ export default function DashboardPage() {
 
   const query = filtroGerente ? `?gerente_id=${filtroGerente}` : '';
   const { data, error, isLoading, mutate } = useSWR(`/api/dashboard${query}`, apiFetcher, {
-    revalidateOnFocus: true,
-    dedupingInterval: 5000
+    revalidateOnFocus: false,
+    dedupingInterval: 30000
   });
 
   // Single source: tudo vem do endpoint /api/dashboard agora
@@ -185,8 +185,12 @@ export default function DashboardPage() {
       let allFiles = [];
       let signedUrl = null;
       if (fileData) {
-        const { data: arquivos } = await supabase.from('emissoes_arquivos').select('*').eq('pacote_id', fileData.pacote_id);
-        allFiles = arquivos || [];
+        if (fileData.pacote_id) {
+          const { data: arquivos } = await supabase.from('emissoes_arquivos').select('*').eq('pacote_id', fileData.pacote_id);
+          allFiles = arquivos || [];
+        } else {
+          allFiles = [fileData];
+        }
         const { data: urlData } = await supabase.storage.from('emissoes').createSignedUrl(fileData.arquivo_url, 300);
         signedUrl = urlData?.signedUrl;
       }

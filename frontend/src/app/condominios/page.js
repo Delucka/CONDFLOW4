@@ -167,13 +167,16 @@ export default function CondominiosPage() {
       let signedUrl = null;
 
       if (fileData) {
-        // Buscar todos os arquivos do mesmo pacote
-        const { data: arquivos } = await supabase
-          .from('emissoes_arquivos')
-          .select('*')
-          .eq('pacote_id', fileData.pacote_id);
-        
-        allFiles = arquivos || [];
+        if (fileData.pacote_id) {
+          // Buscar todos os arquivos do mesmo pacote
+          const { data: arquivos } = await supabase
+            .from('emissoes_arquivos')
+            .select('*')
+            .eq('pacote_id', fileData.pacote_id);
+          allFiles = arquivos || [];
+        } else {
+          allFiles = [fileData];
+        }
 
         const { data: urlData } = await supabase.storage
           .from('emissoes')

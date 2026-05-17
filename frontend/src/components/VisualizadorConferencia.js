@@ -28,7 +28,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       ? `/api/condominio/${currentFile.condominio_id}/conferencia?mes=${currentFile.mes}&ano=${currentFile.ano}&retificacao=${currentFile.eh_retificacao}`
       : null,
     apiFetcher,
-    { refreshInterval: 3000, revalidateOnFocus: true },
+    { refreshInterval: 30000, revalidateOnFocus: false, dedupingInterval: 5000 },
   );
 
   const loading = isSnapshot ? false : loadingLive;
@@ -56,10 +56,11 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   }
 
   async function handleAprovar() {
-    if (!arquivo.processo_id) { addToast('Processo não vinculado.', 'error'); return; }
+    const procId = currentFile?.processo_id || arquivo?.processo_id;
+    if (!procId) { addToast('Processo não vinculado.', 'error'); return; }
     setExecutando(true);
     try {
-      const res = await fetch(`/api/processo/${arquivo.processo_id}/acao`, {
+      const res = await fetch(`/api/processo/${procId}/acao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getToken()}` },
         body: JSON.stringify({ action: 'approve', comment: '', sign: true })
@@ -74,9 +75,11 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
   async function handleCorrecao() {
     if (!comentario.trim()) { addToast('Descreva o motivo.', 'warning'); return; }
+    const procId = currentFile?.processo_id || arquivo?.processo_id;
+    if (!procId) { addToast('Processo não vinculado.', 'error'); return; }
     setExecutando(true);
     try {
-      const res = await fetch(`/api/processo/${arquivo.processo_id}/acao`, {
+      const res = await fetch(`/api/processo/${procId}/acao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getToken()}` },
         body: JSON.stringify({ action: 'reject', comment: comentario.trim() })
@@ -298,8 +301,11 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                       {planilha?.totais && planilha.totais.total > 0 && (
                         <tr className="border-t border-emerald-500/30 bg-emerald-500/10">
                           <td className="px-3 py-2 text-xs font-bold text-emerald-400">Total</td>
-                          <td className="text-right px-3 py-2 text-xs text-emerald-400 font-mono font-bold">{fmt(planilha.totais.condominio)}</td>
-                          <td className="text-right px-3 py-2 text-xs text-emerald-400 font-mono font-bold">{fmt(planilha.totais.fundo_reserva)}</td>
+                          {(planilha?.colunas || []).map(col => (
+                            <td key={`tot-${col}`} className="text-right px-3 py-2 text-xs text-emerald-400 font-mono font-bold">
+                              {fmt(planilha.totais?.[col])}
+                            </td>
+                          ))}
                           <td className="text-right px-3 py-2 text-xs text-emerald-400 font-mono font-bold">{fmt(planilha.totais.total)}</td>
                         </tr>
                       )}

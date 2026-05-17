@@ -33,3 +33,4 @@
 0029_alteracoes_rateio.sql
 0030_emissoes_arquivos_categoria.sql
 0031_extrair_dados_fatura.sql
+0032_perf_indexes.sql

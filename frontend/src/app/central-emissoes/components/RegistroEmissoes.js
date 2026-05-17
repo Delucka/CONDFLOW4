@@ -46,10 +46,17 @@ export default function RegistroEmissoes({ profile }) {
 
       // Gerentes veem apenas os condomínios da sua carteira
       if (profile?.role === 'gerente') {
+        // condominios.gerente_id referencia gerentes.id, não profiles.id
+        const { data: gerenteRow } = await supabase
+          .from('gerentes')
+          .select('id')
+          .eq('profile_id', profile.id)
+          .maybeSingle();
+        if (!gerenteRow?.id) { setPacotes([]); setLoading(false); return; }
         const { data: meusConds } = await supabase
           .from('condominios')
           .select('id')
-          .eq('gerente_id', profile.id);
+          .eq('gerente_id', gerenteRow.id);
         const ids = (meusConds || []).map(c => c.id);
         if (ids.length === 0) { setPacotes([]); setLoading(false); return; }
         query = query.in('condominio_id', ids);

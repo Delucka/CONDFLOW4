@@ -108,8 +108,12 @@ export default function AprovacoesPage() {
         .eq('condominio_id', condoId).order('criado_em', { ascending: false }).limit(1).maybeSingle();
       let allFiles = [], signedUrl = null;
       if (fileData) {
-        const { data: arquivos } = await supabase.from('emissoes_arquivos').select('*').eq('pacote_id', fileData.pacote_id);
-        allFiles = arquivos || [];
+        if (fileData.pacote_id) {
+          const { data: arquivos } = await supabase.from('emissoes_arquivos').select('*').eq('pacote_id', fileData.pacote_id);
+          allFiles = arquivos || [];
+        } else {
+          allFiles = [fileData];
+        }
         const { data: urlData } = await supabase.storage.from('emissoes').createSignedUrl(fileData.arquivo_url, 300);
         signedUrl = urlData?.signedUrl;
       }

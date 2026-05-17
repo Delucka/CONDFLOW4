@@ -68,7 +68,7 @@ export default function VisaoGerente({ profile }) {
   useEffect(() => {
     fetchPacotes();
 
-    const channel = supabase.channel('gerente_pacotes')
+    const channel = supabase.channel(`gerente_pacotes_${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => fetchPacotes())
       .subscribe();
 

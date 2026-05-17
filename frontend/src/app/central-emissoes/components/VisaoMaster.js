@@ -130,7 +130,7 @@ export default function VisaoMaster() {
   // ── Fetch ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchPacotes();
-    const channel = supabase.channel('master_pacotes')
+    const channel = supabase.channel(`master_pacotes_${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, fetchPacotes)
       .subscribe();
     return () => supabase.removeChannel(channel);
@@ -346,15 +346,18 @@ export default function VisaoMaster() {
     setFechandoMes(true);
 
     const selectedDate = new Date(dataFechamento);
+    const ids = prontosParaExpedir.map(p => p.id);
+    const total = ids.length;
     let ok = 0;
-    for (const pacote of prontosParaExpedir) {
-      const { error } = await supabase.from('emissoes_pacotes').update({
+    if (total > 0) {
+      const { error, data } = await supabase.from('emissoes_pacotes').update({
         status: 'expedida',
         lacrada: true,
         lacrada_em: selectedDate.toISOString(),
         atualizado_em: selectedDate.toISOString(),
-      }).eq('id', pacote.id);
-      if (!error) ok++;
+      }).in('id', ids).select('id');
+      if (!error) ok = (data || []).length || total;
+      else addToast('Erro ao expedir: ' + error.message, 'error');
     }
 
     setFechandoMes(false);

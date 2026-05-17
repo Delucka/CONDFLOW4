@@ -724,7 +724,8 @@ def api_sync_usuario(data: SyncUserSchema, user: dict = Depends(get_current_user
             # Nota: No Supabase Admin Python, não é trivial resetar sem o UID.
             # Mas podemos buscar o usuário pelo email primeiro.
             users_list = db.auth.admin.list_users() # Cuidado: Paginado
-            target_user = next((u for u in users_list if u.email == data.email), None)
+            users_iter = users_list if isinstance(users_list, list) else getattr(users_list, 'users', [])
+            target_user = next((u for u in users_iter if u.email == data.email), None)
             
             if target_user:
                 uid = target_user.id
