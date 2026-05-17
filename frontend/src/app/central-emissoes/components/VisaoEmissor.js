@@ -60,6 +60,43 @@ export default function VisaoEmissor({ profile }) {
   const [pendingCategoria, setPendingCategoria] = useState(null); // categoria escolhida, esperando arquivo
   const [pendingSubtipo, setPendingSubtipo]     = useState(null);
 
+  // Form inline para dados manuais da fatura de concessionaria
+  const [editandoFaturaId, setEditandoFaturaId] = useState(null);
+  const [savingFaturaId, setSavingFaturaId]     = useState(null);
+
+  // Formata valor digitado como R$ (mascara progressiva por centavos)
+  function maskValor(raw) {
+    const digits = String(raw || '').replace(/\D/g, '');
+    if (!digits) return '';
+    const cents = parseInt(digits, 10);
+    return (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function parseValor(masked) {
+    const s = String(masked || '').replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(s);
+    return isNaN(n) ? null : n;
+  }
+
+  async function salvarDadosFatura(arq, payload) {
+    setSavingFaturaId(arq.id);
+    try {
+      const { error } = await supabase.from('emissoes_arquivos').update({
+        nome_condominio_fatura: payload.nome_condominio_fatura || null,
+        vencimento_fatura: payload.vencimento_fatura || null,
+        valor_fatura: payload.valor_fatura,
+        dados_extraidos_em: new Date().toISOString(),
+      }).eq('id', arq.id);
+      if (error) throw error;
+      addToast('Dados salvos!', 'success');
+      setEditandoFaturaId(null);
+      await fetchArquivosDoPacote(activePacote.id);
+    } catch (e) {
+      addToast('Erro ao salvar: ' + e.message, 'error');
+    } finally {
+      setSavingFaturaId(null);
+    }
+  }
+
   useEffect(() => {
     fetchDados();
     
@@ -301,16 +338,9 @@ export default function VisaoEmissor({ profile }) {
       await fetchArquivosDoPacote(activePacote.id);
       fetchPacotes();
 
-      // Extracao automatica via IA quando for concessionaria
-      if (categoria === 'concessionaria' && inserted?.id && extensao === 'pdf') {
-        addToast('Lendo fatura...', 'info');
-        try {
-          await apiPost(`/api/emissoes/arquivos/${inserted.id}/extrair-fatura`, {});
-          await fetchArquivosDoPacote(activePacote.id);
-          addToast('Dados da fatura extraidos!', 'success');
-        } catch (err) {
-          addToast('Nao foi possivel extrair os dados automaticamente. Voce pode preencher manualmente.', 'warning');
-        }
+      // Para concessionaria: ja deixa o form de dados aberto pra preencher
+      if (categoria === 'concessionaria' && inserted?.id) {
+        setEditandoFaturaId(inserted.id);
       }
     } catch (err) {
       addToast(`Erro no upload: ${err.message}`, 'error');
@@ -598,7 +628,8 @@ export default function VisaoEmissor({ profile }) {
                               : arq.categoria === 'outros'          ? (arq.subtipo || 'Outros')
                               : 'Emissão';
                 return (
-                <div key={arq.id} className="flex items-center justify-between p-4 bg-[#0a0a0f] border border-white/10 rounded-2xl hover:bg-white/5 transition-colors group">
+                <div key={arq.id} className="p-4 bg-[#0a0a0f] border border-white/10 rounded-2xl hover:bg-white/5 transition-colors group">
+                  <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 bg-${catColor}-500/10 rounded-xl flex items-center justify-center border border-${catColor}-500/20`}>
                       <FileText className={`w-5 h-5 text-${catColor}-400`} />
@@ -611,16 +642,24 @@ export default function VisaoEmissor({ profile }) {
                       </div>
                       <p className="text-sm font-bold text-white truncate max-w-[250px]">{arq.arquivo_nome}</p>
                       <p className="text-[10px] text-gray-500 uppercase tracking-widest">{arq.formato} • {new Date(arq.criado_em).toLocaleString('pt-BR')}</p>
-                      {arq.categoria === 'concessionaria' && (arq.nome_condominio_fatura || arq.vencimento_fatura || arq.valor_fatura) && (
-                        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
-                          {arq.nome_condominio_fatura && (
+                      {arq.categoria === 'concessionaria' && editandoFaturaId !== arq.id && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+                          {arq.nome_condominio_fatura ? (
                             <span className="text-orange-300/90"><span className="text-orange-500/60">cliente:</span> {arq.nome_condominio_fatura}</span>
-                          )}
-                          {arq.vencimento_fatura && (
+                          ) : null}
+                          {arq.vencimento_fatura ? (
                             <span className="text-orange-300/90"><span className="text-orange-500/60">venc:</span> {new Date(arq.vencimento_fatura + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                          )}
-                          {arq.valor_fatura != null && (
+                          ) : null}
+                          {arq.valor_fatura != null ? (
                             <span className="text-orange-300/90 font-bold"><span className="text-orange-500/60 font-normal">total:</span> R$ {Number(arq.valor_fatura).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          ) : null}
+                          {activePacote.status === 'rascunho' && (
+                            <button
+                              onClick={() => setEditandoFaturaId(arq.id)}
+                              className="text-[10px] text-orange-400/70 hover:text-orange-300 underline decoration-dotted"
+                            >
+                              {arq.valor_fatura != null ? 'editar dados' : '+ preencher dados'}
+                            </button>
                           )}
                         </div>
                       )}
@@ -648,6 +687,20 @@ export default function VisaoEmissor({ profile }) {
                       </button>
                     )}
                   </div>
+                  </div>
+
+                  {/* Form inline de dados manuais da fatura */}
+                  {arq.categoria === 'concessionaria' && editandoFaturaId === arq.id && (
+                    <FaturaInlineForm
+                      arq={arq}
+                      condoNome={activePacote.condominio_nome || activePacote.nome_condominio || ''}
+                      maskValor={maskValor}
+                      parseValor={parseValor}
+                      saving={savingFaturaId === arq.id}
+                      onCancel={() => setEditandoFaturaId(null)}
+                      onSave={(payload) => salvarDadosFatura(arq, payload)}
+                    />
+                  )}
                 </div>
                 );
               })
@@ -1194,5 +1247,77 @@ export default function VisaoEmissor({ profile }) {
         </div>
       )}
     </div>
+  );
+}
+
+
+// Form inline para dados manuais da fatura de concessionaria
+function FaturaInlineForm({ arq, condoNome, maskValor, parseValor, saving, onCancel, onSave }) {
+  const [nome, setNome]   = useState(arq.nome_condominio_fatura || condoNome || '');
+  const [venc, setVenc]   = useState(arq.vencimento_fatura || '');
+  const [valorMask, setValorMask] = useState(
+    arq.valor_fatura != null
+      ? Number(arq.valor_fatura).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : ''
+  );
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    onSave({
+      nome_condominio_fatura: nome.trim() || null,
+      vencimento_fatura: venc || null,
+      valor_fatura: parseValor(valorMask),
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-3 pt-3 border-t border-orange-500/20 grid grid-cols-1 md:grid-cols-12 gap-2">
+      <div className="md:col-span-5">
+        <label className="text-[9px] font-bold uppercase tracking-wider text-orange-400/70">Cliente na conta</label>
+        <input
+          autoFocus
+          value={nome}
+          onChange={(e) => setNome(e.target.value)}
+          placeholder="Ex: EDIFICIO ANDREA"
+          className="w-full mt-0.5 bg-black/40 border border-orange-500/20 focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/40 rounded-lg px-2.5 py-1.5 text-sm text-white outline-none"
+        />
+      </div>
+      <div className="md:col-span-3">
+        <label className="text-[9px] font-bold uppercase tracking-wider text-orange-400/70">Vencimento</label>
+        <input
+          type="date"
+          value={venc}
+          onChange={(e) => setVenc(e.target.value)}
+          className="w-full mt-0.5 bg-black/40 border border-orange-500/20 focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/40 rounded-lg px-2.5 py-1.5 text-sm text-white outline-none"
+        />
+      </div>
+      <div className="md:col-span-2">
+        <label className="text-[9px] font-bold uppercase tracking-wider text-orange-400/70">Valor (R$)</label>
+        <input
+          inputMode="numeric"
+          value={valorMask}
+          onChange={(e) => setValorMask(maskValor(e.target.value))}
+          placeholder="0,00"
+          className="w-full mt-0.5 bg-black/40 border border-orange-500/20 focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/40 rounded-lg px-2.5 py-1.5 text-sm text-white outline-none text-right font-mono"
+        />
+      </div>
+      <div className="md:col-span-2 flex items-end gap-1.5">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="flex-1 px-2 py-1.5 text-xs font-bold text-slate-400 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 disabled:opacity-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex-1 px-2 py-1.5 text-xs font-bold text-white bg-orange-500 hover:bg-orange-400 rounded-lg disabled:opacity-50"
+        >
+          {saving ? '...' : 'Salvar'}
+        </button>
+      </div>
+    </form>
   );
 }
