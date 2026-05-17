@@ -246,7 +246,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         >
 
           {/* Planilha Anual */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shrink-0">
             <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className={`w-4 h-4 ${isSnapshot ? 'text-amber-400' : 'text-cyan-400'}`} />
@@ -309,7 +309,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           </div>
 
           {/* Cobranças Extras — sempre visível */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col max-h-72">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col max-h-72 shrink-0">
             <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-amber-400" />
@@ -379,7 +379,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             const concessionarias = arquivos.filter(a => a.categoria === 'concessionaria');
             if (concessionarias.length === 0) return null;
             return (
-              <div className="bg-slate-900 border border-orange-500/30 rounded-xl overflow-hidden">
+              <div className="bg-slate-900 border border-orange-500/30 rounded-xl overflow-hidden shrink-0">
                 <div className="px-4 py-3 border-b border-orange-500/20 bg-orange-500/5 flex items-center gap-2">
                   <Package className="w-4 h-4 text-orange-400" />
                   <h4 className="text-sm font-bold text-orange-300">Concessionárias</h4>
@@ -426,7 +426,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             const outros = arquivos.filter(a => a.categoria === 'outros');
             if (outros.length === 0) return null;
             return (
-              <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
+              <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shrink-0">
                 <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/50 flex items-center gap-2">
                   <FolderOpen className="w-4 h-4 text-slate-400" />
                   <h4 className="text-sm font-bold text-slate-200">Outros Anexos</h4>
