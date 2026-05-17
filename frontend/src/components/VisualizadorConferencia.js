@@ -235,12 +235,14 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           }
         </div>
 
-        {/* Painel lateral */}
-        <div className="flex flex-col gap-3 lg:overflow-y-scroll lg:pr-2 lg:min-h-0 lg:h-full
-          [&::-webkit-scrollbar]:w-3
-          [&::-webkit-scrollbar-track]:bg-slate-800/50
-          [&::-webkit-scrollbar-thumb]:bg-slate-500 [&::-webkit-scrollbar-thumb]:rounded
-          [&::-webkit-scrollbar-thumb:hover]:bg-slate-400">
+        {/* Painel lateral - scroll com altura fixa baseada em viewport */}
+        <div
+          className="flex flex-col gap-3 pr-2 conf-scroll"
+          style={{
+            maxHeight: 'calc(100vh - 130px)',
+            overflowY: 'auto',
+          }}
+        >
 
           {/* Planilha Anual */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
