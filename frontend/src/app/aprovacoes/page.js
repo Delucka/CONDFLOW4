@@ -220,9 +220,11 @@ export default function AprovacoesPage() {
           <p className="text-slate-500 text-xs font-bold tracking-widest mt-1 uppercase">
             Aprovação de planilhas semestrais + Histórico completo do sistema
           </p>
-          <p className="text-slate-600 text-[10px] tracking-wider mt-1">
-            Aprovação de emissões mensais → <Link href="/central-emissoes" className="text-cyan-400 hover:underline">Central de Emissões → Painel de Gestão</Link>
-          </p>
+          {!verAbasPacotes && (
+            <p className="text-slate-600 text-[10px] tracking-wider mt-1">
+              Aprovação de emissões mensais → <Link href="/central-emissoes" className="text-cyan-400 hover:underline">Central de Emissões → Painel de Gestão</Link>
+            </p>
+          )}
         </div>
         <div className="flex gap-3">
           <div className="bg-white/5 border border-white/10 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
@@ -240,28 +242,51 @@ export default function AprovacoesPage() {
         </div>
       </div>
 
-      {/* ── Atalho pra aprovação de emissões (vive no Painel de Gestão) ── */}
+      {/* ── Atalho pra aprovação de emissões ── */}
       {minhasPendenciasEmissao > 0 && (
-        <Link href="/central-emissoes"
-          className="block glass-panel p-5 rounded-2xl border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all group">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0">
-                <FileUp className="w-6 h-6 text-cyan-400" />
+        verAbasPacotes ? (
+          <button onClick={() => setAba('pacotes')}
+            className="w-full text-left block glass-panel p-5 rounded-2xl border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all group">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0">
+                  <FileUp className="w-6 h-6 text-cyan-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Aprovação de emissões</p>
+                  <p className="text-white font-bold mt-0.5">
+                    <span className="text-2xl font-black text-cyan-300">{minhasPendenciasEmissao}</span>
+                    <span className="ml-2 text-sm">pacote{minhasPendenciasEmissao !== 1 ? 's' : ''} esperando você em Meus Pacotes</span>
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Aprovação de emissões</p>
-                <p className="text-white font-bold mt-0.5">
-                  <span className="text-2xl font-black text-cyan-300">{minhasPendenciasEmissao}</span>
-                  <span className="ml-2 text-sm">pacote{minhasPendenciasEmissao !== 1 ? 's' : ''} esperando você no Painel de Gestão</span>
-                </p>
+              <div className="text-cyan-400 group-hover:translate-x-1 transition-transform">
+                <ArrowRight className="w-6 h-6" />
               </div>
             </div>
-            <div className="text-cyan-400 group-hover:translate-x-1 transition-transform">
-              <ArrowRight className="w-6 h-6" />
+          </button>
+        ) : (
+          <Link href="/central-emissoes"
+            className="block glass-panel p-5 rounded-2xl border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all group">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0">
+                  <FileUp className="w-6 h-6 text-cyan-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Aprovação de emissões</p>
+                  <p className="text-white font-bold mt-0.5">
+                    <span className="text-2xl font-black text-cyan-300">{minhasPendenciasEmissao}</span>
+                    <span className="ml-2 text-sm">pacote{minhasPendenciasEmissao !== 1 ? 's' : ''} esperando você no Painel de Gestão</span>
+                  </p>
+                </div>
+              </div>
+              <div className="text-cyan-400 group-hover:translate-x-1 transition-transform">
+                <ArrowRight className="w-6 h-6" />
+              </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+        )
       )}
 
       {/* ── Tabs ── */}
