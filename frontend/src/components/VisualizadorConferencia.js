@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useSWR from 'swr';
 import { apiFetcher } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
@@ -19,6 +19,41 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
   const [currentFile, setCurrentFile] = useState(arquivo);
   const [loadingFile, setLoadingFile] = useState(false);
+
+  // Splitter arrastavel entre PDF (esquerda) e painel lateral (direita)
+  // Armazena a fracao do PDF: 0.30 a 0.85 da largura total
+  const [splitFrac, setSplitFrac] = useState(() => {
+    if (typeof window === 'undefined') return 0.58;
+    const saved = parseFloat(window.localStorage.getItem('conf_split_frac'));
+    return saved >= 0.3 && saved <= 0.85 ? saved : 0.58;
+  });
+
+  function startDragSplit(e) {
+    e.preventDefault();
+    const container = e.currentTarget.parentElement;
+    function onMove(ev) {
+      const rect = container.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      let frac = x / rect.width;
+      frac = Math.max(0.3, Math.min(0.85, frac));
+      setSplitFrac(frac);
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      try { window.localStorage.setItem('conf_split_frac', String(splitFracRef.current)); } catch {}
+    }
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  // Ref que segue splitFrac para salvar no localStorage ao soltar
+  const splitFracRef = useRef(splitFrac);
+  useEffect(() => { splitFracRef.current = splitFrac; }, [splitFrac]);
   
   // Se o arquivo tiver snapshot congelado (emissão registrada), não busca dados ao vivo
   const isSnapshot = !!arquivo?.planilha_snapshot;
@@ -217,19 +252,22 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
       </div>
 
-      {/* Split view */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden
+      {/* Split view com splitter arrastavel em lg, empilhado em mobile */}
+      <div className="flex-1 p-3 overflow-auto lg:overflow-hidden flex flex-col lg:flex-row gap-3 lg:gap-0
         [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar]:h-2.5
         [&::-webkit-scrollbar-track]:bg-slate-900/40
         [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full
         [&::-webkit-scrollbar-thumb:hover]:bg-cyan-500/60">
 
         {/* PDF */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-auto flex flex-col relative min-h-[60vh] lg:min-h-0 resize-y lg:resize-none
-          [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar]:h-2.5
-          [&::-webkit-scrollbar-track]:bg-slate-950/50
-          [&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full
-          [&::-webkit-scrollbar-thumb:hover]:bg-cyan-500/60">
+        <div
+          className="bg-slate-900 border border-slate-800 rounded-xl overflow-auto flex flex-col relative min-h-[60vh] lg:min-h-0
+            [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar]:h-2.5
+            [&::-webkit-scrollbar-track]:bg-slate-950/50
+            [&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full
+            [&::-webkit-scrollbar-thumb:hover]:bg-cyan-500/60"
+          style={{ width: '100%', flexBasis: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `calc(${splitFrac * 100}% - 14px)` : '100%' }}
+        >
           {loadingFile && (
             <div className="absolute inset-0 z-10 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
               <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
@@ -243,12 +281,25 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           }
         </div>
 
+        {/* Splitter arrastavel (so em lg) */}
+        <div
+          onMouseDown={startDragSplit}
+          className="hidden lg:flex items-center justify-center cursor-col-resize group shrink-0"
+          style={{ width: '14px' }}
+          title="Arraste para redimensionar"
+        >
+          <div className="w-1 h-16 rounded-full bg-slate-700 group-hover:bg-cyan-500 transition-colors" />
+        </div>
+
         {/* Painel lateral */}
-        <div className="flex flex-col gap-3 lg:overflow-y-auto lg:pr-1
-          [&::-webkit-scrollbar]:w-2.5
-          [&::-webkit-scrollbar-track]:bg-slate-900/40
-          [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full
-          [&::-webkit-scrollbar-thumb:hover]:bg-cyan-500/60">
+        <div
+          className="flex flex-col gap-3 lg:overflow-y-auto lg:pr-1
+            [&::-webkit-scrollbar]:w-3
+            [&::-webkit-scrollbar-track]:bg-slate-900/40
+            [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full
+            [&::-webkit-scrollbar-thumb:hover]:bg-cyan-500/60"
+          style={{ width: '100%', flex: typeof window !== 'undefined' && window.innerWidth >= 1024 ? '1 1 auto' : undefined }}
+        >
 
           {/* Planilha Anual */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
