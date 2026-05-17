@@ -150,7 +150,7 @@ export default function VisaoMaster() {
       if (data) {
         const { data: arquivos } = await supabase
           .from('emissoes_arquivos')
-          .select('id, pacote_id, arquivo_nome, arquivo_url, formato')
+          .select('id, pacote_id, arquivo_nome, arquivo_url, formato, categoria, subtipo, nome_condominio_fatura, vencimento_fatura, valor_fatura, condominio_id, mes_referencia, ano_referencia')
           .not('pacote_id', 'is', null);
 
         const arqMap = {};

@@ -218,10 +218,18 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       </div>
 
       {/* Split view */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden
+        [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar]:h-2.5
+        [&::-webkit-scrollbar-track]:bg-slate-900/40
+        [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb:hover]:bg-cyan-500/60">
 
         {/* PDF */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col relative min-h-[60vh] lg:min-h-0 resize-y lg:resize-none">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-auto flex flex-col relative min-h-[60vh] lg:min-h-0 resize-y lg:resize-none
+          [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar]:h-2.5
+          [&::-webkit-scrollbar-track]:bg-slate-950/50
+          [&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full
+          [&::-webkit-scrollbar-thumb:hover]:bg-cyan-500/60">
           {loadingFile && (
             <div className="absolute inset-0 z-10 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
               <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
@@ -236,7 +244,11 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
 
         {/* Painel lateral */}
-        <div className="flex flex-col gap-3 lg:overflow-y-auto lg:pr-1">
+        <div className="flex flex-col gap-3 lg:overflow-y-auto lg:pr-1
+          [&::-webkit-scrollbar]:w-2.5
+          [&::-webkit-scrollbar-track]:bg-slate-900/40
+          [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full
+          [&::-webkit-scrollbar-thumb:hover]:bg-cyan-500/60">
 
           {/* Planilha Anual */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
