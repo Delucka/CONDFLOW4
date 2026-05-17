@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { href: '/dashboard',           icon: LayoutDashboard, label: 'Painel Central' },
   { href: '/condominios',         icon: Building,        label: 'Planilha Anual' },
   { href: '/carteiras/cobrancas', icon: Receipt,         label: 'Lançar Cobranças' },
-  { href: '/aprovacoes',          icon: FileCheck2,      label: 'Aprovações & Auditoria' },
+  { href: '/aprovacoes',          icon: FileCheck2,      label: 'Aprovações & Auditoria', showBadge: true },
   { href: '/central-emissoes',    icon: FileUp,          label: 'Central de Emissões', showBadge: true },
 ];
 const ADMIN_ITEMS = [{ href: '/admin/usuarios', icon: Users, label: 'Acessos e Perfis' }];

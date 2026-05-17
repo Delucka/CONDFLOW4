@@ -22,23 +22,21 @@ export default function CentralEmissoesPage() {
     );
   }
 
-  const isMasterOrSup = ['master', 'supervisora', 'supervisor_gerentes', 'supervisora_contabilidade'].includes(profile.role);
-  const isGerente = profile.role === 'gerente';
+  // Acesso restrito a master e departamento (emissor)
+  const isMaster = profile.role === 'master';
   const isDepartamento = profile.role === 'departamento';
 
   // Montar abas conforme o perfil
   const tabs = [];
 
-  if (isMasterOrSup) {
+  if (isMaster) {
     tabs.push({ id: 'default', label: 'Painel de Gestão', activeClass: 'bg-cyan-500 text-slate-900 shadow-[0_0_15px_rgba(6,182,212,0.4)]' });
     tabs.push({ id: 'upload', label: 'Fazer Emissões', activeClass: 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' });
   } else if (isDepartamento) {
     tabs.push({ id: 'default', label: 'Fazer Emissões', activeClass: 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' });
-  } else if (isGerente) {
-    tabs.push({ id: 'default', label: 'Meus Pacotes', activeClass: 'bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]' });
   }
 
-  // Aba Registro de Emissões — visível para TODOS
+  // Aba Registro de Emissões
   tabs.push({ id: 'registro', label: 'Registro de Emissões', icon: true, activeClass: 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' });
 
   // Toolbar
@@ -64,13 +62,11 @@ export default function CentralEmissoesPage() {
 
   if (activeView === 'registro') {
     content = <RegistroEmissoes profile={profile} />;
-  } else if (activeView === 'upload' && isMasterOrSup) {
+  } else if (activeView === 'upload' && isMaster) {
     content = <VisaoEmissor profile={profile} />;
   } else if (isDepartamento) {
     content = <VisaoEmissor profile={profile} />;
-  } else if (isGerente) {
-    content = <VisaoGerente profile={profile} />;
-  } else if (isMasterOrSup) {
+  } else if (isMaster) {
     content = <VisaoMaster profile={profile} />;
   } else {
     content = (

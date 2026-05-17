@@ -16,6 +16,11 @@ import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { createClient } from '@/utils/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import Link from 'next/link';
+// Componentes de pacotes/registro (migrados da Central de Emissoes para Aprovacoes)
+import VisaoGerente from '@/app/central-emissoes/components/VisaoGerente';
+import VisaoMaster from '@/app/central-emissoes/components/VisaoMaster';
+import RegistroEmissoes from '@/app/central-emissoes/components/RegistroEmissoes';
+import { Package, Archive } from 'lucide-react';
 
 // Cor e ícone por tipo de ação
 function getActionStyle(action = '') {
@@ -36,11 +41,20 @@ function getActionStyle(action = '') {
 }
 
 export default function AprovacoesPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { addToast } = useToast();
   const supabase = createClient();
 
-  const [aba, setAba] = useState('fila'); // 'fila' | 'auditoria'
+  // Quem NAO eh master nem departamento (emissor) ve aqui tambem as abas
+  // que antes ficavam na Central de Emissoes (Meus Pacotes + Registro)
+  const role = profile?.role;
+  const isMaster = role === 'master';
+  const isDepartamento = role === 'departamento';
+  const isGerente = role === 'gerente';
+  const isSupervisor = ['supervisora', 'supervisora_contabilidade', 'supervisor_gerentes'].includes(role);
+  const verAbasPacotes = !isMaster && !isDepartamento && (isGerente || isSupervisor);
+
+  const [aba, setAba] = useState('fila'); // 'fila' | 'auditoria' | 'pacotes' | 'registro'
   const { count: minhasPendenciasEmissao } = usePendingCount();
   const [processing, setProcessing] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(null);
@@ -179,19 +193,45 @@ export default function AprovacoesPage() {
       )}
 
       {/* ── Tabs ── */}
-      <div className="flex gap-2 bg-white/[0.03] p-1.5 rounded-2xl border border-white/5 w-fit">
+      <div className="flex flex-wrap gap-2 bg-white/[0.03] p-1.5 rounded-2xl border border-white/5 w-fit">
         {[
-          { id: 'fila',      label: `Fila de Planilhas${pendentes.length > 0 ? ` (${pendentes.length})` : ''}`, icon: Clock },
-          { id: 'auditoria', label: 'Histórico de Atividades', icon: History },
-        ].map(({ id, label, icon: Icon }) => (
+          { id: 'fila',      label: 'Fila de Planilhas',        icon: Clock,   show: true,           badge: pendentes.length },
+          { id: 'pacotes',   label: 'Meus Pacotes',             icon: Package, show: verAbasPacotes, badge: minhasPendenciasEmissao },
+          { id: 'registro',  label: 'Registro de Emissões',     icon: Archive, show: verAbasPacotes, badge: 0 },
+          { id: 'auditoria', label: 'Histórico de Atividades',  icon: History, show: true,           badge: 0 },
+        ].filter(t => t.show).map(({ id, label, icon: Icon, badge }) => (
           <button key={id} onClick={() => setAba(id)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+            className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
               aba === id ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
             }`}>
             <Icon className="w-3.5 h-3.5" />{label}
+            {badge > 0 && (
+              <span className="ml-1 bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-[0_0_10px_rgba(244,63,94,0.6)]">
+                {badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* ABA: MEUS PACOTES (vindo da Central de Emissoes)           */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {aba === 'pacotes' && verAbasPacotes && (
+        <div className="space-y-4">
+          {isGerente && <VisaoGerente profile={profile} />}
+          {isSupervisor && <VisaoMaster profile={profile} />}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* ABA: REGISTRO DE EMISSOES                                  */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {aba === 'registro' && verAbasPacotes && (
+        <div className="space-y-4">
+          <RegistroEmissoes profile={profile} />
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════ */}
       {/* ABA: FILA DE APROVAÇÕES                                    */}

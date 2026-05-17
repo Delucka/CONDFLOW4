@@ -16,7 +16,7 @@ export const ROUTE_ACCESS = {
   '/condominios':         ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
   '/carteiras/cobrancas': ['master','gerente','assistente'],
   '/aprovacoes':          ['master','gerente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
-  '/central-emissoes':    ['master','gerente','departamento','supervisora','supervisora_contabilidade','supervisor_gerentes'],
+  '/central-emissoes':    ['master','departamento'],
   '/admin/usuarios':      ['master'],
   '/admin/importar-gerentes': ['master'],
   '/condominio':          ['master','gerente','assistente','supervisora','supervisora_contabilidade','departamento'],
