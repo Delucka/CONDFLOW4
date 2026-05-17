@@ -5,7 +5,7 @@ import { apiFetcher } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
-import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen } from 'lucide-react';
+import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen, ChevronUp, ChevronDown } from 'lucide-react';
 
 
 
@@ -19,6 +19,13 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
   const [currentFile, setCurrentFile] = useState(arquivo);
   const [loadingFile, setLoadingFile] = useState(false);
+
+  // Ref pro painel lateral (para os botoes ↑/↓ rolarem programaticamente)
+  const [lateralEl, setLateralEl] = useState(null);
+  function scrollLateral(dir) {
+    if (!lateralEl) return;
+    lateralEl.scrollBy({ top: dir * Math.max(200, lateralEl.clientHeight * 0.7), behavior: 'smooth' });
+  }
   
   // Se o arquivo tiver snapshot congelado (emissão registrada), não busca dados ao vivo
   const isSnapshot = !!arquivo?.planilha_snapshot;
@@ -235,15 +242,35 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           }
         </div>
 
-        {/* Painel lateral — com scrollbar lateral grossa para navegar entre Planilha/Cobrancas/Concessionarias/Outros */}
-        <div
-          className="flex flex-col gap-3 lg:overflow-y-scroll lg:pr-3
-            [scrollbar-color:rgb(8_145_178)_rgb(15_23_42)]
-            [&::-webkit-scrollbar]:w-[14px]
-            [&::-webkit-scrollbar-track]:bg-slate-900 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:border [&::-webkit-scrollbar-track]:border-slate-800
-            [&::-webkit-scrollbar-thumb]:bg-cyan-600 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-[3px] [&::-webkit-scrollbar-thumb]:border-slate-900
-            [&::-webkit-scrollbar-thumb:hover]:bg-cyan-400"
-        >
+        {/* Painel lateral — scrollbar nativa + botoes flutuantes ↑/↓ sempre visiveis */}
+        <div className="relative">
+          {/* Botoes flutuantes para navegar verticalmente */}
+          <div className="hidden lg:flex absolute right-1 top-1/2 -translate-y-1/2 z-20 flex-col gap-2">
+            <button
+              onClick={() => scrollLateral(-1)}
+              className="w-9 h-9 rounded-full bg-cyan-600/90 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+              title="Rolar para cima"
+            >
+              <ChevronUp className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => scrollLateral(1)}
+              className="w-9 h-9 rounded-full bg-cyan-600/90 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+              title="Rolar para baixo"
+            >
+              <ChevronDown className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div
+            ref={setLateralEl}
+            className="h-full flex flex-col gap-3 lg:overflow-y-auto lg:pr-3
+              [scrollbar-color:rgb(8_145_178)_rgb(15_23_42)]
+              [&::-webkit-scrollbar]:w-[14px]
+              [&::-webkit-scrollbar-track]:bg-slate-900 [&::-webkit-scrollbar-track]:rounded-full
+              [&::-webkit-scrollbar-thumb]:bg-cyan-600 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-[3px] [&::-webkit-scrollbar-thumb]:border-slate-900
+              [&::-webkit-scrollbar-thumb:hover]:bg-cyan-400"
+          >
 
           {/* Planilha Anual */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
@@ -452,6 +479,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
               </div>
             );
           })()}
+          </div>
         </div>
       </div>
 
