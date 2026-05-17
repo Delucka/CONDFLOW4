@@ -236,7 +236,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
 
         {/* Painel lateral */}
-        <div className="flex flex-col gap-3 lg:overflow-y-scroll lg:pr-2
+        <div className="flex flex-col gap-3 lg:overflow-y-scroll lg:pr-2 lg:min-h-0 lg:h-full
           [&::-webkit-scrollbar]:w-3
           [&::-webkit-scrollbar-track]:bg-slate-800/50
           [&::-webkit-scrollbar-thumb]:bg-slate-500 [&::-webkit-scrollbar-thumb]:rounded
