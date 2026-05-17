@@ -123,6 +123,44 @@ export default function ArrecadacoesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId, selectedYear]);
 
+  // Edicoes mensais ativas neste condominio (em_edicao / edicao_finalizada / reabertura_solicitada)
+  const [edicoesCondo, setEdicoesCondo] = useState([]);
+  const [edicaoLoading, setEdicaoLoading] = useState(false);
+
+  async function fetchEdicoes() {
+    try {
+      const res = await apiFetch(`/api/edicoes-mensais?ano=${selectedYear}`);
+      setEdicoesCondo((res?.edicoes || []).filter(e => e.condominio_id === condoId));
+    } catch {}
+  }
+
+  useEffect(() => {
+    fetchEdicoes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [condoId, selectedYear]);
+
+  async function liberarEdicaoMensal(edicao) {
+    setEdicaoLoading(true);
+    try {
+      await apiPost(`/api/edicoes-mensais/${edicao.id}/liberar`, {});
+      addToast(`Liberado: ${edicao.condominios?.name || 'mês'} - ${String(edicao.mes_referencia).padStart(2,'0')}/${edicao.ano_referencia}`, 'success');
+      await fetchEdicoes();
+    } catch (e) {
+      addToast(e.message || 'Erro ao liberar', 'error');
+    } finally {
+      setEdicaoLoading(false);
+    }
+  }
+
+  // Locks visuais por mes adicionais — edicao_finalizada bloqueia o mes pro gerente
+  const edicoesLockedMeses = useMemo(() => {
+    const map = {};
+    edicoesCondo.forEach(e => {
+      if (e.status === 'edicao_finalizada') map[e.mes_referencia] = true;
+    });
+    return map;
+  }, [edicoesCondo]);
+
   // Lock por mês — passado, etapa 'pronto p/ emitir' ou pacote registrado
   const { isLocked, reasonFor } = useLockedMonths(condoId, selectedYear);
 
@@ -431,6 +469,51 @@ export default function ArrecadacoesPage() {
             </div>
         </div>
 
+        {/* ── Banner Edição Mensal (gerente libera por mês daqui) ── */}
+        {edicoesCondo.length > 0 && (
+          <div className="space-y-2 mt-4">
+            {edicoesCondo.map(ed => {
+              const mesNome = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][ed.mes_referencia];
+              if (ed.status === 'em_edicao') {
+                return (
+                  <div key={ed.id} className="flex items-center justify-between gap-4 px-5 py-4 rounded-2xl bg-violet-500/10 border border-violet-500/30">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full bg-violet-400 animate-pulse" />
+                      <div>
+                        <p className="text-sm font-black text-white">Edição aberta · {mesNome}/{ed.ano_referencia}</p>
+                        <p className="text-[11px] text-violet-300/80">Revise os valores e libere para finalizar.</p>
+                      </div>
+                    </div>
+                    {(profile?.role === 'gerente' || profile?.role === 'master') && (
+                      <button onClick={() => liberarEdicaoMensal(ed)} disabled={edicaoLoading}
+                        className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 disabled:opacity-50">
+                        Liberar este mês
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+              if (ed.status === 'edicao_finalizada') {
+                return (
+                  <div key={ed.id} className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <p className="text-xs font-bold text-emerald-300">{mesNome}/{ed.ano_referencia} · liberado em {ed.liberado_em ? new Date(ed.liberado_em).toLocaleDateString('pt-BR') : ''}. Edição bloqueada.</p>
+                  </div>
+                );
+              }
+              if (ed.status === 'reabertura_solicitada') {
+                return (
+                  <div key={ed.id} className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-amber-500/5 border border-amber-500/30">
+                    <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <p className="text-xs font-bold text-amber-300">{mesNome}/{ed.ano_referencia} · reabertura solicitada, aguardando aprovação.</p>
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
+        )}
+
         {/* TAB NAVIGATION SIMPLES */}
         <div className="flex justify-between items-end border-t border-white/5 pt-4 mt-2">
             <div className="flex flex-col gap-4">
@@ -558,9 +641,10 @@ export default function ArrecadacoesPage() {
                             {/* MONTHS VALUES */}
                             {months.map(m => {
                                 const val = rateiosVals[r.id]?.[m] || '0.00';
-                                const mesTravado = isLocked(m);
+                                const edicaoFinalizadaMes = !!edicoesLockedMeses[m];
+                                const mesTravado = isLocked(m) || edicaoFinalizadaMes;
                                 const cellDisabled = !canEdit || mesTravado;
-                                const reason = reasonFor(m);
+                                const reason = edicaoFinalizadaMes ? 'Edição finalizada (liberada). Solicite reabertura para alterar.' : reasonFor(m);
                                 const isPlanilhaSpecial = val === 'PLANILHA';
                                 const isZero = !isPlanilhaSpecial && parseValorNumerico(val) === 0;
                                 // Sempre mostra formatado em BRL (mascara em tempo real no onChange)

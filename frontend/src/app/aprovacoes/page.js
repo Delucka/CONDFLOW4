@@ -66,9 +66,81 @@ export default function AprovacoesPage() {
   const [filtroDate, setFiltroDate] = useState({ from: '', to: '' });
   const [showFiltros, setShowFiltros] = useState(false);
 
-  // ── Fila de aprovações ──
+  // ── Fila de aprovações (processos legados, mantido para retro) ──
   const { data: filaData, error: filaError, isLoading: filaLoading, mutate: mutateF } =
     useSWR('/api/aprovacoes', apiFetcher, { revalidateOnFocus: true, refreshInterval: 30000 });
+
+  // ── Edicoes Mensais (novo ciclo: gerente libera condos do mes alvo) ──
+  const { data: edicoesData, isLoading: edicoesLoading, mutate: mutateE } =
+    useSWR('/api/edicoes-mensais', apiFetcher, { revalidateOnFocus: false, refreshInterval: 60000 });
+  const edicoes = edicoesData?.edicoes || [];
+  const edicoesEmEdicao    = edicoes.filter(e => e.status === 'em_edicao');
+  const edicoesFinalizadas = edicoes.filter(e => e.status === 'edicao_finalizada');
+  const edicoesReaberturas = edicoes.filter(e => e.status === 'reabertura_solicitada');
+
+  // Modal de motivo de reabertura
+  const [showReaberturaModal, setShowReaberturaModal] = useState(null); // edicao obj
+  const [motivoReabertura, setMotivoReabertura] = useState('');
+  const [executandoEdicao, setExecutandoEdicao] = useState(null);
+
+  async function handleLiberar(edicao) {
+    setExecutandoEdicao(edicao.id);
+    try {
+      await apiPost(`/api/edicoes-mensais/${edicao.id}/liberar`, {});
+      addToast(`Liberado: ${edicao.condominios?.name || 'condomínio'}`, 'success');
+      mutateE();
+    } catch (e) {
+      addToast(e.message || 'Erro ao liberar', 'error');
+    } finally {
+      setExecutandoEdicao(null);
+    }
+  }
+  async function handleLiberarTodos() {
+    if (edicoesEmEdicao.length === 0) return;
+    if (!confirm(`Liberar todos os ${edicoesEmEdicao.length} condomínios deste mês?`)) return;
+    setExecutandoEdicao('all');
+    try {
+      const res = await apiPost('/api/edicoes-mensais/liberar-todos', {});
+      addToast(`${res.liberados} condomínios liberados`, 'success');
+      mutateE();
+    } catch (e) {
+      addToast(e.message || 'Erro ao liberar todos', 'error');
+    } finally {
+      setExecutandoEdicao(null);
+    }
+  }
+  async function handleSolicitarReabertura() {
+    if (!motivoReabertura.trim()) { addToast('Informe o motivo', 'warning'); return; }
+    setExecutandoEdicao(showReaberturaModal.id);
+    try {
+      await apiPost(`/api/edicoes-mensais/${showReaberturaModal.id}/solicitar-reabertura`, { motivo: motivoReabertura.trim() });
+      addToast('Solicitação enviada ao master/emissor', 'success');
+      setShowReaberturaModal(null);
+      setMotivoReabertura('');
+      mutateE();
+    } catch (e) {
+      addToast(e.message || 'Erro ao solicitar', 'error');
+    } finally {
+      setExecutandoEdicao(null);
+    }
+  }
+  async function handleResponderReabertura(edicao, aprovar) {
+    setExecutandoEdicao(edicao.id);
+    try {
+      await apiPost(`/api/edicoes-mensais/${edicao.id}/responder-reabertura`, { aprovar });
+      addToast(aprovar ? 'Reabertura aprovada' : 'Reabertura negada', 'success');
+      mutateE();
+    } catch (e) {
+      addToast(e.message || 'Erro', 'error');
+    } finally {
+      setExecutandoEdicao(null);
+    }
+  }
+
+  const mesAtual = new Date();
+  const mesAlvo = mesAtual.getMonth() === 11 ? 1 : mesAtual.getMonth() + 2; // M+1 (getMonth = 0-based)
+  const anoAlvo = mesAtual.getMonth() === 11 ? mesAtual.getFullYear() + 1 : mesAtual.getFullYear();
+  const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   // ── Auditoria ──
   const auditParams = new URLSearchParams();
@@ -234,9 +306,143 @@ export default function AprovacoesPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
-      {/* ABA: FILA DE APROVAÇÕES                                    */}
+      {/* ABA: FILA DE PLANILHAS (Edicoes Mensais)                   */}
       {/* ══════════════════════════════════════════════════════════ */}
       {aba === 'fila' && (
+        <div className="space-y-6">
+          {/* Cabecalho do periodo + botão liberar todos (gerente) */}
+          <div className="glass-panel p-5 rounded-[2rem] border border-white/5 flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400 mb-1">Ciclo atual</p>
+              <h3 className="text-xl font-black text-white">{MESES[mesAlvo]} / {anoAlvo}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Edições mensais em andamento</p>
+            </div>
+            {isGerente && edicoesEmEdicao.length > 0 && (
+              <button
+                onClick={handleLiberarTodos}
+                disabled={executandoEdicao === 'all'}
+                className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-[11px] font-black uppercase tracking-widest disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+              >
+                {executandoEdicao === 'all' ? 'Liberando…' : `Liberar todos (${edicoesEmEdicao.length})`}
+              </button>
+            )}
+          </div>
+
+          {/* Reaberturas pendentes (master/emissor) */}
+          {(isMaster || isDepartamento) && edicoesReaberturas.length > 0 && (
+            <div className="glass-panel p-5 rounded-[2rem] border border-amber-500/30">
+              <h4 className="text-sm font-black uppercase tracking-widest text-amber-400 mb-3 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" /> Reaberturas pendentes ({edicoesReaberturas.length})
+              </h4>
+              <div className="space-y-2">
+                {edicoesReaberturas.map(e => (
+                  <div key={e.id} className="flex items-center justify-between gap-4 p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white">{e.condominios?.name}</p>
+                      <p className="text-[11px] text-slate-400">{MESES[e.mes_referencia]}/{e.ano_referencia} · motivo: {e.reabertura_motivo}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleResponderReabertura(e, true)} disabled={executandoEdicao === e.id}
+                        className="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-black uppercase">Aprovar</button>
+                      <button onClick={() => handleResponderReabertura(e, false)} disabled={executandoEdicao === e.id}
+                        className="px-3 py-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-[10px] font-black uppercase">Negar</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Em edicao (acoes do gerente) */}
+          {edicoesEmEdicao.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2">Em edição</h4>
+              {edicoesEmEdicao.map(e => (
+                <div key={e.id} className="glass-panel p-5 rounded-[1.5rem] border border-violet-500/20 flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center border border-violet-500/30 shrink-0">
+                      <Building2 className="w-5 h-5 text-violet-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-base font-black text-white truncate">{e.condominios?.name}</h3>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-violet-400">{MESES[e.mes_referencia]} / {e.ano_referencia}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/condominio/${e.condominio_id}/arrecadacoes?ano=${e.ano_referencia}&mes=${e.mes_referencia}&edicao=${e.id}`}
+                      className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-slate-300 hover:text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5" /> Ver planilha
+                    </Link>
+                    {(isGerente || isMaster) && (
+                      <button onClick={() => handleLiberar(e)} disabled={executandoEdicao === e.id}
+                        className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Liberar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Finalizadas (gerente pode pedir reabertura) */}
+          {edicoesFinalizadas.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-2">Finalizadas</h4>
+              {edicoesFinalizadas.map(e => (
+                <div key={e.id} className="p-4 rounded-[1.5rem] border border-white/5 bg-white/[0.02] flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-300 truncate">{e.condominios?.name}</p>
+                      <p className="text-[10px] text-slate-600 uppercase tracking-widest">{MESES[e.mes_referencia]}/{e.ano_referencia} · liberado {e.liberado_em ? new Date(e.liberado_em).toLocaleDateString('pt-BR') : ''}</p>
+                    </div>
+                  </div>
+                  {isGerente && (
+                    <button onClick={() => { setShowReaberturaModal(e); setMotivoReabertura(''); }}
+                      className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg text-rose-400 text-[10px] font-black uppercase tracking-widest">
+                      Solicitar reabertura
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Aguardando resposta da reabertura */}
+          {isGerente && edicoesReaberturas.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 px-2">Reabertura solicitada (aguardando)</h4>
+              {edicoesReaberturas.map(e => (
+                <div key={e.id} className="p-4 rounded-[1.5rem] border border-amber-500/20 bg-amber-500/5">
+                  <p className="text-sm font-bold text-white">{e.condominios?.name}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">{MESES[e.mes_referencia]}/{e.ano_referencia} · motivo: {e.reabertura_motivo}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Estado vazio */}
+          {!edicoesLoading && edicoes.length === 0 && (
+            <div className="text-center py-20 glass-panel rounded-[2.5rem] border border-white/5">
+              <CheckCircle2 className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+              <h3 className="text-lg font-black text-slate-400 uppercase tracking-tighter">Nenhuma edição em andamento</h3>
+              <p className="text-slate-600 text-xs mt-2">O master ainda não abriu o período deste mês.</p>
+            </div>
+          )}
+
+          {/* Processos legados (mostra se houver) */}
+          {pendentes.length > 0 && (
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-2">Processos legados</h4>
+              {/* legacy code abaixo */}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Bloco legacy condicional - so renderiza se houver pendentes em processos antigos */}
+      {aba === 'fila' && false && (
         <div className="space-y-4">
           {filaLoading ? (
             <div className="p-24 text-center glass-panel rounded-[2rem]">
@@ -398,6 +604,44 @@ export default function AprovacoesPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Modal Solicitar Reabertura ── */}
+      {showReaberturaModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-fade-in">
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={() => setShowReaberturaModal(null)} />
+          <div className="glass-panel max-w-lg w-full p-8 rounded-[2.5rem] relative border border-rose-500/30 shadow-3xl">
+            <button onClick={() => setShowReaberturaModal(null)} className="absolute top-4 right-4 text-slate-500 hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-xl font-black text-white mb-2">Solicitar reabertura</h3>
+            <p className="text-sm text-slate-400 mb-1">{showReaberturaModal.condominios?.name}</p>
+            <p className="text-[10px] uppercase tracking-widest text-rose-400/80 mb-5">{MESES[showReaberturaModal.mes_referencia]}/{showReaberturaModal.ano_referencia}</p>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+              Motivo da reabertura <span className="text-rose-400">*</span>
+            </label>
+            <textarea
+              value={motivoReabertura}
+              onChange={e => setMotivoReabertura(e.target.value)}
+              rows={4}
+              placeholder="Ex: Identifiquei um valor errado no condomínio, preciso corrigir o mês de julho."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-600 resize-none mb-4"
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowReaberturaModal(null)}
+                className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">
+                Cancelar
+              </button>
+              <button
+                onClick={handleSolicitarReabertura}
+                disabled={!motivoReabertura.trim() || executandoEdicao === showReaberturaModal.id}
+                className="px-5 py-2 rounded-lg text-sm font-bold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50 flex items-center gap-2">
+                {executandoEdicao === showReaberturaModal.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Enviar solicitação
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

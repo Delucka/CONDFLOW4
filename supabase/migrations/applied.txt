@@ -35,3 +35,4 @@
 0031_extrair_dados_fatura.sql
 0032_perf_indexes.sql
 0033_fix_rls_emissoes_pacotes.sql
+0034_edicoes_mensais.sql

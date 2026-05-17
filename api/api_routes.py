@@ -1639,3 +1639,234 @@ def api_atualizar_fatura(arquivo_id: str, data: FaturaManualUpdate, user: dict =
     payload["dados_extraidos_em"] = datetime.utcnow().isoformat()
     db.table("emissoes_arquivos").update(payload).eq("id", arquivo_id).execute()
     return {"ok": True}
+
+
+# ============================================================
+# EDICOES MENSAIS - ciclo de revisao e liberacao por gerente
+# ============================================================
+
+def _mes_alvo_padrao():
+    """Mes/ano alvo padrao = M+1 (em junho abrimos julho)."""
+    from datetime import datetime
+    now = datetime.now()
+    if now.month == 12:
+        return 1, now.year + 1
+    return now.month + 1, now.year
+
+
+class AbrirEdicaoSchema(BaseModel):
+    mes: Optional[int] = None
+    ano: Optional[int] = None
+    gerente_id: Optional[str] = None  # se nulo, abre pra todos
+
+
+@router.post("/edicoes-mensais/abrir")
+def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    if user.get("role") != "master":
+        raise HTTPException(403, "Apenas master pode abrir edicao mensal")
+    mes_padrao, ano_padrao = _mes_alvo_padrao()
+    mes = data.mes or mes_padrao
+    ano = data.ano or ano_padrao
+    if mes < 1 or mes > 12:
+        raise HTTPException(400, "mes invalido")
+
+    cond_q = db.table("condominios").select("id, gerente_id")
+    if data.gerente_id:
+        cond_q = cond_q.eq("gerente_id", data.gerente_id)
+    cond_res = cond_q.execute()
+    condos = cond_res.data or []
+
+    criados = 0
+    reabertos = 0
+    for c in condos:
+        existing = db.table("edicoes_mensais").select("id, status") \
+            .eq("condominio_id", c["id"]).eq("ano_referencia", ano).eq("mes_referencia", mes) \
+            .limit(1).execute()
+        if existing.data:
+            row = existing.data[0]
+            # Se ja existe e nao esta em_edicao, reabre
+            if row["status"] != "em_edicao":
+                db.table("edicoes_mensais").update({
+                    "status": "em_edicao",
+                    "aberto_por": user["id"],
+                    "aberto_em": "now()",
+                    "liberado_em": None,
+                    "reabertura_solicitada_em": None,
+                    "reabertura_motivo": None,
+                    "reabertura_respondida_em": None,
+                    "reabertura_respondida_por": None,
+                    "reabertura_aprovada": None,
+                }).eq("id", row["id"]).execute()
+                reabertos += 1
+        else:
+            db.table("edicoes_mensais").insert({
+                "condominio_id": c["id"],
+                "gerente_id": c.get("gerente_id"),
+                "mes_referencia": mes,
+                "ano_referencia": ano,
+                "status": "em_edicao",
+                "aberto_por": user["id"],
+            }).execute()
+            criados += 1
+
+    return {"ok": True, "mes": mes, "ano": ano, "criados": criados, "reabertos": reabertos, "total_condos": len(condos)}
+
+
+@router.get("/edicoes-mensais")
+def api_listar_edicoes(
+    status: Optional[str] = None,
+    ano: Optional[int] = None,
+    mes: Optional[int] = None,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Lista edicoes. Gerente ve so as suas. Master/emissor/supervisor veem tudo."""
+    q = db.table("edicoes_mensais").select("*, condominios(name)")
+    if status:
+        q = q.eq("status", status)
+    if ano:
+        q = q.eq("ano_referencia", ano)
+    if mes:
+        q = q.eq("mes_referencia", mes)
+
+    role = user.get("role")
+    if role == "gerente":
+        g_id = get_gerente_id(db, user["id"])
+        if not g_id:
+            return {"edicoes": []}
+        q = q.eq("gerente_id", g_id)
+
+    q = q.order("ano_referencia", desc=True).order("mes_referencia", desc=True).order("aberto_em", desc=True)
+    res = q.execute()
+    return {"edicoes": res.data or []}
+
+
+@router.post("/edicoes-mensais/{edicao_id}/liberar")
+def api_liberar_edicao(edicao_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Gerente finaliza a edicao de UM condominio."""
+    role = user.get("role")
+    if role not in ("master", "gerente"):
+        raise HTTPException(403, "Sem permissao")
+
+    edi_res = db.table("edicoes_mensais").select("*").eq("id", edicao_id).limit(1).execute()
+    if not edi_res.data:
+        raise HTTPException(404, "Edicao nao encontrada")
+    edi = edi_res.data[0]
+
+    if role == "gerente":
+        g_id = get_gerente_id(db, user["id"])
+        if edi.get("gerente_id") != g_id:
+            raise HTTPException(403, "Voce nao gerencia este condominio")
+
+    if edi["status"] != "em_edicao":
+        raise HTTPException(400, f"Status atual nao permite liberacao: {edi['status']}")
+
+    from datetime import datetime, timezone
+    db.table("edicoes_mensais").update({
+        "status": "edicao_finalizada",
+        "liberado_em": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", edicao_id).execute()
+    return {"ok": True}
+
+
+class LiberarTodosSchema(BaseModel):
+    mes: Optional[int] = None
+    ano: Optional[int] = None
+
+
+@router.post("/edicoes-mensais/liberar-todos")
+def api_liberar_todos(data: LiberarTodosSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Gerente libera todos os seus condos do periodo de uma vez."""
+    role = user.get("role")
+    if role not in ("master", "gerente"):
+        raise HTTPException(403, "Sem permissao")
+
+    from datetime import datetime, timezone
+    mes_padrao, ano_padrao = _mes_alvo_padrao()
+    mes = data.mes or mes_padrao
+    ano = data.ano or ano_padrao
+
+    q = db.table("edicoes_mensais").select("id") \
+        .eq("status", "em_edicao") \
+        .eq("ano_referencia", ano) \
+        .eq("mes_referencia", mes)
+
+    if role == "gerente":
+        g_id = get_gerente_id(db, user["id"])
+        if not g_id:
+            return {"ok": True, "liberados": 0}
+        q = q.eq("gerente_id", g_id)
+
+    res = q.execute()
+    ids = [e["id"] for e in (res.data or [])]
+    if not ids:
+        return {"ok": True, "liberados": 0}
+
+    db.table("edicoes_mensais").update({
+        "status": "edicao_finalizada",
+        "liberado_em": datetime.now(timezone.utc).isoformat(),
+    }).in_("id", ids).execute()
+    return {"ok": True, "liberados": len(ids)}
+
+
+class SolicitarReaberturaSchema(BaseModel):
+    motivo: str
+
+
+@router.post("/edicoes-mensais/{edicao_id}/solicitar-reabertura")
+def api_solicitar_reabertura(edicao_id: str, data: SolicitarReaberturaSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    role = user.get("role")
+    if role not in ("master", "gerente"):
+        raise HTTPException(403, "Sem permissao")
+    if not data.motivo or not data.motivo.strip():
+        raise HTTPException(400, "Motivo e obrigatorio")
+
+    edi_res = db.table("edicoes_mensais").select("*").eq("id", edicao_id).limit(1).execute()
+    if not edi_res.data:
+        raise HTTPException(404, "Edicao nao encontrada")
+    edi = edi_res.data[0]
+
+    if role == "gerente":
+        g_id = get_gerente_id(db, user["id"])
+        if edi.get("gerente_id") != g_id:
+            raise HTTPException(403, "Voce nao gerencia este condominio")
+
+    if edi["status"] != "edicao_finalizada":
+        raise HTTPException(400, "Reabertura so para edicoes finalizadas")
+
+    from datetime import datetime, timezone
+    db.table("edicoes_mensais").update({
+        "status": "reabertura_solicitada",
+        "reabertura_solicitada_em": datetime.now(timezone.utc).isoformat(),
+        "reabertura_motivo": data.motivo.strip(),
+    }).eq("id", edicao_id).execute()
+    return {"ok": True}
+
+
+class ResponderReaberturaSchema(BaseModel):
+    aprovar: bool
+
+
+@router.post("/edicoes-mensais/{edicao_id}/responder-reabertura")
+def api_responder_reabertura(edicao_id: str, data: ResponderReaberturaSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    role = user.get("role")
+    if role not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas master/emissor pode responder reaberturas")
+
+    edi_res = db.table("edicoes_mensais").select("*").eq("id", edicao_id).limit(1).execute()
+    if not edi_res.data:
+        raise HTTPException(404, "Edicao nao encontrada")
+    edi = edi_res.data[0]
+
+    if edi["status"] != "reabertura_solicitada":
+        raise HTTPException(400, "Nao ha solicitacao pendente")
+
+    from datetime import datetime, timezone
+    new_status = "em_edicao" if data.aprovar else "edicao_finalizada"
+    db.table("edicoes_mensais").update({
+        "status": new_status,
+        "reabertura_respondida_em": datetime.now(timezone.utc).isoformat(),
+        "reabertura_respondida_por": user["id"],
+        "reabertura_aprovada": data.aprovar,
+    }).eq("id", edicao_id).execute()
+    return {"ok": True, "novo_status": new_status}

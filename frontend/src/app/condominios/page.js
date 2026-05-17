@@ -110,6 +110,26 @@ export default function CondominiosPage() {
     }
   };
 
+  // Edicao mensal — abre o ciclo para o mes seguinte
+  const _now = new Date();
+  const mesAlvoEdicao = _now.getMonth() === 11 ? 1 : _now.getMonth() + 2; // M+1 (getMonth = 0..11)
+  const anoAlvoEdicao = _now.getMonth() === 11 ? _now.getFullYear() + 1 : _now.getFullYear();
+  const _MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  const handleAbrirEdicaoMensal = async () => {
+    setForcingAll(true);
+    try {
+      const payload = { mes: mesAlvoEdicao, ano: anoAlvoEdicao };
+      if (gerenteFilter) payload.gerente_id = gerenteFilter;
+      const res = await apiPost('/api/edicoes-mensais/abrir', payload);
+      addToast(`Edição de ${_MESES[mesAlvoEdicao]}/${anoAlvoEdicao} aberta · ${res.criados} novos + ${res.reabertos} reabertos`, 'success');
+    } catch (err) {
+      addToast('Erro: ' + err.message, 'error');
+    } finally {
+      setForcingAll(false);
+    }
+  };
+
   // SWR para Dados de Condomínios e Gerentes
   const { data: condosData, mutate: mutateCondos, isLoading: loadingCondos } = useSWR('/api/condominios', apiFetcher);
   const { data: usersData } = useSWR(user?.role === 'master' ? '/api/usuarios' : null, apiFetcher);
@@ -320,6 +340,21 @@ export default function CondominiosPage() {
               {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
               Finalizar Edição a Todos
             </button>
+          </div>
+
+          {/* Ciclo mensal — abre edicoes_mensais para o mes seguinte */}
+          <div className="mt-3 p-3 rounded-xl bg-violet-500/5 border border-violet-500/20">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-[10px] font-black text-violet-300 uppercase tracking-widest">Ciclo mensal</p>
+                <p className="text-xs text-slate-300 mt-0.5">Próximo período: <span className="font-black text-white">{_MESES[mesAlvoEdicao]}/{anoAlvoEdicao}</span></p>
+              </div>
+              <button onClick={handleAbrirEdicaoMensal} disabled={forcingAll}
+                className="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-violet-500 hover:bg-violet-400 text-white disabled:opacity-50 flex items-center gap-2">
+                {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unlock className="w-3.5 h-3.5" />}
+                Abrir mês p/ gerentes
+              </button>
+            </div>
           </div>
 
         </div>
