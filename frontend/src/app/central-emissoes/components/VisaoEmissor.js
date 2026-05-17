@@ -276,7 +276,7 @@ export default function VisaoEmissor({ profile }) {
       const { error: uploadError } = await supabase.storage.from('emissoes').upload(filePath, fileInput);
       if (uploadError) throw uploadError;
 
-      const { error: dbError } = await supabase
+      const { data: inserted, error: dbError } = await supabase
         .from('emissoes_arquivos')
         .insert({
           condominio_id: activePacote.condominio_id,
@@ -291,13 +291,27 @@ export default function VisaoEmissor({ profile }) {
           ano_referencia: ano,
           status: 'pendente',
           uploaded_by: profile.id
-        });
+        })
+        .select('id')
+        .single();
 
       if (dbError) throw dbError;
 
       addToast(`${fileInput.name} adicionado!`, 'success');
       await fetchArquivosDoPacote(activePacote.id);
       fetchPacotes();
+
+      // Extracao automatica via IA quando for concessionaria
+      if (categoria === 'concessionaria' && inserted?.id && extensao === 'pdf') {
+        addToast('Lendo fatura...', 'info');
+        try {
+          await apiPost(`/api/emissoes/arquivos/${inserted.id}/extrair-fatura`, {});
+          await fetchArquivosDoPacote(activePacote.id);
+          addToast('Dados da fatura extraidos!', 'success');
+        } catch (err) {
+          addToast('Nao foi possivel extrair os dados automaticamente. Voce pode preencher manualmente.', 'warning');
+        }
+      }
     } catch (err) {
       addToast(`Erro no upload: ${err.message}`, 'error');
     } finally {
@@ -597,6 +611,19 @@ export default function VisaoEmissor({ profile }) {
                       </div>
                       <p className="text-sm font-bold text-white truncate max-w-[250px]">{arq.arquivo_nome}</p>
                       <p className="text-[10px] text-gray-500 uppercase tracking-widest">{arq.formato} • {new Date(arq.criado_em).toLocaleString('pt-BR')}</p>
+                      {arq.categoria === 'concessionaria' && (arq.nome_condominio_fatura || arq.vencimento_fatura || arq.valor_fatura) && (
+                        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+                          {arq.nome_condominio_fatura && (
+                            <span className="text-orange-300/90"><span className="text-orange-500/60">cliente:</span> {arq.nome_condominio_fatura}</span>
+                          )}
+                          {arq.vencimento_fatura && (
+                            <span className="text-orange-300/90"><span className="text-orange-500/60">venc:</span> {new Date(arq.vencimento_fatura + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                          )}
+                          {arq.valor_fatura != null && (
+                            <span className="text-orange-300/90 font-bold"><span className="text-orange-500/60 font-normal">total:</span> R$ {Number(arq.valor_fatura).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

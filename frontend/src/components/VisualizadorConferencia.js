@@ -383,12 +383,29 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                     const eAtual = currentFile?.id === a.id;
                     return (
                       <button key={a.id} onClick={() => openArquivo(a)}
-                        className={`w-full px-4 py-2.5 flex items-center gap-3 hover:bg-orange-500/5 transition-colors text-left ${eAtual ? 'bg-orange-500/10' : ''}`}>
-                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30 shrink-0">
+                        className={`w-full px-4 py-2.5 flex items-start gap-3 hover:bg-orange-500/5 transition-colors text-left ${eAtual ? 'bg-orange-500/10' : ''}`}>
+                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30 shrink-0 mt-0.5">
                           {a.subtipo || 'Outra'}
                         </span>
-                        <span className="text-xs text-slate-300 truncate flex-1">{a.arquivo_nome}</span>
-                        {eAtual && <Check className="w-3.5 h-3.5 text-orange-400 shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-300 truncate flex-1">{a.arquivo_nome}</span>
+                            {eAtual && <Check className="w-3.5 h-3.5 text-orange-400 shrink-0" />}
+                          </div>
+                          {(a.nome_condominio_fatura || a.vencimento_fatura || a.valor_fatura) && (
+                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
+                              {a.nome_condominio_fatura && (
+                                <span className="text-orange-300/90"><span className="text-orange-500/50">cliente:</span> {a.nome_condominio_fatura}</span>
+                              )}
+                              {a.vencimento_fatura && (
+                                <span className="text-orange-300/90"><span className="text-orange-500/50">venc:</span> {new Date(a.vencimento_fatura + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                              )}
+                              {a.valor_fatura != null && (
+                                <span className="text-orange-300 font-bold"><span className="text-orange-500/50 font-normal">total:</span> R$ {Number(a.valor_fatura).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </button>
                     );
                   })}

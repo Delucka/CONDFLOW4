@@ -15,7 +15,9 @@
       "Bash(ffmpeg -version)",
       "Bash(where ffmpeg *)",
       "Bash(powershell -Command \"Get-Command ffmpeg -ErrorAction SilentlyContinue\")",
-      "Bash(echo \" *)"
+      "Bash(echo \" *)",
+      "Bash(npm run *)",
+      "Bash(npx vercel *)"
     ]
   }
 }

@@ -32,3 +32,4 @@
 0028_fecha_maio_2026.sql
 0029_alteracoes_rateio.sql
 0030_emissoes_arquivos_categoria.sql
+0031_extrair_dados_fatura.sql

@@ -1500,3 +1500,141 @@ def api_listar_cobrancas(
         return {"cobrancas": cobrancas}
     except Exception as e:
         raise HTTPException(400, str(e))
+
+
+# ============================================================
+# EXTRACAO DE DADOS DE FATURA (Concessionaria) via Claude Vision
+# ============================================================
+
+@router.post("/emissoes/arquivos/{arquivo_id}/extrair-fatura")
+def api_extrair_fatura(arquivo_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """
+    Le um PDF de concessionaria (SABESP/COMGAS/ENEL) com Claude Haiku Vision
+    e extrai: nome_condominio, vencimento, valor.
+    """
+    import base64
+    import json as _json
+    import re as _re
+    from datetime import datetime
+
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise HTTPException(503, "ANTHROPIC_API_KEY nao configurada no servidor.")
+
+    # 1. Busca o registro do arquivo
+    arq_res = db.table("emissoes_arquivos").select("*").eq("id", arquivo_id).limit(1).execute()
+    if not arq_res.data:
+        raise HTTPException(404, "Arquivo nao encontrado")
+    arq = arq_res.data[0]
+
+    if arq.get("categoria") != "concessionaria":
+        raise HTTPException(400, "Extracao disponivel apenas para categoria 'concessionaria'")
+
+    storage_path = arq.get("arquivo_url")
+    if not storage_path:
+        raise HTTPException(400, "Caminho do arquivo nao encontrado")
+
+    # 2. Download do PDF do Supabase Storage
+    try:
+        pdf_bytes = db.storage.from_("emissoes").download(storage_path)
+    except Exception as e:
+        raise HTTPException(500, f"Erro ao baixar PDF: {e}")
+
+    pdf_b64 = base64.standard_b64encode(pdf_bytes).decode("utf-8")
+    subtipo = (arq.get("subtipo") or "concessionaria").upper()
+
+    # 3. Chamada ao Claude com PDF anexado
+    try:
+        from anthropic import Anthropic
+        client = Anthropic(api_key=api_key)
+
+        prompt = f"""Voce esta lendo uma fatura de concessionaria brasileira ({subtipo}).
+
+Extraia EXATAMENTE 3 informacoes e retorne SOMENTE um JSON valido neste formato (sem markdown, sem explicacoes):
+
+{{
+  "nome_condominio": "Nome do condominio/cliente conforme aparece na conta",
+  "vencimento": "YYYY-MM-DD",
+  "valor": 0.00
+}}
+
+Regras:
+- nome_condominio: pegue o campo "Cliente", "Razao Social" ou o nome do edificio/condominio impresso no topo. NUNCA pegue o nome da concessionaria (SABESP/COMGAS/ENEL).
+- vencimento: data de vencimento da fatura (NAO confunda com data de emissao ou proxima leitura). Formato ISO YYYY-MM-DD.
+- valor: valor TOTAL a pagar em reais (decimal com ponto). Se houver "Total" e "Subtotal", use o TOTAL final.
+- Se nao conseguir extrair algum campo com certeza, use null.
+
+Retorne APENAS o JSON, nada mais."""
+
+        message = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=512,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": pdf_b64,
+                        },
+                    },
+                    {"type": "text", "text": prompt},
+                ],
+            }],
+        )
+
+        raw = message.content[0].text.strip()
+        # Remove possivel cerca de markdown
+        raw = _re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=_re.MULTILINE).strip()
+        parsed = _json.loads(raw)
+
+    except Exception as e:
+        raise HTTPException(500, f"Falha na extracao por IA: {e}")
+
+    # 4. Sanitiza valores
+    nome = (parsed.get("nome_condominio") or "").strip() or None
+    venc = parsed.get("vencimento")
+    if venc:
+        try:
+            datetime.strptime(venc, "%Y-%m-%d")
+        except Exception:
+            venc = None
+    valor = parsed.get("valor")
+    try:
+        valor = float(valor) if valor is not None else None
+    except Exception:
+        valor = None
+
+    # 5. Persiste
+    update_payload = {
+        "nome_condominio_fatura": nome,
+        "vencimento_fatura": venc,
+        "valor_fatura": valor,
+        "dados_extraidos_em": datetime.utcnow().isoformat(),
+    }
+    db.table("emissoes_arquivos").update(update_payload).eq("id", arquivo_id).execute()
+
+    return {"ok": True, **update_payload}
+
+
+class FaturaManualUpdate(BaseModel):
+    nome_condominio_fatura: Optional[str] = None
+    vencimento_fatura: Optional[str] = None  # YYYY-MM-DD
+    valor_fatura: Optional[float] = None
+
+
+@router.patch("/emissoes/arquivos/{arquivo_id}/fatura")
+def api_atualizar_fatura(arquivo_id: str, data: FaturaManualUpdate, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Permite correcao manual dos campos extraidos pela IA."""
+    from datetime import datetime
+    payload = data.dict(exclude_unset=True)
+    if "vencimento_fatura" in payload and payload["vencimento_fatura"]:
+        try:
+            datetime.strptime(payload["vencimento_fatura"], "%Y-%m-%d")
+        except Exception:
+            raise HTTPException(400, "vencimento_fatura deve estar em YYYY-MM-DD")
+    payload["dados_extraidos_em"] = datetime.utcnow().isoformat()
+    db.table("emissoes_arquivos").update(payload).eq("id", arquivo_id).execute()
+    return {"ok": True}
