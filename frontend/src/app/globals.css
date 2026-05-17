@@ -80,24 +80,29 @@ input:focus, select:focus, textarea:focus {
 .animate-fade-up { animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
 .animate-slide-right { animation: slideRight 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
 
-/* Scrollbar do painel de conferência - sempre visivel e bem larga */
+/* Scrollbar do painel de conferência - SEMPRE visivel */
+.conf-scroll {
+  scrollbar-width: auto !important;
+  scrollbar-color: #06b6d4 #1e293b !important;
+}
 .conf-scroll::-webkit-scrollbar {
-  width: 14px;
+  width: 16px !important;
+  display: block !important;
+  -webkit-appearance: none !important;
 }
 .conf-scroll::-webkit-scrollbar-track {
-  background: rgba(30, 41, 59, 0.6);
+  background: #1e293b !important;
   border-radius: 8px;
 }
 .conf-scroll::-webkit-scrollbar-thumb {
-  background: #64748b;
+  background: #06b6d4 !important;
   border-radius: 8px;
-  border: 2px solid rgba(15, 23, 42, 0.8);
+  border: 2px solid #0f172a;
+  min-height: 40px;
 }
 .conf-scroll::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #22d3ee !important;
 }
-/* Firefox */
-.conf-scroll {
-  scrollbar-width: auto;
-  scrollbar-color: #64748b rgba(30, 41, 59, 0.6);
+.conf-scroll::-webkit-scrollbar-button {
+  display: none;
 }

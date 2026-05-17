@@ -235,12 +235,13 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           }
         </div>
 
-        {/* Painel lateral - scroll com altura fixa baseada em viewport */}
+        {/* Painel lateral - scroll forcado com altura absoluta */}
         <div
           className="flex flex-col gap-3 pr-2 conf-scroll"
           style={{
-            maxHeight: 'calc(100vh - 130px)',
-            overflowY: 'auto',
+            height: 'calc(100vh - 130px)',
+            overflowY: 'scroll',
+            overflowX: 'hidden',
           }}
         >
 
