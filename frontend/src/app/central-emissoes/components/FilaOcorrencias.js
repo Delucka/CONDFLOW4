@@ -14,6 +14,7 @@ export default function FilaOcorrencias() {
   const [loading, setLoading] = useState(true);
   const [acoes, setAcoes] = useState([]);
   const [loadingAcoes, setLoadingAcoes] = useState(true);
+  const [search, setSearch] = useState('');
   
   // Modal Creation States
   const [showModal, setShowModal] = useState(false);
@@ -396,9 +397,16 @@ export default function FilaOcorrencias() {
   const canResolve = ['master', 'departamento', 'supervisor_gerentes', 'supervisora_contabilidade', 'supervisora'].includes(profile?.role);
 
   const itensFiltrados = useMemo(() => {
-    if (abaAtiva === 'todas') return ocorrencias;
-    return ocorrencias.filter(o => o.tipo === abaAtiva);
-  }, [ocorrencias, abaAtiva]);
+    let list = abaAtiva === 'todas' ? ocorrencias : ocorrencias.filter(o => o.tipo === abaAtiva);
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter(o =>
+        (o.descricao || '').toLowerCase().includes(s) ||
+        (o.condominios?.name || '').toLowerCase().includes(s)
+      );
+    }
+    return list;
+  }, [ocorrencias, abaAtiva, search]);
 
   const contadorAbertas = ocorrencias.filter(o => o.status === 'aberta').length;
 
@@ -423,13 +431,15 @@ export default function FilaOcorrencias() {
           </div>
         </div>
         
-        <button 
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all text-xs font-bold uppercase tracking-widest"
-        >
-          <Plus className="w-4 h-4 text-rose-400" />
-          Nova
-        </button>
+        {abaAtiva !== 'afazer' && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all text-xs font-bold uppercase tracking-widest"
+          >
+            <Plus className="w-4 h-4 text-rose-400" />
+            Nova
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -457,6 +467,29 @@ export default function FilaOcorrencias() {
           </button>
         ))}
       </div>
+
+      {/* Search */}
+      {abaAtiva !== 'afazer' && (
+        <div className="px-6 py-3 border-b border-white/10 bg-white/[0.02]">
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Pesquisar por descrição ou condomínio..."
+              className="w-full bg-slate-950/50 border border-white/5 rounded-xl pl-10 pr-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50 placeholder-slate-600"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
