@@ -94,6 +94,32 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < arquivos.length - 1;
 
+  async function openArquivo(a) {
+    setLoadingFile(true);
+    try {
+      const path = a.arquivo_url || a.path;
+      let url = a.url;
+      if (!url && path) {
+        const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(path, 300);
+        if (error) throw error;
+        url = data.signedUrl;
+      }
+      setCurrentFile({
+        id: a.id,
+        nome: a.arquivo_nome || a.nome,
+        url,
+        condominio_id: a.condominio_id,
+        mes: a.mes_referencia ?? a.mes,
+        ano: a.ano_referencia ?? a.ano,
+        eh_retificacao: a.eh_retificacao || false,
+      });
+    } catch (e) {
+      addToast('Erro ao carregar arquivo', 'error');
+    } finally {
+      setLoadingFile(false);
+    }
+  }
+
   async function handleNavigate(direction) {
     const nextIndex = currentIndex + direction;
     if (nextIndex < 0 || nextIndex >= arquivos.length) return;
@@ -192,10 +218,10 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       </div>
 
       {/* Split view */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden">
 
         {/* PDF */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col relative">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col relative min-h-[60vh] lg:min-h-0 resize-y lg:resize-none">
           {loadingFile && (
             <div className="absolute inset-0 z-10 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
               <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
@@ -210,7 +236,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
 
         {/* Painel lateral */}
-        <div className="flex flex-col gap-3 overflow-y-auto">
+        <div className="flex flex-col gap-3 lg:overflow-y-auto lg:pr-1">
 
           {/* Planilha Anual */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
@@ -356,11 +382,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   {concessionarias.map(a => {
                     const eAtual = currentFile?.id === a.id;
                     return (
-                      <button key={a.id} onClick={() => {
-                          setLoadingFile(true);
-                          setCurrentFile({ id: a.id, nome: a.arquivo_nome, url: a.url, condominio_id: a.condominio_id, mes: a.mes_referencia, ano: a.ano_referencia, eh_retificacao: a.eh_retificacao || false });
-                          setTimeout(() => setLoadingFile(false), 200);
-                        }}
+                      <button key={a.id} onClick={() => openArquivo(a)}
                         className={`w-full px-4 py-2.5 flex items-center gap-3 hover:bg-orange-500/5 transition-colors text-left ${eAtual ? 'bg-orange-500/10' : ''}`}>
                         <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30 shrink-0">
                           {a.subtipo || 'Outra'}
@@ -390,11 +412,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   {outros.map(a => {
                     const eAtual = currentFile?.id === a.id;
                     return (
-                      <button key={a.id} onClick={() => {
-                          setLoadingFile(true);
-                          setCurrentFile({ id: a.id, nome: a.arquivo_nome, url: a.url, condominio_id: a.condominio_id, mes: a.mes_referencia, ano: a.ano_referencia, eh_retificacao: a.eh_retificacao || false });
-                          setTimeout(() => setLoadingFile(false), 200);
-                        }}
+                      <button key={a.id} onClick={() => openArquivo(a)}
                         className={`w-full px-4 py-2.5 flex items-center gap-3 hover:bg-slate-800/50 transition-colors text-left ${eAtual ? 'bg-slate-800/70' : ''}`}>
                         {a.subtipo && (
                           <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/20 text-slate-300 border border-slate-500/30 shrink-0 truncate max-w-[100px]" title={a.subtipo}>
