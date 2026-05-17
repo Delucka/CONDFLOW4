@@ -200,11 +200,13 @@ export default function VisaoMaster() {
     const fluxoId = Number(pacote.nivel_aprovacao) || 1;
     const nextStatus = fluxos[fluxoId]?.[pacote.status] ?? fluxos[fluxoId]?.default ?? 'aprovado';
 
-    const { error } = await supabase.from('emissoes_pacotes')
+    const { data, error } = await supabase.from('emissoes_pacotes')
       .update({ status: nextStatus, atualizado_em: new Date().toISOString() })
-      .eq('id', pacote.id);
+      .eq('id', pacote.id)
+      .select('id, status');
 
-    if (error) addToast('Erro ao processar aprovação', 'error');
+    if (error) addToast('Erro ao processar aprovação: ' + error.message, 'error');
+    else if (!data || data.length === 0) addToast('Aprovação bloqueada por RLS (0 linhas atualizadas).', 'error');
     else { addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success'); fetchPacotes(); }
   }
 

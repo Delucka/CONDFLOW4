@@ -87,13 +87,17 @@ export default function VisaoGerente({ profile }) {
     const fluxoId = Number(pacote.nivel_aprovacao) || 1;
     const nextStatus = fluxos[fluxoId]?.[pacote.status] ?? fluxos[fluxoId]?.default ?? 'aprovado';
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('emissoes_pacotes')
       .update({ status: nextStatus, atualizado_em: new Date().toISOString() })
-      .eq('id', pacote.id);
+      .eq('id', pacote.id)
+      .select('id, status');
 
     if (error) {
-      addToast('Não foi possível aprovar', 'error');
+      addToast('Não foi possível aprovar: ' + error.message, 'error');
+    } else if (!data || data.length === 0) {
+      // RLS bloqueou o update silenciosamente (0 linhas afetadas)
+      addToast('Aprovação bloqueada pelas regras de acesso. Avise o admin.', 'error');
     } else {
       addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success');
       fetchPacotes();
