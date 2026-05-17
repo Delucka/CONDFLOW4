@@ -273,20 +273,33 @@ export default function DashboardPage() {
             <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
           </Link>
 
-          <Link href="/central-emissoes" className="flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl hover:border-cyan-500/40 hover:bg-cyan-500/5 transition-all group">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center shrink-0 group-hover:bg-cyan-500/30 transition-colors">
-              <TrendingUp className="w-4 h-4 text-cyan-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-white">Central de Emissões</p>
-              <p className="text-[10px] text-gray-500">
-                {emissaoStats.gerente + emissaoStats.supGerente + emissaoStats.supContabilidade > 0
-                  ? <span className="text-cyan-400">{emissaoStats.gerente + emissaoStats.supGerente + emissaoStats.supContabilidade} em andamento</span>
-                  : 'Pacotes e aprovações'}
-              </p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-cyan-400 transition-colors shrink-0" />
-          </Link>
+          {(user?.role === 'master' || user?.role === 'departamento') ? (
+            <Link href="/central-emissoes" className="flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl hover:border-cyan-500/40 hover:bg-cyan-500/5 transition-all group">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center shrink-0 group-hover:bg-cyan-500/30 transition-colors">
+                <TrendingUp className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-white">Central de Emissões</p>
+                <p className="text-[10px] text-gray-500">
+                  {emissaoStats.gerente + emissaoStats.supGerente + emissaoStats.supContabilidade > 0
+                    ? <span className="text-cyan-400">{emissaoStats.gerente + emissaoStats.supGerente + emissaoStats.supContabilidade} em andamento</span>
+                    : 'Pacotes e aprovações'}
+                </p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-cyan-400 transition-colors shrink-0" />
+            </Link>
+          ) : (
+            <Link href="/carteiras/cobrancas" className="flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all group">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/30 transition-colors">
+                <Receipt className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-white">Cobranças Extras</p>
+                <p className="text-[10px] text-gray-500">Lançar e visualizar</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-emerald-400 transition-colors shrink-0" />
+            </Link>
+          )}
 
           <Link href="/condominios" className="flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl hover:border-amber-500/40 hover:bg-amber-500/5 transition-all group">
             <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0 group-hover:bg-amber-500/30 transition-colors">
