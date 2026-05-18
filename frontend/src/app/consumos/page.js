@@ -197,7 +197,20 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
 
           {/* Arquivo */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">PDF da fatura {isEdicao && '(opcional — só se quiser substituir)'}</label>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">PDF da fatura {isEdicao && fatura?.arquivo_url && '(opcional — só se quiser substituir)'}</label>
+            {/* Botão abrir PDF atual se existir */}
+            {isEdicao && fatura?.arquivo_url && (
+              <button type="button"
+                onClick={async () => {
+                  const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(fatura.arquivo_url, 300);
+                  if (error) return addToast('Erro ao abrir PDF', 'error');
+                  window.open(data.signedUrl, '_blank');
+                }}
+                className="mt-1 mb-2 w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold hover:bg-cyan-500/20 transition-colors">
+                <FileText className="w-4 h-4" /> Abrir PDF atual ({fatura.arquivo_nome || 'arquivo'})
+                <ExternalLink className="w-3 h-3 ml-auto" />
+              </button>
+            )}
             <input type="file" accept="application/pdf,image/*" onChange={handleFileChange}
               className="mt-1 block w-full text-sm text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-cyan-500/10 file:text-cyan-300 hover:file:bg-cyan-500/20" />
             {checking && <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Verificando se já existe...</p>}
@@ -492,21 +505,33 @@ export default function ConsumosPage() {
         )}
       </div>
 
-      {/* Filtros */}
+      {/* Abas de concessionária */}
+      <div className="flex gap-2 bg-white/[0.03] p-1.5 rounded-2xl border border-white/5 w-fit">
+        {[
+          { id: 'todas',  label: 'Todas',  color: 'text-white' },
+          { id: 'SABESP', label: 'SABESP', color: 'text-cyan-300',  active: 'bg-cyan-500 text-slate-950' },
+          { id: 'COMGAS', label: 'COMGAS', color: 'text-amber-300', active: 'bg-amber-500 text-slate-950' },
+          { id: 'ENEL',   label: 'ENEL',   color: 'text-rose-300',  active: 'bg-rose-500 text-white' },
+        ].map(t => (
+          <button key={t.id} onClick={() => setFiltroConc(t.id)}
+            className={`px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+              filtroConc === t.id
+                ? (t.active || 'bg-violet-600 text-white shadow-lg')
+                : `${t.color} hover:bg-white/5`
+            }`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Filtros secundários */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Pesquisar nome, gerente ou concessionária..."
+            placeholder="Pesquisar nome ou gerente..."
             className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-10 pr-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500/50 placeholder-slate-600" />
         </div>
-        <select value={filtroConc} onChange={e => setFiltroConc(e.target.value)}
-          className="bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500/50">
-          <option value="todas">Todas concessionárias</option>
-          <option value="SABESP">SABESP</option>
-          <option value="COMGAS">COMGAS</option>
-          <option value="ENEL">ENEL</option>
-        </select>
         <select value={filtroGerente} onChange={e => setFiltroGerente(e.target.value)}
           className="bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500/50 max-w-[200px]">
           <option value="todos">Todos os gerentes</option>
@@ -551,7 +576,9 @@ export default function ConsumosPage() {
               </thead>
               <tbody>
                 {condosFiltrados.flatMap(c => {
-                  const concs = (c.concessionarias || []);
+                  const concsAll = (c.concessionarias || []);
+                  // Quando filtra por concessionaria, mostra somente as linhas dela
+                  const concs = filtroConc === 'todas' ? concsAll : concsAll.filter(x => x === filtroConc);
                   if (concs.length === 0) return [];
                   return concs.map((conc, idx) => (
                     <tr key={`${c.id}-${conc}`} className="border-t border-white/5 hover:bg-white/[0.02]">
