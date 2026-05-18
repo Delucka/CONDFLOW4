@@ -1870,3 +1870,214 @@ def api_responder_reabertura(edicao_id: str, data: ResponderReaberturaSchema, us
         "reabertura_aprovada": data.aprovar,
     }).eq("id", edicao_id).execute()
     return {"ok": True, "novo_status": new_status}
+
+
+# ============================================================
+# CONSUMOS - faturas de concessionaria por mes/condo
+# ============================================================
+
+class ConsumoCreateSchema(BaseModel):
+    condominio_id: str
+    mes_referencia: int
+    ano_referencia: int
+    concessionaria: str
+    leitura_atual: Optional[str] = None   # YYYY-MM-DD
+    proxima_leitura: Optional[str] = None
+    vencimento: Optional[str] = None
+    valor: Optional[float] = None
+    arquivo_url: Optional[str] = None
+    arquivo_nome: Optional[str] = None
+    arquivo_hash: Optional[str] = None
+    descricao: Optional[str] = None
+    marcada_repetida: Optional[bool] = False
+
+
+def _is_assistente_or_emissor_or_master(role: Optional[str]) -> bool:
+    return role in ("master", "departamento", "assistente")
+
+
+@router.get("/consumos")
+def api_listar_consumos(
+    condominio_id: Optional[str] = None,
+    ano: Optional[int] = None,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Lista faturas. Todos os roles autenticados podem ler."""
+    q = db.table("consumos_faturas").select("*, condominios(name)").order("ano_referencia", desc=True).order("mes_referencia", desc=True)
+    if condominio_id:
+        q = q.eq("condominio_id", condominio_id)
+    if ano:
+        q = q.eq("ano_referencia", ano)
+    res = q.execute()
+    return {"consumos": res.data or []}
+
+
+@router.get("/consumos/condominios-com-faturas")
+def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Lista condos que ja tem ao menos 1 fatura de consumo (deteccao automatica)."""
+    res = db.table("consumos_faturas").select("condominio_id, condominios(id, name)").execute()
+    seen = {}
+    for r in (res.data or []):
+        cid = r.get("condominio_id")
+        if cid and cid not in seen and r.get("condominios"):
+            seen[cid] = {"id": cid, "name": r["condominios"]["name"]}
+    return {"condominios": sorted(seen.values(), key=lambda x: x["name"])}
+
+
+@router.get("/consumos/check-duplicata")
+def api_consumos_check_duplicata(arquivo_hash: str, condominio_id: Optional[str] = None, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Procura faturas existentes com o mesmo hash."""
+    q = db.table("consumos_faturas").select("id, condominio_id, condominios(name), mes_referencia, ano_referencia, concessionaria").eq("arquivo_hash", arquivo_hash)
+    if condominio_id:
+        q = q.eq("condominio_id", condominio_id)
+    res = q.execute()
+    return {"duplicatas": res.data or []}
+
+
+@router.post("/consumos")
+def api_criar_consumo(data: ConsumoCreateSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Cria fatura. Assistente cria como 'pendente'. Master/Emissor podem criar ja 'anexada'."""
+    role = user.get("role")
+    if not _is_assistente_or_emissor_or_master(role):
+        raise HTTPException(403, "Sem permissao para criar faturas de consumo")
+
+    payload = data.dict(exclude_unset=True)
+    payload["enviada_por"] = user["id"]
+    payload["status"] = "pendente"
+    try:
+        res = db.table("consumos_faturas").insert(payload).execute()
+        if not res.data:
+            raise HTTPException(500, "Falha ao criar fatura")
+        return {"ok": True, "consumo": res.data[0]}
+    except Exception as e:
+        msg = str(e)
+        if "uq_consumos_condo_periodo_conc" in msg or "duplicate key" in msg.lower():
+            raise HTTPException(400, "Ja existe fatura desta concessionaria nesse mes para este condominio")
+        raise HTTPException(400, msg)
+
+
+class ConsumoUpdateSchema(BaseModel):
+    leitura_atual: Optional[str] = None
+    proxima_leitura: Optional[str] = None
+    vencimento: Optional[str] = None
+    valor: Optional[float] = None
+    arquivo_url: Optional[str] = None
+    arquivo_nome: Optional[str] = None
+    arquivo_hash: Optional[str] = None
+    descricao: Optional[str] = None
+    marcada_repetida: Optional[bool] = None
+    concessionaria: Optional[str] = None
+
+
+@router.patch("/consumos/{consumo_id}")
+def api_atualizar_consumo(consumo_id: str, data: ConsumoUpdateSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    role = user.get("role")
+    if not _is_assistente_or_emissor_or_master(role):
+        raise HTTPException(403, "Sem permissao")
+    payload = data.dict(exclude_unset=True)
+    if not payload:
+        return {"ok": True}
+    db.table("consumos_faturas").update(payload).eq("id", consumo_id).execute()
+    return {"ok": True}
+
+
+@router.post("/consumos/{consumo_id}/anexar")
+def api_anexar_consumo(consumo_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Emissor/Master marca como 'anexada' (final)."""
+    role = user.get("role")
+    if role not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas emissor/master pode anexar")
+    from datetime import datetime, timezone
+    db.table("consumos_faturas").update({
+        "status": "anexada",
+        "anexada_por": user["id"],
+        "anexada_em": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", consumo_id).execute()
+    return {"ok": True}
+
+
+@router.post("/consumos/{consumo_id}/duplicar")
+def api_duplicar_consumo(consumo_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Duplica a fatura para o proximo mes: datas + 1 mes, valor/arquivo zerados."""
+    role = user.get("role")
+    if not _is_assistente_or_emissor_or_master(role):
+        raise HTTPException(403, "Sem permissao")
+
+    orig = db.table("consumos_faturas").select("*").eq("id", consumo_id).maybeSingle().execute()
+    if not orig.data:
+        raise HTTPException(404, "Fatura nao encontrada")
+    o = orig.data
+
+    from datetime import datetime, date
+    def _add_month_iso(s):
+        if not s:
+            return None
+        try:
+            d = datetime.strptime(s, "%Y-%m-%d").date()
+        except Exception:
+            return None
+        m = d.month + 1
+        y = d.year
+        if m > 12:
+            m = 1
+            y += 1
+        try:
+            return date(y, m, d.day).isoformat()
+        except ValueError:
+            # Caso o dia nao exista no proximo mes (ex: 31/01 -> 28/02)
+            import calendar
+            last = calendar.monthrange(y, m)[1]
+            return date(y, m, min(d.day, last)).isoformat()
+
+    next_mes = o["mes_referencia"] + 1
+    next_ano = o["ano_referencia"]
+    if next_mes > 12:
+        next_mes = 1
+        next_ano += 1
+
+    new_row = {
+        "condominio_id": o["condominio_id"],
+        "mes_referencia": next_mes,
+        "ano_referencia": next_ano,
+        "concessionaria": o["concessionaria"],
+        "leitura_atual": _add_month_iso(o.get("leitura_atual")),
+        "proxima_leitura": _add_month_iso(o.get("proxima_leitura")),
+        "vencimento": _add_month_iso(o.get("vencimento")),
+        "valor": None,
+        "arquivo_url": None,
+        "arquivo_nome": None,
+        "arquivo_hash": None,
+        "descricao": None,
+        "marcada_repetida": False,
+        "status": "pendente",
+        "enviada_por": user["id"],
+        "origem_duplicacao": o["id"],
+    }
+    try:
+        res = db.table("consumos_faturas").insert(new_row).execute()
+        return {"ok": True, "consumo": (res.data or [None])[0]}
+    except Exception as e:
+        msg = str(e)
+        if "uq_consumos_condo_periodo_conc" in msg or "duplicate key" in msg.lower():
+            raise HTTPException(400, f"Ja existe fatura de {o['concessionaria']} em {next_mes:02d}/{next_ano}")
+        raise HTTPException(400, msg)
+
+
+@router.delete("/consumos/{consumo_id}")
+def api_deletar_consumo(consumo_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    role = user.get("role")
+    if role not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas master/emissor pode deletar")
+    # Remove arquivo do storage se houver
+    try:
+        c = db.table("consumos_faturas").select("arquivo_url").eq("id", consumo_id).maybeSingle().execute()
+        if c.data and c.data.get("arquivo_url"):
+            try:
+                db.storage.from_("emissoes").remove([c.data["arquivo_url"]])
+            except Exception:
+                pass
+    except Exception:
+        pass
+    db.table("consumos_faturas").delete().eq("id", consumo_id).execute()
+    return {"ok": True}

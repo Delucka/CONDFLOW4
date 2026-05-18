@@ -5,12 +5,13 @@ import { useAuth } from '@/lib/auth';
 import { useState } from 'react';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
 import { usePendingCount } from '@/lib/usePendingCount';
-import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp, KeyRound } from 'lucide-react';
+import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp, KeyRound, Droplet } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/dashboard',           icon: LayoutDashboard, label: 'Painel Central' },
   { href: '/condominios',         icon: Building,        label: 'Planilha Anual' },
   { href: '/carteiras/cobrancas', icon: Receipt,         label: 'Lançar Cobranças' },
+  { href: '/consumos',            icon: Droplet,         label: 'Consumos' },
   { href: '/aprovacoes',          icon: FileCheck2,      label: 'Aprovações & Auditoria', showBadge: true },
   { href: '/central-emissoes',    icon: FileUp,          label: 'Central de Emissões', showBadge: true },
 ];
