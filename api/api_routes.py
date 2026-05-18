@@ -1915,62 +1915,69 @@ def api_listar_consumos(
 
 @router.get("/consumos/condominios-com-faturas")
 def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
-    """Lista condos que tem fatura OU estao cadastrados em condominios_concessionarias.
-    Retorna nome, vencimento, gerente e lista de concessionarias.
-    Ordem numerica (pelo prefixo do nome)."""
+    """Lista condos que tem fatura OU estao cadastrados em condominios_concessionarias."""
     import re as _re
-    cfg_map = {}
-    # 1) condos cadastrados (config) - todos os que aparecem na planilha
+    import traceback
     try:
-        cfg_res = db.table("condominios_concessionarias").select("condominio_id, concessionaria").execute()
-        for r in (cfg_res.data or []):
-            cid = r["condominio_id"]
-            cfg_map.setdefault(cid, set()).add(r["concessionaria"])
-    except Exception as e:
-        print(f"[consumos] tabela condominios_concessionarias indisponivel: {e}")
-
-    # 2) condos que ja tem alguma fatura subida (mesmo sem cadastro)
-    try:
-        fat_res = db.table("consumos_faturas").select("condominio_id, concessionaria").execute()
-        for r in (fat_res.data or []):
-            cid = r.get("condominio_id")
-            if cid:
+        cfg_map = {}
+        try:
+            cfg_res = db.table("condominios_concessionarias").select("condominio_id, concessionaria").execute()
+            for r in (cfg_res.data or []):
+                cid = r["condominio_id"]
                 cfg_map.setdefault(cid, set()).add(r["concessionaria"])
+        except Exception as e:
+            print(f"[consumos] cond_conc erro: {e}")
+
+        try:
+            fat_res = db.table("consumos_faturas").select("condominio_id, concessionaria").execute()
+            for r in (fat_res.data or []):
+                cid = r.get("condominio_id")
+                if cid:
+                    cfg_map.setdefault(cid, set()).add(r["concessionaria"])
+        except Exception as e:
+            print(f"[consumos] consumos_faturas erro: {e}")
+
+        if not cfg_map:
+            return {"condominios": []}
+
+        ids = list(cfg_map.keys())
+        # Chunking para evitar erro com listas grandes
+        condos_data = []
+        for i in range(0, len(ids), 100):
+            chunk = ids[i:i+100]
+            res = db.table("condominios").select("id, name, due_day, gerente_id").in_("id", chunk).execute()
+            condos_data.extend(res.data or [])
+
+        gerente_ids = list({c.get("gerente_id") for c in condos_data if c.get("gerente_id")})
+        gerentes_map = {}
+        if gerente_ids:
+            for i in range(0, len(gerente_ids), 100):
+                chunk = gerente_ids[i:i+100]
+                ger_res = db.table("gerentes").select("id, nome").in_("id", chunk).execute()
+                for g in (ger_res.data or []):
+                    gerentes_map[g["id"]] = g.get("nome")
+
+        out = []
+        for c in condos_data:
+            nome = c.get("name") or ""
+            m = _re.match(r"^(\d+)", nome.strip())
+            codigo = int(m.group(1)) if m else 999999
+            out.append({
+                "id": c["id"],
+                "name": nome,
+                "codigo": codigo,
+                "due_day": c.get("due_day"),
+                "gerente_id": c.get("gerente_id"),
+                "gerente_nome": gerentes_map.get(c.get("gerente_id")),
+                "concessionarias": sorted(list(cfg_map.get(c["id"], set()))),
+            })
+        out.sort(key=lambda x: (x["codigo"], x["name"]))
+        return {"condominios": out}
     except Exception as e:
-        print(f"[consumos] tabela consumos_faturas indisponivel: {e}")
-
-    if not cfg_map:
-        return {"condominios": []}
-
-    # 3) buscar metadata dos condos (nome, due_day, gerente)
-    ids = list(cfg_map.keys())
-    condos_res = db.table("condominios").select("id, name, due_day, gerente_id").in_("id", ids).execute()
-    condos_data = condos_res.data or []
-
-    # 4) buscar nomes dos gerentes em batch
-    gerente_ids = list({c.get("gerente_id") for c in condos_data if c.get("gerente_id")})
-    gerentes_map = {}
-    if gerente_ids:
-        ger_res = db.table("gerentes").select("id, nome").in_("id", gerente_ids).execute()
-        for g in (ger_res.data or []):
-            gerentes_map[g["id"]] = g.get("nome")
-
-    out = []
-    for c in condos_data:
-        nome = c.get("name") or ""
-        m = _re.match(r"^(\d+)", nome.strip())
-        codigo = int(m.group(1)) if m else 999999
-        out.append({
-            "id": c["id"],
-            "name": nome,
-            "codigo": codigo,
-            "due_day": c.get("due_day"),
-            "gerente_id": c.get("gerente_id"),
-            "gerente_nome": gerentes_map.get(c.get("gerente_id")),
-            "concessionarias": sorted(list(cfg_map.get(c["id"], set()))),
-        })
-    out.sort(key=lambda x: (x["codigo"], x["name"]))
-    return {"condominios": out}
+        tb = traceback.format_exc()
+        print("[consumos] erro fatal:", tb)
+        # Expor o erro para debug remoto
+        raise HTTPException(500, f"{type(e).__name__}: {str(e)}")
 
 
 @router.get("/consumos/check-duplicata")
