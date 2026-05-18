@@ -30,18 +30,19 @@ async function sha256OfFile(file) {
 }
 
 // ─── Modal Upload / Editar ──────────────────────────────────────────
-function ModalFatura({ condoId, condoNome, fatura, onClose, onSaved, profile }) {
+function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, profile }) {
   const { addToast } = useToast();
   const isEdicao = !!fatura?.id;
   const supabase = useMemo(() => createClient(), []);
 
   const podeEditarFinal = ['master', 'departamento'].includes(profile?.role);
 
+  const initialConc = fatura?.concessionaria || preFatura?.concessionaria || 'SABESP';
   const [form, setForm] = useState({
-    concessionaria: fatura?.concessionaria || 'SABESP',
-    concessionaria_outra: fatura?.concessionaria && !CONCESSIONARIAS.includes(fatura.concessionaria) ? fatura.concessionaria : '',
-    mes_referencia: fatura?.mes_referencia || (new Date().getMonth() + 1),
-    ano_referencia: fatura?.ano_referencia || new Date().getFullYear(),
+    concessionaria: CONCESSIONARIAS.includes(initialConc) ? initialConc : 'Outra',
+    concessionaria_outra: CONCESSIONARIAS.includes(initialConc) ? '' : initialConc,
+    mes_referencia: fatura?.mes_referencia || preFatura?.mes_referencia || (new Date().getMonth() + 1),
+    ano_referencia: fatura?.ano_referencia || preFatura?.ano_referencia || new Date().getFullYear(),
     leitura_atual: fatura?.leitura_atual || '',
     proxima_leitura: fatura?.proxima_leitura || '',
     vencimento: fatura?.vencimento || '',
@@ -331,6 +332,7 @@ export default function ConsumosPage() {
   }, [supabase, podeAdicionar]);
 
   const [condoSel, setCondoSel] = useState('');
+  const [anoSel, setAnoSel] = useState(new Date().getFullYear());
   const [search, setSearch] = useState('');
   const [filtroConc, setFiltroConc] = useState('todas'); // todas | SABESP | COMGAS | ENEL | outra
   const [filtroGerente, setFiltroGerente] = useState('todos');
@@ -338,6 +340,23 @@ export default function ConsumosPage() {
   const [showNovaModal, setShowNovaModal] = useState(false);
   const [showAddCondoModal, setShowAddCondoModal] = useState(false);
   const [editFatura, setEditFatura] = useState(null);
+  // Pré-seleciona condo+concessionaria+mes ao abrir Nova fatura via clique numa celula vazia
+  const [preFatura, setPreFatura] = useState(null);
+
+  // Faturas do ano (para a matriz)
+  const { data: matrizData, mutate: mutateMatriz } = useSWR(
+    `/api/consumos?ano=${anoSel}`, apiFetcher, { revalidateOnFocus: false }
+  );
+  const todasFaturas = matrizData?.consumos || [];
+
+  // Map: chave `${condo}|${conc}|${mes}` => fatura
+  const matrizMap = useMemo(() => {
+    const m = {};
+    todasFaturas.forEach(f => {
+      m[`${f.condominio_id}|${f.concessionaria}|${f.mes_referencia}`] = f;
+    });
+    return m;
+  }, [todasFaturas]);
 
   // Auto-seleciona o primeiro condo da lista
   useEffect(() => {
@@ -439,8 +458,9 @@ export default function ConsumosPage() {
     window.open(data.signedUrl, '_blank');
   }
   function handleSaved() {
-    mutateFaturas();
-    mutateCondos();
+    mutateFaturas?.();
+    mutateCondos?.();
+    mutateMatriz?.();
   }
 
   return (
@@ -499,103 +519,92 @@ export default function ConsumosPage() {
           <option value="vencimento">Ordenar: Vencimento</option>
           <option value="gerente">Ordenar: Gerente</option>
         </select>
+        <select value={anoSel} onChange={e => setAnoSel(Number(e.target.value))}
+          className="bg-slate-900/60 border border-cyan-500/30 rounded-xl px-3 py-2 text-sm text-cyan-300 font-bold outline-none">
+          {[anoSel-1, anoSel, anoSel+1].map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-5">
-        {/* Tabela lateral de condos */}
-        <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden max-h-[75vh] flex flex-col">
-          <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              {condosFiltrados.length} de {condosComFaturas.length} condomínios
-            </p>
-          </div>
-          <div className="overflow-y-auto flex-1">
-            {condosFiltrados.length === 0 ? (
-              <p className="text-xs text-slate-500 px-4 py-6 text-center">Nada encontrado com esses filtros.</p>
-            ) : (
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-slate-950/90 backdrop-blur z-10">
-                  <tr className="border-b border-white/5">
-                    <th className="text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500">Condomínio</th>
-                    <th className="text-center px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500">Venc</th>
-                    <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500">Gerente</th>
-                    <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500">Contas</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {condosFiltrados.map(c => {
-                    const ativo = condoSel === c.id;
-                    return (
-                      <tr key={c.id} onClick={() => setCondoSel(c.id)}
-                        className={`cursor-pointer border-b border-white/5 transition-colors ${
-                          ativo ? 'bg-cyan-500/10' : 'hover:bg-white/[0.03]'
-                        }`}>
-                        <td className={`px-3 py-2 font-bold truncate max-w-[200px] ${ativo ? 'text-cyan-300' : 'text-slate-200'}`} title={c.name}>
-                          {c.name}
-                        </td>
-                        <td className="text-center px-2 py-2 text-slate-400 font-mono">{c.due_day || '—'}</td>
-                        <td className="px-2 py-2 text-slate-400 truncate max-w-[120px]" title={c.gerente_nome || '—'}>
-                          {c.gerente_nome || '—'}
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex gap-0.5 flex-wrap">
-                            {(c.concessionarias || []).map(cc => (
-                              <span key={cc} className={`text-[8px] font-black uppercase px-1 py-0.5 rounded ${
-                                cc === 'SABESP' ? 'bg-cyan-500/20 text-cyan-300'
-                                : cc === 'COMGAS' ? 'bg-amber-500/20 text-amber-300'
-                                : cc === 'ENEL' ? 'bg-rose-500/20 text-rose-300'
-                                : 'bg-slate-500/20 text-slate-300'
-                              }`}>{cc}</span>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+      {/* Matriz mensal */}
+      <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            Matriz {anoSel} · {condosFiltrados.length} de {condosComFaturas.length} condomínios
+          </p>
+          <p className="text-[10px] text-slate-500">Clique numa célula para abrir/criar a fatura do mês</p>
         </div>
-
-        {/* Timeline de faturas */}
-        <div>
-          {!condoSel ? (
-            <div className="glass-panel p-20 text-center rounded-2xl">
-              <Droplet className="w-12 h-12 text-slate-700 mx-auto mb-3" />
-              <p className="text-slate-400 font-bold">Selecione um condomínio</p>
-            </div>
-          ) : loadingFaturas ? (
-            <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-cyan-500" /></div>
-          ) : grupos.length === 0 ? (
-            <div className="glass-panel p-12 text-center rounded-2xl">
-              <p className="text-slate-400 font-bold">Nenhuma fatura ainda</p>
-              <p className="text-slate-600 text-sm mt-1">Clique em &quot;Nova fatura&quot; pra adicionar a primeira.</p>
-            </div>
+        <div className="overflow-auto max-h-[75vh]">
+          {condosFiltrados.length === 0 ? (
+            <p className="text-xs text-slate-500 px-4 py-12 text-center">Nada encontrado com esses filtros.</p>
           ) : (
-            <div className="space-y-5">
-              {grupos.map(g => (
-                <div key={`${g.ano}-${g.mes}`} className="glass-panel p-5 rounded-2xl border border-white/5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-black text-white">{MESES_LONG[g.mes]} / {g.ano}</h3>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{g.faturas.length} fatura{g.faturas.length !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {g.faturas.map(f => (
-                      <FaturaCard key={f.id}
-                        fatura={f}
-                        profile={profile}
-                        onEdit={(fat) => { setEditFatura(fat); setShowNovaModal(true); }}
-                        onDuplicar={handleDuplicar}
-                        onAnexar={handleAnexar}
-                        onDelete={handleDelete}
-                        onAbrir={handleAbrir}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <table className="w-full text-xs border-collapse">
+              <thead className="sticky top-0 bg-slate-950/95 backdrop-blur z-10">
+                <tr>
+                  <th className="text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 sticky left-0 bg-slate-950/95 z-20 min-w-[220px]">Condomínio</th>
+                  <th className="text-center px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[50px]">Venc</th>
+                  <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[120px]">Gerente</th>
+                  <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[80px]">Conta</th>
+                  {Array.from({length:12}, (_,i)=>i+1).map(m => (
+                    <th key={m} className="text-center px-1 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[60px]">{MESES[m]}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {condosFiltrados.flatMap(c => {
+                  const concs = (c.concessionarias || []);
+                  if (concs.length === 0) return [];
+                  return concs.map((conc, idx) => (
+                    <tr key={`${c.id}-${conc}`} className="border-t border-white/5 hover:bg-white/[0.02]">
+                      {idx === 0 ? (
+                        <>
+                          <td rowSpan={concs.length} className="px-3 py-2 align-top font-bold text-slate-200 sticky left-0 bg-slate-950/60 backdrop-blur z-10 truncate max-w-[220px] border-r border-white/5" title={c.name}>
+                            {c.name}
+                          </td>
+                          <td rowSpan={concs.length} className="text-center px-2 py-2 align-top text-slate-400 font-mono border-r border-white/5">{c.due_day || '—'}</td>
+                          <td rowSpan={concs.length} className="px-2 py-2 align-top text-slate-400 truncate max-w-[120px] border-r border-white/5" title={c.gerente_nome || '—'}>{c.gerente_nome || '—'}</td>
+                        </>
+                      ) : null}
+                      <td className={`px-2 py-2 font-black text-[10px] uppercase tracking-widest border-r border-white/5 ${
+                        conc === 'SABESP' ? 'text-cyan-400'
+                        : conc === 'COMGAS' ? 'text-amber-400'
+                        : conc === 'ENEL' ? 'text-rose-400'
+                        : 'text-slate-400'
+                      }`}>{conc}</td>
+                      {Array.from({length:12}, (_,i)=>i+1).map(m => {
+                        const f = matrizMap[`${c.id}|${conc}|${m}`];
+                        const isAnexada = f?.status === 'anexada';
+                        return (
+                          <td key={m} className="p-0.5 border-r border-white/5">
+                            {f ? (
+                              <button onClick={() => { setEditFatura(f); setCondoSel(c.id); setShowNovaModal(true); }}
+                                className={`w-full h-full px-1 py-1.5 rounded text-[10px] font-bold transition-all ${
+                                  isAnexada
+                                    ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
+                                    : 'bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25'
+                                }`}
+                                title={`${f.concessionaria} ${MESES[m]}/${anoSel} · ${isAnexada ? 'Anexada' : 'Pendente'}${f.valor != null ? ' · R$ '+fmtBRL(f.valor) : ''}`}>
+                                {f.valor != null ? `R$ ${fmtBRL(f.valor)}` : (isAnexada ? '✓' : '·')}
+                              </button>
+                            ) : (
+                              <button onClick={() => {
+                                  setCondoSel(c.id);
+                                  setPreFatura({ concessionaria: conc, mes_referencia: m, ano_referencia: anoSel });
+                                  setEditFatura(null);
+                                  setShowNovaModal(true);
+                                }}
+                                className="w-full h-full px-1 py-1.5 rounded text-[10px] text-slate-600 hover:text-cyan-400 hover:bg-cyan-500/5 transition-all border border-transparent hover:border-cyan-500/20"
+                                title={`Adicionar fatura ${conc} ${MESES[m]}/${anoSel}`}>
+                                +
+                              </button>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ));
+                })}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
@@ -606,8 +615,9 @@ export default function ConsumosPage() {
           condoId={condoSel}
           condoNome={condoNomeSel}
           fatura={editFatura}
+          preFatura={preFatura}
           profile={profile}
-          onClose={() => { setShowNovaModal(false); setEditFatura(null); }}
+          onClose={() => { setShowNovaModal(false); setEditFatura(null); setPreFatura(null); }}
           onSaved={handleSaved}
         />
       )}
