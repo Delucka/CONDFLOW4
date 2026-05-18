@@ -1915,14 +1915,47 @@ def api_listar_consumos(
 
 @router.get("/consumos/condominios-com-faturas")
 def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
-    """Lista condos que ja tem ao menos 1 fatura de consumo (deteccao automatica)."""
-    res = db.table("consumos_faturas").select("condominio_id, condominios(id, name)").execute()
-    seen = {}
-    for r in (res.data or []):
+    """Lista condos que tem fatura OU estao cadastrados em condominios_concessionarias.
+    Retorna nome, vencimento, gerente e lista de concessionarias.
+    Ordem numerica (pelo prefixo do nome)."""
+    import re as _re
+    # 1) condos cadastrados (config) - todos os que aparecem na planilha
+    cfg_res = db.table("condominios_concessionarias").select("condominio_id, concessionaria").execute()
+    cfg_map = {}
+    for r in (cfg_res.data or []):
+        cid = r["condominio_id"]
+        cfg_map.setdefault(cid, set()).add(r["concessionaria"])
+
+    # 2) condos que ja tem alguma fatura subida (mesmo sem cadastro)
+    fat_res = db.table("consumos_faturas").select("condominio_id, concessionaria").execute()
+    for r in (fat_res.data or []):
         cid = r.get("condominio_id")
-        if cid and cid not in seen and r.get("condominios"):
-            seen[cid] = {"id": cid, "name": r["condominios"]["name"]}
-    return {"condominios": sorted(seen.values(), key=lambda x: x["name"])}
+        if cid:
+            cfg_map.setdefault(cid, set()).add(r["concessionaria"])
+
+    if not cfg_map:
+        return {"condominios": []}
+
+    # 3) buscar metadata dos condos (nome, due_day, gerente)
+    ids = list(cfg_map.keys())
+    condos_res = db.table("condominios").select("id, name, due_day, gerente_id, gerentes(nome)").in_("id", ids).execute()
+
+    out = []
+    for c in (condos_res.data or []):
+        nome = c.get("name") or ""
+        m = _re.match(r"^(\d+)", nome.strip())
+        codigo = int(m.group(1)) if m else 999999
+        out.append({
+            "id": c["id"],
+            "name": nome,
+            "codigo": codigo,
+            "due_day": c.get("due_day"),
+            "gerente_id": c.get("gerente_id"),
+            "gerente_nome": (c.get("gerentes") or {}).get("nome") if isinstance(c.get("gerentes"), dict) else None,
+            "concessionarias": sorted(list(cfg_map.get(c["id"], set()))),
+        })
+    out.sort(key=lambda x: (x["codigo"], x["name"]))
+    return {"condominios": out}
 
 
 @router.get("/consumos/check-duplicata")

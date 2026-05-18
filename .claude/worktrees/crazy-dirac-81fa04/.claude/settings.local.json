@@ -17,7 +17,11 @@
       "Bash(powershell -Command \"Get-Command ffmpeg -ErrorAction SilentlyContinue\")",
       "Bash(echo \" *)",
       "Bash(npm run *)",
-      "Bash(npx vercel *)"
+      "Bash(npx vercel *)",
+      "Read(//c/Users/Pichau/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/bc019072-9364-4a2d-8795-c59622703edb/a3e23628-9b48-4f89-9677-ceb457bd31c5/skills/xlsx/**)",
+      "Bash(python -c ' *)",
+      "Bash(extract-text \"C:\\\\Users\\\\Pichau\\\\Downloads\\\\ATUALIZAÇÃO DE COBRANÇA 2025.xlsx\")",
+      "Bash(pip install *)"
     ]
   }
 }

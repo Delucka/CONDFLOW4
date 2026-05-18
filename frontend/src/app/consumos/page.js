@@ -316,7 +316,7 @@ export default function ConsumosPage() {
 
   const podeAdicionar = ['master', 'departamento', 'assistente'].includes(role);
 
-  // Lista de condos com faturas (auto-detectado)
+  // Lista de condos (cadastrados em condominios_concessionarias OU com fatura)
   const { data: condosData, mutate: mutateCondos } = useSWR('/api/consumos/condominios-com-faturas', apiFetcher);
   const condosComFaturas = condosData?.condominios || [];
 
@@ -332,6 +332,9 @@ export default function ConsumosPage() {
 
   const [condoSel, setCondoSel] = useState('');
   const [search, setSearch] = useState('');
+  const [filtroConc, setFiltroConc] = useState('todas'); // todas | SABESP | COMGAS | ENEL | outra
+  const [filtroGerente, setFiltroGerente] = useState('todos');
+  const [ordenacao, setOrdenacao] = useState('codigo'); // codigo | nome | vencimento | gerente
   const [showNovaModal, setShowNovaModal] = useState(false);
   const [showAddCondoModal, setShowAddCondoModal] = useState(false);
   const [editFatura, setEditFatura] = useState(null);
@@ -344,6 +347,13 @@ export default function ConsumosPage() {
   const condoNomeSel = condosComFaturas.find(c => c.id === condoSel)?.name
                     || todosCondos.find(c => c.id === condoSel)?.name
                     || '';
+
+  // Lista de gerentes que aparecem (pra filtro)
+  const gerentesDisponiveis = useMemo(() => {
+    const set = new Set();
+    condosComFaturas.forEach(c => { if (c.gerente_nome) set.add(c.gerente_nome); });
+    return Array.from(set).sort();
+  }, [condosComFaturas]);
 
   // Faturas do condo selecionado
   const { data: faturasData, mutate: mutateFaturas, isLoading: loadingFaturas } =
@@ -371,10 +381,27 @@ export default function ConsumosPage() {
   }, [faturas, search]);
 
   const condosFiltrados = useMemo(() => {
-    if (!search.trim()) return condosComFaturas;
-    const s = search.toLowerCase();
-    return condosComFaturas.filter(c => c.name.toLowerCase().includes(s));
-  }, [condosComFaturas, search]);
+    let list = [...condosComFaturas];
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter(c =>
+        (c.name || '').toLowerCase().includes(s) ||
+        (c.gerente_nome || '').toLowerCase().includes(s) ||
+        (c.concessionarias || []).some(x => x.toLowerCase().includes(s))
+      );
+    }
+    if (filtroConc !== 'todas') {
+      list = list.filter(c => (c.concessionarias || []).includes(filtroConc));
+    }
+    if (filtroGerente !== 'todos') {
+      list = list.filter(c => c.gerente_nome === filtroGerente);
+    }
+    if (ordenacao === 'nome') list.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+    else if (ordenacao === 'vencimento') list.sort((a,b) => (a.due_day || 99) - (b.due_day || 99));
+    else if (ordenacao === 'gerente') list.sort((a,b) => (a.gerente_nome || 'zz').localeCompare(b.gerente_nome || 'zz'));
+    else list.sort((a,b) => (a.codigo || 9999) - (b.codigo || 9999));
+    return list;
+  }, [condosComFaturas, search, filtroConc, filtroGerente, ordenacao]);
 
   async function handleDuplicar(fatura) {
     try {
@@ -445,32 +472,90 @@ export default function ConsumosPage() {
         )}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Pesquisar condomínio, concessionária ou mês..."
-          className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-10 pr-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500/50 placeholder-slate-600" />
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Pesquisar nome, gerente ou concessionária..."
+            className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-10 pr-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500/50 placeholder-slate-600" />
+        </div>
+        <select value={filtroConc} onChange={e => setFiltroConc(e.target.value)}
+          className="bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500/50">
+          <option value="todas">Todas concessionárias</option>
+          <option value="SABESP">SABESP</option>
+          <option value="COMGAS">COMGAS</option>
+          <option value="ENEL">ENEL</option>
+        </select>
+        <select value={filtroGerente} onChange={e => setFiltroGerente(e.target.value)}
+          className="bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500/50 max-w-[200px]">
+          <option value="todos">Todos os gerentes</option>
+          {gerentesDisponiveis.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <select value={ordenacao} onChange={e => setOrdenacao(e.target.value)}
+          className="bg-slate-900/60 border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-500/50">
+          <option value="codigo">Ordenar: Código</option>
+          <option value="nome">Ordenar: Nome</option>
+          <option value="vencimento">Ordenar: Vencimento</option>
+          <option value="gerente">Ordenar: Gerente</option>
+        </select>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5">
-        {/* Sidebar de condos */}
-        <div className="glass-panel rounded-2xl border border-white/5 p-3 max-h-[70vh] overflow-y-auto">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-2">Condomínios com faturas ({condosComFaturas.length})</p>
-          {condosFiltrados.length === 0 ? (
-            <p className="text-xs text-slate-500 px-2 py-4">Nenhum condomínio com faturas ainda. Adicione a primeira pelo botão acima.</p>
-          ) : (
-            <div className="space-y-1">
-              {condosFiltrados.map(c => (
-                <button key={c.id} onClick={() => setCondoSel(c.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
-                    condoSel === c.id ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                  }`}>
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          )}
+      <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-5">
+        {/* Tabela lateral de condos */}
+        <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden max-h-[75vh] flex flex-col">
+          <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              {condosFiltrados.length} de {condosComFaturas.length} condomínios
+            </p>
+          </div>
+          <div className="overflow-y-auto flex-1">
+            {condosFiltrados.length === 0 ? (
+              <p className="text-xs text-slate-500 px-4 py-6 text-center">Nada encontrado com esses filtros.</p>
+            ) : (
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-slate-950/90 backdrop-blur z-10">
+                  <tr className="border-b border-white/5">
+                    <th className="text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500">Condomínio</th>
+                    <th className="text-center px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500">Venc</th>
+                    <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500">Gerente</th>
+                    <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500">Contas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {condosFiltrados.map(c => {
+                    const ativo = condoSel === c.id;
+                    return (
+                      <tr key={c.id} onClick={() => setCondoSel(c.id)}
+                        className={`cursor-pointer border-b border-white/5 transition-colors ${
+                          ativo ? 'bg-cyan-500/10' : 'hover:bg-white/[0.03]'
+                        }`}>
+                        <td className={`px-3 py-2 font-bold truncate max-w-[200px] ${ativo ? 'text-cyan-300' : 'text-slate-200'}`} title={c.name}>
+                          {c.name}
+                        </td>
+                        <td className="text-center px-2 py-2 text-slate-400 font-mono">{c.due_day || '—'}</td>
+                        <td className="px-2 py-2 text-slate-400 truncate max-w-[120px]" title={c.gerente_nome || '—'}>
+                          {c.gerente_nome || '—'}
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="flex gap-0.5 flex-wrap">
+                            {(c.concessionarias || []).map(cc => (
+                              <span key={cc} className={`text-[8px] font-black uppercase px-1 py-0.5 rounded ${
+                                cc === 'SABESP' ? 'bg-cyan-500/20 text-cyan-300'
+                                : cc === 'COMGAS' ? 'bg-amber-500/20 text-amber-300'
+                                : cc === 'ENEL' ? 'bg-rose-500/20 text-rose-300'
+                                : 'bg-slate-500/20 text-slate-300'
+                              }`}>{cc}</span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
         {/* Timeline de faturas */}

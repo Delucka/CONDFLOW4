@@ -37,3 +37,5 @@
 0033_fix_rls_emissoes_pacotes.sql
 0034_edicoes_mensais.sql
 0035_consumos_faturas.sql
+0036_condominios_concessionarias.sql
+0036_seed_condominios_concessionarias.sql
