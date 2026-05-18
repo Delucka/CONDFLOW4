@@ -1938,10 +1938,19 @@ def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Dep
 
     # 3) buscar metadata dos condos (nome, due_day, gerente)
     ids = list(cfg_map.keys())
-    condos_res = db.table("condominios").select("id, name, due_day, gerente_id, gerentes(nome)").in_("id", ids).execute()
+    condos_res = db.table("condominios").select("id, name, due_day, gerente_id").in_("id", ids).execute()
+    condos_data = condos_res.data or []
+
+    # 4) buscar nomes dos gerentes em batch
+    gerente_ids = list({c.get("gerente_id") for c in condos_data if c.get("gerente_id")})
+    gerentes_map = {}
+    if gerente_ids:
+        ger_res = db.table("gerentes").select("id, nome").in_("id", gerente_ids).execute()
+        for g in (ger_res.data or []):
+            gerentes_map[g["id"]] = g.get("nome")
 
     out = []
-    for c in (condos_res.data or []):
+    for c in condos_data:
         nome = c.get("name") or ""
         m = _re.match(r"^(\d+)", nome.strip())
         codigo = int(m.group(1)) if m else 999999
@@ -1951,7 +1960,7 @@ def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Dep
             "codigo": codigo,
             "due_day": c.get("due_day"),
             "gerente_id": c.get("gerente_id"),
-            "gerente_nome": (c.get("gerentes") or {}).get("nome") if isinstance(c.get("gerentes"), dict) else None,
+            "gerente_nome": gerentes_map.get(c.get("gerente_id")),
             "concessionarias": sorted(list(cfg_map.get(c["id"], set()))),
         })
     out.sort(key=lambda x: (x["codigo"], x["name"]))
