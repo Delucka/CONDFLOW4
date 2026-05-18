@@ -1919,19 +1919,25 @@ def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Dep
     Retorna nome, vencimento, gerente e lista de concessionarias.
     Ordem numerica (pelo prefixo do nome)."""
     import re as _re
-    # 1) condos cadastrados (config) - todos os que aparecem na planilha
-    cfg_res = db.table("condominios_concessionarias").select("condominio_id, concessionaria").execute()
     cfg_map = {}
-    for r in (cfg_res.data or []):
-        cid = r["condominio_id"]
-        cfg_map.setdefault(cid, set()).add(r["concessionaria"])
+    # 1) condos cadastrados (config) - todos os que aparecem na planilha
+    try:
+        cfg_res = db.table("condominios_concessionarias").select("condominio_id, concessionaria").execute()
+        for r in (cfg_res.data or []):
+            cid = r["condominio_id"]
+            cfg_map.setdefault(cid, set()).add(r["concessionaria"])
+    except Exception as e:
+        print(f"[consumos] tabela condominios_concessionarias indisponivel: {e}")
 
     # 2) condos que ja tem alguma fatura subida (mesmo sem cadastro)
-    fat_res = db.table("consumos_faturas").select("condominio_id, concessionaria").execute()
-    for r in (fat_res.data or []):
-        cid = r.get("condominio_id")
-        if cid:
-            cfg_map.setdefault(cid, set()).add(r["concessionaria"])
+    try:
+        fat_res = db.table("consumos_faturas").select("condominio_id, concessionaria").execute()
+        for r in (fat_res.data or []):
+            cid = r.get("condominio_id")
+            if cid:
+                cfg_map.setdefault(cid, set()).add(r["concessionaria"])
+    except Exception as e:
+        print(f"[consumos] tabela consumos_faturas indisponivel: {e}")
 
     if not cfg_map:
         return {"condominios": []}
