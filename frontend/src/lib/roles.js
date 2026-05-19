@@ -13,7 +13,7 @@ export const ROLE_LABELS = {
 
 export const ROUTE_ACCESS = {
   '/dashboard':           ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
-  '/condominios':         ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
+  '/condominios':         ['master','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
   '/carteiras/cobrancas': ['master','gerente','assistente'],
   '/aprovacoes':          ['master','gerente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
   '/central-emissoes':    ['master','departamento'],
