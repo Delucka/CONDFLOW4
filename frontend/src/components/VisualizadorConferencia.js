@@ -216,74 +216,94 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex flex-col">
 
       {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
-            <FileText className="w-5 h-5 text-violet-400" />
-          </div>
+      <div className="px-4 h-[52px] border-b border-slate-800 bg-slate-900/95 flex items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <FileText className="w-4 h-4 text-violet-400 shrink-0" />
           <div className="min-w-0">
-            <h3 className="text-white font-bold truncate">{currentFile?.nome || 'Documento'}</h3>
-            <p className="text-[10px] uppercase tracking-widest text-cyan-400">Visualização integrada {arquivos.length > 1 ? `(${currentIndex + 1} de ${arquivos.length})` : ''}</p>
+            <h3 className="text-sm text-white font-bold truncate leading-tight">{currentFile?.nome || 'Documento'}</h3>
+            <p className="text-[9px] uppercase tracking-widest text-slate-500">Conferência {arquivos.length > 1 ? `· ${currentIndex + 1} de ${arquivos.length}` : ''}</p>
           </div>
         </div>
 
-        {/* Navegação */}
-        <div className="flex items-center gap-3">
-          {arquivos.length > 1 && (
-            <div className="flex items-center gap-1 bg-black/20 rounded-xl p-1 border border-white/5">
-              <button 
-                onClick={() => handleNavigate(-1)} 
-                disabled={!hasPrev || loadingFile}
-                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
-                title="Anterior"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              
-              <select 
-                value={currentFile?.id || ''}
-                onChange={(e) => {
-                  const arq = arquivos.find(a => String(a.id) === e.target.value);
-                  if (arq) {
-                    const idx = arquivos.indexOf(arq);
-                    handleNavigate(idx - currentIndex);
-                  }
-                }}
-                className="bg-transparent text-[11px] font-bold text-white outline-none px-2 py-1 max-w-[150px] truncate cursor-pointer hover:text-cyan-400 transition-colors"
-              >
-                {arquivos.map((a, i) => (
-                  <option key={a.id} value={a.id} className="bg-slate-900">
-                    {i + 1}. {a.arquivo_nome}
-                  </option>
-                ))}
-              </select>
+        {/* Navegação entre arquivos */}
+        {arquivos.length > 1 && (
+          <div className="flex items-center gap-1 bg-black/30 rounded-lg p-0.5 border border-white/5 shrink-0">
+            <button
+              onClick={() => handleNavigate(-1)}
+              disabled={!hasPrev || loadingFile}
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-colors"
+              title="Anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <select
+              value={currentFile?.id || ''}
+              onChange={(e) => {
+                const arq = arquivos.find(a => String(a.id) === e.target.value);
+                if (arq) {
+                  const idx = arquivos.indexOf(arq);
+                  handleNavigate(idx - currentIndex);
+                }
+              }}
+              className="bg-transparent text-[10px] font-bold text-white outline-none px-1.5 py-1 max-w-[140px] truncate cursor-pointer"
+            >
+              {arquivos.map((a, i) => (
+                <option key={a.id} value={a.id} className="bg-slate-900">
+                  {i + 1}. {a.arquivo_nome}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => handleNavigate(1)}
+              disabled={!hasNext || loadingFile}
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-colors"
+              title="Próximo"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
-              <button 
-                onClick={() => handleNavigate(1)} 
-                disabled={!hasNext || loadingFile}
-                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
-                title="Próximo"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0">
           {arquivo.url && (
             <a href={arquivo.url} target="_blank" rel="noopener noreferrer"
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
-              <ExternalLink className="w-5 h-5" />
+              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors" title="Abrir em nova aba">
+              <ExternalLink className="w-4 h-4" />
             </a>
           )}
-          <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/5" title="Fechar">
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
+      {/* Banner de correção (se houver) */}
+      {arquivo?.pacote_id && (arquivo?.comentario_correcao || arquivo?.correcao_arquivo_url) && (
+        <div className="shrink-0 px-4 py-3 bg-rose-500/10 border-b border-rose-500/30 flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest text-rose-400 mb-0.5">Correção solicitada</p>
+            {arquivo.comentario_correcao && (
+              <p className="text-xs text-rose-200/90 leading-snug whitespace-pre-wrap">{arquivo.comentario_correcao}</p>
+            )}
+          </div>
+          {arquivo.correcao_arquivo_url && (
+            <button
+              onClick={async () => {
+                const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arquivo.correcao_arquivo_url, 300);
+                if (error) return addToast('Erro ao abrir anexo', 'error');
+                window.open(data.signedUrl, '_blank');
+              }}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 text-[10px] font-bold uppercase tracking-widest">
+              <FileText className="w-3 h-3" />
+              {arquivo.correcao_arquivo_nome || 'Anexo'}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Split view */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden">
 
         {/* PDF */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col relative min-h-[60vh] lg:min-h-0">
@@ -300,15 +320,8 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           }
         </div>
 
-        {/* Painel lateral - scroll forcado com altura absoluta */}
-        <div
-          className="flex flex-col gap-3 pr-2 conf-scroll"
-          style={{
-            height: 'calc(100vh - 130px)',
-            overflowY: 'scroll',
-            overflowX: 'hidden',
-          }}
-        >
+        {/* Painel lateral - usa flex height, nao calc() */}
+        <div className="flex flex-col gap-3 pr-2 conf-scroll min-h-0 lg:h-full lg:overflow-y-auto overflow-x-hidden">
 
           {/* Planilha Anual */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shrink-0">
@@ -539,23 +552,23 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           : 'Aprovar e assinar';
 
         return (
-          <div className="px-6 py-4 border-t border-slate-800 bg-slate-900 shrink-0">
+          <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-slate-900/95">
             {!modoCorrecao
-              ? <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <p className="text-xs text-slate-400 flex items-center gap-1">
+              ? <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
                     {modoPacote
-                      ? <>Status atual: <span className="text-cyan-400 font-bold">{arquivo?.pacote_status || '—'}</span></>
+                      ? <><span className="text-[9px] uppercase tracking-widest text-slate-500">Status</span> <span className="text-cyan-400 font-bold">{arquivo?.pacote_status || '—'}</span></>
                       : (podeAssinar && <><PenTool className="w-3 h-3" /> Ao aprovar, você assina digitalmente.</>)
                     }
                   </p>
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     <button onClick={() => setModoCorrecao(true)} disabled={executando}
-                      className="px-4 py-2 rounded-lg text-sm font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors disabled:opacity-50">
+                      className="px-3.5 py-2 rounded-lg text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors disabled:opacity-50">
                       Solicitar correção
                     </button>
                     <button onClick={aprovarFn} disabled={executando}
-                      className="px-5 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                      {executando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      className="px-4 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex items-center gap-1.5 disabled:opacity-50">
+                      {executando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                       {labelAprovar}
                     </button>
                   </div>

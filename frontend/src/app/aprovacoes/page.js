@@ -205,7 +205,7 @@ export default function AprovacoesPage() {
         if (fileData.pacote_id) {
           const { data: arquivos } = await supabase.from('emissoes_arquivos').select('*').eq('pacote_id', fileData.pacote_id);
           allFiles = arquivos || [];
-          const { data: p } = await supabase.from('emissoes_pacotes').select('id, status, nivel_aprovacao, processo_id, mes_referencia, ano_referencia, eh_retificacao').eq('id', fileData.pacote_id).maybeSingle();
+          const { data: p } = await supabase.from('emissoes_pacotes').select('id, status, nivel_aprovacao, processo_id, mes_referencia, ano_referencia, eh_retificacao, comentario_correcao, correcao_arquivo_url, correcao_arquivo_nome').eq('id', fileData.pacote_id).maybeSingle();
           pacote = p;
         } else {
           allFiles = [fileData];
@@ -222,6 +222,9 @@ export default function AprovacoesPage() {
         pacote_id: pacote?.id || null,
         pacote_status: pacote?.status || null,
         pacote_nivel: pacote?.nivel_aprovacao || null,
+        comentario_correcao: pacote?.comentario_correcao || null,
+        correcao_arquivo_url: pacote?.correcao_arquivo_url || null,
+        correcao_arquivo_nome: pacote?.correcao_arquivo_nome || null,
         mes: pacote?.mes_referencia,
         ano: pacote?.ano_referencia,
         eh_retificacao: pacote?.eh_retificacao || false,
