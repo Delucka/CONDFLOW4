@@ -36,6 +36,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const [modoCorrecao, setModoCorrecao] = useState(false);
   const [comentario, setComentario]   = useState('');
   const [executando, setExecutando]   = useState(false);
+  const [correcaoFile, setCorrecaoFile] = useState(null);
 
   // Snapshot congela os valores; dados ao vivo são mutáveis
   const planilha = isSnapshot ? arquivo.planilha_snapshot : data?.planilha;
@@ -126,11 +127,23 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     if (!pacoteId) { addToast('Pacote não vinculado.', 'error'); return; }
     setExecutando(true);
     try {
+      // Sobe anexo (se houver)
+      let correcaoUrl = null;
+      let correcaoNome = null;
+      if (correcaoFile) {
+        const path = `correcoes/${pacoteId}/${Date.now()}_${correcaoFile.name}`;
+        const { error: upErr } = await supabase.storage.from('emissoes').upload(path, correcaoFile);
+        if (upErr) throw upErr;
+        correcaoUrl = path;
+        correcaoNome = correcaoFile.name;
+      }
       const { error } = await supabase
         .from('emissoes_pacotes')
         .update({
           status: 'solicitar_correcao',
           comentario_correcao: comentario.trim(),
+          correcao_arquivo_url: correcaoUrl,
+          correcao_arquivo_nome: correcaoNome,
           atualizado_em: new Date().toISOString(),
         })
         .eq('id', pacoteId);
@@ -551,11 +564,35 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Motivo da correção <span className="text-rose-400">*</span>
                   </label>
-                  <textarea value={comentario} onChange={e => setComentario(e.target.value)} rows={3}
-                    placeholder="Descreva o que precisa ser corrigido..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-600 resize-none" />
+                  <textarea value={comentario} onChange={e => setComentario(e.target.value)} rows={5}
+                    placeholder="Descreva o que precisa ser corrigido... (sem limite de caracteres)"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-600 resize-y" />
+
+                  {/* Anexo opcional - so para fluxo de pacote */}
+                  {modoPacote && (
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                        Anexar arquivo (opcional)
+                      </label>
+                      {correcaoFile ? (
+                        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                          <span className="text-xs text-rose-300 truncate flex items-center gap-2">
+                            <FileText className="w-4 h-4 shrink-0" />
+                            {correcaoFile.name}
+                            <span className="text-[10px] text-rose-400/60">({(correcaoFile.size/1024).toFixed(0)} KB)</span>
+                          </span>
+                          <button onClick={() => setCorrecaoFile(null)} className="text-rose-400 hover:text-white text-xs font-bold">Remover</button>
+                        </div>
+                      ) : (
+                        <input type="file" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
+                          onChange={(e) => setCorrecaoFile(e.target.files?.[0] || null)}
+                          className="block w-full text-xs text-slate-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-rose-500/10 file:text-rose-300 hover:file:bg-rose-500/20" />
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex justify-end gap-3">
-                    <button onClick={() => { setModoCorrecao(false); setComentario(''); }} disabled={executando}
+                    <button onClick={() => { setModoCorrecao(false); setComentario(''); setCorrecaoFile(null); }} disabled={executando}
                       className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
                       Cancelar
                     </button>

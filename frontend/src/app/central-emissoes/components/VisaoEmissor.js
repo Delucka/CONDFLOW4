@@ -785,9 +785,22 @@ export default function VisaoEmissor({ profile }) {
           )}
 
           {activePacote.status === 'solicitar_correcao' && activePacote.comentario_correcao && (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-sm text-rose-300 mt-4">
-              <span className="font-black text-rose-400 text-xs uppercase tracking-widest block mb-1">Correção Solicitada:</span>
-              {activePacote.comentario_correcao}
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-sm text-rose-300 mt-4 space-y-2">
+              <div>
+                <span className="font-black text-rose-400 text-xs uppercase tracking-widest block mb-1">Correção Solicitada:</span>
+                {activePacote.comentario_correcao}
+              </div>
+              {activePacote.correcao_arquivo_url && (
+                <button
+                  onClick={async () => {
+                    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(activePacote.correcao_arquivo_url, 300);
+                    if (error) return addToast('Erro ao abrir anexo', 'error');
+                    window.open(data.signedUrl, '_blank');
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 text-[11px] font-bold">
+                  📎 {activePacote.correcao_arquivo_nome || 'Ver anexo da correção'}
+                </button>
+              )}
             </div>
           )}
         </div>

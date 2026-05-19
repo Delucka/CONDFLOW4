@@ -311,10 +311,22 @@ export default function VisaoGerente({ profile }) {
 
                 {/* Comentário de correção */}
                 {s === 'solicitar_correcao' && pacote.comentario_correcao && (
-                  <div className="px-5 py-3 bg-rose-500/5 border-t border-rose-500/10">
+                  <div className="px-5 py-3 bg-rose-500/5 border-t border-rose-500/10 space-y-2">
                     <p className="text-xs text-rose-400">
                       <span className="font-black">Correção:</span> {pacote.comentario_correcao}
                     </p>
+                    {pacote.correcao_arquivo_url && (
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(pacote.correcao_arquivo_url, 300);
+                          if (error) return addToast('Erro ao abrir anexo', 'error');
+                          window.open(data.signedUrl, '_blank');
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-[11px] font-bold">
+                        📎 {pacote.correcao_arquivo_nome || 'Ver anexo da correção'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

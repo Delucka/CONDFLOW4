@@ -40,3 +40,4 @@
 0036_condominios_concessionarias.sql
 0036_seed_condominios_concessionarias.sql
 0037_sync_emissao_consumo.sql
+0038_correcao_anexo.sql
