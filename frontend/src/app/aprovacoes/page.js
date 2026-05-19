@@ -200,18 +200,33 @@ export default function AprovacoesPage() {
       const { data: fileData } = await supabase
         .from('emissoes_arquivos').select('*')
         .eq('condominio_id', condoId).order('criado_em', { ascending: false }).limit(1).maybeSingle();
-      let allFiles = [], signedUrl = null;
+      let allFiles = [], signedUrl = null, pacote = null;
       if (fileData) {
         if (fileData.pacote_id) {
           const { data: arquivos } = await supabase.from('emissoes_arquivos').select('*').eq('pacote_id', fileData.pacote_id);
           allFiles = arquivos || [];
+          const { data: p } = await supabase.from('emissoes_pacotes').select('id, status, nivel_aprovacao, processo_id, mes_referencia, ano_referencia, eh_retificacao').eq('id', fileData.pacote_id).maybeSingle();
+          pacote = p;
         } else {
           allFiles = [fileData];
         }
         const { data: urlData } = await supabase.storage.from('emissoes').createSignedUrl(fileData.arquivo_url, 300);
         signedUrl = urlData?.signedUrl;
       }
-      setArquivoConferencia({ id: fileData?.id || null, nome: fileData?.arquivo_nome || 'Documento', url: signedUrl, condominio_id: condoId, processo_id: fileData?.processo_id || null, arquivos: allFiles });
+      setArquivoConferencia({
+        id: fileData?.id || null,
+        nome: fileData?.arquivo_nome || 'Documento',
+        url: signedUrl,
+        condominio_id: condoId,
+        processo_id: pacote?.processo_id || fileData?.processo_id || null,
+        pacote_id: pacote?.id || null,
+        pacote_status: pacote?.status || null,
+        pacote_nivel: pacote?.nivel_aprovacao || null,
+        mes: pacote?.mes_referencia,
+        ano: pacote?.ano_referencia,
+        eh_retificacao: pacote?.eh_retificacao || false,
+        arquivos: allFiles,
+      });
     } catch { addToast('Erro ao abrir prévia.', 'error'); }
   };
 
