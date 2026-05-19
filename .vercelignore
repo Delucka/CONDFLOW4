@@ -1,0 +1,41 @@
+# Pastas pesadas que NAO devem ir pro upload do Vercel
+# (Vercel reinstala node_modules e gera .next no servidor)
+**/node_modules
+**/.next
+**/dist
+**/build
+
+# Cache Python
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+**/venv
+
+# Git e ferramentas
+.git
+.gitignore
+.claude
+.vscode
+.idea
+
+# Documentacao e dev local
+*.md
+PROGRESSO.md
+ONBOARDING.md
+docs/
+test/
+tests/
+
+# Logs e arquivos temporarios
+*.log
+.DS_Store
+Thumbs.db
+
+# Migrations rodam manual no Supabase Editor — nao precisam estar no deploy
+supabase/
+
+# Backups
+*.bak
+*.swp
+*.tmp
