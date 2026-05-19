@@ -246,96 +246,7 @@ export default function DashboardPage() {
   return (
     <div className="animate-fade-in w-full h-full relative space-y-6 pb-20">
 
-      {/* Atalhos rápidos + Pipeline Widget */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Pipeline Widget — ocupa 2 colunas */}
-        <div className="lg:col-span-2">
-          <PipelineWidget
-            processos={processos}
-            condosTotal={stats.total}
-            pipelineConfig={pipelineConfig}
-            countdown={countdown}
-          />
-        </div>
-
-        {/* Atalhos rápidos */}
-        <div className="flex flex-col gap-3">
-          <Link href="/aprovacoes" className="flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl hover:border-violet-500/40 hover:bg-violet-500/5 transition-all group">
-            <div className="w-9 h-9 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0 group-hover:bg-violet-500/30 transition-colors">
-              <ClipboardList className="w-4 h-4 text-violet-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-white">Aprovações & Auditoria</p>
-              <p className="text-[10px] text-gray-500">
-                {stats.pendentes > 0 ? <span className="text-amber-400">{stats.pendentes} pendente{stats.pendentes !== 1 ? 's' : ''}</span> : 'Ver histórico'}
-              </p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
-          </Link>
-
-          {(user?.role === 'master' || user?.role === 'departamento') ? (
-            <Link href="/central-emissoes" className="flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl hover:border-cyan-500/40 hover:bg-cyan-500/5 transition-all group">
-              <div className="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center shrink-0 group-hover:bg-cyan-500/30 transition-colors">
-                <TrendingUp className="w-4 h-4 text-cyan-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-black text-white">Central de Emissões</p>
-                <p className="text-[10px] text-gray-500">
-                  {emissaoStats.gerente + emissaoStats.supGerente + emissaoStats.supContabilidade > 0
-                    ? <span className="text-cyan-400">{emissaoStats.gerente + emissaoStats.supGerente + emissaoStats.supContabilidade} em andamento</span>
-                    : 'Pacotes e aprovações'}
-                </p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-cyan-400 transition-colors shrink-0" />
-            </Link>
-          ) : (
-            <Link href="/carteiras/cobrancas" className="flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all group">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/30 transition-colors">
-                <Receipt className="w-4 h-4 text-emerald-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-black text-white">Cobranças Extras</p>
-                <p className="text-[10px] text-gray-500">Lançar e visualizar</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-emerald-400 transition-colors shrink-0" />
-            </Link>
-          )}
-
-          <Link href="/condominios" className="flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-2xl hover:border-amber-500/40 hover:bg-amber-500/5 transition-all group">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0 group-hover:bg-amber-500/30 transition-colors">
-              <Building className="w-4 h-4 text-amber-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-white">Planilha Anual</p>
-              <p className="text-[10px] text-gray-500">{stats.total} condomínio{stats.total !== 1 ? 's' : ''}</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-amber-400 transition-colors shrink-0" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Stats Principais */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Condomínios"  value={stats.total}            icon={Building}   color="cyan"    loading={isLoading} />
-        <StatsCard title="Em Edição"          value={stats.em_edicao}        icon={FileEdit}   color="orange"  loading={isLoading} />
-        <StatsCard title="Aguard. Registro"   value={emissaoStats.aguardando} icon={Clock}      color="emerald" loading={isLoading} />
-        <StatsCard title="Emissão Registrada" value={emissaoStats.registrada} icon={FileCheck}  color="blue"    loading={isLoading} />
-      </div>
-
-      {/* Auditoria de Fluxo */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-2">
-          <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Emissões em Andamento</h4>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatsCard title="Com o Gerente"    value={emissaoStats.gerente}           icon={User}       color="indigo" loading={isLoading} />
-          <StatsCard title="Sup. Gerentes"    value={emissaoStats.supGerente}        icon={Activity}   color="cyan"   loading={isLoading} />
-          <StatsCard title="Sup. Contab."     value={emissaoStats.supContabilidade}  icon={ShieldCheck} color="orange" loading={isLoading} />
-        </div>
-      </div>
-
-      {/* Painel Duplo */}
+      {/* ── TOPO: Tabela Situação Semestral + Fila de Conferência ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
         {/* Tabela de Condomínios (Esquerda - 2/3) */}
@@ -439,6 +350,27 @@ export default function DashboardPage() {
           <FilaOcorrencias />
         </div>
 
+      </div>
+
+      {/* ── BASE: Stats Principais ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard title="Total Condomínios"  value={stats.total}            icon={Building}   color="cyan"    loading={isLoading} />
+        <StatsCard title="Em Edição"          value={stats.em_edicao}        icon={FileEdit}   color="orange"  loading={isLoading} />
+        <StatsCard title="Aguard. Registro"   value={emissaoStats.aguardando} icon={Clock}      color="emerald" loading={isLoading} />
+        <StatsCard title="Emissão Registrada" value={emissaoStats.registrada} icon={FileCheck}  color="blue"    loading={isLoading} />
+      </div>
+
+      {/* ── BASE: Emissões em Andamento ── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-2">
+          <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Emissões em Andamento</h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatsCard title="Com o Gerente"    value={emissaoStats.gerente}           icon={User}       color="indigo" loading={isLoading} />
+          <StatsCard title="Sup. Gerentes"    value={emissaoStats.supGerente}        icon={Activity}   color="cyan"   loading={isLoading} />
+          <StatsCard title="Sup. Contab."     value={emissaoStats.supContabilidade}  icon={ShieldCheck} color="orange" loading={isLoading} />
+        </div>
       </div>
 
       {arquivoConferencia && (
