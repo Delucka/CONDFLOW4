@@ -92,6 +92,55 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     finally { setExecutando(false); }
   }
 
+  // ===== Acoes de PACOTE (emissao mensal) =====
+  async function handleAprovarPacote() {
+    const pacoteId = arquivo?.pacote_id;
+    const pacoteStatus = arquivo?.pacote_status;
+    const pacoteNivel = arquivo?.pacote_nivel;
+    if (!pacoteId) { addToast('Pacote não vinculado.', 'error'); return; }
+    const fluxos = {
+      1: { default: 'aprovado' },
+      2: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
+      3: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
+      4: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
+    };
+    const fluxoId = Number(pacoteNivel) || 1;
+    const nextStatus = fluxos[fluxoId]?.[pacoteStatus] ?? fluxos[fluxoId]?.default ?? 'aprovado';
+    setExecutando(true);
+    try {
+      const { error, data } = await supabase
+        .from('emissoes_pacotes')
+        .update({ status: nextStatus, atualizado_em: new Date().toISOString() })
+        .eq('id', pacoteId)
+        .select('id');
+      if (error || !data || data.length === 0) throw new Error(error?.message || 'Sem permissão para aprovar');
+      addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success');
+      onAction?.(); onClose?.();
+    } catch (e) { addToast(e.message, 'error'); }
+    finally { setExecutando(false); }
+  }
+
+  async function handleCorrecaoPacote() {
+    if (!comentario.trim()) { addToast('Descreva o motivo.', 'warning'); return; }
+    const pacoteId = arquivo?.pacote_id;
+    if (!pacoteId) { addToast('Pacote não vinculado.', 'error'); return; }
+    setExecutando(true);
+    try {
+      const { error } = await supabase
+        .from('emissoes_pacotes')
+        .update({
+          status: 'solicitar_correcao',
+          comentario_correcao: comentario.trim(),
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq('id', pacoteId);
+      if (error) throw error;
+      addToast('Correção solicitada. Pacote retornado.', 'success');
+      onAction?.(); onClose?.();
+    } catch (e) { addToast(e.message, 'error'); }
+    finally { setExecutando(false); }
+  }
+
   // Navegação entre arquivos
   const currentIndex = arquivos.findIndex(a => String(a.id) === String(currentFile?.id));
   const hasPrev = currentIndex > 0;
@@ -462,47 +511,65 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       </div>
 
       {/* Footer ações */}
-      {podeAprovar && arquivo.processo_id && (
-        <div className="px-6 py-4 border-t border-slate-800 bg-slate-900 shrink-0">
-          {!modoCorrecao
-            ? <div className="flex items-center justify-between gap-4">
-                <p className="text-xs text-slate-400 flex items-center gap-1">
-                  {podeAssinar && <><PenTool className="w-3 h-3" /> Ao aprovar, você assina digitalmente.</>}
-                </p>
-                <div className="flex gap-3">
-                  <button onClick={() => setModoCorrecao(true)} disabled={executando}
-                    className="px-4 py-2 rounded-lg text-sm font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors disabled:opacity-50">
-                    Solicitar correção
-                  </button>
-                  <button onClick={handleAprovar} disabled={executando}
-                    className="px-5 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                    {executando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                    Aprovar e assinar
-                  </button>
+      {(() => {
+        const modoPacote = !!arquivo?.pacote_id;
+        const podeAcao = podeAprovar && (arquivo?.processo_id || arquivo?.pacote_id);
+        // Status terminais do pacote ocultam os botoes
+        const statusTerminal = ['aprovado','registrado','expedida','rascunho','solicitar_correcao'].includes((arquivo?.pacote_status || '').toLowerCase());
+        if (!podeAcao) return null;
+        if (modoPacote && statusTerminal) return null;
+
+        const aprovarFn = modoPacote ? handleAprovarPacote : handleAprovar;
+        const correcaoFn = modoPacote ? handleCorrecaoPacote : handleCorrecao;
+        const labelAprovar = modoPacote
+          ? (arquivo?.pacote_status === 'Aguardando Supervisor' || Number(arquivo?.pacote_nivel) === 1 ? 'Aprovar pacote' : 'Aprovar e enviar')
+          : 'Aprovar e assinar';
+
+        return (
+          <div className="px-6 py-4 border-t border-slate-800 bg-slate-900 shrink-0">
+            {!modoCorrecao
+              ? <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <p className="text-xs text-slate-400 flex items-center gap-1">
+                    {modoPacote
+                      ? <>Status atual: <span className="text-cyan-400 font-bold">{arquivo?.pacote_status || '—'}</span></>
+                      : (podeAssinar && <><PenTool className="w-3 h-3" /> Ao aprovar, você assina digitalmente.</>)
+                    }
+                  </p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setModoCorrecao(true)} disabled={executando}
+                      className="px-4 py-2 rounded-lg text-sm font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors disabled:opacity-50">
+                      Solicitar correção
+                    </button>
+                    <button onClick={aprovarFn} disabled={executando}
+                      className="px-5 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                      {executando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      {labelAprovar}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            : <div className="space-y-3">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Motivo da correção <span className="text-rose-400">*</span>
-                </label>
-                <textarea value={comentario} onChange={e => setComentario(e.target.value)} rows={3}
-                  placeholder="Descreva o que precisa ser corrigido..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-600 resize-none" />
-                <div className="flex justify-end gap-3">
-                  <button onClick={() => { setModoCorrecao(false); setComentario(''); }} disabled={executando}
-                    className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
-                    Cancelar
-                  </button>
-                  <button onClick={handleCorrecao} disabled={executando || !comentario.trim()}
-                    className="px-5 py-2 rounded-lg text-sm font-bold bg-rose-600 text-white hover:bg-rose-500 transition-colors flex items-center gap-2 disabled:opacity-50">
-                    {executando ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertCircle className="w-4 h-4" />}
-                    Enviar correção
-                  </button>
+              : <div className="space-y-3">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Motivo da correção <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea value={comentario} onChange={e => setComentario(e.target.value)} rows={3}
+                    placeholder="Descreva o que precisa ser corrigido..."
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-600 resize-none" />
+                  <div className="flex justify-end gap-3">
+                    <button onClick={() => { setModoCorrecao(false); setComentario(''); }} disabled={executando}
+                      className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={correcaoFn} disabled={executando || !comentario.trim()}
+                      className="px-5 py-2 rounded-lg text-sm font-bold bg-rose-600 text-white hover:bg-rose-500 transition-colors flex items-center gap-2 disabled:opacity-50">
+                      {executando ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertCircle className="w-4 h-4" />}
+                      Enviar correção
+                    </button>
+                  </div>
                 </div>
-              </div>
-          }
-        </div>
-      )}
+            }
+          </div>
+        );
+      })()}
     </div>
   );
 }
