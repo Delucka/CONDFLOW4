@@ -244,18 +244,18 @@ export default function DashboardPage() {
   }, [data?.processos, condos]);
 
   return (
-    <div className="animate-fade-in w-full h-full relative space-y-6 pb-20">
+    <div className="animate-fade-in w-full h-full relative space-y-4 pb-12">
 
       {/* ── TOPO: Tabela Situação Semestral + Fila de Conferência ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
         {/* Tabela de Condomínios (Esquerda - 2/3) */}
-        <div className="lg:col-span-2 bg-slate-900/50 backdrop-blur-md rounded-[2rem] border border-white/5 shadow-2xl overflow-hidden flex flex-col">
-          <div className="px-6 py-5 border-b border-white/5 flex flex-wrap items-center justify-between gap-4 bg-white/5">
-            <div className="border-l-4 border-violet-500 pl-4">
-              <h3 className="text-sm font-black text-white leading-none">SITUAÇÃO SEMESTRAL</h3>
-              <p className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold mt-1">
-                {data?.year || ANO_ATUAL} — {data?.semester === 1 ? '1º' : '2º'} SEMESTRE
+        <div className="lg:col-span-2 glass-panel rounded-xl overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-white/5 flex flex-wrap items-center justify-between gap-3">
+            <div className="border-l-2 border-violet-500 pl-3">
+              <h3 className="text-xs font-black text-white leading-none uppercase tracking-tight">Situação Semestral</h3>
+              <p className="text-[9px] uppercase tracking-widest text-cyan-400 font-bold mt-1">
+                {data?.year || ANO_ATUAL} · {data?.semester === 1 ? '1º' : '2º'} Semestre
               </p>
             </div>
 
@@ -284,11 +284,11 @@ export default function DashboardPage() {
             <div className="overflow-x-auto flex-1">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-white/5 border-b border-white/5 text-[10px] uppercase tracking-[0.2em] font-black text-slate-500">
-                    <th className="px-6 py-4">Condomínio</th>
-                    <th className="px-4 py-4">Planilha</th>
-                    <th className="px-4 py-4">Emissão</th>
-                    <th className="px-6 py-4 text-right">Ações</th>
+                  <tr className="border-b border-white/5 text-[9px] uppercase tracking-widest font-black text-slate-500">
+                    <th className="px-4 py-2.5">Condomínio</th>
+                    <th className="px-3 py-2.5">Planilha</th>
+                    <th className="px-3 py-2.5">Emissão</th>
+                    <th className="px-4 py-2.5 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-white/5">
@@ -299,36 +299,36 @@ export default function DashboardPage() {
                     const isLocked     = procStatus === 'Edição finalizada';
 
                     return (
-                      <tr key={c.id} className="hover:bg-white/5 transition-colors group">
-                        <td className="px-6 py-4">
+                      <tr key={c.id} className="hover:bg-white/[0.03] transition-colors group">
+                        <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             {isLocked
-                              ? <Lock    className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                              : <Unlock  className="w-3.5 h-3.5 text-emerald-500/50 shrink-0" />
+                              ? <Lock    className="w-3 h-3 text-rose-500 shrink-0" />
+                              : <Unlock  className="w-3 h-3 text-emerald-500/50 shrink-0" />
                             }
                             <div>
-                              <p className="font-bold text-gray-100 group-hover:text-cyan-400 transition-colors uppercase tracking-tight text-xs">{c.name}</p>
-                              <p className="text-[10px] text-gray-500 font-medium">{c.gerente_name || c.assistente || '—'}</p>
+                              <p className="font-bold text-gray-100 group-hover:text-cyan-400 transition-colors uppercase tracking-tight text-[11px]">{c.name}</p>
+                              <p className="text-[9px] text-gray-500 font-medium">{c.gerente_name || c.assistente || '—'}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-3 py-2">
                           {procStatus
                             ? <StatusBadge status={procStatus} flow="processo" />
                             : <span className="text-[10px] text-gray-600 font-bold">—</span>
                           }
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-3 py-2">
                           {emissaoStatus
                             ? <StatusBadge status={emissaoStatus} flow="emissao" />
                             : <span className="text-[10px] text-gray-600 font-bold">—</span>
                           }
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2 justify-end">
-                            <Link href={`/condominio/${c.id}/arrecadacoes`} className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500 hover:text-slate-950 transition-all" title="Arrecadações"><Layers className="w-3.5 h-3.5" /></Link>
-                            <Link href={`/condominio/${c.id}/cobrancas`}    className="p-2 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 hover:bg-orange-500 hover:text-slate-950 transition-all" title="Cobranças"><Receipt className="w-3.5 h-3.5" /></Link>
-                            <button onClick={() => handleQuickView(c.id)}   className="p-2 rounded-xl bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500 hover:text-slate-950 transition-all" title="Ver Info"><Eye className="w-3.5 h-3.5" /></button>
+                        <td className="px-4 py-2">
+                          <div className="flex gap-1 justify-end">
+                            <Link href={`/condominio/${c.id}/arrecadacoes`} className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-all" title="Arrecadações"><Layers className="w-3 h-3" /></Link>
+                            <Link href={`/condominio/${c.id}/cobrancas`}    className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-slate-950 transition-all" title="Cobranças"><Receipt className="w-3 h-3" /></Link>
+                            <button onClick={() => handleQuickView(c.id)}   className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-slate-950 transition-all" title="Ver Info"><Eye className="w-3 h-3" /></button>
                           </div>
                         </td>
                       </tr>

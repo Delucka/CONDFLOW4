@@ -32,63 +32,61 @@ export default function Sidebar() {
   const roleLabel    = ROLE_LABELS[role] || (role || '').replace('_', ' ');
 
   return (
-    <aside className={`${collapsed ? 'w-24' : 'w-[280px] px-4'} flex flex-col z-10 shrink-0 transition-all duration-500 relative py-4`}>
-      <div className="flex-1 flex flex-col py-6 glass-panel rounded-3xl overflow-hidden relative border border-white/5 shadow-2xl">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/10 blur-3xl rounded-full pointer-events-none" />
-        <div className="absolute bottom-10 left-0 w-32 h-32 bg-cyan-500/10 blur-3xl rounded-full pointer-events-none" />
+    <aside className={`${collapsed ? 'w-20' : 'w-[240px] px-3'} flex flex-col z-10 shrink-0 transition-all duration-300 relative py-3`}>
+      <div className="flex-1 flex flex-col py-4 glass-panel rounded-2xl overflow-hidden relative">
 
-        <div className={`flex items-center gap-3 px-6 mb-8 mt-2 ${collapsed ? 'justify-center px-0' : ''}`}>
-          <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-cyan-500 rounded-2xl flex items-center justify-center text-white shadow-[0_0_25px_rgba(139,92,246,0.5)] shrink-0">
-            <Zap className="w-5 h-5 fill-white" />
+        <div className={`flex items-center gap-2.5 px-4 mb-6 mt-1 ${collapsed ? 'justify-center px-0' : ''}`}>
+          <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-cyan-500 rounded-xl flex items-center justify-center text-white shrink-0">
+            <Zap className="w-4 h-4 fill-white" />
           </div>
-          {!collapsed && <h1 className="text-2xl font-black tracking-tight text-white italic drop-shadow-md">CONDO<span className="text-cyan-400">FLOW</span></h1>}
+          {!collapsed && <h1 className="text-lg font-black tracking-tight text-white italic">CONDO<span className="text-cyan-400">FLOW</span></h1>}
         </div>
 
         {profile && (
-          <div className="px-5 mb-8">
-            <div className={`flex items-center gap-3 px-3 py-2.5 bg-white/5 border border-white/10 rounded-2xl ${collapsed ? 'justify-center p-2 rounded-xl' : ''}`}>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white flex items-center justify-center font-bold text-base shadow-[0_0_15px_rgba(236,72,153,0.3)] shrink-0 ring-2 ring-white/10">
+          <div className="px-3 mb-5">
+            <div className={`flex items-center gap-2.5 px-2.5 py-2 bg-white/[0.04] border border-white/5 rounded-xl ${collapsed ? 'justify-center p-2' : ''}`}>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
                 {profile.full_name?.[0]?.toUpperCase() || '?'}
               </div>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black text-gray-100 truncate">{profile.full_name}</p>
-                  <p className="text-[10px] uppercase font-bold text-violet-400 truncate tracking-widest">{roleLabel}</p>
+                  <p className="text-xs font-bold text-gray-100 truncate">{profile.full_name}</p>
+                  <p className="text-[9px] uppercase font-bold text-violet-400 truncate tracking-widest">{roleLabel}</p>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        <nav className="flex-1 overflow-y-auto px-4 space-y-1.5 overflow-x-hidden relative z-10">
-          {visibleNav.length > 0 && <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 pl-3">Menu Principal</div>}
+        <nav className="flex-1 overflow-y-auto px-3 space-y-1 overflow-x-hidden relative z-10">
+          {visibleNav.length > 0 && <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-2">Menu Principal</div>}
           {visibleNav.map((item) => {
             const active = isActive(item.href);
             const showBadge = item.showBadge && pendingCount > 0;
             return (
               <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-bold transition-all relative ${active ? 'bg-violet-600 shadow-[0_0_20px_rgba(139,92,246,0.4)] text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'} ${collapsed ? 'justify-center px-0' : ''}`}>
-                <item.icon className={`w-[18px] h-[18px] shrink-0 ${active ? 'text-white' : 'text-gray-500'}`} />
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors relative ${active ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'} ${collapsed ? 'justify-center px-0' : ''}`}>
+                <item.icon className={`w-4 h-4 shrink-0 ${active ? 'text-white' : 'text-gray-500'}`} />
                 {!collapsed && (
                   <div className="flex-1 flex justify-between items-center">
                     <span>{item.label}</span>
-                    {showBadge && <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-[0_0_10px_rgba(244,63,94,0.6)]">{pendingCount}</span>}
+                    {showBadge && <span className="bg-rose-500 text-white text-[9px] font-black px-1 py-0 rounded-full min-w-[16px] text-center leading-tight">{pendingCount}</span>}
                   </div>
                 )}
-                {collapsed && showBadge && <span className="absolute top-1 right-1 bg-rose-500 w-2.5 h-2.5 rounded-full border border-[rgba(17,24,39,1)]" />}
+                {collapsed && showBadge && <span className="absolute top-1 right-1 bg-rose-500 w-2 h-2 rounded-full" />}
               </Link>
             );
           })}
 
           {visibleAdmin.length > 0 && (
             <>
-              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-8 mb-3 pl-3">Configurações</div>
+              <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-6 mb-2 pl-2">Configurações</div>
               {visibleAdmin.map((item) => {
                 const active = isActive(item.href);
                 return (
                   <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] font-bold transition-all ${active ? 'bg-violet-600 shadow-[0_0_20px_rgba(139,92,246,0.4)] text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'} ${collapsed ? 'justify-center px-0' : ''}`}>
-                    <item.icon className={`w-[18px] h-[18px] shrink-0 ${active ? 'text-white' : 'text-gray-500'}`} />
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors ${active ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'} ${collapsed ? 'justify-center px-0' : ''}`}>
+                    <item.icon className={`w-4 h-4 shrink-0 ${active ? 'text-white' : 'text-gray-500'}`} />
                     {!collapsed && item.label}
                   </Link>
                 );
@@ -102,15 +100,15 @@ export default function Sidebar() {
           {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>
 
-        <div className="px-4 mt-auto mb-6 relative z-10 space-y-1">
+        <div className="px-3 mt-auto mb-4 relative z-10 space-y-0.5">
           <Link href="/alterar-senha" title={collapsed ? 'Alterar senha' : undefined}
-            className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] text-slate-400 hover:bg-white/5 hover:text-cyan-400 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
-            <KeyRound className="w-[18px] h-[18px] shrink-0" />
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:bg-white/5 hover:text-cyan-400 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
+            <KeyRound className="w-4 h-4 shrink-0" />
             {!collapsed && 'Alterar senha'}
           </Link>
           <button onClick={signOut}
-            className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-[13px] text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
-            <LogOut className="w-[18px] h-[18px] shrink-0" />
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
+            <LogOut className="w-4 h-4 shrink-0" />
             {!collapsed && 'Desconectar'}
           </button>
         </div>
