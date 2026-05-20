@@ -257,7 +257,7 @@ export default function FilaOcorrencias() {
         const { count: countCorrecao } = await supabase
           .from('emissoes_pacotes')
           .select('id', { count: 'exact', head: true })
-          .ilike('status', 'solicitar%');
+          .or('status.ilike.%solicitar%,status.ilike.%correcao%');
         if (countCorrecao > 0) {
           lista.push({
             id: 'pacotes-correcao',

@@ -754,7 +754,7 @@ export default function VisaoEmissor({ profile }) {
           </div>
 
           {/* Ações do Pacote */}
-          {['rascunho', 'solicitar_correcao'].includes(activePacote.status) && (
+          {['rascunho', 'solicitar_correcao'].includes((activePacote.status || '').toLowerCase()) && (
             <div className="space-y-3">
               {/* 3 zonas de upload por categoria */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
