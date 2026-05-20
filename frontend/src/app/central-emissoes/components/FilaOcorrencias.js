@@ -252,6 +252,42 @@ export default function FilaOcorrencias() {
             count: countFaturas,
           });
         }
+        
+        // Pacotes aguardando correção (solicitar_correcao)
+        const { count: countCorrecao } = await supabase
+          .from('emissoes_pacotes')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'solicitar_correcao');
+        if (countCorrecao > 0) {
+          lista.push({
+            id: 'pacotes-correcao',
+            tipo: 'pacote',
+            color: 'rose',
+            icon: Edit,
+            titulo: `${countCorrecao} pacote${countCorrecao !== 1 ? 's' : ''} com correção solicitada`,
+            subtitulo: 'Corrigir e reenviar arquivos',
+            link: '/central-emissoes',
+            count: countCorrecao,
+          });
+        }
+
+        // Ocorrências abertas
+        const { count: countOcorrencia } = await supabase
+          .from('emissoes_ocorrencias')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'aberta');
+        if (countOcorrencia > 0) {
+          lista.push({
+            id: 'ocorrencias-abertas',
+            tipo: 'ocorrencia',
+            color: 'rose',
+            icon: AlertCircle,
+            titulo: `${countOcorrencia} ocorrência${countOcorrencia !== 1 ? 's' : ''} em aberto`,
+            subtitulo: 'Verificar e resolver problemas',
+            link: '#', 
+            count: countOcorrencia,
+          });
+        }
       }
 
       // ========================================

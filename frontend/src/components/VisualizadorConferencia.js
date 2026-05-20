@@ -65,7 +65,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       const res = await fetch(`/api/processo/${procId}/acao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getToken()}` },
-        body: JSON.stringify({ action: 'approve', comment: '', sign: true })
+        body: JSON.stringify({ action: 'approve', comment: observacaoAprovacao.trim(), sign: true })
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.detail || 'Erro ao aprovar');
@@ -339,6 +339,19 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
       )}
 
+      {/* Banner de Observação de Aprovação */}
+      {arquivo?.observacao_aprovacao && (
+        <div className="shrink-0 px-4 py-3 bg-cyan-500/10 border-b border-cyan-500/30 flex items-start gap-3">
+          <Check className="w-4 h-4 text-cyan-400 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400 mb-0.5">
+              Observação na Aprovação
+            </p>
+            <p className="text-xs text-cyan-200/90 leading-snug whitespace-pre-wrap">{arquivo.observacao_aprovacao}</p>
+          </div>
+        </div>
+      )}
+
       {/* Split view */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden">
 
@@ -592,15 +605,13 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-slate-900/95">
             {!modoCorrecao
               ? <div className="space-y-2">
-                  {/* Observacao opcional - so para fluxo de pacote */}
-                  {modoPacote && (
-                    <input
-                      value={observacaoAprovacao}
-                      onChange={(e) => setObservacaoAprovacao(e.target.value)}
-                      placeholder="Observação ao aprovar (opcional)"
-                      className="w-full bg-slate-800/60 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-emerald-500/40 placeholder-slate-500"
-                    />
-                  )}
+                  {/* Observacao opcional */}
+                  <input
+                    value={observacaoAprovacao}
+                    onChange={(e) => setObservacaoAprovacao(e.target.value)}
+                    placeholder="Observação ao aprovar (opcional)"
+                    className="w-full bg-slate-800/60 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-emerald-500/40 placeholder-slate-500"
+                  />
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
                       {modoPacote

@@ -572,6 +572,7 @@ export default function VisaoEmissor({ profile }) {
         resposta_correcao_arquivo_url: activePacote?.resposta_correcao_arquivo_url || null,
         resposta_correcao_arquivo_nome: activePacote?.resposta_correcao_arquivo_nome || null,
         resposta_correcao_em: activePacote?.resposta_correcao_em || null,
+        observacao_aprovacao: activePacote?.observacao_aprovacao || null,
         condominio_id: activePacote?.condominio_id || condoId,
         mes: arq.mes_referencia || activePacote?.mes_referencia,
         ano: arq.ano_referencia || activePacote?.ano_referencia,
@@ -698,7 +699,7 @@ export default function VisaoEmissor({ profile }) {
                           {arq.valor_fatura != null ? (
                             <span className="text-orange-300/90 font-bold"><span className="text-orange-500/60 font-normal">total:</span> R$ {Number(arq.valor_fatura).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           ) : null}
-                          {activePacote.status === 'rascunho' && (
+                          {['rascunho', 'solicitar_correcao'].includes(activePacote.status) && (
                             <button
                               onClick={() => setEditandoFaturaId(arq.id)}
                               className="text-[10px] text-orange-400/70 hover:text-orange-300 underline decoration-dotted"
@@ -718,7 +719,7 @@ export default function VisaoEmissor({ profile }) {
                     >
                       <FileText className="w-4 h-4" />
                     </button>
-                    {activePacote.status === 'rascunho' && (
+                    {['rascunho', 'solicitar_correcao'].includes(activePacote.status) && (
                       <button 
                         onClick={(e) => handleDeleteArquivo(e, arq.id, arq.arquivo_url)}
                         className={`p-2 rounded-lg border transition-all ${
@@ -753,7 +754,7 @@ export default function VisaoEmissor({ profile }) {
           </div>
 
           {/* Ações do Pacote */}
-          {activePacote.status === 'rascunho' && (
+          {['rascunho', 'solicitar_correcao'].includes(activePacote.status) && (
             <div className="space-y-3">
               {/* 3 zonas de upload por categoria */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -820,7 +821,7 @@ export default function VisaoEmissor({ profile }) {
                   className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl shadow-emerald-600/20 active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
-                  Concluir e Enviar
+                  {activePacote.status === 'solicitar_correcao' ? 'Reenviar Correção' : 'Concluir e Enviar'}
                 </button>
               </div>
             </div>
