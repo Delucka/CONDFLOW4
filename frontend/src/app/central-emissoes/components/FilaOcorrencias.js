@@ -253,11 +253,11 @@ export default function FilaOcorrencias() {
           });
         }
         
-        // Pacotes aguardando correção (solicitar_correcao)
+        // Pacotes aguardando correção (solicitar_correcao ou Solicitar alteração)
         const { count: countCorrecao } = await supabase
           .from('emissoes_pacotes')
           .select('id', { count: 'exact', head: true })
-          .eq('status', 'solicitar_correcao');
+          .ilike('status', 'solicitar%');
         if (countCorrecao > 0) {
           lista.push({
             id: 'pacotes-correcao',
