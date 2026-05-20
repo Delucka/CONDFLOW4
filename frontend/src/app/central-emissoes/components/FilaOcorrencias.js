@@ -253,11 +253,15 @@ export default function FilaOcorrencias() {
           });
         }
         
-        // Pacotes aguardando correção (solicitar_correcao ou Solicitar alteração)
-        const { count: countCorrecao } = await supabase
+        // Pacotes aguardando correção (qualquer status contendo solicitar ou correcao)
+        const { data: allPacotes } = await supabase
           .from('emissoes_pacotes')
-          .select('id', { count: 'exact', head: true })
-          .or('status.ilike.%solicitar%,status.ilike.%correcao%');
+          .select('id, status');
+          
+        const countCorrecao = (allPacotes || []).filter(p => {
+          const s = (p.status || '').toLowerCase();
+          return s === 'solicitar_correcao' || s.includes('solicitar') || s.includes('correção') || s.includes('correcao') || s.includes('alteração') || s.includes('alteracao');
+        }).length;
         if (countCorrecao > 0) {
           lista.push({
             id: 'pacotes-correcao',
