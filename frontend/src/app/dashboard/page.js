@@ -189,7 +189,7 @@ export default function DashboardPage() {
         if (fileData.pacote_id) {
           const { data: arquivos } = await supabase.from('emissoes_arquivos').select('*').eq('pacote_id', fileData.pacote_id);
           allFiles = arquivos || [];
-          const { data: p } = await supabase.from('emissoes_pacotes').select('id, status, nivel_aprovacao, processo_id, mes_referencia, ano_referencia, eh_retificacao, comentario_correcao, correcao_arquivo_url, correcao_arquivo_nome').eq('id', fileData.pacote_id).maybeSingle();
+          const { data: p } = await supabase.from('emissoes_pacotes').select('id, status, nivel_aprovacao, processo_id, mes_referencia, ano_referencia, eh_retificacao, comentario_correcao, correcao_arquivo_url, correcao_arquivo_nome, resposta_correcao_comentario, resposta_correcao_arquivo_url, resposta_correcao_arquivo_nome, resposta_correcao_em').eq('id', fileData.pacote_id).maybeSingle();
           pacote = p;
         } else {
           allFiles = [fileData];
@@ -209,6 +209,10 @@ export default function DashboardPage() {
         comentario_correcao: pacote?.comentario_correcao || null,
         correcao_arquivo_url: pacote?.correcao_arquivo_url || null,
         correcao_arquivo_nome: pacote?.correcao_arquivo_nome || null,
+        resposta_correcao_comentario: pacote?.resposta_correcao_comentario || null,
+        resposta_correcao_arquivo_url: pacote?.resposta_correcao_arquivo_url || null,
+        resposta_correcao_arquivo_nome: pacote?.resposta_correcao_arquivo_nome || null,
+        resposta_correcao_em: pacote?.resposta_correcao_em || null,
         mes: pacote?.mes_referencia,
         ano: pacote?.ano_referencia,
         eh_retificacao: pacote?.eh_retificacao || false,

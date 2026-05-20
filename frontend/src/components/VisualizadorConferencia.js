@@ -37,6 +37,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const [comentario, setComentario]   = useState('');
   const [executando, setExecutando]   = useState(false);
   const [correcaoFile, setCorrecaoFile] = useState(null);
+  const [observacaoAprovacao, setObservacaoAprovacao] = useState('');
 
   // Snapshot congela os valores; dados ao vivo são mutáveis
   const planilha = isSnapshot ? arquivo.planilha_snapshot : data?.planilha;
@@ -109,9 +110,13 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     const nextStatus = fluxos[fluxoId]?.[pacoteStatus] ?? fluxos[fluxoId]?.default ?? 'aprovado';
     setExecutando(true);
     try {
+      const payload = { status: nextStatus, atualizado_em: new Date().toISOString() };
+      if (observacaoAprovacao.trim()) {
+        payload.observacao_aprovacao = observacaoAprovacao.trim();
+      }
       const { error, data } = await supabase
         .from('emissoes_pacotes')
-        .update({ status: nextStatus, atualizado_em: new Date().toISOString() })
+        .update(payload)
         .eq('id', pacoteId)
         .select('id');
       if (error || !data || data.length === 0) throw new Error(error?.message || 'Sem permissão para aprovar');
@@ -277,7 +282,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
       </div>
 
-      {/* Banner de correção (se houver) */}
+      {/* Banner de correção solicitada (se houver) */}
       {arquivo?.pacote_id && (arquivo?.comentario_correcao || arquivo?.correcao_arquivo_url) && (
         <div className="shrink-0 px-4 py-3 bg-rose-500/10 border-b border-rose-500/30 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
@@ -297,6 +302,38 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
               className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 text-[10px] font-bold uppercase tracking-widest">
               <FileText className="w-3 h-3" />
               {arquivo.correcao_arquivo_nome || 'Anexo'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Banner de RESPOSTA de correção (gerente reenviou) */}
+      {arquivo?.pacote_id && (arquivo?.resposta_correcao_comentario || arquivo?.resposta_correcao_arquivo_url) && (
+        <div className="shrink-0 px-4 py-3 bg-emerald-500/10 border-b border-emerald-500/30 flex items-start gap-3">
+          <Check className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-0.5">
+              Correção feita pelo gerente
+              {arquivo.resposta_correcao_em && (
+                <span className="ml-2 text-emerald-500/60 font-normal normal-case tracking-normal">
+                  · {new Date(arquivo.resposta_correcao_em).toLocaleDateString('pt-BR')} {new Date(arquivo.resposta_correcao_em).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}
+                </span>
+              )}
+            </p>
+            {arquivo.resposta_correcao_comentario && (
+              <p className="text-xs text-emerald-200/90 leading-snug whitespace-pre-wrap">{arquivo.resposta_correcao_comentario}</p>
+            )}
+          </div>
+          {arquivo.resposta_correcao_arquivo_url && (
+            <button
+              onClick={async () => {
+                const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arquivo.resposta_correcao_arquivo_url, 300);
+                if (error) return addToast('Erro ao abrir anexo', 'error');
+                window.open(data.signedUrl, '_blank');
+              }}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 text-[10px] font-bold uppercase tracking-widest">
+              <FileText className="w-3 h-3" />
+              {arquivo.resposta_correcao_arquivo_nome || 'Anexo da correção'}
             </button>
           )}
         </div>
@@ -554,23 +591,34 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         return (
           <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-slate-900/95">
             {!modoCorrecao
-              ? <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                    {modoPacote
-                      ? <><span className="text-[9px] uppercase tracking-widest text-slate-500">Status</span> <span className="text-cyan-400 font-bold">{arquivo?.pacote_status || '—'}</span></>
-                      : (podeAssinar && <><PenTool className="w-3 h-3" /> Ao aprovar, você assina digitalmente.</>)
-                    }
-                  </p>
-                  <div className="flex gap-2">
-                    <button onClick={() => setModoCorrecao(true)} disabled={executando}
-                      className="px-3.5 py-2 rounded-lg text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors disabled:opacity-50">
-                      Solicitar correção
-                    </button>
-                    <button onClick={aprovarFn} disabled={executando}
-                      className="px-4 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex items-center gap-1.5 disabled:opacity-50">
-                      {executando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                      {labelAprovar}
-                    </button>
+              ? <div className="space-y-2">
+                  {/* Observacao opcional - so para fluxo de pacote */}
+                  {modoPacote && (
+                    <input
+                      value={observacaoAprovacao}
+                      onChange={(e) => setObservacaoAprovacao(e.target.value)}
+                      placeholder="Observação ao aprovar (opcional)"
+                      className="w-full bg-slate-800/60 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-emerald-500/40 placeholder-slate-500"
+                    />
+                  )}
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                      {modoPacote
+                        ? <><span className="text-[9px] uppercase tracking-widest text-slate-500">Status</span> <span className="text-cyan-400 font-bold">{arquivo?.pacote_status || '—'}</span></>
+                        : (podeAssinar && <><PenTool className="w-3 h-3" /> Ao aprovar, você assina digitalmente.</>)
+                      }
+                    </p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setModoCorrecao(true)} disabled={executando}
+                        className="px-3.5 py-2 rounded-lg text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors disabled:opacity-50">
+                        Solicitar correção
+                      </button>
+                      <button onClick={aprovarFn} disabled={executando}
+                        className="px-4 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-colors flex items-center gap-1.5 disabled:opacity-50">
+                        {executando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        {labelAprovar}
+                      </button>
+                    </div>
                   </div>
                 </div>
               : <div className="space-y-3">

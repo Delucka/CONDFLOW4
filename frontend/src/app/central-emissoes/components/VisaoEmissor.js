@@ -40,6 +40,10 @@ export default function VisaoEmissor({ profile }) {
   const [confirmDeleteArqId, setConfirmDeleteArqId] = useState(null);
   const [showRegistroModal, setShowRegistroModal] = useState(false);
   const [dataRegistro, setDataRegistro] = useState('');
+  // Resposta de correção (gerente reenviando)
+  const [respostaCorrecaoFile, setRespostaCorrecaoFile] = useState(null);
+  const [respostaCorrecaoComentario, setRespostaCorrecaoComentario] = useState('');
+  const [enviandoResposta, setEnviandoResposta] = useState(false);
 
   // Carteiras expandidas
   const [expandedCarteiras, setExpandedCarteiras] = useState({});
@@ -492,28 +496,59 @@ export default function VisaoEmissor({ profile }) {
 
 
   async function confirmarConclusao() {
+    const ehRespostaCorrecao = (activePacote?.status || '').toLowerCase() === 'solicitar_correcao';
+    // Quando reenvia apos correcao: exige arquivo + comentario
+    if (ehRespostaCorrecao) {
+      if (!respostaCorrecaoFile) return addToast('Anexe o arquivo corrigido.', 'warning');
+      if (!respostaCorrecaoComentario.trim()) return addToast('Descreva o que foi corrigido.', 'warning');
+    }
+
+    setEnviandoResposta(true);
+
     let initialStatus = 'Aguardando Gerente';
     // Nível 1 passa direto para a supervisora
     if (nivelAprovacao === 1) {
       initialStatus = 'Aguardando Supervisor';
     }
 
+    const updatePayload = {
+      status: initialStatus,
+      nivel_aprovacao: String(nivelAprovacao),
+      atualizado_em: new Date().toISOString(),
+    };
+
+    // Upload da resposta de correcao se aplicavel
+    if (ehRespostaCorrecao && respostaCorrecaoFile) {
+      try {
+        const path = `respostas-correcao/${activePacote.id}/${Date.now()}_${respostaCorrecaoFile.name}`;
+        const { error: upErr } = await supabase.storage.from('emissoes').upload(path, respostaCorrecaoFile);
+        if (upErr) throw upErr;
+        updatePayload.resposta_correcao_arquivo_url = path;
+        updatePayload.resposta_correcao_arquivo_nome = respostaCorrecaoFile.name;
+        updatePayload.resposta_correcao_comentario = respostaCorrecaoComentario.trim();
+        updatePayload.resposta_correcao_em = new Date().toISOString();
+      } catch (e) {
+        setEnviandoResposta(false);
+        return addToast('Erro ao subir arquivo da correção: ' + e.message, 'error');
+      }
+    }
+
     const { error } = await supabase
       .from('emissoes_pacotes')
-      .update({ 
-        status: initialStatus, 
-        nivel_aprovacao: String(nivelAprovacao),
-        atualizado_em: new Date().toISOString() 
-      })
+      .update(updatePayload)
       .eq('id', activePacote.id);
+
+    setEnviandoResposta(false);
 
     if (error) {
       addToast('Erro ao concluir pacote: ' + error.message, 'error');
     } else {
-      addToast('Emissão concluída e enviada para aprovação!', 'success');
+      addToast(ehRespostaCorrecao ? 'Correção enviada para nova aprovação!' : 'Emissão concluída e enviada para aprovação!', 'success');
       setShowConcluirModal(false);
       setActivePacote(null);
       setPacoteArquivos([]);
+      setRespostaCorrecaoFile(null);
+      setRespostaCorrecaoComentario('');
       fetchPacotes();
     }
   }
@@ -533,6 +568,10 @@ export default function VisaoEmissor({ profile }) {
         comentario_correcao: activePacote?.comentario_correcao || null,
         correcao_arquivo_url: activePacote?.correcao_arquivo_url || null,
         correcao_arquivo_nome: activePacote?.correcao_arquivo_nome || null,
+        resposta_correcao_comentario: activePacote?.resposta_correcao_comentario || null,
+        resposta_correcao_arquivo_url: activePacote?.resposta_correcao_arquivo_url || null,
+        resposta_correcao_arquivo_nome: activePacote?.resposta_correcao_arquivo_nome || null,
+        resposta_correcao_em: activePacote?.resposta_correcao_em || null,
         condominio_id: activePacote?.condominio_id || condoId,
         mes: arq.mes_referencia || activePacote?.mes_referencia,
         ano: arq.ano_referencia || activePacote?.ano_referencia,
@@ -1046,17 +1085,67 @@ export default function VisaoEmissor({ profile }) {
       </div>
 
       {/* ═══ MODAL DE CONCLUSÃO ═══ */}
-      {showConcluirModal && (
+      {showConcluirModal && (() => {
+        const ehRespostaCorrecao = (activePacote?.status || '').toLowerCase() === 'solicitar_correcao';
+        return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-8 shadow-2xl">
-            <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-8 h-8 text-emerald-400" />
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-lg p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className={`w-16 h-16 ${ehRespostaCorrecao ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'} border rounded-full flex items-center justify-center mx-auto mb-6`}>
+              {ehRespostaCorrecao ? <Send className="w-8 h-8 text-amber-400" /> : <CheckCircle className="w-8 h-8 text-emerald-400" />}
             </div>
-            <h3 className="text-xl font-black text-white text-center mb-2">Concluir Emissão</h3>
-            <p className="text-sm text-gray-400 text-center mb-8">
+            <h3 className="text-xl font-black text-white text-center mb-2">
+              {ehRespostaCorrecao ? 'Reenviar com correção' : 'Concluir Emissão'}
+            </h3>
+            <p className="text-sm text-gray-400 text-center mb-6">
               {pacoteArquivos.length} arquivo{pacoteArquivos.length !== 1 ? 's' : ''} neste pacote.
             </p>
 
+            {/* Bloco de resposta de correcao */}
+            {ehRespostaCorrecao && (
+              <div className="mb-6 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/30 space-y-3">
+                {/* Lembrete do que foi pedido */}
+                {activePacote?.comentario_correcao && (
+                  <div className="text-[11px] text-amber-300/80 italic border-l-2 border-amber-500/40 pl-3">
+                    <span className="font-black text-amber-400 uppercase tracking-widest block mb-0.5 not-italic">Foi pedido:</span>
+                    {activePacote.comentario_correcao}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-amber-400 block mb-1.5">Arquivo da correção <span className="text-rose-400">*</span></label>
+                  {respostaCorrecaoFile ? (
+                    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                      <span className="text-xs text-amber-200 truncate flex items-center gap-2">
+                        <FileText className="w-4 h-4 shrink-0" />
+                        {respostaCorrecaoFile.name}
+                        <span className="text-[10px] text-amber-400/60">({(respostaCorrecaoFile.size/1024).toFixed(0)} KB)</span>
+                      </span>
+                      <button onClick={() => setRespostaCorrecaoFile(null)} className="text-amber-300 hover:text-white text-xs font-bold">Remover</button>
+                    </div>
+                  ) : (
+                    <input type="file" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
+                      onChange={(e) => setRespostaCorrecaoFile(e.target.files?.[0] || null)}
+                      className="block w-full text-xs text-amber-200 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-amber-500/15 file:text-amber-300 hover:file:bg-amber-500/25" />
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-amber-400 block mb-1.5">O que foi corrigido <span className="text-rose-400">*</span></label>
+                  <textarea
+                    value={respostaCorrecaoComentario}
+                    onChange={(e) => setRespostaCorrecaoComentario(e.target.value)}
+                    rows={3}
+                    placeholder="Ex: Corrigi o valor do fundo de obras conforme solicitado e ajustei o rateio do mês de junho."
+                    className="w-full bg-black/40 border border-amber-500/30 rounded-lg px-3 py-2 text-sm text-amber-100 placeholder-amber-500/40 outline-none focus:border-amber-500/60 resize-y" />
+                </div>
+              </div>
+            )}
+
+            {!ehRespostaCorrecao && (
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Escolha o nível de aprovação</p>
+            )}
+
+            {!ehRespostaCorrecao && (
             <div className="space-y-3 mb-8">
               <button
                 onClick={() => setNivelAprovacao(1)}
@@ -1134,24 +1223,31 @@ export default function VisaoEmissor({ profile }) {
                 </div>
               </button>
             </div>
+            )}
 
             <div className="flex gap-3">
-              <button 
-                onClick={() => setShowConcluirModal(false)}
-                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+              <button
+                onClick={() => { setShowConcluirModal(false); setRespostaCorrecaoFile(null); setRespostaCorrecaoComentario(''); }}
+                disabled={enviandoResposta}
+                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmarConclusao}
-                className="flex-[2] py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
+                disabled={enviandoResposta}
+                className={`flex-[2] py-3 rounded-xl text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
+                  ehRespostaCorrecao ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'
+                }`}
               >
-                Confirmar e Enviar
+                {enviandoResposta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {ehRespostaCorrecao ? 'Reenviar para aprovação' : 'Confirmar e Enviar'}
               </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       <FilePreviewDrawer 
         isOpen={isDrawerOpen} 

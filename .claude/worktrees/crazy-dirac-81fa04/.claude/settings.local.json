@@ -21,7 +21,8 @@
       "Read(//c/Users/Pichau/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/bc019072-9364-4a2d-8795-c59622703edb/a3e23628-9b48-4f89-9677-ceb457bd31c5/skills/xlsx/**)",
       "Bash(python -c ' *)",
       "Bash(extract-text \"C:\\\\Users\\\\Pichau\\\\Downloads\\\\ATUALIZAÇÃO DE COBRANÇA 2025.xlsx\")",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Bash(tail -10 /c/Users/Pichau/AppData/Local/Temp/claude/C--projetos-condominios--claude-worktrees-crazy-dirac-81fa04/cc000aaa-3734-4cc3-a8fe-a348fa1d5f90/tasks/bzzrp3iaw.output 2>/dev/null)"
     ]
   }
 }
