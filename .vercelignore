@@ -23,9 +23,9 @@
 *.md
 PROGRESSO.md
 ONBOARDING.md
-docs/
-test/
-tests/
+/docs/
+/test/
+/tests/
 
 # Logs e arquivos temporarios
 *.log
@@ -33,7 +33,8 @@ tests/
 Thumbs.db
 
 # Migrations rodam manual no Supabase Editor — nao precisam estar no deploy
-supabase/
+# (barra inicial ancora na RAIZ — nao afeta frontend/src/utils/supabase/)
+/supabase/
 
 # Backups
 *.bak
