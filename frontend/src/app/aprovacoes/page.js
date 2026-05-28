@@ -346,8 +346,7 @@ export default function AprovacoesPage() {
       {/* ══════════════════════════════════════════════════════════ */}
       {aba === 'pacotes' && verAbasPacotes && (
         <div className="space-y-4">
-          {isGerente && <VisaoGerente profile={profile} />}
-          {isSupervisor && <VisaoMaster profile={profile} />}
+          {(isGerente || isSupervisor) && <VisaoGerente profile={profile} />}
         </div>
       )}
 

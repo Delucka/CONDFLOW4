@@ -23,22 +23,41 @@ export default function VisaoGerente({ profile }) {
   const [currentPacote, setCurrentPacote] = useState(null);
   const [comment, setComment] = useState('');
 
+  // Detecta perfil do usuário pra ajustar o fetch e o filtro "minha aprovação"
+  const role = profile?.role;
+  const isSupervisor = ['supervisora', 'supervisora_contabilidade', 'supervisor_gerentes'].includes(role);
+
   async function fetchPacotes() {
     setLoading(true);
     try {
-      // Usa RPC com SECURITY DEFINER — bypassa RLS de condominios,
-      // filtra diretamente por auth.uid() → gerentes.profile_id → condominios.gerente_id
-      const { data, error } = await supabase.rpc('get_pacotes_gerente');
+      let pacotesData = [];
 
-      if (error) {
-        console.error('[VisaoGerente] erro rpc:', error);
-        setPacotes([]);
-        setLoading(false);
-        return;
+      if (isSupervisor) {
+        // Supervisor: vê TODOS os pacotes (sem filtro de carteira)
+        const { data, error } = await supabase
+          .from('emissoes_pacotes')
+          .select('*, condominios(name)')
+          .order('atualizado_em', { ascending: false });
+        if (error) {
+          console.error('[VisaoGerente/sup] erro:', error);
+          setPacotes([]); setLoading(false); return;
+        }
+        pacotesData = (data || []).map(p => ({
+          ...p,
+          condo_name: p.condominios?.name,
+        }));
+      } else {
+        // Gerente: RPC filtra pela carteira
+        const { data, error } = await supabase.rpc('get_pacotes_gerente');
+        if (error) {
+          console.error('[VisaoGerente] erro rpc:', error);
+          setPacotes([]); setLoading(false); return;
+        }
+        pacotesData = data || [];
       }
 
-      if (data && data.length > 0) {
-        const pacoteIds = data.map(p => p.id);
+      if (pacotesData.length > 0) {
+        const pacoteIds = pacotesData.map(p => p.id);
         const { data: arquivos } = await supabase
           .from('emissoes_arquivos')
           .select('id, pacote_id, arquivo_nome, arquivo_url, formato, categoria, subtipo, nome_condominio_fatura, vencimento_fatura, valor_fatura, condominio_id, mes_referencia, ano_referencia')
@@ -50,10 +69,9 @@ export default function VisaoGerente({ profile }) {
           arqMap[a.pacote_id].push(a);
         });
 
-        // Normaliza para ter condominios.name igual ao restante do app
-        setPacotes(data.map(p => ({
+        setPacotes(pacotesData.map(p => ({
           ...p,
-          condominios: { name: p.condo_name },
+          condominios: p.condominios || { name: p.condo_name },
           arquivos: arqMap[p.id] || [],
         })));
       } else {
@@ -156,7 +174,25 @@ export default function VisaoGerente({ profile }) {
     }
   }
 
-  // Filtragem — mesma lógica do VisaoMaster (toLowerCase + includes)
+  // Define que status conta como "minha aprovação" baseado no role
+  // - gerente:                  Aguardando Gerente / pendente_gerente / pendente
+  // - supervisor_gerentes:      Aguardando Chefe / pendente_sup_gerentes
+  // - supervisora/sup_contab:   Aguardando Supervisor / pendente_sup_contabilidade
+  function isMinhaAprovacao(s) {
+    s = (s || '').toLowerCase();
+    if (role === 'gerente') return s.includes('aguardando gerente') || s === 'pendente_gerente' || s === 'pendente';
+    if (role === 'supervisor_gerentes') return s.includes('aguardando chefe') || s === 'pendente_sup_gerentes';
+    if (role === 'supervisora_contabilidade' || role === 'supervisora') return s.includes('aguardando supervisor') || s === 'pendente_sup_contabilidade';
+    return false;
+  }
+  // "Em outra etapa" = pacotes em fluxo de aprovação mas não com este role
+  function isEmOutraEtapa(s) {
+    s = (s || '').toLowerCase();
+    if (!s || s === 'rascunho' || s === 'aprovado' || s === 'registrado' || s === 'expedida' || s === 'solicitar_correcao') return false;
+    return !isMinhaAprovacao(s);
+  }
+
+  // Filtragem
   const filtered = useMemo(() => {
     return pacotes.filter(p => {
       const s = (p.status || '').toLowerCase();
@@ -164,9 +200,9 @@ export default function VisaoGerente({ profile }) {
 
       if (filtroStatus !== 'todos') {
         if (filtroStatus === 'pendente_gerente') {
-          if (!(s.includes('gerente') || s === 'pendente')) return false;
+          if (!isMinhaAprovacao(s)) return false;
         } else if (filtroStatus === 'em_supervisor') {
-          if (!(s.includes('supervisor') || s.includes('chefe'))) return false;
+          if (!isEmOutraEtapa(s)) return false;
         } else {
           if (s !== filtroStatus) return false;
         }
@@ -178,20 +214,25 @@ export default function VisaoGerente({ profile }) {
       }
       return true;
     });
-  }, [pacotes, filtroStatus, termoBusca]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pacotes, filtroStatus, termoBusca, role]);
 
   // Contadores para badges nas abas
   const counts = useMemo(() => ({
-    pendente_gerente: pacotes.filter(p => { const s = (p.status||'').toLowerCase(); return s.includes('gerente') || s === 'pendente'; }).length,
-    em_supervisor:    pacotes.filter(p => { const s = (p.status||'').toLowerCase(); return s.includes('supervisor') || s.includes('chefe'); }).length,
-    aprovado:         pacotes.filter(p => (p.status||'').toLowerCase() === 'aprovado').length,
+    pendente_gerente:   pacotes.filter(p => isMinhaAprovacao(p.status)).length,
+    em_supervisor:      pacotes.filter(p => isEmOutraEtapa(p.status)).length,
+    aprovado:           pacotes.filter(p => (p.status||'').toLowerCase() === 'aprovado').length,
     solicitar_correcao: pacotes.filter(p => (p.status||'').toLowerCase() === 'solicitar_correcao').length,
-    todos:            pacotes.filter(p => (p.status||'').toLowerCase() !== 'rascunho').length,
-  }), [pacotes]);
+    todos:              pacotes.filter(p => (p.status||'').toLowerCase() !== 'rascunho').length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [pacotes, role]);
+
+  // Labels da aba "Em outra etapa" mudam por role
+  const labelOutraEtapa = isSupervisor ? 'Outras etapas' : 'Em Supervisor';
 
   const FILTROS = [
     { value: 'pendente_gerente',   label: 'Aguard. minha aprovação' },
-    { value: 'em_supervisor',      label: 'Em Supervisor'            },
+    { value: 'em_supervisor',      label: labelOutraEtapa            },
     { value: 'aprovado',           label: 'Aprovado'                 },
     { value: 'solicitar_correcao', label: 'Correção'                 },
     { value: 'todos',              label: 'Todos'                    },
@@ -256,7 +297,7 @@ export default function VisaoGerente({ profile }) {
           {filtered.map(pacote => {
             const numArquivos = pacote.arquivos?.length || 0;
             const s = (pacote.status || '').toLowerCase();
-            const aguardandoGerente = s.includes('gerente') || s === 'pendente';
+            const aguardandoGerente = isMinhaAprovacao(s);
 
             return (
               <div key={pacote.id} className="border border-white/10 rounded-2xl bg-[#0a0a0f] overflow-hidden">
