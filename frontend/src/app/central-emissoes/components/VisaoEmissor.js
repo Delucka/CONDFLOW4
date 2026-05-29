@@ -63,6 +63,21 @@ export default function VisaoEmissor({ profile }) {
   const [showConcessionariaPicker, setShowConcessionariaPicker] = useState(false);
   const [pendingCategoria, setPendingCategoria] = useState(null); // categoria escolhida, esperando arquivo
   const [pendingSubtipo, setPendingSubtipo]     = useState(null);
+  // Picker de relatorio de leitura
+  const [showRelatorioPicker, setShowRelatorioPicker] = useState(false);
+  const [relatorioForm, setRelatorioForm] = useState({
+    empresa: 'Prosper',
+    empresa_outra: '',
+    tipo_servico: 'agua',
+    data_leitura: '',
+    numero_unidades: '',
+    consumo_total: '',
+    valor_total: '',
+  });
+  // Modal de duplicata detectada
+  const [duplicataInfo, setDuplicataInfo] = useState(null); // { alertas, anomalia, pendingFile, pendingMeta }
+  const [sancionandoMotivo, setSancionandoMotivo] = useState('');
+  const [sancionando, setSancionando] = useState(false);
 
   // Form inline para dados manuais da fatura de concessionaria
   const [editandoFaturaId, setEditandoFaturaId] = useState(null);
@@ -301,38 +316,94 @@ export default function VisaoEmissor({ profile }) {
     }
   }
 
+  async function sha256OfFile(file) {
+    const buf = await file.arrayBuffer();
+    const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
   async function handleUploadArquivo(fileInput, opts = {}) {
     if (!fileInput || !activePacote) return;
-    // categoria: 'emissao' (default) | 'concessionaria' | 'outros'
-    // subtipo:   string livre (ex: SABESP, COMGAS, ENEL)
+    // categoria: 'emissao' | 'concessionaria' | 'outros' | 'relatorio_leitura'
     const categoria = opts.categoria || 'emissao';
     const subtipo   = opts.subtipo || null;
+    const extras    = opts.extras || {};  // campos especificos (relatorio_*, etc)
+    const skipDuplicataCheck = opts.skipDuplicataCheck || false;
 
     setIsUploading(true);
     try {
+      // 1) Verifica duplicata ANTES de subir o arquivo (so para concessionaria e relatorio)
+      let arquivoHash = null;
+      if (!skipDuplicataCheck && (categoria === 'concessionaria' || categoria === 'relatorio_leitura')) {
+        try {
+          arquivoHash = await sha256OfFile(fileInput);
+        } catch {}
+
+        const checkBody = {
+          tipo: categoria === 'relatorio_leitura' ? 'relatorio' : 'fatura',
+          condominio_id: activePacote.condominio_id,
+          mes_referencia: mes,
+          ano_referencia: ano,
+          arquivo_hash: arquivoHash,
+        };
+        if (categoria === 'concessionaria') {
+          checkBody.concessionaria = (subtipo || '').toUpperCase();
+        } else {
+          checkBody.empresa = (extras.relatorio_empresa || '').toUpperCase();
+          checkBody.tipo_servico = (extras.relatorio_tipo_servico || '').toLowerCase();
+          checkBody.consumo_total = extras.relatorio_consumo_total;
+          checkBody.numero_unidades = extras.relatorio_unidades;
+          checkBody.valor_total = extras.relatorio_valor_total;
+        }
+        try {
+          const check = await apiPost('/api/consumos/check-duplicata-completa', checkBody);
+          if (check?.bloqueia) {
+            // Abre modal de sancionamento
+            setDuplicataInfo({
+              alertas: check.alertas || [],
+              anomalia: check.anomalia,
+              pendingFile: fileInput,
+              pendingMeta: { categoria, subtipo, extras, arquivoHash },
+            });
+            setIsUploading(false);
+            return;
+          }
+          // Alertas amarelos so avisam, nao bloqueiam
+          const avisos = (check?.alertas || []).filter(a => a.nivel === 'aviso');
+          if (avisos.length > 0) {
+            addToast(`⚠ ${avisos[0].mensagem}`, 'warning');
+          }
+        } catch (e) {
+          console.warn('check-duplicata-completa falhou (ignorando):', e?.message);
+        }
+      }
+
+      // 2) Upload do arquivo
       const extensao = fileInput.name.split('.').pop().toLowerCase();
       const randomId = Math.random().toString(36).substring(7);
       const filePath = `${activePacote.condominio_id}/${ano}/${mes}/${categoria}/${randomId}_${fileInput.name}`;
-
       const { error: uploadError } = await supabase.storage.from('emissoes').upload(filePath, fileInput);
       if (uploadError) throw uploadError;
 
+      // 3) Insert na tabela emissoes_arquivos
+      const insertPayload = {
+        condominio_id: activePacote.condominio_id,
+        pacote_id: activePacote.id,
+        tipo: 'emissao',
+        categoria,
+        subtipo,
+        arquivo_url: filePath,
+        arquivo_nome: fileInput.name,
+        formato: extensao,
+        mes_referencia: mes,
+        ano_referencia: ano,
+        status: 'pendente',
+        uploaded_by: profile.id,
+        ...extras,
+      };
       const { data: inserted, error: dbError } = await supabase
         .from('emissoes_arquivos')
-        .insert({
-          condominio_id: activePacote.condominio_id,
-          pacote_id: activePacote.id,
-          tipo: 'emissao',
-          categoria,
-          subtipo,
-          arquivo_url: filePath,
-          arquivo_nome: fileInput.name,
-          formato: extensao,
-          mes_referencia: mes,
-          ano_referencia: ano,
-          status: 'pendente',
-          uploaded_by: profile.id
-        })
+        .insert(insertPayload)
         .select('id')
         .single();
 
@@ -756,8 +827,8 @@ export default function VisaoEmissor({ profile }) {
           {/* Ações do Pacote */}
           {['rascunho', 'solicitar_correcao'].includes((activePacote.status || '').toLowerCase()) && (
             <div className="space-y-3">
-              {/* 3 zonas de upload por categoria */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* 4 zonas de upload por categoria */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {/* EMISSÃO (violeta) */}
                 <div className="relative border-2 border-dashed border-violet-500/20 hover:border-violet-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-violet-500/5 group">
                   <input type="file" multiple disabled={isUploading}
@@ -786,6 +857,16 @@ export default function VisaoEmissor({ profile }) {
                   </div>
                 </div>
 
+                {/* RELATÓRIO DE LEITURA (azul) — abre modal */}
+                <div className="relative border-2 border-dashed border-sky-500/20 hover:border-sky-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-sky-500/5 group"
+                  onClick={() => !isUploading && setShowRelatorioPicker(true)}>
+                  <div className="flex flex-col items-center gap-1 text-sky-400 group-hover:text-sky-300">
+                    <ClipboardCheck className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">+ Relatório</span>
+                    <span className="text-[9px] text-sky-500/70">Leitura individualizada</span>
+                  </div>
+                </div>
+
                 {/* OUTROS (cinza) */}
                 <div className="relative border-2 border-dashed border-slate-500/20 hover:border-slate-400/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-slate-500/5 group">
                   <input type="file" multiple disabled={isUploading}
@@ -793,7 +874,7 @@ export default function VisaoEmissor({ profile }) {
                     accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx"
                     onChange={async e => {
                       const files = Array.from(e.target.files || []);
-                      const subtipo = window.prompt('Descreva este anexo (ex: Ata da reunião, relatório de leitura):', '');
+                      const subtipo = window.prompt('Descreva este anexo (ex: Ata da reunião):', '');
                       for (const f of files) { await handleUploadArquivo(f, { categoria: 'outros', subtipo: subtipo || null }); }
                       e.target.value = '';
                     }}
@@ -801,7 +882,7 @@ export default function VisaoEmissor({ profile }) {
                   <div className="flex flex-col items-center gap-1 text-slate-400 group-hover:text-slate-300">
                     <FolderOpen className="w-5 h-5" />
                     <span className="text-[10px] font-black uppercase tracking-widest">+ Outros</span>
-                    <span className="text-[9px] text-slate-500/70">Atas, relatórios, etc</span>
+                    <span className="text-[9px] text-slate-500/70">Atas e outros docs</span>
                   </div>
                 </div>
               </div>
@@ -1322,6 +1403,252 @@ export default function VisaoEmissor({ profile }) {
           </div>
         </div>
       )}
+
+      {/* ═══ MODAL DE RELATÓRIO DE LEITURA ═══ */}
+      {showRelatorioPicker && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-[#0a0a0f] border border-sky-500/20 rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
+                  <ClipboardCheck className="w-5 h-5 text-sky-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Novo Relatório de Leitura</h3>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest">Empresa terceirizada</p>
+                </div>
+              </div>
+              <button onClick={() => setShowRelatorioPicker(false)} className="text-slate-500 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Empresa */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Empresa que faz a leitura</label>
+                <select value={relatorioForm.empresa}
+                  onChange={e => setRelatorioForm({...relatorioForm, empresa: e.target.value})}
+                  className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-sky-500">
+                  <option value="Prosper">Prosper</option>
+                  <option value="Hidrogeotec">Hidrogeotec</option>
+                  <option value="Outra">Outra (digitar)</option>
+                </select>
+                {relatorioForm.empresa === 'Outra' && (
+                  <input value={relatorioForm.empresa_outra}
+                    onChange={e => setRelatorioForm({...relatorioForm, empresa_outra: e.target.value})}
+                    placeholder="Nome da empresa"
+                    className="w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-sky-500" />
+                )}
+              </div>
+
+              {/* Tipo de servico */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tipo de serviço</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button onClick={() => setRelatorioForm({...relatorioForm, tipo_servico: 'agua'})}
+                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${relatorioForm.tipo_servico === 'agua' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                    💧 Água
+                  </button>
+                  <button onClick={() => setRelatorioForm({...relatorioForm, tipo_servico: 'gas'})}
+                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${relatorioForm.tipo_servico === 'gas' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                    🔥 Gás
+                  </button>
+                </div>
+              </div>
+
+              {/* Data da leitura */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Data da leitura</label>
+                <input type="date" value={relatorioForm.data_leitura}
+                  onChange={e => setRelatorioForm({...relatorioForm, data_leitura: e.target.value})}
+                  className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-sky-500" />
+              </div>
+
+              {/* Grid: unidades / consumo / valor */}
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Unidades</label>
+                  <input type="number" value={relatorioForm.numero_unidades}
+                    onChange={e => setRelatorioForm({...relatorioForm, numero_unidades: e.target.value})}
+                    placeholder="52"
+                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-200 outline-none focus:border-sky-500 text-right font-mono" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Consumo (m³)</label>
+                  <input value={relatorioForm.consumo_total}
+                    onChange={e => setRelatorioForm({...relatorioForm, consumo_total: e.target.value})}
+                    placeholder="1188,70"
+                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-200 outline-none focus:border-sky-500 text-right font-mono" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Valor R$</label>
+                  <input value={relatorioForm.valor_total}
+                    onChange={e => setRelatorioForm({...relatorioForm, valor_total: e.target.value})}
+                    placeholder="13.900,49"
+                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-200 outline-none focus:border-sky-500 text-right font-mono" />
+                </div>
+              </div>
+
+              {/* File input */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Arquivo do relatório (PDF)</label>
+                <input type="file" accept="application/pdf,.pdf"
+                  onChange={async e => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const empresa = relatorioForm.empresa === 'Outra'
+                      ? relatorioForm.empresa_outra.trim()
+                      : relatorioForm.empresa;
+                    if (!empresa) { addToast('Informe a empresa', 'warning'); return; }
+                    if (!relatorioForm.tipo_servico) { addToast('Escolha o tipo de serviço', 'warning'); return; }
+                    const parseNum = v => {
+                      if (!v) return null;
+                      const s = String(v).replace(/\./g, '').replace(',', '.');
+                      const n = parseFloat(s);
+                      return isNaN(n) ? null : n;
+                    };
+                    const extras = {
+                      relatorio_empresa: empresa,
+                      relatorio_tipo_servico: relatorioForm.tipo_servico,
+                      relatorio_data_leitura: relatorioForm.data_leitura || null,
+                      relatorio_unidades: relatorioForm.numero_unidades ? parseInt(relatorioForm.numero_unidades, 10) : null,
+                      relatorio_consumo_total: parseNum(relatorioForm.consumo_total),
+                      relatorio_valor_total: parseNum(relatorioForm.valor_total),
+                    };
+                    await handleUploadArquivo(f, {
+                      categoria: 'relatorio_leitura',
+                      subtipo: empresa,
+                      extras,
+                    });
+                    e.target.value = '';
+                    setShowRelatorioPicker(false);
+                  }}
+                  className="block w-full text-xs text-slate-300 mt-1 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-sky-500/10 file:text-sky-300 hover:file:bg-sky-500/20" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MODAL DE DUPLICATA / SANCIONAMENTO ═══ */}
+      {duplicataInfo && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-[#0a0a0f] border border-rose-500/30 rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-6 h-6 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">Possível duplicata detectada</h3>
+                <p className="text-[11px] text-rose-300/80">Esta emissão não pode prosseguir sem confirmação.</p>
+              </div>
+            </div>
+
+            {/* Lista de alertas */}
+            <div className="space-y-2 mb-4">
+              {(duplicataInfo.alertas || []).map((a, i) => (
+                <div key={i} className={`px-3 py-2 rounded-lg border ${a.nivel === 'bloqueio' ? 'bg-rose-500/5 border-rose-500/30' : 'bg-amber-500/5 border-amber-500/30'}`}>
+                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${a.nivel === 'bloqueio' ? 'text-rose-400' : 'text-amber-400'}`}>{a.nivel === 'bloqueio' ? '🚫 Bloqueio' : '⚠ Aviso'} · {a.tipo.replace(/_/g, ' ')}</p>
+                  <p className="text-xs text-slate-200">{a.mensagem}</p>
+                  {a.detalhes && (
+                    <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                      {a.detalhes.condominios?.name && `${a.detalhes.condominios.name} · `}
+                      {a.detalhes.mes_referencia && `${String(a.detalhes.mes_referencia).padStart(2, '0')}/${a.detalhes.ano_referencia}`}
+                      {a.detalhes.concessionaria && ` · ${a.detalhes.concessionaria}`}
+                      {a.detalhes.empresa_leitura && ` · ${a.detalhes.empresa_leitura} (${a.detalhes.tipo_servico})`}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Side-by-side se houver mes anterior */}
+            {duplicataInfo.anomalia?.previous && (
+              <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-3 mb-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Comparação com mês anterior</p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <p className="text-slate-500">Mês anterior:</p>
+                    <pre className="text-slate-300 font-mono text-[10px] whitespace-pre-wrap mt-1">{JSON.stringify(duplicataInfo.anomalia.previous, null, 2)}</pre>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Campos iguais: <span className="text-rose-300 font-bold">{(duplicataInfo.anomalia.campos_iguais || []).join(', ') || '—'}</span></p>
+                    {duplicataInfo.anomalia.variacao_pct !== null && duplicataInfo.anomalia.variacao_pct !== undefined && (
+                      <p className="text-slate-500 mt-1">Variação valor: <span className={`font-bold ${Math.abs(duplicataInfo.anomalia.variacao_pct) < 5 ? 'text-rose-300' : 'text-emerald-300'}`}>{duplicataInfo.anomalia.variacao_pct.toFixed(1)}%</span></p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sanctionamento - so master/departamento */}
+            {(profile?.role === 'master' || profile?.role === 'departamento') ? (
+              <>
+                <div className="mb-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1.5">
+                    Justifique o motivo da repetição <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea value={sancionandoMotivo} onChange={e => setSancionandoMotivo(e.target.value)} rows={3}
+                    placeholder="Ex: A concessionária reemitiu a mesma fatura por erro deles. Confirmei por telefone."
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-rose-500/60 placeholder-slate-600 resize-y" />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => { setDuplicataInfo(null); setSancionandoMotivo(''); }} disabled={sancionando}
+                    className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50">
+                    Cancelar upload
+                  </button>
+                  <button disabled={!sancionandoMotivo.trim() || sancionando}
+                    onClick={async () => {
+                      if (!sancionandoMotivo.trim()) return;
+                      setSancionando(true);
+                      try {
+                        const meta = duplicataInfo.pendingMeta;
+                        // 1) Sobe o arquivo com flag de repeticao
+                        await handleUploadArquivo(duplicataInfo.pendingFile, {
+                          ...meta,
+                          extras: { ...(meta.extras || {}), marcada_repetida: true, motivo_repeticao: sancionandoMotivo.trim() },
+                          skipDuplicataCheck: true,
+                        });
+                        // 2) Sanciona o registro recem-criado em consumos
+                        try {
+                          await apiPost('/api/consumos/sancionar-repeticao', {
+                            tipo: meta.categoria === 'relatorio_leitura' ? 'relatorio' : 'fatura',
+                            registro_id: '', // backend sanciona o ultimo
+                            motivo: sancionandoMotivo.trim(),
+                          });
+                        } catch {}
+                        addToast('Repetição sancionada e arquivo anexado.', 'success');
+                        setDuplicataInfo(null);
+                        setSancionandoMotivo('');
+                      } catch (e) {
+                        addToast('Erro: ' + e.message, 'error');
+                      } finally {
+                        setSancionando(false);
+                      }
+                    }}
+                    className="px-5 py-2 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50 flex items-center gap-2">
+                    {sancionando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                    Confirmar repetição e prosseguir
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="bg-amber-500/5 border border-amber-500/30 rounded-xl p-4">
+                <p className="text-xs text-amber-200 mb-3">
+                  ⚠ Você não tem permissão para sancionar repetições.
+                  Solicite ao <strong>master ou emissor</strong> que confirme esta exceção.
+                </p>
+                <div className="flex justify-end">
+                  <button onClick={() => { setDuplicataInfo(null); setSancionandoMotivo(''); }}
+                    className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">
+                    OK, cancelar upload
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ═══ MODAL DE REGISTRO ═══ */}
       {showRegistroModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">

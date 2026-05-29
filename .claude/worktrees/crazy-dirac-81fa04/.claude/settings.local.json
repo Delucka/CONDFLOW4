@@ -22,7 +22,10 @@
       "Bash(python -c ' *)",
       "Bash(extract-text \"C:\\\\Users\\\\Pichau\\\\Downloads\\\\ATUALIZAÇÃO DE COBRANÇA 2025.xlsx\")",
       "Bash(pip install *)",
-      "Bash(tail -10 /c/Users/Pichau/AppData/Local/Temp/claude/C--projetos-condominios--claude-worktrees-crazy-dirac-81fa04/cc000aaa-3734-4cc3-a8fe-a348fa1d5f90/tasks/bzzrp3iaw.output 2>/dev/null)"
+      "Bash(tail -10 /c/Users/Pichau/AppData/Local/Temp/claude/C--projetos-condominios--claude-worktrees-crazy-dirac-81fa04/cc000aaa-3734-4cc3-a8fe-a348fa1d5f90/tasks/bzzrp3iaw.output 2>/dev/null)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(python -c \"import json; d=json.load\\(open\\(r'C:\\\\projetos\\\\condominios\\\\.claude\\\\settings.json'\\)\\); print\\('OK'\\)\")"
     ]
   }
 }

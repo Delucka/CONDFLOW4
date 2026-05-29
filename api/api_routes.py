@@ -1990,6 +1990,232 @@ def api_consumos_check_duplicata(arquivo_hash: str, condominio_id: Optional[str]
     return {"duplicatas": res.data or []}
 
 
+class CheckDuplicataCompletaFatura(BaseModel):
+    tipo: str = "fatura"  # 'fatura' ou 'relatorio'
+    condominio_id: str
+    mes_referencia: int
+    ano_referencia: int
+    # Para fatura
+    concessionaria: Optional[str] = None
+    leitura_atual: Optional[str] = None        # YYYY-MM-DD
+    proxima_leitura: Optional[str] = None
+    vencimento: Optional[str] = None
+    valor: Optional[float] = None
+    # Para relatorio
+    empresa: Optional[str] = None
+    tipo_servico: Optional[str] = None
+    consumo_total: Optional[float] = None
+    numero_unidades: Optional[int] = None
+    valor_total: Optional[float] = None
+    # Hash do PDF (opcional, pode ser checado separado tambem)
+    arquivo_hash: Optional[str] = None
+
+
+@router.post("/consumos/check-duplicata-completa")
+def api_check_duplicata_completa(data: CheckDuplicataCompletaFatura, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """
+    Verifica em 3 niveis:
+      1. Hash identico (qualquer condo)
+      2. (condo, mes, ano, conc OR empresa+tipo) ja existe
+      3. Dados iguais ao mes anterior (leituras+valor pra fatura; consumo+valor+unidades pra relatorio)
+    Retorna { bloqueia: bool, alertas: [...], anomalia: {...} }
+    """
+    alertas = []  # cada alerta: { nivel: 'bloqueio'|'aviso', tipo, mensagem, detalhes }
+
+    # ===== 1) Hash duplicado =====
+    if data.arquivo_hash:
+        if data.tipo == "fatura":
+            res = db.table("consumos_faturas").select(
+                "id, condominio_id, condominios(name), mes_referencia, ano_referencia, concessionaria"
+            ).eq("arquivo_hash", data.arquivo_hash).execute()
+        else:
+            res = db.table("consumos_relatorios_leitura").select(
+                "id, condominio_id, condominios(name), mes_referencia, ano_referencia, empresa_leitura, tipo_servico"
+            ).eq("arquivo_hash", data.arquivo_hash).execute()
+
+        for hit in (res.data or []):
+            alertas.append({
+                "nivel": "bloqueio",
+                "tipo": "hash_identico",
+                "mensagem": "Este arquivo PDF identico ja foi anexado anteriormente.",
+                "detalhes": hit,
+            })
+
+    # ===== 2) Mesma fatura/relatorio para o mesmo periodo (UNIQUE) =====
+    if data.tipo == "fatura" and data.concessionaria:
+        res = db.table("consumos_faturas").select(
+            "id, valor, vencimento, leitura_atual, proxima_leitura, arquivo_url, arquivo_nome"
+        ).eq("condominio_id", data.condominio_id) \
+         .eq("ano_referencia", data.ano_referencia) \
+         .eq("mes_referencia", data.mes_referencia) \
+         .eq("concessionaria", data.concessionaria.upper()) \
+         .execute()
+        if res.data:
+            alertas.append({
+                "nivel": "bloqueio",
+                "tipo": "fatura_ja_existe",
+                "mensagem": f"Ja existe fatura de {data.concessionaria} em {data.mes_referencia:02d}/{data.ano_referencia} para este condominio.",
+                "detalhes": res.data[0],
+            })
+    elif data.tipo == "relatorio" and data.empresa and data.tipo_servico:
+        res = db.table("consumos_relatorios_leitura").select(
+            "id, valor_total, consumo_total, numero_unidades, data_leitura, arquivo_url, arquivo_nome"
+        ).eq("condominio_id", data.condominio_id) \
+         .eq("ano_referencia", data.ano_referencia) \
+         .eq("mes_referencia", data.mes_referencia) \
+         .eq("empresa_leitura", data.empresa.upper()) \
+         .eq("tipo_servico", data.tipo_servico.lower()) \
+         .execute()
+        if res.data:
+            alertas.append({
+                "nivel": "bloqueio",
+                "tipo": "relatorio_ja_existe",
+                "mensagem": f"Ja existe relatorio de {data.empresa} ({data.tipo_servico}) em {data.mes_referencia:02d}/{data.ano_referencia}.",
+                "detalhes": res.data[0],
+            })
+
+    # ===== 3) Dados iguais ao mes anterior =====
+    # Calcula mes anterior
+    mes_ant = data.mes_referencia - 1
+    ano_ant = data.ano_referencia
+    if mes_ant == 0:
+        mes_ant = 12
+        ano_ant -= 1
+
+    anomalia = None
+
+    if data.tipo == "fatura" and data.concessionaria:
+        res = db.table("consumos_faturas").select(
+            "id, valor, vencimento, leitura_atual, proxima_leitura, arquivo_nome"
+        ).eq("condominio_id", data.condominio_id) \
+         .eq("ano_referencia", ano_ant) \
+         .eq("mes_referencia", mes_ant) \
+         .eq("concessionaria", data.concessionaria.upper()) \
+         .maybeSingle().execute()
+        prev = res.data
+        if prev:
+            iguais = 0
+            campos = []
+            if data.leitura_atual and prev.get("leitura_atual") and str(data.leitura_atual) == str(prev["leitura_atual"]):
+                iguais += 1; campos.append("leitura_atual")
+            if data.proxima_leitura and prev.get("proxima_leitura") and str(data.proxima_leitura) == str(prev["proxima_leitura"]):
+                iguais += 1; campos.append("proxima_leitura")
+            if data.valor is not None and prev.get("valor") is not None and abs(float(data.valor) - float(prev["valor"])) < 0.01:
+                iguais += 1; campos.append("valor")
+            # Variacao percentual de valor
+            variacao_pct = None
+            try:
+                if data.valor is not None and prev.get("valor"):
+                    prev_v = float(prev["valor"])
+                    if prev_v > 0:
+                        variacao_pct = (float(data.valor) - prev_v) / prev_v * 100.0
+            except Exception:
+                pass
+            anomalia = {
+                "previous": prev,
+                "campos_iguais": campos,
+                "total_iguais": iguais,
+                "variacao_pct": variacao_pct,
+            }
+            if iguais >= 3:
+                alertas.append({
+                    "nivel": "bloqueio",
+                    "tipo": "dados_iguais_mes_anterior",
+                    "mensagem": "Leitura atual, proxima leitura e valor sao identicos ao mes anterior. Provavelmente a mesma fatura foi anexada novamente.",
+                    "detalhes": prev,
+                    "campos_iguais": campos,
+                })
+            elif iguais == 2:
+                alertas.append({
+                    "nivel": "aviso",
+                    "tipo": "dados_parcialmente_iguais",
+                    "mensagem": f"2 dos 3 campos ({', '.join(campos)}) sao identicos ao mes anterior. Confira se nao e um reenvio.",
+                    "detalhes": prev,
+                    "campos_iguais": campos,
+                })
+
+    elif data.tipo == "relatorio" and data.empresa and data.tipo_servico:
+        res = db.table("consumos_relatorios_leitura").select(
+            "id, consumo_total, valor_total, numero_unidades, data_leitura, arquivo_nome"
+        ).eq("condominio_id", data.condominio_id) \
+         .eq("ano_referencia", ano_ant) \
+         .eq("mes_referencia", mes_ant) \
+         .eq("empresa_leitura", data.empresa.upper()) \
+         .eq("tipo_servico", data.tipo_servico.lower()) \
+         .maybeSingle().execute()
+        prev = res.data
+        if prev:
+            iguais = 0
+            campos = []
+            if data.consumo_total is not None and prev.get("consumo_total") is not None and abs(float(data.consumo_total) - float(prev["consumo_total"])) < 0.01:
+                iguais += 1; campos.append("consumo_total")
+            if data.valor_total is not None and prev.get("valor_total") is not None and abs(float(data.valor_total) - float(prev["valor_total"])) < 0.01:
+                iguais += 1; campos.append("valor_total")
+            if data.numero_unidades is not None and prev.get("numero_unidades") is not None and int(data.numero_unidades) == int(prev["numero_unidades"]):
+                iguais += 1; campos.append("numero_unidades")
+            variacao_pct = None
+            try:
+                if data.valor_total is not None and prev.get("valor_total"):
+                    prev_v = float(prev["valor_total"])
+                    if prev_v > 0:
+                        variacao_pct = (float(data.valor_total) - prev_v) / prev_v * 100.0
+            except Exception:
+                pass
+            anomalia = {
+                "previous": prev,
+                "campos_iguais": campos,
+                "total_iguais": iguais,
+                "variacao_pct": variacao_pct,
+            }
+            if iguais >= 3 or (iguais >= 2 and "valor_total" in campos and "consumo_total" in campos):
+                alertas.append({
+                    "nivel": "bloqueio",
+                    "tipo": "dados_iguais_mes_anterior",
+                    "mensagem": "Consumo total e valor sao identicos ao mes anterior. Provavelmente o mesmo relatorio foi reenviado.",
+                    "detalhes": prev,
+                    "campos_iguais": campos,
+                })
+            elif iguais >= 1 and variacao_pct is not None and abs(variacao_pct) < 5:
+                alertas.append({
+                    "nivel": "aviso",
+                    "tipo": "variacao_minima",
+                    "mensagem": f"Valor com variacao < 5% em relacao ao mes anterior ({variacao_pct:.1f}%). Confira se nao e o mesmo relatorio.",
+                    "detalhes": prev,
+                })
+
+    bloqueia = any(a["nivel"] == "bloqueio" for a in alertas)
+    return {
+        "bloqueia": bloqueia,
+        "alertas": alertas,
+        "anomalia": anomalia,
+    }
+
+
+class ConfirmarRepeticaoSchema(BaseModel):
+    tipo: str  # 'fatura' ou 'relatorio'
+    registro_id: str   # id que ja existe (se ja inserido) OU usar antes do insert (so registra log)
+    motivo: str
+
+
+@router.post("/consumos/sancionar-repeticao")
+def api_sancionar_repeticao(data: ConfirmarRepeticaoSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Master/departamento sanciona uma repeticao com motivo obrigatorio."""
+    if user.get("role") not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas master/emissor pode sancionar repeticao")
+    if not data.motivo or not data.motivo.strip():
+        raise HTTPException(400, "Motivo e obrigatorio")
+    from datetime import datetime, timezone
+    payload = {
+        "marcada_repetida": True,
+        "motivo_repeticao": data.motivo.strip(),
+        "repeticao_confirmada_por": user["id"],
+        "repeticao_confirmada_em": datetime.now(timezone.utc).isoformat(),
+    }
+    table = "consumos_faturas" if data.tipo == "fatura" else "consumos_relatorios_leitura"
+    db.table(table).update(payload).eq("id", data.registro_id).execute()
+    return {"ok": True}
+
+
 @router.post("/consumos")
 def api_criar_consumo(data: ConsumoCreateSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     """Cria fatura. Assistente cria como 'pendente'. Master/Emissor podem criar ja 'anexada'."""

@@ -550,13 +550,34 @@ export default function ConsumosPage() {
         </select>
       </div>
 
+      {/* Legenda */}
+      <div className="flex flex-wrap items-center gap-3 px-1 text-[10px] text-slate-500">
+        <span className="font-bold uppercase tracking-widest">Legenda:</span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500/40" /> Anexada
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded bg-amber-500/20 border border-amber-500/40" /> Pendente
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="relative inline-block w-3 h-3 rounded bg-amber-500/20 border border-amber-500/50">
+            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-amber-400 rounded-full" />
+          </span> Anomalia (Δ ≥ 50%)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="relative inline-block w-3 h-3 rounded bg-rose-500/20 border border-rose-500/40">
+            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-rose-500 rounded-full" />
+          </span> Repetida sancionada
+        </span>
+      </div>
+
       {/* Matriz mensal */}
       <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden">
         <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             Matriz {anoSel} · {condosFiltrados.length} de {condosComFaturas.length} condomínios
           </p>
-          <p className="text-[10px] text-slate-500">Clique numa célula para abrir/criar a fatura do mês</p>
+          <p className="text-[10px] text-slate-500">Passe o mouse na célula para ver detalhes · Click pra editar</p>
         </div>
         <div className="overflow-auto max-h-[75vh]">
           {condosFiltrados.length === 0 ? (
@@ -600,17 +621,34 @@ export default function ConsumosPage() {
                       {Array.from({length:12}, (_,i)=>i+1).map(m => {
                         const f = matrizMap[`${c.id}|${conc}|${m}`];
                         const isAnexada = f?.status === 'anexada';
+                        const isRepetida = f?.marcada_repetida === true;
+                        // Calcula anomalia: variacao % vs mes anterior se ambos existirem
+                        const fAnt = matrizMap[`${c.id}|${conc}|${m - 1}`];
+                        let variacaoPct = null;
+                        if (f && fAnt && f.valor != null && fAnt.valor != null && Number(fAnt.valor) > 0) {
+                          variacaoPct = (Number(f.valor) - Number(fAnt.valor)) / Number(fAnt.valor) * 100;
+                        }
+                        const anomaliaGrave = variacaoPct !== null && Math.abs(variacaoPct) >= 50;
+                        // Tooltip rico
+                        const tooltipParts = [`${conc} ${MESES[m]}/${anoSel}`];
+                        if (isAnexada) tooltipParts.push('✓ Anexada'); else if (f) tooltipParts.push('⏳ Pendente');
+                        if (f?.valor != null) tooltipParts.push(`R$ ${fmtBRL(f.valor)}`);
+                        if (variacaoPct !== null) tooltipParts.push(`Δ ${variacaoPct >= 0 ? '+' : ''}${variacaoPct.toFixed(1)}% vs ${MESES[m-1] || 'mês ant.'}`);
+                        if (isRepetida) tooltipParts.push(`🔴 REPETIDA SANCIONADA${f.motivo_repeticao ? ': ' + f.motivo_repeticao : ''}`);
                         return (
                           <td key={m} className="p-0.5 border-r border-white/5">
                             {f ? (
                               <button onClick={() => { setEditFatura(f); setCondoSel(c.id); setShowNovaModal(true); }}
-                                className={`w-full h-full px-1 py-1.5 rounded text-[10px] font-bold transition-all ${
-                                  isAnexada
-                                    ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
-                                    : 'bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25'
+                                className={`relative w-full h-full px-1 py-1.5 rounded text-[10px] font-bold transition-all ${
+                                  isRepetida ? 'bg-rose-500/15 border border-rose-500/40 text-rose-300 hover:bg-rose-500/25'
+                                  : anomaliaGrave ? 'bg-amber-500/20 border border-amber-500/50 text-amber-200 hover:bg-amber-500/30'
+                                  : isAnexada ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
+                                  : 'bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25'
                                 }`}
-                                title={`${f.concessionaria} ${MESES[m]}/${anoSel} · ${isAnexada ? 'Anexada' : 'Pendente'}${f.valor != null ? ' · R$ '+fmtBRL(f.valor) : ''}`}>
+                                title={tooltipParts.join(' · ')}>
                                 {f.valor != null ? `R$ ${fmtBRL(f.valor)}` : (isAnexada ? '✓' : '·')}
+                                {isRepetida && (<span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full border border-slate-950" />)}
+                                {!isRepetida && anomaliaGrave && (<span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full border border-slate-950 animate-pulse" />)}
                               </button>
                             ) : (
                               <button onClick={() => {
