@@ -43,3 +43,4 @@
 0038_correcao_anexo.sql
 0039_resposta_correcao.sql
 0040_consumos_relatorios_leitura.sql
+0041_status_extracao.sql
