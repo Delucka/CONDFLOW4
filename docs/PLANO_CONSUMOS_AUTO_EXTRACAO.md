@@ -1,8 +1,11 @@
 # 📋 Plano — Extração automática de PDFs para Consumos
 
-> **Status**: planejado, **NÃO implementado ainda**. Este documento é um handoff pra continuar em outra sessão.
-> **Última atualização**: 27/05/2026
+> **Status**: ✅ **IMPLEMENTADO** (Fases 1-5) em 04/06/2026. Falta: usuário rodar migration 0041 + deploy + sample Hidrogeotec.
+> **Última atualização**: 04/06/2026
 > **Sessão anterior**: implementou Migration 0040 + endpoints `check-duplicata-completa` e `sancionar-repeticao` + UI manual de Relatório/Concessionária
+>
+> **Esta sessão** implementou: migration 0041 (status de extração + colunas de leitura na fatura + trigger atualizado), `api/pdf_extractor.py` (5 extractors, parsers testados), endpoint `POST /api/consumos/extrair-pdf`, refator do `VisaoEmissor.js` (extração automática + modal de revisão), e dashboard no topo do `/consumos` (stats + banner de alertas + feed, com relatórios de leitura incluídos, polling SWR 30s).
+> **Pendente**: Hidrogeotec usa fallback genérico até o usuário mandar um sample real (extractor marcado com TODO).
 
 ---
 

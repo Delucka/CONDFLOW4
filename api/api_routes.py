@@ -1,6 +1,6 @@
 import os
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Header, Request # type: ignore
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, UploadFile, File # type: ignore
 from supabase import create_client, Client # type: ignore
 from pydantic import BaseModel # type: ignore
 from auth_constants import (
@@ -2214,6 +2214,81 @@ def api_sancionar_repeticao(data: ConfirmarRepeticaoSchema, user: dict = Depends
     table = "consumos_faturas" if data.tipo == "fatura" else "consumos_relatorios_leitura"
     db.table(table).update(payload).eq("id", data.registro_id).execute()
     return {"ok": True}
+
+
+@router.post("/consumos/extrair-pdf")
+async def api_extrair_pdf(
+    file: UploadFile = File(...),
+    condominio_id: Optional[str] = None,
+    mes_referencia: Optional[int] = None,
+    ano_referencia: Optional[int] = None,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """
+    Extrai dados de um PDF de fatura (SABESP/COMGAS/ENEL) ou relatorio (Prosper/Hidrogeotec).
+    Se condominio_id+mes+ano forem passados, tambem roda o check de duplicata.
+    Retorna: { extracao: {...}, alertas: [...], anomalia: {...}, bloqueia: bool }
+    """
+    import hashlib
+    from pdf_extractor import extract_pdf
+
+    contents = await file.read()
+    arquivo_hash = hashlib.sha256(contents).hexdigest()
+
+    extracao = extract_pdf(contents)
+    extracao['arquivo_hash'] = arquivo_hash
+    extracao['arquivo_nome'] = file.filename
+
+    # Status derivado pra UI/persistencia
+    conf = extracao.get('confianca') or 0.0
+    if extracao.get('erro'):
+        extracao['status'] = 'falha'
+    elif conf >= 0.8:
+        extracao['status'] = 'sucesso'
+    else:
+        extracao['status'] = 'parcial'
+
+    alertas = []
+    anomalia = None
+    bloqueia = False
+
+    # Se identificou a empresa e tem contexto, valida duplicata
+    if extracao.get('subtipo') and condominio_id and mes_referencia and ano_referencia:
+        check_body = CheckDuplicataCompletaFatura(
+            tipo='relatorio' if extracao.get('tipo') == 'relatorio' else 'fatura',
+            condominio_id=condominio_id,
+            mes_referencia=mes_referencia,
+            ano_referencia=ano_referencia,
+            arquivo_hash=arquivo_hash,
+        )
+        if extracao.get('tipo') == 'fatura':
+            check_body.concessionaria = extracao['subtipo'].upper()
+            check_body.leitura_atual = extracao.get('leitura_atual')
+            check_body.proxima_leitura = extracao.get('proxima_leitura')
+            check_body.vencimento = extracao.get('vencimento')
+            check_body.valor = extracao.get('valor')
+        else:
+            check_body.empresa = extracao['subtipo'].upper()
+            check_body.tipo_servico = extracao.get('tipo_servico', 'agua')
+            check_body.consumo_total = extracao.get('consumo_total')
+            check_body.valor_total = extracao.get('valor_total')
+            check_body.numero_unidades = extracao.get('numero_unidades')
+
+        try:
+            result = api_check_duplicata_completa(check_body, user, db)
+            alertas = result.get('alertas', [])
+            anomalia = result.get('anomalia')
+            bloqueia = result.get('bloqueia', False)
+        except Exception as e:
+            print(f"[extrair-pdf] check duplicata falhou: {e}")
+
+    return {
+        'extracao': extracao,
+        'alertas': alertas,
+        'anomalia': anomalia,
+        'bloqueia': bloqueia,
+    }
 
 
 @router.post("/consumos")

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -59,21 +59,10 @@ export default function VisaoEmissor({ profile }) {
   // Mapa de alterações prevista: { `${condoId}_${mes}_${ano}`: [alteracoes...] }
   const [alteracoesPrevMap, setAlteracoesPrevMap] = useState({});
 
-  // Picker de concessionaria (dropdown que abre antes do file picker)
-  const [showConcessionariaPicker, setShowConcessionariaPicker] = useState(false);
-  const [pendingCategoria, setPendingCategoria] = useState(null); // categoria escolhida, esperando arquivo
-  const [pendingSubtipo, setPendingSubtipo]     = useState(null);
-  // Picker de relatorio de leitura
-  const [showRelatorioPicker, setShowRelatorioPicker] = useState(false);
-  const [relatorioForm, setRelatorioForm] = useState({
-    empresa: 'Prosper',
-    empresa_outra: '',
-    tipo_servico: 'agua',
-    data_leitura: '',
-    numero_unidades: '',
-    consumo_total: '',
-    valor_total: '',
-  });
+  // Extração automática de PDF (concessionaria/relatorio)
+  const [extraindo, setExtraindo] = useState(false);  // overlay "Lendo PDF..."
+  // Modal de revisão (extração com baixa confiança ou empresa não identificada)
+  const [revisaoInfo, setRevisaoInfo] = useState(null); // { extracao, categoria, alertas, file }
   // Modal de duplicata detectada
   const [duplicataInfo, setDuplicataInfo] = useState(null); // { alertas, anomalia, pendingFile, pendingMeta }
   const [sancionandoMotivo, setSancionandoMotivo] = useState('');
@@ -348,6 +337,10 @@ export default function VisaoEmissor({ profile }) {
         };
         if (categoria === 'concessionaria') {
           checkBody.concessionaria = (subtipo || '').toUpperCase();
+          checkBody.leitura_atual = extras.leitura_atual_fatura || null;
+          checkBody.proxima_leitura = extras.proxima_leitura_fatura || null;
+          checkBody.vencimento = extras.vencimento_fatura || null;
+          checkBody.valor = extras.valor_fatura ?? null;
         } else {
           checkBody.empresa = (extras.relatorio_empresa || '').toUpperCase();
           checkBody.tipo_servico = (extras.relatorio_tipo_servico || '').toLowerCase();
@@ -422,6 +415,106 @@ export default function VisaoEmissor({ profile }) {
     } finally {
       setIsUploading(false);
     }
+  }
+
+  async function getAccessToken() {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || '';
+  }
+
+  // Converte o dict da extração nos campos (colunas) de emissoes_arquivos
+  function mapExtracaoToExtras(extracao, categoria) {
+    const { texto_bruto, ...brutos } = extracao || {};
+    const base = {
+      extracao_status: extracao?.status || (extracao?.erro ? 'falha' : ((extracao?.confianca || 0) >= 0.8 ? 'sucesso' : 'parcial')),
+      extracao_confianca: extracao?.confianca ?? null,
+      extracao_dados_brutos: brutos,
+      extracao_em: new Date().toISOString(),
+    };
+    if (categoria === 'concessionaria') {
+      return {
+        ...base,
+        nome_condominio_fatura: extracao?.cliente || null,
+        vencimento_fatura: extracao?.vencimento || null,
+        valor_fatura: extracao?.valor ?? null,
+        leitura_atual_fatura: extracao?.leitura_atual || null,
+        proxima_leitura_fatura: extracao?.proxima_leitura || null,
+        dados_extraidos_em: new Date().toISOString(),
+      };
+    }
+    // relatorio_leitura
+    return {
+      ...base,
+      relatorio_empresa: extracao?.subtipo || null,
+      relatorio_tipo_servico: extracao?.tipo_servico || 'agua',
+      relatorio_data_leitura: extracao?.data_leitura || null,
+      relatorio_unidades: extracao?.numero_unidades ?? null,
+      relatorio_consumo_total: extracao?.consumo_total ?? null,
+      relatorio_valor_total: extracao?.valor_total ?? null,
+    };
+  }
+
+  // Fluxo de upload com extração automática (concessionaria + relatorio_leitura).
+  // 1) backend lê o PDF e já checa duplicata. 2) bloqueia -> modal sancionamento.
+  // 3) confiança baixa / empresa não identificada -> modal de revisão pré-preenchido.
+  // 4) confiança alta + sem bloqueio -> anexa direto.
+  async function handleUploadComExtracao(file, categoria) {
+    if (!file || !activePacote) return;
+    setExtraindo(true);
+    try {
+      const token = await getAccessToken();
+      const formData = new FormData();
+      formData.append('file', file);
+      const params = new URLSearchParams({
+        condominio_id: activePacote.condominio_id,
+        mes_referencia: String(mes),
+        ano_referencia: String(ano),
+      });
+      const res = await fetch(`/api/consumos/extrair-pdf?${params}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`Falha na leitura do PDF (HTTP ${res.status})`);
+      const { extracao, alertas, anomalia, bloqueia } = await res.json();
+
+      const extras = mapExtracaoToExtras(extracao, categoria);
+      const subtipo = extracao?.subtipo
+        || (categoria === 'relatorio_leitura' ? extras.relatorio_empresa : null);
+
+      // 1) Duplicata bloqueante -> modal de sancionamento (reusa o existente)
+      if (bloqueia) {
+        setDuplicataInfo({
+          alertas: alertas || [],
+          anomalia,
+          pendingFile: file,
+          pendingMeta: { categoria, subtipo, extras },
+        });
+        return;
+      }
+
+      // 2) Baixa confiança / não identificou -> revisão manual pré-preenchida
+      if (!extracao?.subtipo || (extracao?.confianca || 0) < 0.8) {
+        setRevisaoInfo({ extracao: extracao || {}, categoria, alertas: alertas || [], file });
+        return;
+      }
+
+      // 3) Confiança alta + sem bloqueio -> anexa direto
+      await handleUploadArquivo(file, { categoria, subtipo, extras, skipDuplicataCheck: true });
+      const avisos = (alertas || []).filter(a => a.nivel === 'aviso');
+      if (avisos.length) addToast(`⚠ ${avisos[0].mensagem}`, 'warning');
+    } catch (e) {
+      addToast('Erro na leitura do PDF: ' + (e.message || e), 'error');
+    } finally {
+      setExtraindo(false);
+    }
+  }
+
+  // Chamado pelo modal de revisão: usuário confirmou/corrigiu os dados.
+  // Reroda a checagem de duplicata com os valores finais (skip = false).
+  async function confirmarRevisao(categoria, subtipo, extras, file) {
+    setRevisaoInfo(null);
+    await handleUploadArquivo(file, { categoria, subtipo, extras, skipDuplicataCheck: false });
   }
 
   async function handleDeleteArquivo(e, id, path) {
@@ -847,23 +940,39 @@ export default function VisaoEmissor({ profile }) {
                   </div>
                 </div>
 
-                {/* CONCESSIONÁRIA (laranja) — abre menu antes do file picker */}
-                <div className="relative border-2 border-dashed border-orange-500/20 hover:border-orange-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-orange-500/5 group"
-                  onClick={() => !isUploading && setShowConcessionariaPicker(true)}>
+                {/* CONCESSIONÁRIA (laranja) — extração automática do PDF */}
+                <div className="relative border-2 border-dashed border-orange-500/20 hover:border-orange-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-orange-500/5 group">
+                  <input type="file" disabled={isUploading || extraindo}
+                    className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-wait"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={async e => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (f) await handleUploadComExtracao(f, 'concessionaria');
+                    }}
+                  />
                   <div className="flex flex-col items-center gap-1 text-orange-400 group-hover:text-orange-300">
                     <Package className="w-5 h-5" />
                     <span className="text-[10px] font-black uppercase tracking-widest">+ Concessionária</span>
-                    <span className="text-[9px] text-orange-500/70">SABESP / COMGAS / ENEL</span>
+                    <span className="text-[9px] text-orange-500/70 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> SABESP / COMGAS / ENEL</span>
                   </div>
                 </div>
 
-                {/* RELATÓRIO DE LEITURA (azul) — abre modal */}
-                <div className="relative border-2 border-dashed border-sky-500/20 hover:border-sky-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-sky-500/5 group"
-                  onClick={() => !isUploading && setShowRelatorioPicker(true)}>
+                {/* RELATÓRIO DE LEITURA (azul) — extração automática do PDF */}
+                <div className="relative border-2 border-dashed border-sky-500/20 hover:border-sky-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-sky-500/5 group">
+                  <input type="file" disabled={isUploading || extraindo}
+                    className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-wait"
+                    accept=".pdf"
+                    onChange={async e => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (f) await handleUploadComExtracao(f, 'relatorio_leitura');
+                    }}
+                  />
                   <div className="flex flex-col items-center gap-1 text-sky-400 group-hover:text-sky-300">
                     <ClipboardCheck className="w-5 h-5" />
                     <span className="text-[10px] font-black uppercase tracking-widest">+ Relatório</span>
-                    <span className="text-[9px] text-sky-500/70">Leitura individualizada</span>
+                    <span className="text-[9px] text-sky-500/70 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> Prosper / Hidrogeotec</span>
                   </div>
                 </div>
 
@@ -1357,176 +1466,24 @@ export default function VisaoEmissor({ profile }) {
         />
       )}
 
-      {/* ═══ MODAL ESCOLHER CONCESSIONÁRIA ═══ */}
-      {showConcessionariaPicker && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
-          <div className="bg-[#0a0a0f] border border-orange-500/30 rounded-3xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-black text-white uppercase tracking-tight flex items-center gap-2">
-                <Package className="w-5 h-5 text-orange-400" /> Anexar Concessionária
-              </h3>
-              <button onClick={() => setShowConcessionariaPicker(false)} className="text-slate-500 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-xs text-slate-400 mb-4">Qual concessionária?</p>
-            <div className="grid grid-cols-2 gap-3">
-              {['SABESP', 'COMGAS', 'ENEL', 'Outra'].map(sub => (
-                <label key={sub}
-                  className="cursor-pointer border-2 border-dashed border-orange-500/20 hover:border-orange-500/60 rounded-2xl p-4 text-center transition-all bg-orange-500/5 group relative">
-                  <input type="file" multiple
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
-                    onChange={async e => {
-                      let finalSub = sub;
-                      if (sub === 'Outra') {
-                        finalSub = window.prompt('Nome da concessionária:', '') || 'Outra';
-                      }
-                      const files = Array.from(e.target.files || []);
-                      setShowConcessionariaPicker(false);
-                      for (const f of files) {
-                        await handleUploadArquivo(f, { categoria: 'concessionaria', subtipo: finalSub });
-                      }
-                      e.target.value = '';
-                    }}
-                  />
-                  <div className="flex flex-col items-center gap-1 text-orange-300 group-hover:text-orange-200">
-                    <Package className="w-6 h-6" />
-                    <span className="text-sm font-black uppercase tracking-widest">{sub}</span>
-                  </div>
-                </label>
-              ))}
-            </div>
-            <p className="text-[10px] text-slate-600 mt-4 text-center">
-              Clique em uma opção pra selecionar o arquivo
-            </p>
+      {/* ═══ OVERLAY: LENDO PDF ═══ */}
+      {extraindo && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+          <div className="bg-[#0a0a0f] border border-violet-500/30 rounded-2xl px-8 py-6 shadow-2xl flex flex-col items-center gap-3">
+            <Sparkles className="w-8 h-8 text-violet-400 animate-pulse" />
+            <p className="text-sm font-black text-white uppercase tracking-widest">Lendo PDF…</p>
+            <p className="text-[11px] text-slate-500">Extraindo dados automaticamente</p>
           </div>
         </div>
       )}
 
-      {/* ═══ MODAL DE RELATÓRIO DE LEITURA ═══ */}
-      {showRelatorioPicker && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-[#0a0a0f] border border-sky-500/20 rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
-                  <ClipboardCheck className="w-5 h-5 text-sky-400" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-white">Novo Relatório de Leitura</h3>
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest">Empresa terceirizada</p>
-                </div>
-              </div>
-              <button onClick={() => setShowRelatorioPicker(false)} className="text-slate-500 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-
-            <div className="space-y-3">
-              {/* Empresa */}
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Empresa que faz a leitura</label>
-                <select value={relatorioForm.empresa}
-                  onChange={e => setRelatorioForm({...relatorioForm, empresa: e.target.value})}
-                  className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-sky-500">
-                  <option value="Prosper">Prosper</option>
-                  <option value="Hidrogeotec">Hidrogeotec</option>
-                  <option value="Outra">Outra (digitar)</option>
-                </select>
-                {relatorioForm.empresa === 'Outra' && (
-                  <input value={relatorioForm.empresa_outra}
-                    onChange={e => setRelatorioForm({...relatorioForm, empresa_outra: e.target.value})}
-                    placeholder="Nome da empresa"
-                    className="w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-sky-500" />
-                )}
-              </div>
-
-              {/* Tipo de servico */}
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tipo de serviço</label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <button onClick={() => setRelatorioForm({...relatorioForm, tipo_servico: 'agua'})}
-                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${relatorioForm.tipo_servico === 'agua' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
-                    💧 Água
-                  </button>
-                  <button onClick={() => setRelatorioForm({...relatorioForm, tipo_servico: 'gas'})}
-                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${relatorioForm.tipo_servico === 'gas' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
-                    🔥 Gás
-                  </button>
-                </div>
-              </div>
-
-              {/* Data da leitura */}
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Data da leitura</label>
-                <input type="date" value={relatorioForm.data_leitura}
-                  onChange={e => setRelatorioForm({...relatorioForm, data_leitura: e.target.value})}
-                  className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-sky-500" />
-              </div>
-
-              {/* Grid: unidades / consumo / valor */}
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Unidades</label>
-                  <input type="number" value={relatorioForm.numero_unidades}
-                    onChange={e => setRelatorioForm({...relatorioForm, numero_unidades: e.target.value})}
-                    placeholder="52"
-                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-200 outline-none focus:border-sky-500 text-right font-mono" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Consumo (m³)</label>
-                  <input value={relatorioForm.consumo_total}
-                    onChange={e => setRelatorioForm({...relatorioForm, consumo_total: e.target.value})}
-                    placeholder="1188,70"
-                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-200 outline-none focus:border-sky-500 text-right font-mono" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Valor R$</label>
-                  <input value={relatorioForm.valor_total}
-                    onChange={e => setRelatorioForm({...relatorioForm, valor_total: e.target.value})}
-                    placeholder="13.900,49"
-                    className="w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-sm text-slate-200 outline-none focus:border-sky-500 text-right font-mono" />
-                </div>
-              </div>
-
-              {/* File input */}
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Arquivo do relatório (PDF)</label>
-                <input type="file" accept="application/pdf,.pdf"
-                  onChange={async e => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    const empresa = relatorioForm.empresa === 'Outra'
-                      ? relatorioForm.empresa_outra.trim()
-                      : relatorioForm.empresa;
-                    if (!empresa) { addToast('Informe a empresa', 'warning'); return; }
-                    if (!relatorioForm.tipo_servico) { addToast('Escolha o tipo de serviço', 'warning'); return; }
-                    const parseNum = v => {
-                      if (!v) return null;
-                      const s = String(v).replace(/\./g, '').replace(',', '.');
-                      const n = parseFloat(s);
-                      return isNaN(n) ? null : n;
-                    };
-                    const extras = {
-                      relatorio_empresa: empresa,
-                      relatorio_tipo_servico: relatorioForm.tipo_servico,
-                      relatorio_data_leitura: relatorioForm.data_leitura || null,
-                      relatorio_unidades: relatorioForm.numero_unidades ? parseInt(relatorioForm.numero_unidades, 10) : null,
-                      relatorio_consumo_total: parseNum(relatorioForm.consumo_total),
-                      relatorio_valor_total: parseNum(relatorioForm.valor_total),
-                    };
-                    await handleUploadArquivo(f, {
-                      categoria: 'relatorio_leitura',
-                      subtipo: empresa,
-                      extras,
-                    });
-                    e.target.value = '';
-                    setShowRelatorioPicker(false);
-                  }}
-                  className="block w-full text-xs text-slate-300 mt-1 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-sky-500/10 file:text-sky-300 hover:file:bg-sky-500/20" />
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* ═══ MODAL DE REVISÃO DE EXTRAÇÃO ═══ */}
+      {revisaoInfo && (
+        <RevisaoExtracaoModal
+          info={revisaoInfo}
+          onCancel={() => setRevisaoInfo(null)}
+          onConfirm={confirmarRevisao}
+        />
       )}
 
       {/* ═══ MODAL DE DUPLICATA / SANCIONAMENTO ═══ */}
@@ -1762,5 +1719,218 @@ function FaturaInlineForm({ arq, condoNome, maskValor, parseValor, saving, onCan
         </button>
       </div>
     </form>
+  );
+}
+
+
+// Converte "1.234,56" (pt-BR) ou "1234.56" em número; null se vazio/ inválido.
+function parseNumBR(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const s = String(v).replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+function fmtNumBR(n) {
+  if (n === null || n === undefined || n === '') return '';
+  const num = Number(n);
+  if (isNaN(num)) return '';
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Modal de revisão: aparece quando a extração tem baixa confiança ou não
+// identificou a empresa. Vem pré-preenchido com o que foi extraído; o usuário
+// confirma/corrige e o arquivo é anexado (re-checando duplicata).
+function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
+  const { extracao, categoria, file } = info;
+  const ehFatura = categoria === 'concessionaria';
+  const { texto_bruto, ...brutos } = extracao || {};
+
+  // Estado dos campos
+  const detectado = extracao?.subtipo || '';
+  const empresasFatura = ['SABESP', 'COMGAS', 'ENEL'];
+  const empresasRelatorio = ['Prosper', 'Hidrogeotec'];
+  const lista = ehFatura ? empresasFatura : empresasRelatorio;
+  const detectadoNaLista = lista.includes(detectado);
+
+  const [empresa, setEmpresa] = useState(detectadoNaLista ? detectado : (detectado ? 'Outra' : lista[0]));
+  const [empresaOutra, setEmpresaOutra] = useState(detectadoNaLista ? '' : detectado);
+  const [cliente, setCliente] = useState(extracao?.cliente || '');
+  const [vencimento, setVencimento] = useState(extracao?.vencimento || '');
+  const [leituraAtual, setLeituraAtual] = useState(extracao?.leitura_atual || '');
+  const [proximaLeitura, setProximaLeitura] = useState(extracao?.proxima_leitura || '');
+  const [tipoServico, setTipoServico] = useState(extracao?.tipo_servico || 'agua');
+  const [dataLeitura, setDataLeitura] = useState(extracao?.data_leitura || '');
+  const [unidades, setUnidades] = useState(extracao?.numero_unidades ?? '');
+  const [valor, setValor] = useState(fmtNumBR(ehFatura ? extracao?.valor : extracao?.valor_total));
+  const [consumo, setConsumo] = useState(fmtNumBR(extracao?.consumo_total));
+  const [salvando, setSalvando] = useState(false);
+
+  const empresaFinal = empresa === 'Outra' ? empresaOutra.trim() : empresa;
+  const confPct = Math.round((extracao?.confianca || 0) * 100);
+
+  async function handleConfirm() {
+    if (!empresaFinal) return;
+    setSalvando(true);
+    const baseExtras = {
+      extracao_status: 'sucesso',
+      extracao_confianca: extracao?.confianca ?? null,
+      extracao_dados_brutos: brutos,
+      extracao_em: new Date().toISOString(),
+    };
+    let extras, subtipo;
+    if (ehFatura) {
+      subtipo = empresaFinal.toUpperCase();
+      extras = {
+        ...baseExtras,
+        nome_condominio_fatura: cliente.trim() || null,
+        vencimento_fatura: vencimento || null,
+        valor_fatura: parseNumBR(valor),
+        leitura_atual_fatura: leituraAtual || null,
+        proxima_leitura_fatura: proximaLeitura || null,
+        dados_extraidos_em: new Date().toISOString(),
+      };
+    } else {
+      subtipo = empresaFinal;
+      extras = {
+        ...baseExtras,
+        relatorio_empresa: empresaFinal,
+        relatorio_tipo_servico: tipoServico,
+        relatorio_data_leitura: dataLeitura || null,
+        relatorio_unidades: unidades ? parseInt(String(unidades), 10) : null,
+        relatorio_consumo_total: parseNumBR(consumo),
+        relatorio_valor_total: parseNumBR(valor),
+      };
+    }
+    await onConfirm(categoria, subtipo, extras, file);
+  }
+
+  const inputCls = 'w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-violet-500';
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="bg-[#0a0a0f] border border-violet-500/20 rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-violet-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-white">Confira os dados extraídos</h3>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+                {file?.name} · confiança {confPct}%
+              </p>
+            </div>
+          </div>
+          <button onClick={onCancel} className="text-slate-500 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+
+        {extracao?.erro && (
+          <div className="mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /> {extracao.erro}
+          </div>
+        )}
+        {!extracao?.erro && (
+          <p className="mb-3 text-[11px] text-slate-400">
+            A leitura automática não teve confiança suficiente. Revise os campos abaixo antes de anexar.
+          </p>
+        )}
+
+        <div className="space-y-3">
+          {/* Empresa / Concessionária */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {ehFatura ? 'Concessionária' : 'Empresa de leitura'}
+            </label>
+            <select value={empresa} onChange={e => setEmpresa(e.target.value)} className={inputCls}>
+              {lista.map(op => <option key={op} value={op}>{op}</option>)}
+              <option value="Outra">Outra (digitar)</option>
+            </select>
+            {empresa === 'Outra' && (
+              <input value={empresaOutra} onChange={e => setEmpresaOutra(e.target.value)}
+                placeholder="Nome da empresa" className={inputCls} />
+            )}
+          </div>
+
+          {ehFatura ? (
+            <>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cliente na conta</label>
+                <input value={cliente} onChange={e => setCliente(e.target.value)} placeholder="EDIFICIO ..." className={inputCls} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Vencimento</label>
+                  <input type="date" value={vencimento} onChange={e => setVencimento(e.target.value)} className={inputCls} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Valor R$</label>
+                  <input value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00"
+                    className={`${inputCls} text-right font-mono`} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Leitura atual</label>
+                  <input type="date" value={leituraAtual} onChange={e => setLeituraAtual(e.target.value)} className={inputCls} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Próxima leitura</label>
+                  <input type="date" value={proximaLeitura} onChange={e => setProximaLeitura(e.target.value)} className={inputCls} />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tipo de serviço</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button type="button" onClick={() => setTipoServico('agua')}
+                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${tipoServico === 'agua' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                    💧 Água
+                  </button>
+                  <button type="button" onClick={() => setTipoServico('gas')}
+                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${tipoServico === 'gas' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                    🔥 Gás
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Data da leitura</label>
+                <input type="date" value={dataLeitura} onChange={e => setDataLeitura(e.target.value)} className={inputCls} />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Unidades</label>
+                  <input type="number" value={unidades} onChange={e => setUnidades(e.target.value)} placeholder="52"
+                    className={`${inputCls} text-right font-mono`} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Consumo m³</label>
+                  <input value={consumo} onChange={e => setConsumo(e.target.value)} placeholder="1.188,70"
+                    className={`${inputCls} text-right font-mono`} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Valor R$</label>
+                  <input value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00"
+                    className={`${inputCls} text-right font-mono`} />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button onClick={onCancel} disabled={salvando}
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50">
+            Cancelar
+          </button>
+          <button onClick={handleConfirm} disabled={salvando || !empresaFinal}
+            className={`px-5 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50 flex items-center gap-2 ${ehFatura ? 'bg-orange-600 hover:bg-orange-500' : 'bg-sky-600 hover:bg-sky-500'}`}>
+            {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+            Anexar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

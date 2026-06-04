@@ -22,6 +22,18 @@ function fmtDate(s) {
   if (!s) return '—';
   try { return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR'); } catch { return s; }
 }
+function tempoRelativo(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  if (isNaN(diff)) return '';
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'agora';
+  if (min < 60) return `${min}min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  return `${d}d`;
+}
 
 async function sha256OfFile(file) {
   const buf = await file.arrayBuffer();
@@ -356,11 +368,27 @@ export default function ConsumosPage() {
   // Pré-seleciona condo+concessionaria+mes ao abrir Nova fatura via clique numa celula vazia
   const [preFatura, setPreFatura] = useState(null);
 
-  // Faturas do ano (para a matriz)
+  // Faturas do ano (para a matriz + dashboard) — polling 30s
   const { data: matrizData, mutate: mutateMatriz } = useSWR(
-    `/api/consumos?ano=${anoSel}`, apiFetcher, { revalidateOnFocus: false }
+    `/api/consumos?ano=${anoSel}`, apiFetcher,
+    { revalidateOnFocus: true, refreshInterval: 30000, dedupingInterval: 5000 }
   );
   const todasFaturas = matrizData?.consumos || [];
+
+  // Relatórios de leitura do ano (Prosper/Hidrogeotec) — direto do Supabase, polling 30s
+  const [relatorios, setRelatorios] = useState([]);
+  const fetchRelatorios = useCallback(async () => {
+    const { data } = await supabase
+      .from('consumos_relatorios_leitura')
+      .select('*, condominios(name)')
+      .eq('ano_referencia', anoSel);
+    setRelatorios(data || []);
+  }, [supabase, anoSel]);
+  useEffect(() => {
+    fetchRelatorios();
+    const t = setInterval(fetchRelatorios, 30000);
+    return () => clearInterval(t);
+  }, [fetchRelatorios]);
 
   // Map: chave `${condo}|${conc}|${mes}` => fatura
   const matrizMap = useMemo(() => {
@@ -474,7 +502,64 @@ export default function ConsumosPage() {
     mutateFaturas?.();
     mutateCondos?.();
     mutateMatriz?.();
+    fetchRelatorios?.();
   }
+
+  // ─── Dashboard: stats, alertas e feed (faturas + relatórios) ───────
+  const relatoriosMap = useMemo(() => {
+    const m = {};
+    relatorios.forEach(r => { m[`${r.condominio_id}|${r.empresa_leitura}|${r.tipo_servico}|${r.mes_referencia}`] = r; });
+    return m;
+  }, [relatorios]);
+
+  const stats = useMemo(() => {
+    const processadas = todasFaturas.length + relatorios.length;
+    const totalValor =
+      todasFaturas.reduce((s, f) => s + (Number(f.valor) || 0), 0) +
+      relatorios.reduce((s, r) => s + (Number(r.valor_total) || 0), 0);
+    const duplicatas =
+      todasFaturas.filter(f => f.marcada_repetida).length +
+      relatorios.filter(r => r.marcada_repetida).length;
+    const pendentes =
+      todasFaturas.filter(f => f.status !== 'anexada').length +
+      relatorios.filter(r => r.status !== 'anexada').length;
+    return { processadas, totalValor, duplicatas, pendentes };
+  }, [todasFaturas, relatorios]);
+
+  const alertasList = useMemo(() => {
+    const out = [];
+    todasFaturas.forEach(f => {
+      const ant = matrizMap[`${f.condominio_id}|${f.concessionaria}|${f.mes_referencia - 1}`];
+      if (f.valor != null && ant?.valor != null && Number(ant.valor) > 0) {
+        const pct = (Number(f.valor) - Number(ant.valor)) / Number(ant.valor) * 100;
+        if (Math.abs(pct) >= 50) out.push({ tipo: 'anomalia', condo_id: f.condominio_id, nome: f.condominios?.name, label: `${f.concessionaria} ${MESES[f.mes_referencia]}`, pct });
+      }
+      if (f.marcada_repetida) out.push({ tipo: 'repetida', condo_id: f.condominio_id, nome: f.condominios?.name, label: `${f.concessionaria} ${MESES[f.mes_referencia]}`, motivo: f.motivo_repeticao });
+    });
+    relatorios.forEach(r => {
+      const ant = relatoriosMap[`${r.condominio_id}|${r.empresa_leitura}|${r.tipo_servico}|${r.mes_referencia - 1}`];
+      if (r.valor_total != null && ant?.valor_total != null && Number(ant.valor_total) > 0) {
+        const pct = (Number(r.valor_total) - Number(ant.valor_total)) / Number(ant.valor_total) * 100;
+        if (Math.abs(pct) >= 50) out.push({ tipo: 'anomalia', condo_id: r.condominio_id, nome: r.condominios?.name, label: `${r.empresa_leitura} ${MESES[r.mes_referencia]}`, pct });
+      }
+      if (r.marcada_repetida) out.push({ tipo: 'repetida', condo_id: r.condominio_id, nome: r.condominios?.name, label: `${r.empresa_leitura} ${MESES[r.mes_referencia]}`, motivo: r.motivo_repeticao });
+    });
+    return out;
+  }, [todasFaturas, relatorios, matrizMap, relatoriosMap]);
+
+  const feed = useMemo(() => {
+    const all = [
+      ...todasFaturas.filter(f => f.status === 'anexada').map(f => ({
+        id: 'f' + f.id, nome: f.condominios?.name, empresa: f.concessionaria,
+        valor: f.valor, mes: f.mes_referencia, em: f.anexada_em, kind: 'fatura',
+      })),
+      ...relatorios.filter(r => r.status === 'anexada').map(r => ({
+        id: 'r' + r.id, nome: r.condominios?.name, empresa: r.empresa_leitura,
+        valor: r.valor_total, mes: r.mes_referencia, em: r.anexada_em, kind: 'relatorio',
+      })),
+    ];
+    return all.filter(x => x.em).sort((a, b) => new Date(b.em) - new Date(a.em)).slice(0, 10);
+  }, [todasFaturas, relatorios]);
 
   return (
     <div className="animate-fade-in w-full space-y-6 pb-20">
@@ -504,6 +589,87 @@ export default function ConsumosPage() {
           </div>
         )}
       </div>
+
+      {/* ─── Dashboard: stats cards ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="glass-panel rounded-2xl border border-white/5 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Processadas</p>
+          </div>
+          <p className="text-2xl font-black text-white">{stats.processadas}</p>
+          <p className="text-[11px] text-slate-500">R$ {fmtBRL(stats.totalValor)} no ano</p>
+        </div>
+        <div className="glass-panel rounded-2xl border border-white/5 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Anomalias</p>
+          </div>
+          <p className="text-2xl font-black text-amber-300">{alertasList.filter(a => a.tipo === 'anomalia').length}</p>
+          <p className="text-[11px] text-slate-500">Δ ≥ 50% vs mês anterior</p>
+        </div>
+        <div className="glass-panel rounded-2xl border border-white/5 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <RefreshCw className="w-4 h-4 text-rose-400" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Duplicatas</p>
+          </div>
+          <p className="text-2xl font-black text-rose-300">{stats.duplicatas}</p>
+          <p className="text-[11px] text-slate-500">sancionadas</p>
+        </div>
+        <div className="glass-panel rounded-2xl border border-white/5 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Clock className="w-4 h-4 text-sky-400" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pendentes</p>
+          </div>
+          <p className="text-2xl font-black text-sky-300">{stats.pendentes}</p>
+          <p className="text-[11px] text-slate-500">aguardando anexar</p>
+        </div>
+      </div>
+
+      {/* ─── Banner de alertas (só se houver) ─── */}
+      {alertasList.length > 0 && (
+        <div className="glass-panel rounded-2xl border border-amber-500/20 bg-amber-500/[0.03] p-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-2 flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5" /> Atenção · {alertasList.length} {alertasList.length === 1 ? 'item' : 'itens'}
+          </p>
+          <div className="space-y-1.5 max-h-44 overflow-y-auto">
+            {alertasList.slice(0, 30).map((a, i) => (
+              <button key={i} onClick={() => { setSearch(a.nome || ''); }}
+                className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors text-[12px]">
+                {a.tipo === 'repetida'
+                  ? <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                  : <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
+                <span className="font-bold text-slate-200 truncate">{a.nome || '—'}</span>
+                <span className="text-slate-500">· {a.label}</span>
+                {a.tipo === 'anomalia'
+                  ? <span className={`ml-auto font-mono font-bold ${a.pct >= 0 ? 'text-rose-300' : 'text-emerald-300'}`}>Δ {a.pct >= 0 ? '+' : ''}{a.pct.toFixed(0)}%</span>
+                  : <span className="ml-auto text-[10px] font-black uppercase tracking-widest text-rose-300" title={a.motivo || ''}>repetida</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Feed das últimas anexações ─── */}
+      {feed.length > 0 && (
+        <div className="glass-panel rounded-2xl border border-white/5 p-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-2">
+            <FileText className="w-3.5 h-3.5 text-emerald-400" /> Últimas anexações
+          </p>
+          <div className="space-y-1">
+            {feed.map(x => (
+              <div key={x.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.02] text-[12px]">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${x.kind === 'relatorio' ? 'bg-sky-500/20 text-sky-300' : 'bg-emerald-500/20 text-emerald-300'}`}>{x.empresa}</span>
+                <span className="font-bold text-slate-200 truncate">{x.nome || '—'}</span>
+                <span className="text-slate-500 hidden sm:inline">· {MESES[x.mes]}</span>
+                <span className="ml-auto font-mono text-white font-bold shrink-0">R$ {fmtBRL(x.valor)}</span>
+                <span className="text-[10px] text-slate-600 w-10 text-right shrink-0">{tempoRelativo(x.em)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Abas de concessionária */}
       <div className="flex gap-2 bg-white/[0.03] p-1.5 rounded-2xl border border-white/5 w-fit">
