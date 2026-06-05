@@ -367,6 +367,8 @@ export default function ConsumosPage() {
   const [editFatura, setEditFatura] = useState(null);
   // Pré-seleciona condo+concessionaria+mes ao abrir Nova fatura via clique numa celula vazia
   const [preFatura, setPreFatura] = useState(null);
+  // Modal de leitura por unidade (tabela extraída do relatório)
+  const [unidadesModal, setUnidadesModal] = useState(null); // { nome, empresa, mes, servico, loading, unidades, erro }
 
   // Faturas do ano (para a matriz + dashboard) — polling 30s
   const { data: matrizData, mutate: mutateMatriz } = useSWR(
@@ -505,6 +507,27 @@ export default function ConsumosPage() {
     fetchRelatorios?.();
   }
 
+  // Abre a tabela de leitura por unidade de um relatório (lê extracao_dados_brutos)
+  async function abrirUnidades(item) {
+    if (!item.origem) {
+      addToast('Relatório sem dados de unidades (anexado antes da extração automática).', 'info');
+      return;
+    }
+    setUnidadesModal({ nome: item.nome, empresa: item.empresa, mes: item.mes, servico: item.servico, loading: true, unidades: null });
+    try {
+      const { data, error } = await supabase
+        .from('emissoes_arquivos')
+        .select('extracao_dados_brutos')
+        .eq('id', item.origem)
+        .maybeSingle();
+      if (error) throw error;
+      const unidades = data?.extracao_dados_brutos?.unidades || null;
+      setUnidadesModal(prev => prev && { ...prev, loading: false, unidades, erro: unidades ? null : 'Sem tabela de unidades neste relatório.' });
+    } catch (e) {
+      setUnidadesModal(prev => prev && { ...prev, loading: false, erro: e.message || 'Erro ao carregar' });
+    }
+  }
+
   // ─── Dashboard: stats, alertas e feed (faturas + relatórios) ───────
   const relatoriosMap = useMemo(() => {
     const m = {};
@@ -556,6 +579,7 @@ export default function ConsumosPage() {
       ...relatorios.filter(r => r.status === 'anexada').map(r => ({
         id: 'r' + r.id, nome: r.condominios?.name, empresa: r.empresa_leitura,
         valor: r.valor_total, mes: r.mes_referencia, em: r.anexada_em, kind: 'relatorio',
+        servico: r.tipo_servico, origem: r.origem_emissao_arquivo_id,
       })),
     ];
     return all.filter(x => x.em).sort((a, b) => new Date(b.em) - new Date(a.em)).slice(0, 10);
@@ -657,16 +681,23 @@ export default function ConsumosPage() {
             <FileText className="w-3.5 h-3.5 text-emerald-400" /> Últimas anexações
           </p>
           <div className="space-y-1">
-            {feed.map(x => (
-              <div key={x.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.02] text-[12px]">
+            {feed.map(x => {
+              const clicavel = x.kind === 'relatorio' && x.origem;
+              return (
+              <div key={x.id}
+                onClick={clicavel ? () => abrirUnidades(x) : undefined}
+                title={clicavel ? 'Ver leitura por unidade' : undefined}
+                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] ${clicavel ? 'cursor-pointer hover:bg-sky-500/10' : 'hover:bg-white/[0.02]'}`}>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${x.kind === 'relatorio' ? 'bg-sky-500/20 text-sky-300' : 'bg-emerald-500/20 text-emerald-300'}`}>{x.empresa}</span>
                 <span className="font-bold text-slate-200 truncate">{x.nome || '—'}</span>
                 <span className="text-slate-500 hidden sm:inline">· {MESES[x.mes]}</span>
+                {clicavel && <ExternalLink className="w-3 h-3 text-sky-400/70 shrink-0" />}
                 <span className="ml-auto font-mono text-white font-bold shrink-0">R$ {fmtBRL(x.valor)}</span>
                 <span className="text-[10px] text-slate-600 w-10 text-right shrink-0">{tempoRelativo(x.em)}</span>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -853,6 +884,11 @@ export default function ConsumosPage() {
         />
       )}
 
+      {/* Modal de leitura por unidade */}
+      {unidadesModal && (
+        <RelatorioUnidadesModal info={unidadesModal} onClose={() => setUnidadesModal(null)} />
+      )}
+
       {/* Modal escolher condo (pra criar fatura num condo que nao tem nenhuma ainda) */}
       {showAddCondoModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
@@ -881,6 +917,100 @@ export default function ConsumosPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Modal: leitura por unidade (extraída do relatório) ─────────────
+function RelatorioUnidadesModal({ info, onClose }) {
+  const { nome, empresa, mes, servico, loading, unidades, erro } = info;
+  const lista = unidades || [];
+
+  // Estatísticas + detecção de unidade anômala (m³ > 2× mediana)
+  const consumos = lista.map(u => Number(u.m3_total) || 0).filter(v => v > 0).sort((a, b) => a - b);
+  const mediana = consumos.length ? consumos[Math.floor(consumos.length / 2)] : 0;
+  const limiarAnomalia = mediana * 2;
+  const somaM3 = lista.reduce((s, u) => s + (Number(u.m3_total) || 0), 0);
+  const somaValor = lista.reduce((s, u) => s + (Number(u.valor_total) || 0), 0);
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+      <div className="bg-slate-900 border border-sky-500/20 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
+              {servico === 'gas' ? <span className="text-lg">🔥</span> : <Droplet className="w-5 h-5 text-sky-400" />}
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">{nome || 'Relatório'}</h3>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+                {empresa} · {servico === 'gas' ? 'Gás' : 'Água'} · {MESES_LONG[mes]} · leitura por unidade
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+
+        {/* Resumo */}
+        {!loading && !erro && lista.length > 0 && (
+          <div className="px-6 py-3 border-b border-slate-800 grid grid-cols-3 gap-3 text-center shrink-0">
+            <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Unidades</p><p className="text-lg font-black text-white">{lista.length}</p></div>
+            <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Consumo total</p><p className="text-lg font-black text-sky-300">{somaM3.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} m³</p></div>
+            <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Valor total</p><p className="text-lg font-black text-emerald-300">R$ {fmtBRL(somaValor)}</p></div>
+          </div>
+        )}
+
+        <div className="overflow-auto p-4">
+          {loading ? (
+            <p className="text-sm text-slate-400 text-center py-12 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando leituras...</p>
+          ) : erro ? (
+            <p className="text-sm text-amber-300 text-center py-12 flex items-center justify-center gap-2"><AlertTriangle className="w-4 h-4" /> {erro}</p>
+          ) : lista.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-12">Nenhuma unidade encontrada.</p>
+          ) : (
+            <table className="w-full text-xs border-collapse">
+              <thead className="sticky top-0 bg-slate-900">
+                <tr className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+                  <th className="text-left px-2 py-2">Apto</th>
+                  <th className="text-left px-2 py-2">Leituras (ant → atual)</th>
+                  <th className="text-right px-2 py-2">Consumo m³</th>
+                  <th className="text-right px-2 py-2">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map((u, i) => {
+                  const m3 = Number(u.m3_total) || 0;
+                  const anomala = limiarAnomalia > 0 && m3 > limiarAnomalia;
+                  return (
+                    <tr key={`${u.apto}-${i}`} className={`border-t border-white/5 ${anomala ? 'bg-amber-500/10' : 'hover:bg-white/[0.02]'}`}>
+                      <td className="px-2 py-1.5 font-bold text-slate-200">{u.apto}</td>
+                      <td className="px-2 py-1.5 text-slate-400 font-mono text-[11px]">
+                        {(u.medidores || []).map((m, j) => (
+                          <span key={j} className="inline-block mr-3">
+                            {m.ant != null ? m.ant : '—'} → {m.atual != null ? m.atual : '—'}
+                            <span className="text-slate-600"> ({m.consumo != null ? m.consumo : '—'})</span>
+                          </span>
+                        ))}
+                      </td>
+                      <td className={`px-2 py-1.5 text-right font-mono font-bold ${anomala ? 'text-amber-300' : 'text-sky-300'}`}>
+                        {m3.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
+                        {anomala && <AlertTriangle className="inline w-3 h-3 ml-1 text-amber-400" />}
+                      </td>
+                      <td className="px-2 py-1.5 text-right font-mono text-white">R$ {fmtBRL(u.valor_total)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {!loading && !erro && lista.length > 0 && limiarAnomalia > 0 && (
+          <div className="px-6 py-2.5 border-t border-slate-800 text-[10px] text-slate-500 flex items-center gap-2 shrink-0">
+            <span className="inline-block w-3 h-3 rounded bg-amber-500/20 border border-amber-500/40" />
+            Destacado: consumo &gt; 2× a mediana ({(limiarAnomalia).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m³)
+          </div>
+        )}
+      </div>
     </div>
   );
 }

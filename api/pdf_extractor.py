@@ -64,20 +64,89 @@ def parse_int(s) -> Optional[int]:
         return None
 
 
+def detect_tipo_servico(text: str) -> str:
+    """Detecta 'agua' ou 'gas' no relatório. Prioriza o título 'Consumo (Água/Gás)',
+    porque o corpo dos relatórios de água cita 'Água e Gás' e 'Tarifa Sabesp'."""
+    up = text.upper()
+    m = re.search(r'CONSUMO\s*\(\s*(ÁGUA|AGUA|GÁS|GAS)\s*\)', up)
+    if m:
+        return 'gas' if m.group(1).startswith('G') else 'agua'
+    if '(ÁGUA)' in up or '(AGUA)' in up:
+        return 'agua'
+    if '(GÁS)' in up or '(GAS)' in up:
+        return 'gas'
+    # último recurso: contagem de ocorrências
+    n_gas = up.count('GÁS') + up.count(' GAS')
+    n_agua = up.count('ÁGUA') + up.count('AGUA')
+    return 'gas' if n_gas > n_agua else 'agua'
+
+
+def parse_relatorio_units(tables: list) -> list:
+    """
+    Extrai a tabela de leitura unidade-a-unidade dos relatórios (Prosper/etc).
+    Layout Prosper (água): colunas APTO | LEIT.ANT. | LEIT.ATUAL | M³ | M³ Total | ÁGUA | ESGOTO | TOTAL,
+    onde cada apartamento ocupa N linhas (1 por hidrômetro); a 1ª linha carrega
+    APTO + M³ Total + valores, e as linhas seguintes só as leituras dos outros medidores.
+    Tabelas de continuação (próximas páginas) vêm sem cabeçalho.
+
+    Retorna lista de:
+      { apto, m3_total, valor_agua?, valor_esgoto?, valor_total,
+        medidores: [{ ant, atual, consumo }, ...] }
+    Defensivo: tolera larguras diferentes (gás pode ter menos colunas).
+    """
+    units = []
+    cur = None
+    for t in tables:
+        if not t:
+            continue
+        width = max((len(r) for r in t), default=0)
+        if width < 5:
+            continue  # tabela pequena (cabeçalho/totais), não é a de unidades
+        # só processa se parece a tabela de unidades (alguma 1ª célula = nº de apto)
+        if not any((r and (r[0] or '').strip().isdigit()) for r in t):
+            continue
+        for row in t:
+            row = list(row) + [None] * (width - len(row))
+            c0 = (row[0] or '').strip()
+            if c0.upper() == 'APTO':
+                continue
+            if c0.isdigit():
+                cur = {
+                    'apto': c0,
+                    'm3_total': parse_brl(row[4]) if width > 4 else None,
+                    'valor_total': parse_brl(row[width - 1]),
+                    'medidores': [{'ant': parse_brl(row[1]), 'atual': parse_brl(row[2]), 'consumo': parse_brl(row[3])}],
+                }
+                if width >= 8:
+                    cur['valor_agua'] = parse_brl(row[5])
+                    cur['valor_esgoto'] = parse_brl(row[6])
+                units.append(cur)
+            elif cur and (row[1] or row[2] or row[3]):
+                cur['medidores'].append({'ant': parse_brl(row[1]), 'atual': parse_brl(row[2]), 'consumo': parse_brl(row[3])})
+    return units
+
+
 # ===== Detector =====
 def detect_tipo(text: str):
-    """Detecta tipo (fatura/relatorio) e subtipo (SABESP/COMGAS/ENEL/Prosper/Hidrogeotec)."""
+    """Detecta tipo (fatura/relatorio) e subtipo (SABESP/COMGAS/ENEL/Prosper/Hidrogeotec).
+
+    IMPORTANTE: empresas de relatório (Prosper/Hidrogeotec) têm prioridade sobre as
+    concessionárias, porque os relatórios de água citam "Tarifa Sabesp"/"Valor Sabesp"
+    no corpo e seriam classificados erradamente como fatura SABESP.
+    """
     upper = text[:3000].upper()
+    # 1) Relatórios de leitura primeiro (prioridade)
+    if 'PROSPER' in upper:
+        return ('relatorio', 'Prosper')
+    if 'HIDROGEOTEC' in upper:
+        return ('relatorio', 'Hidrogeotec')
+    # 2) Concessionárias
     if 'SABESP' in upper:
         return ('fatura', 'SABESP')
     if 'COMGAS' in upper or 'COMGÁS' in upper or 'COMPANHIA DE GÁS' in upper or 'COMPANHIA DE GAS' in upper:
         return ('fatura', 'COMGAS')
     if 'ENEL' in upper or 'ELETROPAULO' in upper:
         return ('fatura', 'ENEL')
-    if 'PROSPER' in upper:
-        return ('relatorio', 'Prosper')
-    if 'HIDROGEOTEC' in upper:
-        return ('relatorio', 'Hidrogeotec')
     return (None, None)
 
 
@@ -193,8 +262,7 @@ class ProsperExtractor:
     """
     @staticmethod
     def extract(text: str) -> dict:
-        upper_text = text.upper()
-        tipo_servico = 'gas' if 'GÁS' in upper_text or 'GAS' in upper_text else 'agua'
+        tipo_servico = detect_tipo_servico(text)
 
         return {
             'cliente': find_first(text, [
@@ -224,8 +292,7 @@ class HidrogeotecExtractor:
     """
     @staticmethod
     def extract(text: str) -> dict:
-        upper_text = text.upper()
-        tipo_servico = 'gas' if 'GÁS' in upper_text or 'GAS' in upper_text else 'agua'
+        tipo_servico = detect_tipo_servico(text)
         return {
             'cliente': find_first(text, [
                 r'Condom[íi]nio\s+([A-Z][A-Za-z\s]+?)\s*\n',
@@ -271,12 +338,17 @@ def extract_pdf(file_bytes: bytes) -> dict:
       texto_bruto: str (debug, primeiros 5000 chars)
     """
     import pdfplumber  # type: ignore  # lazy: evita custo de import no cold-start
+    text = ''
+    all_tables = []
     try:
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            text = ''
             for page in pdf.pages:
-                page_text = page.extract_text() or ''
-                text += page_text + '\n'
+                text += (page.extract_text() or '') + '\n'
+            # Pré-detecção: só vale extrair tabelas se for relatório (faturas não precisam)
+            pre_tipo, _ = detect_tipo(text)
+            if pre_tipo == 'relatorio':
+                for page in pdf.pages:
+                    all_tables.extend(page.extract_tables() or [])
     except Exception as e:
         return {'erro': f'Falha ao ler PDF: {e}', 'confianca': 0.0}
 
@@ -307,10 +379,20 @@ def extract_pdf(file_bytes: bytes) -> dict:
 
     data = ExtractorCls.extract(text)
 
-    # Confiança = % de campos não-None entre os esperados
+    # Confiança = % de campos escalares não-None entre os esperados
     expected_fields = list(data.keys())
     filled = sum(1 for k in expected_fields if data.get(k) is not None)
     confianca = filled / len(expected_fields) if expected_fields else 0.0
+
+    # Relatórios: anexa a tabela de leitura por unidade (não entra na confiança)
+    if tipo == 'relatorio' and all_tables:
+        unidades = parse_relatorio_units(all_tables)
+        if unidades:
+            data['unidades'] = unidades
+            data['unidades_count'] = len(unidades)
+            # Cross-check / fallback do número de unidades
+            if not data.get('numero_unidades'):
+                data['numero_unidades'] = len(unidades)
 
     return {
         'tipo': tipo,
