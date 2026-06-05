@@ -128,9 +128,9 @@ def parse_relatorio_units(tables: list) -> list:
 
 # ===== Detector =====
 def detect_tipo(text: str):
-    """Detecta tipo (fatura/relatorio) e subtipo (SABESP/COMGAS/ENEL/Prosper/Hidrogeotec).
+    """Detecta tipo (fatura/relatorio) e subtipo (SABESP/COMGAS/ENEL/Prosper).
 
-    IMPORTANTE: empresas de relatório (Prosper/Hidrogeotec) têm prioridade sobre as
+    IMPORTANTE: empresas de relatório (Prosper) têm prioridade sobre as
     concessionárias, porque os relatórios de água citam "Tarifa Sabesp"/"Valor Sabesp"
     no corpo e seriam classificados erradamente como fatura SABESP.
     """
@@ -138,8 +138,6 @@ def detect_tipo(text: str):
     # 1) Relatórios de leitura primeiro (prioridade)
     if 'PROSPER' in upper:
         return ('relatorio', 'Prosper')
-    if 'HIDROGEOTEC' in upper:
-        return ('relatorio', 'Hidrogeotec')
     # 2) Concessionárias
     if 'SABESP' in upper:
         return ('fatura', 'SABESP')
@@ -284,46 +282,12 @@ class ProsperExtractor:
         }
 
 
-class HidrogeotecExtractor:
-    """
-    Layout Hidrogeotec — PRECISA DE SAMPLE PRA AJUSTAR.
-    Por enquanto usa heurística genérica (mesmo formato de campos do Prosper).
-    TODO: ajustar regexes quando receber sample real do usuário.
-    """
-    @staticmethod
-    def extract(text: str) -> dict:
-        tipo_servico = detect_tipo_servico(text)
-        return {
-            'cliente': find_first(text, [
-                r'Condom[íi]nio\s+([A-Z][A-Za-z\s]+?)\s*\n',
-                r'(COND[\s\.]+[A-Z][A-Z\s]+?)\s*\n',
-            ]),
-            'tipo_servico': tipo_servico,
-            'data_leitura': parse_date_br(find_first(text, [
-                r'Data\s+(?:da\s+)?Leitura[:\s]+(\d{1,2}/\d{1,2}/\d{4})',
-            ])),
-            'numero_unidades': parse_int(find_first(text, [
-                r'N[úu]mero\s+de\s+Unidades[:\s]+(\d+)',
-                r'(\d+)\s+unidades',
-            ])),
-            'valor_total': parse_brl(find_first(text, [
-                r'Total[:\s]+R\$\s*([\d\.\,]+)',
-                r'Valor[:\s]+R\$\s*([\d\.\,]+)',
-            ])),
-            'consumo_total': parse_brl(find_first(text, [
-                r'M[³3][:\s]+([\d\.\,]+)',
-                r'Consumo[:\s]+([\d\.\,]+)',
-            ])),
-        }
-
-
 # ===== Main entry =====
 EXTRACTORS = {
     'SABESP': SabespExtractor,
     'COMGAS': ComgasExtractor,
     'ENEL': EnelExtractor,
     'Prosper': ProsperExtractor,
-    'Hidrogeotec': HidrogeotecExtractor,
 }
 
 

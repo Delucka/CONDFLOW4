@@ -5,7 +5,7 @@
 > **Sessão anterior**: implementou Migration 0040 + endpoints `check-duplicata-completa` e `sancionar-repeticao` + UI manual de Relatório/Concessionária
 >
 > **Esta sessão** implementou: migration 0041 (status de extração + colunas de leitura na fatura + trigger atualizado), `api/pdf_extractor.py` (5 extractors, parsers testados), endpoint `POST /api/consumos/extrair-pdf`, refator do `VisaoEmissor.js` (extração automática + modal de revisão), e dashboard no topo do `/consumos` (stats + banner de alertas + feed, com relatórios de leitura incluídos, polling SWR 30s).
-> **Pendente**: Hidrogeotec usa fallback genérico até o usuário mandar um sample real (extractor marcado com TODO).
+> **Atualização 04/06 (tarde)**: extração de tabela por unidade dos relatórios Prosper implementada e validada (sample Rossini, 52 unidades). Corrigidos 2 bugs (Prosper detectado como SABESP; água/gás trocado). **Hidrogeotec removido** — o cliente confirmou que não usa essa empresa (era só exemplo no plano original). Suporte a relatórios = Prosper + "Outra".
 
 ---
 

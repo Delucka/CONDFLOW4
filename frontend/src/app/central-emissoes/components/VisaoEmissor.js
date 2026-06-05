@@ -972,7 +972,7 @@ export default function VisaoEmissor({ profile }) {
                   <div className="flex flex-col items-center gap-1 text-sky-400 group-hover:text-sky-300">
                     <ClipboardCheck className="w-5 h-5" />
                     <span className="text-[10px] font-black uppercase tracking-widest">+ Relatório</span>
-                    <span className="text-[9px] text-sky-500/70 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> Prosper / Hidrogeotec</span>
+                    <span className="text-[9px] text-sky-500/70 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> Leitura individualizada</span>
                   </div>
                 </div>
 
@@ -1748,7 +1748,7 @@ function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
   // Estado dos campos
   const detectado = extracao?.subtipo || '';
   const empresasFatura = ['SABESP', 'COMGAS', 'ENEL'];
-  const empresasRelatorio = ['Prosper', 'Hidrogeotec'];
+  const empresasRelatorio = ['Prosper'];
   const lista = ehFatura ? empresasFatura : empresasRelatorio;
   const detectadoNaLista = lista.includes(detectado);
 

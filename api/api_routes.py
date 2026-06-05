@@ -2226,7 +2226,7 @@ async def api_extrair_pdf(
     db: Client = Depends(get_db),
 ):
     """
-    Extrai dados de um PDF de fatura (SABESP/COMGAS/ENEL) ou relatorio (Prosper/Hidrogeotec).
+    Extrai dados de um PDF de fatura (SABESP/COMGAS/ENEL) ou relatorio (Prosper).
     Se condominio_id+mes+ano forem passados, tambem roda o check de duplicata.
     Retorna: { extracao: {...}, alertas: [...], anomalia: {...}, bloqueia: bool }
     """

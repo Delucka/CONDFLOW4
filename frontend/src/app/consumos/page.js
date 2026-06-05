@@ -377,7 +377,7 @@ export default function ConsumosPage() {
   );
   const todasFaturas = matrizData?.consumos || [];
 
-  // Relatórios de leitura do ano (Prosper/Hidrogeotec) — direto do Supabase, polling 30s
+  // Relatórios de leitura do ano (Prosper/Outra) — direto do Supabase, polling 30s
   const [relatorios, setRelatorios] = useState([]);
   const fetchRelatorios = useCallback(async () => {
     const { data } = await supabase
