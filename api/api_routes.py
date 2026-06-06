@@ -2231,12 +2231,21 @@ async def api_extrair_pdf(
     Retorna: { extracao: {...}, alertas: [...], anomalia: {...}, bloqueia: bool }
     """
     import hashlib
-    from pdf_extractor import extract_pdf
+    from pdf_extractor import extract_pdf, cnpj_to_passwords
 
     contents = await file.read()
     arquivo_hash = hashlib.sha256(contents).hexdigest()
 
-    extracao = extract_pdf(contents)
+    # Senhas-candidatas para PDFs protegidos (derivadas do CNPJ do condominio)
+    passwords = []
+    if condominio_id:
+        try:
+            cres = db.table("condominios").select("cnpj").eq("id", condominio_id).maybeSingle().execute()
+            passwords = cnpj_to_passwords((cres.data or {}).get("cnpj"))
+        except Exception as e:
+            print(f"[extrair-pdf] falha ao buscar cnpj do condo: {e}")
+
+    extracao = extract_pdf(contents, passwords=passwords)
     extracao['arquivo_hash'] = arquivo_hash
     extracao['arquivo_nome'] = file.filename
 

@@ -373,8 +373,9 @@ export default function VisaoEmissor({ profile }) {
 
       // 2) Upload do arquivo
       const extensao = fileInput.name.split('.').pop().toLowerCase();
+      const displayName = opts.nomeArquivo || fileInput.name;  // nome padronizado quando houver
       const randomId = Math.random().toString(36).substring(7);
-      const filePath = `${activePacote.condominio_id}/${ano}/${mes}/${categoria}/${randomId}_${fileInput.name}`;
+      const filePath = `${activePacote.condominio_id}/${ano}/${mes}/${categoria}/${randomId}_${displayName}`;
       const { error: uploadError } = await supabase.storage.from('emissoes').upload(filePath, fileInput);
       if (uploadError) throw uploadError;
 
@@ -386,7 +387,7 @@ export default function VisaoEmissor({ profile }) {
         categoria,
         subtipo,
         arquivo_url: filePath,
-        arquivo_nome: fileInput.name,
+        arquivo_nome: displayName,
         formato: extensao,
         mes_referencia: mes,
         ano_referencia: ano,
@@ -500,7 +501,10 @@ export default function VisaoEmissor({ profile }) {
       }
 
       // 3) Confiança alta + sem bloqueio -> anexa direto
-      await handleUploadArquivo(file, { categoria, subtipo, extras, skipDuplicataCheck: true });
+      const nomeArquivo = nomeArquivoPadrao(categoria, subtipo, extracao, file.name,
+        condominios.find(c => c.id === activePacote.condominio_id)?.name);
+      await handleUploadArquivo(file, { categoria, subtipo, extras, skipDuplicataCheck: true, nomeArquivo });
+      if (extracao?.desbloqueado) addToast('🔓 PDF protegido foi desbloqueado automaticamente.', 'info');
       const avisos = (alertas || []).filter(a => a.nivel === 'aviso');
       if (avisos.length) addToast(`⚠ ${avisos[0].mensagem}`, 'warning');
     } catch (e) {
@@ -514,7 +518,9 @@ export default function VisaoEmissor({ profile }) {
   // Reroda a checagem de duplicata com os valores finais (skip = false).
   async function confirmarRevisao(categoria, subtipo, extras, file) {
     setRevisaoInfo(null);
-    await handleUploadArquivo(file, { categoria, subtipo, extras, skipDuplicataCheck: false });
+    const nomeArquivo = nomeArquivoPadrao(categoria, subtipo, extras, file.name,
+      condominios.find(c => c.id === activePacote?.condominio_id)?.name);
+    await handleUploadArquivo(file, { categoria, subtipo, extras, skipDuplicataCheck: false, nomeArquivo });
   }
 
   async function handleDeleteArquivo(e, id, path) {
@@ -1722,6 +1728,32 @@ function FaturaInlineForm({ arq, condoNome, maskValor, parseValor, saving, onCan
   );
 }
 
+
+// Gera nome de arquivo padronizado a partir dos dados extraídos/revisados.
+// Fatura:    "0066 - LUCRECIA - SABESP - 25-05-2026 - R$ 11.108,90.pdf"
+// Relatório: "0374 - ROSSINI - PROSPER - agua - R$ 13.900,49.pdf"
+// `src` pode ser o dict da extração OU o objeto de extras (lê chaves de ambos).
+function nomeArquivoPadrao(categoria, subtipo, src, originalName, condoName) {
+  try {
+    const ext = (String(originalName || '').split('.').pop() || 'pdf').toLowerCase();
+    const m = String(condoName || '').match(/^\s*(\d+)\s*[-–]?\s*(.*)$/);
+    const numero = m ? m[1].padStart(4, '0') : '';
+    const nome = (m ? m[2] : (condoName || '')).trim().toUpperCase();
+    const venc = src?.vencimento || src?.vencimento_fatura || null;
+    const valor = src?.valor ?? src?.valor_total ?? src?.valor_fatura ?? src?.relatorio_valor_total ?? null;
+    const servico = src?.tipo_servico || src?.relatorio_tipo_servico || null;
+
+    const partes = [numero, nome, String(subtipo || '').toUpperCase()].filter(Boolean);
+    if (categoria === 'relatorio_leitura' && servico) partes.push(servico);
+    let base = partes.join(' - ');
+    if (venc) base += ` - ${String(venc).split('-').reverse().join('-')}`; // YYYY-MM-DD -> DD-MM-YYYY
+    if (valor != null) base += ` - R$ ${Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    base = base.replace(/[\\/*?:"<>|]/g, '').replace(/\s+/g, ' ').trim();
+    return base ? `${base}.${ext}` : (originalName || 'arquivo.pdf');
+  } catch {
+    return originalName || 'arquivo.pdf';
+  }
+}
 
 // Converte "1.234,56" (pt-BR) ou "1234.56" em número; null se vazio/ inválido.
 function parseNumBR(v) {

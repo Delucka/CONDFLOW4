@@ -291,7 +291,59 @@ EXTRACTORS = {
 }
 
 
-def extract_pdf(file_bytes: bytes) -> dict:
+def unlock_pdf_bytes(file_bytes: bytes, passwords: Optional[list] = None):
+    """
+    Se o PDF estiver protegido por senha, tenta destravar com as senhas-candidatas.
+    Retorna (bytes_utilizaveis, status):
+      - ('aberto')        : não estava protegido, devolve os bytes originais
+      - ('desbloqueado')  : estava protegido e foi destravado com uma das senhas
+      - ('protegido')     : protegido e nenhuma senha funcionou (bytes_utilizaveis=None)
+    """
+    import pikepdf  # type: ignore  # lazy
+    # 1) Tenta abrir sem senha — se abrir, não está protegido
+    try:
+        with pikepdf.open(io.BytesIO(file_bytes)):
+            return file_bytes, 'aberto'
+    except pikepdf.PasswordError:
+        pass
+    except Exception:
+        # arquivo problemático mas não necessariamente protegido; deixa o pdfplumber tentar
+        return file_bytes, 'aberto'
+    # 2) Protegido: tenta cada senha-candidata
+    for pw in (passwords or []):
+        if not pw:
+            continue
+        try:
+            with pikepdf.open(io.BytesIO(file_bytes), password=str(pw)) as pdf:
+                out = io.BytesIO()
+                pdf.save(out)
+                return out.getvalue(), 'desbloqueado'
+        except pikepdf.PasswordError:
+            continue
+        except Exception:
+            continue
+    return None, 'protegido'
+
+
+def cnpj_to_passwords(cnpj: Optional[str]) -> list:
+    """Deriva senhas-candidatas a partir do CNPJ (apenas dígitos).
+    Convenção das concessionárias BR: primeiros 3 (SABESP/COMGAS), 4 (Vivo) ou 5 dígitos.
+    Tenta todas pra não depender de detectar a concessionária antes de abrir o PDF."""
+    if not cnpj:
+        return []
+    d = re.sub(r'\D', '', str(cnpj))
+    if not d:
+        return []
+    cands = [d[:3], d[:4], d[:5], d[:6], d[:8], d]
+    seen, out = set(), []
+    for c in cands:
+        if c and c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+def extract_pdf(file_bytes: bytes, passwords: Optional[list] = None) -> dict:
     """
     Ponto de entrada. Aceita bytes do PDF, retorna dict com:
       tipo: 'fatura' | 'relatorio' | None
@@ -299,9 +351,25 @@ def extract_pdf(file_bytes: bytes) -> dict:
       cliente, vencimento, valor, ... (campos extraídos, None se não achou)
       confianca: 0.0 a 1.0
       erro: str ou None
+      desbloqueado: bool (True se o PDF veio com senha e foi destravado)
       texto_bruto: str (debug, primeiros 5000 chars)
+
+    `passwords`: lista de senhas-candidatas para PDFs protegidos (ex.: derivadas do CNPJ).
     """
     import pdfplumber  # type: ignore  # lazy: evita custo de import no cold-start
+
+    # 0) Desbloqueio de PDF protegido por senha
+    usable, lock_status = unlock_pdf_bytes(file_bytes, passwords)
+    if lock_status == 'protegido':
+        return {
+            'erro': 'PDF protegido por senha e não foi possível destravar (CNPJ do condomínio ausente ou senha fora do padrão).',
+            'confianca': 0.0,
+            'protegido': True,
+            'texto_bruto': '',
+        }
+    file_bytes = usable
+    desbloqueado = (lock_status == 'desbloqueado')
+
     text = ''
     all_tables = []
     try:
@@ -363,6 +431,7 @@ def extract_pdf(file_bytes: bytes) -> dict:
         'subtipo': subtipo,
         'confianca': round(confianca, 2),
         'erro': None,
+        'desbloqueado': desbloqueado,
         'texto_bruto': text[:5000],
         **data,
     }
