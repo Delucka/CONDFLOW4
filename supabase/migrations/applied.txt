@@ -44,3 +44,4 @@
 0039_resposta_correcao.sql
 0040_consumos_relatorios_leitura.sql
 0041_status_extracao.sql
+0042_condominios_cnpj.sql
