@@ -30,7 +30,6 @@ export default function ImportarGerentesPage() {
   const [msg, setMsg] = useState('');
 
   async function fetchGhosts() {
-    console.log('[importar-gerentes] fetchGhosts start');
     setLoading(true);
     setErroLoad(null);
     try {
@@ -46,8 +45,6 @@ export default function ImportarGerentesPage() {
       }
 
       const list = data || [];
-      console.log('[importar-gerentes] ghosts:', list.length);
-
       const ids = list.map(g => g.id);
       let condoCounts = {};
       if (ids.length) {
