@@ -27,21 +27,21 @@ export function ToastProvider({ children }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto animate-slide-in flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium shadow-2xl min-w-[300px] ${
+            className={`pointer-events-auto animate-slide-in flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium shadow-lg min-w-[300px] bg-white ${
               toast.type === 'success'
-                ? 'bg-slate-900 text-emerald-400 border-emerald-500/20 shadow-emerald-500/10'
-                : 'bg-slate-900 text-red-400 border-red-500/20 shadow-red-500/10'
+                ? 'text-emerald-700 border-emerald-200'
+                : 'text-rose-700 border-rose-200'
             }`}
           >
             {toast.type === 'success' ? (
-              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />
             ) : (
-              <AlertCircle className="w-5 h-5 shrink-0" />
+              <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />
             )}
-            <span className="flex-1">{toast.message}</span>
+            <span className="flex-1 text-slate-700">{toast.message}</span>
             <button
               onClick={() => removeToast(toast.id)}
-              className="text-slate-500 hover:text-slate-300 transition-colors"
+              className="text-slate-400 hover:text-slate-600 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>

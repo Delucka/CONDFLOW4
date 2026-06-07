@@ -1,10 +1,10 @@
 export default function StatsCard({ title, value, icon: Icon, color }) {
   const colorMap = {
-    cyan:    { bg: 'bg-cyan-500/10',    text: 'text-cyan-400'    },
-    orange:  { bg: 'bg-orange-500/10',  text: 'text-orange-400'  },
-    indigo:  { bg: 'bg-indigo-500/10',  text: 'text-indigo-400'  },
-    emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
-    blue:    { bg: 'bg-blue-500/10',    text: 'text-blue-400'    },
+    cyan:    { bg: 'bg-cyan-50',    text: 'text-cyan-600'    },
+    orange:  { bg: 'bg-orange-50',  text: 'text-orange-600'  },
+    indigo:  { bg: 'bg-indigo-50',  text: 'text-indigo-600'  },
+    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+    blue:    { bg: 'bg-blue-50',    text: 'text-blue-600'    },
   };
   const theme = colorMap[color] || colorMap.cyan;
 
@@ -14,8 +14,8 @@ export default function StatsCard({ title, value, icon: Icon, color }) {
         {Icon ? <Icon className="w-4 h-4" /> : null}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest truncate">{title}</p>
-        <p className="text-xl font-black text-white leading-tight">{value}</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{title}</p>
+        <p className="text-xl font-black text-slate-900 leading-tight">{value}</p>
       </div>
     </div>
   );

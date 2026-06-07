@@ -25,7 +25,17 @@
       "Bash(tail -10 /c/Users/Pichau/AppData/Local/Temp/claude/C--projetos-condominios--claude-worktrees-crazy-dirac-81fa04/cc000aaa-3734-4cc3-a8fe-a348fa1d5f90/tasks/bzzrp3iaw.output 2>/dev/null)",
       "Skill(update-config)",
       "Skill(update-config:*)",
-      "Bash(python -c \"import json; d=json.load\\(open\\(r'C:\\\\projetos\\\\condominios\\\\.claude\\\\settings.json'\\)\\); print\\('OK'\\)\")"
+      "Bash(python -c \"import json; d=json.load\\(open\\(r'C:\\\\projetos\\\\condominios\\\\.claude\\\\settings.json'\\)\\); print\\('OK'\\)\")",
+      "Read(//tmp/**)",
+      "Bash(unzip -q \"/c/Users/Pichau/Downloads/skill frontend.zip\")",
+      "Bash(head -30 /tmp/skill-inspect/SKILL.md)",
+      "Bash(grep -n \"references/\" /tmp/skill-inspect/SKILL.md | head -10)",
+      "Bash(mkdir -p ~/.claude/skills/frontend-pro/references)",
+      "Bash(cp /tmp/skill-inspect/SKILL.md ~/.claude/skills/frontend-pro/SKILL.md)",
+      "Bash(cp /tmp/skill-inspect/aesthetics.md ~/.claude/skills/frontend-pro/references/aesthetics.md)",
+      "Bash(cp /tmp/skill-inspect/ux-patterns.md ~/.claude/skills/frontend-pro/references/ux-patterns.md)",
+      "Bash(cp /tmp/skill-inspect/integrating-existing-project.md ~/.claude/skills/frontend-pro/references/integrating-existing-project.md)",
+      "Bash(rm -rf /tmp/skill-inspect)"
     ]
   }
 }

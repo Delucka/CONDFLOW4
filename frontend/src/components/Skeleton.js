@@ -4,19 +4,19 @@
 export function SkeletonLine({ className = '', width }) {
   return (
     <span
-      className={`inline-block h-3 rounded bg-white/10 animate-pulse ${className}`}
+      className={`inline-block h-3 rounded bg-slate-200 animate-pulse ${className}`}
       style={width ? { width } : undefined}
     />
   );
 }
 
 export function SkeletonBox({ className = '' }) {
-  return <div className={`rounded-2xl bg-white/5 animate-pulse ${className}`} />;
+  return <div className={`rounded-2xl bg-slate-100 animate-pulse ${className}`} />;
 }
 
 export function SkeletonRow({ cols = 4 }) {
   return (
-    <tr className="border-b border-white/5">
+    <tr className="border-b border-slate-200">
       {Array.from({ length: cols }).map((_, i) => (
         <td key={i} className="px-6 py-4">
           <SkeletonLine width={`${60 + (i % 3) * 20}%`} />
@@ -52,11 +52,11 @@ export function SkeletonList({ items = 5 }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: items }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 animate-pulse">
-          <div className="w-10 h-10 rounded-xl bg-white/10 shrink-0" />
+        <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 animate-pulse">
+          <div className="w-10 h-10 rounded-xl bg-slate-200 shrink-0" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 rounded bg-white/10" style={{ width: '70%' }} />
-            <div className="h-2 rounded bg-white/10" style={{ width: '40%' }} />
+            <div className="h-3 rounded bg-slate-200" style={{ width: '70%' }} />
+            <div className="h-2 rounded bg-slate-200" style={{ width: '40%' }} />
           </div>
         </div>
       ))}

@@ -1,71 +1,97 @@
 @import "tailwindcss";
 
+/* ============================================================
+   TEMA CLARO PROFISSIONAL — CondoFlow
+   Fundo neutro + texto escuro + cor pontual (ação/status/alerta)
+   ============================================================ */
+
 @theme {
-  --color-brand-bg: #030712; /* Quase preto azulado (gray-950) */
-  --color-brand-glass: rgba(17, 24, 39, 0.6); /* Transparência forte */
-  --color-brand-border: rgba(255, 255, 255, 0.08);
-  --color-brand-accent: #8b5cf6; /* Roxo sofisticado */
-  --color-brand-glow: #22d3ee; /* Ciano mágico */
+  /* Superfícies */
+  --color-surface-app:    #f5f6f8;  /* fundo geral */
+  --color-surface:        #ffffff;  /* cards/painéis */
+  --color-surface-2:      #f8fafc;  /* hover de linha / sutil */
+  --color-surface-sunken: #f1f5f9;  /* áreas rebaixadas */
+
+  /* Texto */
+  --color-text-primary:   #0f172a;  /* títulos/valores */
+  --color-text-secondary: #475569;  /* corpo */
+  --color-text-muted:     #94a3b8;  /* labels/captions */
+
+  /* Bordas */
+  --color-border-subtle:  #e9edf2;
+  --color-border-default: #dfe4ea;
+  --color-border-strong:  #cbd5e1;
+
+  /* Brand (identidade do logo — usar com moderação) */
+  --color-brand:          #6d28d9;
+  --color-brand-hover:    #5b21b6;
+  --color-brand-soft:     #f3effe;
+
+  /* Glow legado (mantido p/ logo gradient) */
+  --color-brand-accent:   #6d28d9;
+  --color-brand-glow:     #06b6d4;
 }
 
-/* ─── Fundo Minimalista (Global) ─── */
+/* ─── Fundo claro neutro (Global) ─── */
 body {
-  background-color: var(--color-brand-bg) !important;
-  background-image:
-    radial-gradient(circle at 15% 15%, rgba(139, 92, 246, 0.05), transparent 50%),
-    radial-gradient(circle at 85% 85%, rgba(34, 211, 238, 0.05), transparent 50%) !important;
-  background-attachment: fixed;
-  color: #f3f4f6;
+  background-color: var(--color-surface-app) !important;
+  background-image: none !important;
+  color: var(--color-text-secondary);
   min-height: 100vh;
 }
 
-/* ─── Painel Slim ─── */
+/* ─── Painéis ─── */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  transition: background 0.2s, border-color 0.2s;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
 .glass-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 
-/* ─── Componentes Globais Override ─── */
-/* Para garantir que o estilo Jinja antigo saia das tabelas */
+/* ─── Tabelas (limpa override antigo do Jinja) ─── */
 table { border-collapse: separate; border-spacing: 0; }
-th { background: rgba(0,0,0,0.2) !important; border-top: none !important; border-bottom: 1px solid rgba(255,255,255,0.05) !important;}
-td { border-bottom: 1px solid rgba(255,255,255,0.03) !important; }
-tr:hover td { background: rgba(255,255,255,0.02) !important; }
-
-/* ─── Botões e Inputs Modernos ─── */
-input, select, textarea {
-  background: rgba(0, 0, 0, 0.2) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: white !important;
-  border-radius: 0.75rem !important;
-  transition: all 0.2s;
+th {
+  background: var(--color-surface-2) !important;
+  border-top: none !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  color: var(--color-text-muted);
 }
+td { border-bottom: 1px solid var(--color-border-subtle) !important; }
+tr:hover td { background: var(--color-surface-2) !important; }
+
+/* ─── Inputs ─── */
+input, select, textarea {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border-default) !important;
+  color: var(--color-text-primary) !important;
+  border-radius: 0.625rem !important;
+  transition: all 0.15s;
+}
+input::placeholder, textarea::placeholder { color: var(--color-text-muted) !important; }
 input:focus, select:focus, textarea:focus {
-  border-color: var(--color-brand-accent) !important;
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
+  border-color: var(--color-brand) !important;
+  box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.12) !important;
   outline: none;
 }
 
-/* ─── Scrollbar Invisivel mas Funcional ─── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+/* ─── Scrollbar (clara, discreta) ─── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
 
-/* ─── Animações Baseadas no Plano Original ─── */
+/* ─── Animações ─── */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
@@ -74,28 +100,28 @@ input:focus, select:focus, textarea:focus {
 .animate-fade-up { animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
 .animate-slide-right { animation: slideRight 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
 
-/* Scrollbar do painel de conferência - SEMPRE visivel */
+/* ─── Scrollbar do painel de conferência (clara, sempre visível) ─── */
 .conf-scroll {
   scrollbar-width: auto !important;
-  scrollbar-color: #06b6d4 #1e293b !important;
+  scrollbar-color: #cbd5e1 #f1f5f9 !important;
 }
 .conf-scroll::-webkit-scrollbar {
-  width: 16px !important;
+  width: 14px !important;
   display: block !important;
   -webkit-appearance: none !important;
 }
 .conf-scroll::-webkit-scrollbar-track {
-  background: #1e293b !important;
+  background: #f1f5f9 !important;
   border-radius: 8px;
 }
 .conf-scroll::-webkit-scrollbar-thumb {
-  background: #06b6d4 !important;
+  background: #cbd5e1 !important;
   border-radius: 8px;
-  border: 2px solid #0f172a;
+  border: 3px solid #f1f5f9;
   min-height: 40px;
 }
 .conf-scroll::-webkit-scrollbar-thumb:hover {
-  background: #22d3ee !important;
+  background: #94a3b8 !important;
 }
 .conf-scroll::-webkit-scrollbar-button {
   display: none;

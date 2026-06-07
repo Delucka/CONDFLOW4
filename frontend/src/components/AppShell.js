@@ -56,28 +56,28 @@ export default function AppShell({ children }) {
   const pageTitle = TITLES[pathname] || defaultTitle || 'CondoFlow Premium';
 
   return (
-    <div className="h-screen flex p-3 md:p-4 gap-4 overflow-hidden selection:bg-violet-500/30 font-sans">
-      
+    <div className="h-screen flex p-3 md:p-4 gap-4 overflow-hidden selection:bg-violet-200 font-sans">
+
       {/* Sidebar Persistente (Nunca é reconstruída ao navegar) */}
       <Sidebar />
-      
+
       <main className="flex-1 flex flex-col min-w-0 min-h-0 glass-panel rounded-2xl overflow-hidden relative">
 
         {/* Header Fixo */}
-        <header className="h-[56px] px-5 flex flex-wrap items-center justify-between shrink-0 border-b border-white/5 z-20 relative">
+        <header className="h-[56px] px-5 flex flex-wrap items-center justify-between shrink-0 border-b border-slate-200 z-20 relative">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-black text-white tracking-tight">{pageTitle}</h2>
+            <h2 className="text-base font-black text-slate-900 tracking-tight">{pageTitle}</h2>
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="relative p-1.5 rounded-lg hover:bg-white/5 transition-all group">
-              <Bell className="w-4 h-4 text-gray-400 group-hover:text-white" />
-              <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-pink-500 rounded-full"></div>
+            <button className="relative p-1.5 rounded-lg hover:bg-slate-100 transition-all group">
+              <Bell className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
+              <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
             </button>
             <div className="hidden sm:flex items-center gap-2">
               <div className="text-right">
-                <p className="text-xs font-bold text-gray-200 leading-tight">Painel de Acesso</p>
-                <p className="text-[9px] uppercase font-bold text-violet-400 tracking-wider">Alto Fluxo API</p>
+                <p className="text-xs font-bold text-slate-700 leading-tight">Painel de Acesso</p>
+                <p className="text-[9px] uppercase font-bold text-violet-600 tracking-wider">Alto Fluxo API</p>
               </div>
             </div>
           </div>

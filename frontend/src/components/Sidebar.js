@@ -39,19 +39,19 @@ export default function Sidebar() {
           <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-cyan-500 rounded-xl flex items-center justify-center text-white shrink-0">
             <Zap className="w-4 h-4 fill-white" />
           </div>
-          {!collapsed && <h1 className="text-lg font-black tracking-tight text-white italic">CONDO<span className="text-cyan-400">FLOW</span></h1>}
+          {!collapsed && <h1 className="text-lg font-black tracking-tight text-slate-900 italic">CONDO<span className="text-violet-600">FLOW</span></h1>}
         </div>
 
         {profile && (
           <div className="px-3 mb-5">
-            <div className={`flex items-center gap-2.5 px-2.5 py-2 bg-white/[0.04] border border-white/5 rounded-xl ${collapsed ? 'justify-center p-2' : ''}`}>
+            <div className={`flex items-center gap-2.5 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl ${collapsed ? 'justify-center p-2' : ''}`}>
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
                 {profile.full_name?.[0]?.toUpperCase() || '?'}
               </div>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-gray-100 truncate">{profile.full_name}</p>
-                  <p className="text-[9px] uppercase font-bold text-violet-400 truncate tracking-widest">{roleLabel}</p>
+                  <p className="text-xs font-bold text-slate-800 truncate">{profile.full_name}</p>
+                  <p className="text-[9px] uppercase font-bold text-violet-600 truncate tracking-widest">{roleLabel}</p>
                 </div>
               )}
             </div>
@@ -59,14 +59,14 @@ export default function Sidebar() {
         )}
 
         <nav className="flex-1 overflow-y-auto px-3 space-y-1 overflow-x-hidden relative z-10">
-          {visibleNav.length > 0 && <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2 pl-2">Menu Principal</div>}
+          {visibleNav.length > 0 && <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 pl-2">Menu Principal</div>}
           {visibleNav.map((item) => {
             const active = isActive(item.href);
             const showBadge = item.showBadge && pendingCount > 0;
             return (
               <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors relative ${active ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'} ${collapsed ? 'justify-center px-0' : ''}`}>
-                <item.icon className={`w-4 h-4 shrink-0 ${active ? 'text-white' : 'text-gray-500'}`} />
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors relative ${active ? 'bg-violet-600 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'} ${collapsed ? 'justify-center px-0' : ''}`}>
+                <item.icon className={`w-4 h-4 shrink-0 ${active ? 'text-white' : 'text-slate-400'}`} />
                 {!collapsed && (
                   <div className="flex-1 flex justify-between items-center">
                     <span>{item.label}</span>
@@ -80,13 +80,13 @@ export default function Sidebar() {
 
           {visibleAdmin.length > 0 && (
             <>
-              <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-6 mb-2 pl-2">Configurações</div>
+              <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-6 mb-2 pl-2">Configurações</div>
               {visibleAdmin.map((item) => {
                 const active = isActive(item.href);
                 return (
                   <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors ${active ? 'bg-violet-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'} ${collapsed ? 'justify-center px-0' : ''}`}>
-                    <item.icon className={`w-4 h-4 shrink-0 ${active ? 'text-white' : 'text-gray-500'}`} />
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors ${active ? 'bg-violet-600 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'} ${collapsed ? 'justify-center px-0' : ''}`}>
+                    <item.icon className={`w-4 h-4 shrink-0 ${active ? 'text-white' : 'text-slate-400'}`} />
                     {!collapsed && item.label}
                   </Link>
                 );
@@ -96,18 +96,18 @@ export default function Sidebar() {
         </nav>
 
         <button onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-24 w-7 h-7 bg-gray-900 border border-white/20 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:border-violet-500 transition-all z-20 shadow-xl">
+          className="absolute -right-3 top-24 w-7 h-7 bg-white border border-slate-300 rounded-full flex items-center justify-center text-slate-400 hover:text-violet-600 hover:border-violet-400 transition-all z-20 shadow-md">
           {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>
 
         <div className="px-3 mt-auto mb-4 relative z-10 space-y-0.5">
           <Link href="/alterar-senha" title={collapsed ? 'Alterar senha' : undefined}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:bg-white/5 hover:text-cyan-400 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-500 hover:bg-slate-100 hover:text-violet-600 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
             <KeyRound className="w-4 h-4 shrink-0" />
             {!collapsed && 'Alterar senha'}
           </Link>
           <button onClick={signOut}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
             <LogOut className="w-4 h-4 shrink-0" />
             {!collapsed && 'Desconectar'}
           </button>
