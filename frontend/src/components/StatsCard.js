@@ -1,10 +1,10 @@
 export default function StatsCard({ title, value, icon: Icon, color }) {
   const colorMap = {
-    cyan:    { bg: 'bg-cyan-50',    text: 'text-cyan-600'    },
-    orange:  { bg: 'bg-orange-50',  text: 'text-orange-600'  },
-    indigo:  { bg: 'bg-indigo-50',  text: 'text-indigo-600'  },
+    cyan:    { bg: 'bg-violet-50',    text: 'text-violet-600'    },
+    orange:  { bg: 'bg-amber-50',  text: 'text-amber-600'  },
+    indigo:  { bg: 'bg-violet-50',  text: 'text-violet-600'  },
     emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
-    blue:    { bg: 'bg-blue-50',    text: 'text-blue-600'    },
+    blue:    { bg: 'bg-violet-50',    text: 'text-violet-600'    },
   };
   const theme = colorMap[color] || colorMap.cyan;
 

@@ -801,7 +801,7 @@ export default function VisaoEmissor({ profile }) {
                 <Package className="w-6 h-6 text-violet-400" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-white uppercase tracking-tight">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
                   {condominios.find(c => c.id === activePacote.condominio_id)?.name || 'Condomínio'}
                 </h3>
                 <p className="text-xs font-bold text-violet-400 uppercase tracking-widest flex items-center gap-3">
@@ -811,7 +811,7 @@ export default function VisaoEmissor({ profile }) {
                   {(activePacote.status || '').toLowerCase() === 'aprovado' && (
                     <button 
                       onClick={() => handleRegistrar(activePacote)} 
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-400 hover:to-cyan-400 transition-all shadow-lg shadow-emerald-500/20 font-black text-[9px] uppercase tracking-widest border border-white/10"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 text-white transition-all shadow-lg shadow-emerald-500/20 font-black text-[9px] uppercase tracking-widest border border-slate-200"
                     >
                       <FileCheck className="w-3.5 h-3.5" />
                       <span>Registrar Agora</span>
@@ -822,7 +822,7 @@ export default function VisaoEmissor({ profile }) {
             </div>
             <button 
               onClick={() => { setActivePacote(null); setPacoteArquivos([]); }}
-              className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-all"
+              className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition-all"
             >
               <X className="w-5 h-5" />
             </button>
@@ -831,9 +831,9 @@ export default function VisaoEmissor({ profile }) {
           {/* Lista de Arquivos do Pacote */}
           <div className="space-y-3 mb-6">
             {pacoteArquivos.length === 0 ? (
-              <div className="text-center py-8 border border-dashed border-white/10 rounded-2xl">
-                <FileText className="w-10 h-10 text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">Nenhum arquivo adicionado ainda.</p>
+              <div className="text-center py-8 border border-dashed border-slate-200 rounded-2xl">
+                <FileText className="w-10 h-10 text-slate-400 mx-auto mb-2" />
+                <p className="text-slate-500 text-sm">Nenhum arquivo adicionado ainda.</p>
               </div>
             ) : (
               pacoteArquivos.map(arq => {
@@ -844,7 +844,7 @@ export default function VisaoEmissor({ profile }) {
                               : arq.categoria === 'outros'          ? (arq.subtipo || 'Outros')
                               : 'Emissão';
                 return (
-                <div key={arq.id} className="p-4 bg-[#0a0a0f] border border-white/10 rounded-2xl hover:bg-white/5 transition-colors group">
+                <div key={arq.id} className="p-4 bg-white border border-slate-200 rounded-2xl hover:bg-slate-100 transition-colors group">
                   <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 bg-${catColor}-500/10 rounded-xl flex items-center justify-center border border-${catColor}-500/20`}>
@@ -856,23 +856,23 @@ export default function VisaoEmissor({ profile }) {
                           {catLabel}
                         </span>
                       </div>
-                      <p className="text-sm font-bold text-white truncate max-w-[250px]">{arq.arquivo_nome}</p>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest">{arq.formato} • {new Date(arq.criado_em).toLocaleString('pt-BR')}</p>
+                      <p className="text-sm font-bold text-slate-900 truncate max-w-[250px]">{arq.arquivo_nome}</p>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-widest">{arq.formato} • {new Date(arq.criado_em).toLocaleString('pt-BR')}</p>
                       {arq.categoria === 'concessionaria' && editandoFaturaId !== arq.id && (
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
                           {arq.nome_condominio_fatura ? (
-                            <span className="text-orange-300/90"><span className="text-orange-500/60">cliente:</span> {arq.nome_condominio_fatura}</span>
+                            <span className="text-amber-300/90"><span className="text-amber-500/60">cliente:</span> {arq.nome_condominio_fatura}</span>
                           ) : null}
                           {arq.vencimento_fatura ? (
-                            <span className="text-orange-300/90"><span className="text-orange-500/60">venc:</span> {new Date(arq.vencimento_fatura + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                            <span className="text-amber-300/90"><span className="text-amber-500/60">venc:</span> {new Date(arq.vencimento_fatura + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                           ) : null}
                           {arq.valor_fatura != null ? (
-                            <span className="text-orange-300/90 font-bold"><span className="text-orange-500/60 font-normal">total:</span> R$ {Number(arq.valor_fatura).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="text-amber-300/90 font-bold"><span className="text-amber-500/60 font-normal">total:</span> R$ {Number(arq.valor_fatura).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           ) : null}
                           {['rascunho', 'solicitar_correcao'].includes(activePacote.status) && (
                             <button
                               onClick={() => setEditandoFaturaId(arq.id)}
-                              className="text-[10px] text-orange-400/70 hover:text-orange-300 underline decoration-dotted"
+                              className="text-[10px] text-amber-400/70 hover:text-amber-300 underline decoration-dotted"
                             >
                               {arq.valor_fatura != null ? 'editar dados' : '+ preencher dados'}
                             </button>
@@ -884,7 +884,7 @@ export default function VisaoEmissor({ profile }) {
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => openFileUrl(arq)}
-                      className="p-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all"
+                      className="p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 hover:text-violet-400 hover:border-violet-500/30 transition-all"
                       title="Visualizar"
                     >
                       <FileText className="w-4 h-4" />
@@ -895,7 +895,7 @@ export default function VisaoEmissor({ profile }) {
                         className={`p-2 rounded-lg border transition-all ${
                           confirmDeleteArqId === arq.id 
                             ? 'bg-rose-500 border-rose-500 text-white animate-pulse' 
-                            : 'bg-white/5 border-white/10 text-gray-400 hover:text-rose-400 hover:border-rose-500/30'
+                            : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-rose-400 hover:border-rose-500/30'
                         }`}
                         title={confirmDeleteArqId === arq.id ? 'Clique novamente para confirmar' : 'Remover'}
                       >
@@ -947,7 +947,7 @@ export default function VisaoEmissor({ profile }) {
                 </div>
 
                 {/* CONCESSIONÁRIA (laranja) — extração automática do PDF */}
-                <div className="relative border-2 border-dashed border-orange-500/20 hover:border-orange-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-orange-500/5 group">
+                <div className="relative border-2 border-dashed border-amber-500/20 hover:border-amber-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-amber-500/5 group">
                   <input type="file" disabled={isUploading || extraindo}
                     className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-wait"
                     accept=".pdf,.jpg,.jpeg,.png"
@@ -957,15 +957,15 @@ export default function VisaoEmissor({ profile }) {
                       if (f) await handleUploadComExtracao(f, 'concessionaria');
                     }}
                   />
-                  <div className="flex flex-col items-center gap-1 text-orange-400 group-hover:text-orange-300">
+                  <div className="flex flex-col items-center gap-1 text-amber-400 group-hover:text-amber-300">
                     <Package className="w-5 h-5" />
                     <span className="text-[10px] font-black uppercase tracking-widest">+ Concessionária</span>
-                    <span className="text-[9px] text-orange-500/70 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> SABESP / COMGAS / ENEL</span>
+                    <span className="text-[9px] text-amber-500/70 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> SABESP / COMGAS / ENEL</span>
                   </div>
                 </div>
 
                 {/* RELATÓRIO DE LEITURA (azul) — extração automática do PDF */}
-                <div className="relative border-2 border-dashed border-sky-500/20 hover:border-sky-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-sky-500/5 group">
+                <div className="relative border-2 border-dashed border-violet-500/20 hover:border-violet-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-violet-500/5 group">
                   <input type="file" disabled={isUploading || extraindo}
                     className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-wait"
                     accept=".pdf"
@@ -975,10 +975,10 @@ export default function VisaoEmissor({ profile }) {
                       if (f) await handleUploadComExtracao(f, 'relatorio_leitura');
                     }}
                   />
-                  <div className="flex flex-col items-center gap-1 text-sky-400 group-hover:text-sky-300">
+                  <div className="flex flex-col items-center gap-1 text-violet-400 group-hover:text-violet-300">
                     <ClipboardCheck className="w-5 h-5" />
                     <span className="text-[10px] font-black uppercase tracking-widest">+ Relatório</span>
-                    <span className="text-[9px] text-sky-500/70 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> Leitura individualizada</span>
+                    <span className="text-[9px] text-violet-500/70 flex items-center gap-1"><Sparkles className="w-2.5 h-2.5" /> Leitura individualizada</span>
                   </div>
                 </div>
 
@@ -994,7 +994,7 @@ export default function VisaoEmissor({ profile }) {
                       e.target.value = '';
                     }}
                   />
-                  <div className="flex flex-col items-center gap-1 text-slate-400 group-hover:text-slate-300">
+                  <div className="flex flex-col items-center gap-1 text-slate-400 group-hover:text-slate-700">
                     <FolderOpen className="w-5 h-5" />
                     <span className="text-[10px] font-black uppercase tracking-widest">+ Outros</span>
                     <span className="text-[9px] text-slate-500/70">Atas e outros docs</span>
@@ -1045,29 +1045,29 @@ export default function VisaoEmissor({ profile }) {
         </div>
       ) : (
         /* ═══ FORMULÁRIO CRIAR/ABRIR PACOTE ═══ */
-        <div className="border border-white/10 rounded-3xl bg-white/5 p-6 shadow-xl">
-          <h3 className="font-black text-white text-lg mb-6 flex items-center gap-2">
+        <div className="border border-slate-200 rounded-3xl bg-slate-50 p-6 shadow-xl">
+          <h3 className="font-black text-slate-900 text-lg mb-6 flex items-center gap-2">
             <UploadCloud className="text-violet-400 w-5 h-5"/>
             Nova Emissão / Abrir Existente
           </h3>
           <form onSubmit={handleCriarOuAbrirPacote} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Condomínio</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Condomínio</label>
               <select
                 value={condoId} onChange={e => setCondoId(e.target.value)}
-                className="w-full bg-[#0a0a0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500" required
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-violet-500" required
               >
                 <option value="">Selecione...</option>
                 {condominios.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Mês / Ano</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Mês / Ano</label>
               <div className="flex gap-2">
                 <input type="number" min="1" max="12" value={mes} onChange={e => setMes(parseInt(e.target.value))}
-                  className="w-1/2 bg-[#0a0a0f] border border-white/10 rounded-xl px-3 py-3 text-sm text-white" />
+                  className="w-1/2 bg-white border border-slate-200 rounded-xl px-3 py-3 text-sm text-slate-900" />
                 <input type="number" value={ano} onChange={e => setAno(parseInt(e.target.value))}
-                  className="w-1/2 bg-[#0a0a0f] border border-white/10 rounded-xl px-3 py-3 text-sm text-white" />
+                  className="w-1/2 bg-white border border-slate-200 rounded-xl px-3 py-3 text-sm text-slate-900" />
               </div>
             </div>
             <div>
@@ -1075,7 +1075,7 @@ export default function VisaoEmissor({ profile }) {
                 title={periodoPassado ? 'Mês encerrado — só permite abrir pacote já existente' : 'Criar ou abrir pacote'}
                 className={`w-full py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg transition-all flex items-center justify-center gap-2 ${
                   periodoPassado
-                    ? 'bg-white/5 border border-white/10 text-gray-500'
+                    ? 'bg-slate-50 border border-slate-200 text-slate-500'
                     : 'bg-violet-600 hover:bg-violet-500 text-white'
                 }`}>
                 <FolderOpen className="w-4 h-4" />
@@ -1095,8 +1095,8 @@ export default function VisaoEmissor({ profile }) {
       {/* ═══ VISÃO POR CARTEIRA ═══ */}
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h3 className="font-black text-white text-lg flex items-center gap-2">
-            <Clock className="text-cyan-400 w-5 h-5"/>
+          <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
+            <Clock className="text-violet-400 w-5 h-5"/>
             Emissões por Carteira — {String(mes).padStart(2,'0')}/{ano}
           </h3>
           {periodoPassado && (
@@ -1109,20 +1109,20 @@ export default function VisaoEmissor({ profile }) {
         {Object.entries(carteiras).map(([gerente, condos]) => {
           const isExpanded = expandedCarteiras[gerente] !== false; // default aberto
           return (
-            <div key={gerente} className="border border-white/10 rounded-2xl bg-[#0a0a0f] overflow-hidden">
+            <div key={gerente} className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
               <button
                 onClick={() => toggleCarteira(gerente)}
-                className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                className="w-full flex items-center justify-between p-4 hover:bg-slate-100 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  {isExpanded ? <ChevronDown className="w-4 h-4 text-violet-400" /> : <ChevronRight className="w-4 h-4 text-gray-500" />}
-                  <span className="text-sm font-black text-white uppercase tracking-widest">{gerente}</span>
-                  <span className="text-[10px] font-bold text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">{condos.length} condos</span>
+                  {isExpanded ? <ChevronDown className="w-4 h-4 text-violet-400" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
+                  <span className="text-sm font-black text-slate-900 uppercase tracking-widest">{gerente}</span>
+                  <span className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">{condos.length} condos</span>
                 </div>
               </button>
 
               {isExpanded && (
-                <div className="border-t border-white/5">
+                <div className="border-t border-slate-200">
                   {condos.map(condo => {
                     const key = `${condo.id}_${mes}_${ano}`;
                     const pacote = pacotesPorCondo[key];
@@ -1136,13 +1136,13 @@ export default function VisaoEmissor({ profile }) {
                     const canCreate = !temAltPrevista && (isPronto || !!pacote);
 
                     return (
-                      <div key={condo.id} className={`flex items-center justify-between px-6 py-3 border-b border-white/5 last:border-b-0 transition-colors ${
+                      <div key={condo.id} className={`flex items-center justify-between px-6 py-3 border-b border-slate-200 last:border-b-0 transition-colors ${
                         temAltPrevista ? 'bg-amber-500/[0.05] hover:bg-amber-500/[0.08]'
                           : !pacote && isPronto ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.07]'
-                          : 'hover:bg-white/[0.02]'
+                          : 'hover:bg-slate-100'
                       }`}>
                         <div className="flex items-center gap-3 flex-wrap">
-                          <span className="text-sm font-bold text-gray-300 truncate max-w-[280px]">{condo.name}</span>
+                          <span className="text-sm font-bold text-slate-700 truncate max-w-[280px]">{condo.name}</span>
                           {temAltPrevista && (
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black uppercase tracking-widest animate-pulse"
                                   title={altsPrevistas.map(a => `${a.tipo} em ${new Date(a.data_evento + 'T00:00:00').toLocaleDateString('pt-BR')}${a.descricao ? ' — ' + a.descricao : ''}`).join('\n')}>
@@ -1156,7 +1156,7 @@ export default function VisaoEmissor({ profile }) {
                         <div className="flex items-center gap-3">
                           {pacote ? (
                             <>
-                              <span className="text-[10px] font-bold text-gray-500">{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}</span>
+                              <span className="text-[10px] font-bold text-slate-500">{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}</span>
                               <StatusBadge status={pacote.status} />
                               {((pacote.status || '').toLowerCase() === 'rascunho' || (pacote.status || '').toLowerCase() === 'solicitar_correcao') && (
                                 <button
@@ -1177,7 +1177,7 @@ export default function VisaoEmissor({ profile }) {
                                 return (
                                   <button
                                     onClick={() => handleRegistrar(pacote)}
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-400 hover:to-cyan-400 transition-all shadow-lg shadow-emerald-500/20 font-black text-[9px] uppercase tracking-widest border border-white/10"
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-600 text-white transition-all shadow-lg shadow-emerald-500/20 font-black text-[9px] uppercase tracking-widest border border-slate-200"
                                   >
                                     <FileCheck className="w-3.5 h-3.5" />
                                     <span>Registrar</span>
@@ -1186,13 +1186,13 @@ export default function VisaoEmissor({ profile }) {
                               })()}
                               <button
                                 onClick={() => abrirPacote(pacote)}
-                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-black text-cyan-400 uppercase tracking-widest transition-all"
+                                className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-[10px] font-black text-violet-400 uppercase tracking-widest transition-all"
                               >
                                 Abrir
                               </button>
                             </>
                           ) : periodoPassado ? (
-                            <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest italic">— sem pacote —</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">— sem pacote —</span>
                           ) : (
                             <>
                               {/* Etapa de preparação pré-emissão */}
@@ -1209,19 +1209,19 @@ export default function VisaoEmissor({ profile }) {
                                     {etapa && (
                                       <span className="hidden md:inline-flex items-center gap-1.5">
                                         <StatusBadge status={etapa} />
-                                        {dataStr && <span className="text-[10px] font-bold text-gray-500">{dataStr}</span>}
+                                        {dataStr && <span className="text-[10px] font-bold text-slate-500">{dataStr}</span>}
                                         {prep?.notas && (
                                           <span className="relative group/notas">
                                             <button
                                               type="button"
-                                              className="w-5 h-5 flex items-center justify-center rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 transition-all"
+                                              className="w-5 h-5 flex items-center justify-center rounded bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500/20 transition-all"
                                               aria-label="Ver observações"
                                             >
                                               <StickyNote className="w-3 h-3" />
                                             </button>
-                                            <span className="absolute right-0 top-full mt-1 z-50 hidden group-hover/notas:block w-64 p-3 bg-slate-950 border border-cyan-500/30 rounded-xl shadow-2xl shadow-cyan-500/10 pointer-events-none">
-                                              <span className="block text-[9px] font-black text-cyan-400 uppercase tracking-widest mb-1">Observações</span>
-                                              <span className="block text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">{prep.notas}</span>
+                                            <span className="absolute right-0 top-full mt-1 z-50 hidden group-hover/notas:block w-64 p-3 bg-white border border-violet-500/30 rounded-xl shadow-2xl shadow-violet-500/10 pointer-events-none">
+                                              <span className="block text-[9px] font-black text-violet-400 uppercase tracking-widest mb-1">Observações</span>
+                                              <span className="block text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">{prep.notas}</span>
                                             </span>
                                           </span>
                                         )}
@@ -1263,7 +1263,7 @@ export default function VisaoEmissor({ profile }) {
                                 className={`px-3 py-1.5 border rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
                                   canCreate
                                     ? 'bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
-                                    : 'bg-white/5 border-white/10 text-gray-600 cursor-not-allowed opacity-60'
+                                    : 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
                                 }`}
                               >
                                 + Criar
@@ -1285,15 +1285,15 @@ export default function VisaoEmissor({ profile }) {
       {showConcluirModal && (() => {
         const ehRespostaCorrecao = (activePacote?.status || '').toLowerCase() === 'solicitar_correcao';
         return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-lg p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className={`w-16 h-16 ${ehRespostaCorrecao ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'} border rounded-full flex items-center justify-center mx-auto mb-6`}>
               {ehRespostaCorrecao ? <Send className="w-8 h-8 text-amber-400" /> : <CheckCircle className="w-8 h-8 text-emerald-400" />}
             </div>
-            <h3 className="text-xl font-black text-white text-center mb-2">
+            <h3 className="text-xl font-black text-slate-900 text-center mb-2">
               {ehRespostaCorrecao ? 'Reenviar com correção' : 'Concluir Emissão'}
             </h3>
-            <p className="text-sm text-gray-400 text-center mb-6">
+            <p className="text-sm text-slate-500 text-center mb-6">
               {pacoteArquivos.length} arquivo{pacoteArquivos.length !== 1 ? 's' : ''} neste pacote.
             </p>
 
@@ -1317,7 +1317,7 @@ export default function VisaoEmissor({ profile }) {
                         {respostaCorrecaoFile.name}
                         <span className="text-[10px] text-amber-400/60">({(respostaCorrecaoFile.size/1024).toFixed(0)} KB)</span>
                       </span>
-                      <button onClick={() => setRespostaCorrecaoFile(null)} className="text-amber-300 hover:text-white text-xs font-bold">Remover</button>
+                      <button onClick={() => setRespostaCorrecaoFile(null)} className="text-amber-300 hover:text-slate-900 text-xs font-bold">Remover</button>
                     </div>
                   ) : (
                     <input type="file" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
@@ -1333,13 +1333,13 @@ export default function VisaoEmissor({ profile }) {
                     onChange={(e) => setRespostaCorrecaoComentario(e.target.value)}
                     rows={3}
                     placeholder="Ex: Corrigi o valor do fundo de obras conforme solicitado e ajustei o rateio do mês de junho."
-                    className="w-full bg-black/40 border border-amber-500/30 rounded-lg px-3 py-2 text-sm text-amber-100 placeholder-amber-500/40 outline-none focus:border-amber-500/60 resize-y" />
+                    className="w-full bg-slate-100 border border-amber-500/30 rounded-lg px-3 py-2 text-sm text-amber-100 placeholder-amber-500/40 outline-none focus:border-amber-500/60 resize-y" />
                 </div>
               </div>
             )}
 
             {!ehRespostaCorrecao && (
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Escolha o nível de aprovação</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Escolha o nível de aprovação</p>
             )}
 
             {!ehRespostaCorrecao && (
@@ -1348,8 +1348,8 @@ export default function VisaoEmissor({ profile }) {
                 onClick={() => setNivelAprovacao(1)}
                 className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
                   nivelAprovacao === 1
-                    ? 'border-violet-600 bg-violet-600/10 shadow-[0_0_15px_rgba(139,92,246,0.2)]'
-                    : 'border-white/5 bg-white/5 hover:border-white/20'
+                    ? 'border-violet-600 bg-violet-600/10 '
+                    : 'border-slate-200 bg-slate-50 hover:border-slate-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -1357,8 +1357,8 @@ export default function VisaoEmissor({ profile }) {
                     {nivelAprovacao === 1 && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
                   </div>
                   <div>
-                    <p className="font-bold text-white">Nível 1 - Sem consumos</p>
-                    <p className="text-xs text-gray-400">Passa direto para a Supervisora</p>
+                    <p className="font-bold text-slate-900">Nível 1 - Sem consumos</p>
+                    <p className="text-xs text-slate-500">Passa direto para a Supervisora</p>
                   </div>
                 </div>
               </button>
@@ -1367,8 +1367,8 @@ export default function VisaoEmissor({ profile }) {
                 onClick={() => setNivelAprovacao(2)}
                 className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
                   nivelAprovacao === 2
-                    ? 'border-violet-600 bg-violet-600/10 shadow-[0_0_15px_rgba(139,92,246,0.2)]'
-                    : 'border-white/5 bg-white/5 hover:border-white/20'
+                    ? 'border-violet-600 bg-violet-600/10 '
+                    : 'border-slate-200 bg-slate-50 hover:border-slate-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -1376,8 +1376,8 @@ export default function VisaoEmissor({ profile }) {
                     {nivelAprovacao === 2 && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
                   </div>
                   <div>
-                    <p className="font-bold text-white">Nível 2 - Alteração sem consumo</p>
-                    <p className="text-xs text-gray-400">Passa por Gerente ➔ Supervisora da Contabilidade</p>
+                    <p className="font-bold text-slate-900">Nível 2 - Alteração sem consumo</p>
+                    <p className="text-xs text-slate-500">Passa por Gerente ➔ Supervisora da Contabilidade</p>
                   </div>
                 </div>
               </button>
@@ -1386,8 +1386,8 @@ export default function VisaoEmissor({ profile }) {
                 onClick={() => setNivelAprovacao(3)}
                 className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
                   nivelAprovacao === 3
-                    ? 'border-violet-600 bg-violet-600/10 shadow-[0_0_15px_rgba(139,92,246,0.2)]'
-                    : 'border-white/5 bg-white/5 hover:border-white/20'
+                    ? 'border-violet-600 bg-violet-600/10 '
+                    : 'border-slate-200 bg-slate-50 hover:border-slate-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -1395,8 +1395,8 @@ export default function VisaoEmissor({ profile }) {
                     {nivelAprovacao === 3 && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
                   </div>
                   <div>
-                    <p className="font-bold text-white">Nível 3 - Fração</p>
-                    <p className="text-xs text-gray-400">Passa por Gerente ➔ Supervisora da Contabilidade</p>
+                    <p className="font-bold text-slate-900">Nível 3 - Fração</p>
+                    <p className="text-xs text-slate-500">Passa por Gerente ➔ Supervisora da Contabilidade</p>
                   </div>
                 </div>
               </button>
@@ -1405,8 +1405,8 @@ export default function VisaoEmissor({ profile }) {
                 onClick={() => setNivelAprovacao(4)}
                 className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
                   nivelAprovacao === 4
-                    ? 'border-violet-600 bg-violet-600/10 shadow-[0_0_15px_rgba(139,92,246,0.2)]'
-                    : 'border-white/5 bg-white/5 hover:border-white/20'
+                    ? 'border-violet-600 bg-violet-600/10 '
+                    : 'border-slate-200 bg-slate-50 hover:border-slate-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -1414,8 +1414,8 @@ export default function VisaoEmissor({ profile }) {
                     {nivelAprovacao === 4 && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
                   </div>
                   <div>
-                    <p className="font-bold text-white">Nível 4 - Com empresas terceirizadas</p>
-                    <p className="text-xs text-gray-400">Passa por Gerente ➔ Supervisor dos Gerentes ➔ Supervisora</p>
+                    <p className="font-bold text-slate-900">Nível 4 - Com empresas terceirizadas</p>
+                    <p className="text-xs text-slate-500">Passa por Gerente ➔ Supervisor dos Gerentes ➔ Supervisora</p>
                   </div>
                 </div>
               </button>
@@ -1426,14 +1426,14 @@ export default function VisaoEmissor({ profile }) {
               <button
                 onClick={() => { setShowConcluirModal(false); setRespostaCorrecaoFile(null); setRespostaCorrecaoComentario(''); }}
                 disabled={enviandoResposta}
-                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmarConclusao}
                 disabled={enviandoResposta}
-                className={`flex-[2] py-3 rounded-xl text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
+                className={`flex-[2] py-3 rounded-xl text-slate-900 font-black uppercase tracking-widest text-xs shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${
                   ehRespostaCorrecao ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'
                 }`}
               >
@@ -1474,10 +1474,10 @@ export default function VisaoEmissor({ profile }) {
 
       {/* ═══ OVERLAY: LENDO PDF ═══ */}
       {extraindo && (
-        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
-          <div className="bg-[#0a0a0f] border border-violet-500/30 rounded-2xl px-8 py-6 shadow-2xl flex flex-col items-center gap-3">
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white border border-violet-500/30 rounded-2xl px-8 py-6 shadow-2xl flex flex-col items-center gap-3">
             <Sparkles className="w-8 h-8 text-violet-400 animate-pulse" />
-            <p className="text-sm font-black text-white uppercase tracking-widest">Lendo PDF…</p>
+            <p className="text-sm font-black text-slate-900 uppercase tracking-widest">Lendo PDF…</p>
             <p className="text-[11px] text-slate-500">Extraindo dados automaticamente</p>
           </div>
         </div>
@@ -1494,14 +1494,14 @@ export default function VisaoEmissor({ profile }) {
 
       {/* ═══ MODAL DE DUPLICATA / SANCIONAMENTO ═══ */}
       {duplicataInfo && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-[#0a0a0f] border border-rose-500/30 rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white border border-rose-500/30 rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center shrink-0">
                 <AlertCircle className="w-6 h-6 text-rose-400" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-white">Possível duplicata detectada</h3>
+                <h3 className="text-lg font-black text-slate-900">Possível duplicata detectada</h3>
                 <p className="text-[11px] text-rose-300/80">Esta emissão não pode prosseguir sem confirmação.</p>
               </div>
             </div>
@@ -1511,7 +1511,7 @@ export default function VisaoEmissor({ profile }) {
               {(duplicataInfo.alertas || []).map((a, i) => (
                 <div key={i} className={`px-3 py-2 rounded-lg border ${a.nivel === 'bloqueio' ? 'bg-rose-500/5 border-rose-500/30' : 'bg-amber-500/5 border-amber-500/30'}`}>
                   <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${a.nivel === 'bloqueio' ? 'text-rose-400' : 'text-amber-400'}`}>{a.nivel === 'bloqueio' ? '🚫 Bloqueio' : '⚠ Aviso'} · {a.tipo.replace(/_/g, ' ')}</p>
-                  <p className="text-xs text-slate-200">{a.mensagem}</p>
+                  <p className="text-xs text-slate-800">{a.mensagem}</p>
                   {a.detalhes && (
                     <p className="text-[10px] text-slate-500 mt-1 font-mono">
                       {a.detalhes.condominios?.name && `${a.detalhes.condominios.name} · `}
@@ -1526,12 +1526,12 @@ export default function VisaoEmissor({ profile }) {
 
             {/* Side-by-side se houver mes anterior */}
             {duplicataInfo.anomalia?.previous && (
-              <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-3 mb-4">
+              <div className="bg-white border border-slate-700 rounded-xl p-3 mb-4">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Comparação com mês anterior</p>
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <p className="text-slate-500">Mês anterior:</p>
-                    <pre className="text-slate-300 font-mono text-[10px] whitespace-pre-wrap mt-1">{JSON.stringify(duplicataInfo.anomalia.previous, null, 2)}</pre>
+                    <pre className="text-slate-700 font-mono text-[10px] whitespace-pre-wrap mt-1">{JSON.stringify(duplicataInfo.anomalia.previous, null, 2)}</pre>
                   </div>
                   <div>
                     <p className="text-slate-500">Campos iguais: <span className="text-rose-300 font-bold">{(duplicataInfo.anomalia.campos_iguais || []).join(', ') || '—'}</span></p>
@@ -1552,11 +1552,11 @@ export default function VisaoEmissor({ profile }) {
                   </label>
                   <textarea value={sancionandoMotivo} onChange={e => setSancionandoMotivo(e.target.value)} rows={3}
                     placeholder="Ex: A concessionária reemitiu a mesma fatura por erro deles. Confirmei por telefone."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-rose-500/60 placeholder-slate-600 resize-y" />
+                    className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 outline-none focus:border-rose-500/60 placeholder-slate-400 resize-y" />
                 </div>
                 <div className="flex justify-end gap-2">
                   <button onClick={() => { setDuplicataInfo(null); setSancionandoMotivo(''); }} disabled={sancionando}
-                    className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50">
+                    className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-700 disabled:opacity-50">
                     Cancelar upload
                   </button>
                   <button disabled={!sancionandoMotivo.trim() || sancionando}
@@ -1602,7 +1602,7 @@ export default function VisaoEmissor({ profile }) {
                 </p>
                 <div className="flex justify-end">
                   <button onClick={() => { setDuplicataInfo(null); setSancionandoMotivo(''); }}
-                    className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">
+                    className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-700">
                     OK, cancelar upload
                   </button>
                 </div>
@@ -1614,37 +1614,37 @@ export default function VisaoEmissor({ profile }) {
 
       {/* ═══ MODAL DE REGISTRO ═══ */}
       {showRegistroModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-8 shadow-2xl">
-            <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <FileCheck className="w-8 h-8 text-blue-400" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-8 shadow-2xl">
+            <div className="w-16 h-16 bg-violet-500/10 border border-violet-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <FileCheck className="w-8 h-8 text-violet-400" />
             </div>
-            <h3 className="text-xl font-black text-white text-center mb-2">Registrar Emissão</h3>
-            <p className="text-sm text-gray-400 text-center mb-8">
+            <h3 className="text-xl font-black text-slate-900 text-center mb-2">Registrar Emissão</h3>
+            <p className="text-sm text-slate-500 text-center mb-8">
               Confirme a data e hora oficial do registro.
             </p>
 
             <div className="mb-8">
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Data e Hora do Registro</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Data e Hora do Registro</label>
               <input
                 type="datetime-local"
                 value={dataRegistro}
                 onChange={(e) => setDataRegistro(e.target.value)}
                 min={new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 outline-none focus:border-violet-500 transition-all"
               />
             </div>
 
             <div className="flex gap-3">
               <button 
                 onClick={() => { setShowRegistroModal(false); setActivePacote(null); }}
-                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmarRegistro}
-                className="flex-[2] py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
+                className="flex-[2] py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
               >
                 Confirmar Registro
               </button>
@@ -1677,34 +1677,34 @@ function FaturaInlineForm({ arq, condoNome, maskValor, parseValor, saving, onCan
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-3 pt-3 border-t border-orange-500/20 grid grid-cols-1 md:grid-cols-12 gap-2">
+    <form onSubmit={handleSubmit} className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-1 md:grid-cols-12 gap-2">
       <div className="md:col-span-5">
-        <label className="text-[9px] font-bold uppercase tracking-wider text-orange-400/70">Cliente na conta</label>
+        <label className="text-[9px] font-bold uppercase tracking-wider text-amber-400/70">Cliente na conta</label>
         <input
           autoFocus
           value={nome}
           onChange={(e) => setNome(e.target.value)}
           placeholder="Ex: EDIFICIO ANDREA"
-          className="w-full mt-0.5 bg-black/40 border border-orange-500/20 focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/40 rounded-lg px-2.5 py-1.5 text-sm text-white outline-none"
+          className="w-full mt-0.5 bg-slate-100 border border-amber-500/20 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/40 rounded-lg px-2.5 py-1.5 text-sm text-slate-900 outline-none"
         />
       </div>
       <div className="md:col-span-3">
-        <label className="text-[9px] font-bold uppercase tracking-wider text-orange-400/70">Vencimento</label>
+        <label className="text-[9px] font-bold uppercase tracking-wider text-amber-400/70">Vencimento</label>
         <input
           type="date"
           value={venc}
           onChange={(e) => setVenc(e.target.value)}
-          className="w-full mt-0.5 bg-black/40 border border-orange-500/20 focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/40 rounded-lg px-2.5 py-1.5 text-sm text-white outline-none"
+          className="w-full mt-0.5 bg-slate-100 border border-amber-500/20 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/40 rounded-lg px-2.5 py-1.5 text-sm text-slate-900 outline-none"
         />
       </div>
       <div className="md:col-span-2">
-        <label className="text-[9px] font-bold uppercase tracking-wider text-orange-400/70">Valor (R$)</label>
+        <label className="text-[9px] font-bold uppercase tracking-wider text-amber-400/70">Valor (R$)</label>
         <input
           inputMode="numeric"
           value={valorMask}
           onChange={(e) => setValorMask(maskValor(e.target.value))}
           placeholder="0,00"
-          className="w-full mt-0.5 bg-black/40 border border-orange-500/20 focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/40 rounded-lg px-2.5 py-1.5 text-sm text-white outline-none text-right font-mono"
+          className="w-full mt-0.5 bg-slate-100 border border-amber-500/20 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/40 rounded-lg px-2.5 py-1.5 text-sm text-slate-900 outline-none text-right font-mono"
         />
       </div>
       <div className="md:col-span-2 flex items-end gap-1.5">
@@ -1712,14 +1712,14 @@ function FaturaInlineForm({ arq, condoNome, maskValor, parseValor, saving, onCan
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="flex-1 px-2 py-1.5 text-xs font-bold text-slate-400 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 disabled:opacity-50"
+          className="flex-1 px-2 py-1.5 text-xs font-bold text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 disabled:opacity-50"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="flex-1 px-2 py-1.5 text-xs font-bold text-white bg-orange-500 hover:bg-orange-400 rounded-lg disabled:opacity-50"
+          className="flex-1 px-2 py-1.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-400 rounded-lg disabled:opacity-50"
         >
           {saving ? '...' : 'Salvar'}
         </button>
@@ -1836,24 +1836,24 @@ function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
     await onConfirm(categoria, subtipo, extras, file);
   }
 
-  const inputCls = 'w-full mt-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-violet-500';
+  const inputCls = 'w-full mt-1 bg-slate-100 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500';
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-[#0a0a0f] border border-violet-500/20 rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="bg-white border border-violet-500/20 rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-violet-400" />
             </div>
             <div>
-              <h3 className="text-base font-black text-white">Confira os dados extraídos</h3>
+              <h3 className="text-base font-black text-slate-900">Confira os dados extraídos</h3>
               <p className="text-[10px] text-slate-500 uppercase tracking-widest">
                 {file?.name} · confiança {confPct}%
               </p>
             </div>
           </div>
-          <button onClick={onCancel} className="text-slate-500 hover:text-white"><X className="w-5 h-5" /></button>
+          <button onClick={onCancel} className="text-slate-500 hover:text-slate-900"><X className="w-5 h-5" /></button>
         </div>
 
         {extracao?.erro && (
@@ -1917,11 +1917,11 @@ function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tipo de serviço</label>
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   <button type="button" onClick={() => setTipoServico('agua')}
-                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${tipoServico === 'agua' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${tipoServico === 'agua' ? 'bg-violet-500/20 border-violet-500/50 text-violet-300' : 'bg-slate-100 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
                     💧 Água
                   </button>
                   <button type="button" onClick={() => setTipoServico('gas')}
-                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${tipoServico === 'gas' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${tipoServico === 'gas' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' : 'bg-slate-100 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
                     🔥 Gás
                   </button>
                 </div>
@@ -1953,11 +1953,11 @@ function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
 
         <div className="flex justify-end gap-2 mt-5">
           <button onClick={onCancel} disabled={salvando}
-            className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50">
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-700 disabled:opacity-50">
             Cancelar
           </button>
           <button onClick={handleConfirm} disabled={salvando || !empresaFinal}
-            className={`px-5 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50 flex items-center gap-2 ${ehFatura ? 'bg-orange-600 hover:bg-orange-500' : 'bg-sky-600 hover:bg-sky-500'}`}>
+            className={`px-5 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50 flex items-center gap-2 ${ehFatura ? 'bg-amber-600 hover:bg-amber-500' : 'bg-violet-600 hover:bg-violet-500'}`}>
             {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
             Anexar
           </button>

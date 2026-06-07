@@ -31,13 +31,13 @@ function getActionStyle(action = '') {
   if (a.includes('correção') || a.includes('alteração') || a.includes('rejeita'))
     return { color: 'text-rose-400', bg: 'bg-rose-500', label: action };
   if (a.includes('edição finalizada') || a.includes('em processo'))
-    return { color: 'text-orange-400', bg: 'bg-orange-500', label: action };
+    return { color: 'text-amber-400', bg: 'bg-amber-500', label: action };
   if (a.includes('em edição') || a.includes('aberto'))
-    return { color: 'text-cyan-400', bg: 'bg-cyan-500', label: action };
+    return { color: 'text-violet-400', bg: 'bg-violet-500', label: action };
   if (a.includes('global'))
     return { color: 'text-violet-400', bg: 'bg-violet-500', label: action };
   if (a.includes('expedid') || a.includes('lacrad'))
-    return { color: 'text-blue-400', bg: 'bg-blue-500', label: action };
+    return { color: 'text-violet-400', bg: 'bg-violet-500', label: action };
   return { color: 'text-slate-400', bg: 'bg-slate-500', label: action };
 }
 
@@ -244,28 +244,28 @@ export default function AprovacoesPage() {
     <div className="animate-fade-in space-y-6 pb-20">
 
       {/* ── Header ── */}
-      <div className="glass-panel p-7 rounded-[2rem] border border-white/5 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+      <div className="glass-panel p-7 rounded-[2rem] border border-slate-200 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
         <div>
-          <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Aprovações & Auditoria</h1>
+          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter italic">Aprovações & Auditoria</h1>
           <p className="text-slate-500 text-xs font-bold tracking-widest mt-1 uppercase">
             Aprovação de planilhas semestrais + Histórico completo do sistema
           </p>
           {!verAbasPacotes && (
             <p className="text-slate-600 text-[10px] tracking-wider mt-1">
-              Aprovação de emissões mensais → <Link href="/central-emissoes" className="text-cyan-400 hover:underline">Central de Emissões → Painel de Gestão</Link>
+              Aprovação de emissões mensais → <Link href="/central-emissoes" className="text-violet-400 hover:underline">Central de Emissões → Painel de Gestão</Link>
             </p>
           )}
         </div>
         <div className="flex gap-3">
-          <div className="bg-white/5 border border-white/10 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
-            <p className="text-2xl font-black text-white leading-none">{pendentes.length}</p>
+          <div className="bg-slate-50 border border-slate-200 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
+            <p className="text-2xl font-black text-slate-900 leading-none">{pendentes.length}</p>
             <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Pendentes</p>
           </div>
-          <div className="bg-white/5 border border-white/10 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
-            <p className="text-2xl font-black text-cyan-400 leading-none">{totalLogs}</p>
+          <div className="bg-slate-50 border border-slate-200 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
+            <p className="text-2xl font-black text-violet-400 leading-none">{totalLogs}</p>
             <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Total logs</p>
           </div>
-          <div className="bg-white/5 border border-white/10 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
+          <div className="bg-slate-50 border border-slate-200 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
             <p className="text-2xl font-black text-violet-400 leading-none">{hojeCount}</p>
             <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Hoje</p>
           </div>
@@ -276,42 +276,42 @@ export default function AprovacoesPage() {
       {minhasPendenciasEmissao > 0 && (
         verAbasPacotes ? (
           <button onClick={() => setAba('pacotes')}
-            className="w-full text-left block glass-panel p-5 rounded-2xl border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all group">
+            className="w-full text-left block glass-panel p-5 rounded-2xl border border-violet-500/30 hover:border-violet-400/50 bg-violet-500/5 hover:bg-violet-500/10 transition-all group">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0">
-                  <FileUp className="w-6 h-6 text-cyan-400" />
+                <div className="w-12 h-12 rounded-2xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center shrink-0">
+                  <FileUp className="w-6 h-6 text-violet-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Aprovação de emissões</p>
-                  <p className="text-white font-bold mt-0.5">
-                    <span className="text-2xl font-black text-cyan-300">{minhasPendenciasEmissao}</span>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-violet-400">Aprovação de emissões</p>
+                  <p className="text-slate-900 font-bold mt-0.5">
+                    <span className="text-2xl font-black text-violet-300">{minhasPendenciasEmissao}</span>
                     <span className="ml-2 text-sm">pacote{minhasPendenciasEmissao !== 1 ? 's' : ''} esperando você em Meus Pacotes</span>
                   </p>
                 </div>
               </div>
-              <div className="text-cyan-400 group-hover:translate-x-1 transition-transform">
+              <div className="text-violet-400 group-hover:translate-x-1 transition-transform">
                 <ArrowRight className="w-6 h-6" />
               </div>
             </div>
           </button>
         ) : (
           <Link href="/central-emissoes"
-            className="block glass-panel p-5 rounded-2xl border border-cyan-500/30 hover:border-cyan-400/50 bg-cyan-500/5 hover:bg-cyan-500/10 transition-all group">
+            className="block glass-panel p-5 rounded-2xl border border-violet-500/30 hover:border-violet-400/50 bg-violet-500/5 hover:bg-violet-500/10 transition-all group">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0">
-                  <FileUp className="w-6 h-6 text-cyan-400" />
+                <div className="w-12 h-12 rounded-2xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center shrink-0">
+                  <FileUp className="w-6 h-6 text-violet-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Aprovação de emissões</p>
-                  <p className="text-white font-bold mt-0.5">
-                    <span className="text-2xl font-black text-cyan-300">{minhasPendenciasEmissao}</span>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-violet-400">Aprovação de emissões</p>
+                  <p className="text-slate-900 font-bold mt-0.5">
+                    <span className="text-2xl font-black text-violet-300">{minhasPendenciasEmissao}</span>
                     <span className="ml-2 text-sm">pacote{minhasPendenciasEmissao !== 1 ? 's' : ''} esperando você no Painel de Gestão</span>
                   </p>
                 </div>
               </div>
-              <div className="text-cyan-400 group-hover:translate-x-1 transition-transform">
+              <div className="text-violet-400 group-hover:translate-x-1 transition-transform">
                 <ArrowRight className="w-6 h-6" />
               </div>
             </div>
@@ -320,7 +320,7 @@ export default function AprovacoesPage() {
       )}
 
       {/* ── Tabs ── */}
-      <div className="flex flex-wrap gap-2 bg-white/[0.03] p-1.5 rounded-2xl border border-white/5 w-fit">
+      <div className="flex flex-wrap gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-200 w-fit">
         {[
           { id: 'fila',      label: 'Fila de Planilhas',        icon: Clock,   show: true,           badge: pendentes.length },
           { id: 'pacotes',   label: 'Meus Pacotes',             icon: Package, show: verAbasPacotes, badge: minhasPendenciasEmissao },
@@ -329,11 +329,11 @@ export default function AprovacoesPage() {
         ].filter(t => t.show).map(({ id, label, icon: Icon, badge }) => (
           <button key={id} onClick={() => setAba(id)}
             className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
-              aba === id ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+              aba === id ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'
             }`}>
             <Icon className="w-3.5 h-3.5" />{label}
             {badge > 0 && (
-              <span className="ml-1 bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-[0_0_10px_rgba(244,63,94,0.6)]">
+              <span className="ml-1 bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center ">
                 {badge}
               </span>
             )}
@@ -365,10 +365,10 @@ export default function AprovacoesPage() {
       {aba === 'fila' && (
         <div className="space-y-6">
           {/* Cabecalho do periodo + botão liberar todos (gerente) */}
-          <div className="glass-panel p-5 rounded-[2rem] border border-white/5 flex items-center justify-between flex-wrap gap-4">
+          <div className="glass-panel p-5 rounded-[2rem] border border-slate-200 flex items-center justify-between flex-wrap gap-4">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400 mb-1">Ciclo atual</p>
-              <h3 className="text-xl font-black text-white">{MESES[mesAlvo]} / {anoAlvo}</h3>
+              <p className="text-[10px] font-black uppercase tracking-widest text-violet-400 mb-1">Ciclo atual</p>
+              <h3 className="text-xl font-black text-slate-900">{MESES[mesAlvo]} / {anoAlvo}</h3>
               <p className="text-xs text-slate-500 mt-0.5">Edições mensais em andamento</p>
             </div>
             {isGerente && edicoesEmEdicao.length > 0 && (
@@ -392,7 +392,7 @@ export default function AprovacoesPage() {
                 {edicoesReaberturas.map(e => (
                   <div key={e.id} className="flex items-center justify-between gap-4 p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white">{e.condominios?.name}</p>
+                      <p className="text-sm font-bold text-slate-900">{e.condominios?.name}</p>
                       <p className="text-[11px] text-slate-400">{MESES[e.mes_referencia]}/{e.ano_referencia} · motivo: {e.reabertura_motivo}</p>
                     </div>
                     <div className="flex gap-2">
@@ -418,13 +418,13 @@ export default function AprovacoesPage() {
                       <Building2 className="w-5 h-5 text-violet-400" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-base font-black text-white truncate">{e.condominios?.name}</h3>
+                      <h3 className="text-base font-black text-slate-900 truncate">{e.condominios?.name}</h3>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-violet-400">{MESES[e.mes_referencia]} / {e.ano_referencia}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Link href={`/condominio/${e.condominio_id}/arrecadacoes?ano=${e.ano_referencia}&mes=${e.mes_referencia}&edicao=${e.id}`}
-                      className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-slate-300 hover:text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                      className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-700 hover:text-slate-900 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
                       <FileText className="w-3.5 h-3.5" /> Ver planilha
                     </Link>
                     {(isGerente || isMaster) && (
@@ -444,11 +444,11 @@ export default function AprovacoesPage() {
             <div className="space-y-3">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-2">Finalizadas</h4>
               {edicoesFinalizadas.map(e => (
-                <div key={e.id} className="p-4 rounded-[1.5rem] border border-white/5 bg-white/[0.02] flex items-center justify-between gap-4 flex-wrap">
+                <div key={e.id} className="p-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-3 min-w-0">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-300 truncate">{e.condominios?.name}</p>
+                      <p className="text-sm font-bold text-slate-700 truncate">{e.condominios?.name}</p>
                       <p className="text-[10px] text-slate-600 uppercase tracking-widest">{MESES[e.mes_referencia]}/{e.ano_referencia} · liberado {e.liberado_em ? new Date(e.liberado_em).toLocaleDateString('pt-BR') : ''}</p>
                     </div>
                   </div>
@@ -469,7 +469,7 @@ export default function AprovacoesPage() {
               <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 px-2">Reabertura solicitada (aguardando)</h4>
               {edicoesReaberturas.map(e => (
                 <div key={e.id} className="p-4 rounded-[1.5rem] border border-amber-500/20 bg-amber-500/5">
-                  <p className="text-sm font-bold text-white">{e.condominios?.name}</p>
+                  <p className="text-sm font-bold text-slate-900">{e.condominios?.name}</p>
                   <p className="text-[11px] text-slate-400 mt-1">{MESES[e.mes_referencia]}/{e.ano_referencia} · motivo: {e.reabertura_motivo}</p>
                 </div>
               ))}
@@ -478,7 +478,7 @@ export default function AprovacoesPage() {
 
           {/* Estado vazio */}
           {!edicoesLoading && edicoes.length === 0 && (
-            <div className="text-center py-20 glass-panel rounded-[2.5rem] border border-white/5">
+            <div className="text-center py-20 glass-panel rounded-[2.5rem] border border-slate-200">
               <CheckCircle2 className="w-12 h-12 text-slate-700 mx-auto mb-4" />
               <h3 className="text-lg font-black text-slate-400 uppercase tracking-tighter">Nenhuma edição em andamento</h3>
               <p className="text-slate-600 text-xs mt-2">O master ainda não abriu o período deste mês.</p>
@@ -504,22 +504,22 @@ export default function AprovacoesPage() {
               <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Carregando fila...</p>
             </div>
           ) : pendentes.length === 0 ? (
-            <div className="text-center py-24 glass-panel rounded-[2.5rem] border border-white/5">
+            <div className="text-center py-24 glass-panel rounded-[2.5rem] border border-slate-200">
               <CheckCircle2 className="w-16 h-16 text-slate-800 mx-auto mb-6" />
               <h3 className="text-xl font-black text-slate-400 uppercase tracking-tighter">Fila Vazia</h3>
               <p className="text-slate-600 text-sm">Todos os processos foram validados com sucesso.</p>
             </div>
           ) : (
             pendentes.map((item) => (
-              <div key={item.id} className="glass-panel p-6 rounded-[2rem] border border-white/5 group hover:border-violet-500/30 transition-all flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-xl">
+              <div key={item.id} className="glass-panel p-6 rounded-[2rem] border border-slate-200 group hover:border-violet-500/30 transition-all flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-xl">
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-violet-700/30 group-hover:bg-violet-500 transition-colors rounded-l-[2rem]" />
                 <div className="flex items-center gap-5 flex-1">
-                  <div className="w-14 h-14 bg-slate-950 rounded-2xl flex items-center justify-center border border-white/5 shrink-0">
+                  <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center border border-slate-200 shrink-0">
                     <Building2 className="w-6 h-6 text-slate-600 group-hover:text-violet-400 transition-colors" />
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-3 mb-1.5">
-                      <h3 className="text-lg font-black text-white uppercase tracking-tight">{item.condominios?.name}</h3>
+                      <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">{item.condominios?.name}</h3>
                       <StatusBadge status={item.status} />
                     </div>
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.year} — {item.semester === 1 ? '1º Semestre' : '2º Semestre'}</p>
@@ -531,7 +531,7 @@ export default function AprovacoesPage() {
                     <Eye className="w-4 h-4" />
                   </button>
                   <Link href={`/condominio/${item.condominio_id}/arrecadacoes?ano=${item.year}`}
-                    className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-slate-400 hover:text-white transition-all" title="Planilha">
+                    className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-400 hover:text-slate-900 transition-all" title="Planilha">
                     <FileText className="w-4 h-4" />
                   </Link>
                   <button disabled={processing === item.id} onClick={() => setShowRejectModal(item)}
@@ -557,24 +557,24 @@ export default function AprovacoesPage() {
         <div className="space-y-4">
 
           {/* Barra de filtros */}
-          <div className="glass-panel p-4 rounded-2xl border border-white/5 space-y-3">
+          <div className="glass-panel p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex flex-wrap gap-3 items-center">
               {/* Busca */}
               <div className="flex-1 min-w-[200px] relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Buscar por condomínio, usuário, ação..."
-                  className="w-full bg-slate-950/60 border border-white/5 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 outline-none focus:border-violet-500/50 transition-all" />
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
               </div>
 
               {/* Datas */}
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-slate-500 font-black uppercase">De</span>
                 <input type="date" value={filtroDate.from} onChange={e => setFiltroDate(p => ({...p, from: e.target.value}))}
-                  className="bg-slate-950/60 border border-white/5 rounded-xl px-3 py-2.5 text-xs text-slate-200 outline-none focus:border-violet-500/50 transition-all" />
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
                 <span className="text-[10px] text-slate-500 font-black uppercase">Até</span>
                 <input type="date" value={filtroDate.to} onChange={e => setFiltroDate(p => ({...p, to: e.target.value}))}
-                  className="bg-slate-950/60 border border-white/5 rounded-xl px-3 py-2.5 text-xs text-slate-200 outline-none focus:border-violet-500/50 transition-all" />
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
               </div>
 
               {/* Limpar */}
@@ -585,7 +585,7 @@ export default function AprovacoesPage() {
                 </button>
               )}
               <button onClick={() => mutateA()}
-                className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-all" title="Atualizar">
+                className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 hover:text-slate-900 transition-all" title="Atualizar">
                 <RefreshCw className={`w-4 h-4 ${auditLoading ? 'animate-spin' : ''}`} />
               </button>
 
@@ -602,22 +602,22 @@ export default function AprovacoesPage() {
               <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Carregando histórico...</p>
             </div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-20 glass-panel rounded-[2rem] border border-white/5">
+            <div className="text-center py-20 glass-panel rounded-[2rem] border border-slate-200">
               <Inbox className="w-12 h-12 text-slate-800 mx-auto mb-4" />
               <p className="text-slate-500 font-bold">Nenhum registro encontrado</p>
-              {temFiltro && <button onClick={limparFiltros} className="mt-3 text-[11px] text-violet-400 hover:text-white">Limpar filtros</button>}
+              {temFiltro && <button onClick={limparFiltros} className="mt-3 text-[11px] text-violet-400 hover:text-slate-900">Limpar filtros</button>}
             </div>
           ) : (
-            <div className="glass-panel rounded-[2rem] border border-white/5 overflow-hidden">
+            <div className="glass-panel rounded-[2rem] border border-slate-200 overflow-hidden">
               {/* Cabeçalho da tabela */}
-              <div className="grid grid-cols-[16px_2fr_2fr_1fr_1fr] gap-4 px-6 py-3 border-b border-white/5 bg-white/[0.02]">
+              <div className="grid grid-cols-[16px_2fr_2fr_1fr_1fr] gap-4 px-6 py-3 border-b border-slate-200 bg-slate-50">
                 {['', 'Ação', 'Condomínio', 'Usuário', 'Data/Hora'].map((h, i) => (
                   <span key={i} className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{h}</span>
                 ))}
               </div>
 
               {/* Linhas */}
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-slate-200">
                 {logs.map((log) => {
                   const style = getActionStyle(log.action);
                   const condo = log.processo?.condominios?.name;
@@ -625,7 +625,7 @@ export default function AprovacoesPage() {
                   const quem = log.approver?.full_name || '—';
                   const quando = log.created_at ? new Date(log.created_at).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
                   return (
-                    <div key={log.id} className="grid grid-cols-[16px_2fr_2fr_1fr_1fr] gap-4 px-6 py-3.5 hover:bg-white/[0.02] transition-colors items-center group">
+                    <div key={log.id} className="grid grid-cols-[16px_2fr_2fr_1fr_1fr] gap-4 px-6 py-3.5 hover:bg-slate-100 transition-colors items-center group">
                       {/* Dot */}
                       <div className={`w-2 h-2 rounded-full ${style.bg} shadow-sm`} />
                       {/* Ação */}
@@ -637,7 +637,7 @@ export default function AprovacoesPage() {
                       </div>
                       {/* Condomínio */}
                       <div>
-                        <p className="text-[11px] font-bold text-slate-300 truncate">{condo || '—'}</p>
+                        <p className="text-[11px] font-bold text-slate-700 truncate">{condo || '—'}</p>
                         {gerente && <p className="text-[10px] text-slate-600 truncate">{gerente}</p>}
                       </div>
                       {/* Usuário */}
@@ -664,12 +664,12 @@ export default function AprovacoesPage() {
       {/* ── Modal Solicitar Reabertura ── */}
       {showReaberturaModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-fade-in">
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={() => setShowReaberturaModal(null)} />
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setShowReaberturaModal(null)} />
           <div className="glass-panel max-w-lg w-full p-8 rounded-[2.5rem] relative border border-rose-500/30 shadow-3xl">
-            <button onClick={() => setShowReaberturaModal(null)} className="absolute top-4 right-4 text-slate-500 hover:text-white">
+            <button onClick={() => setShowReaberturaModal(null)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-900">
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-black text-white mb-2">Solicitar reabertura</h3>
+            <h3 className="text-xl font-black text-slate-900 mb-2">Solicitar reabertura</h3>
             <p className="text-sm text-slate-400 mb-1">{showReaberturaModal.condominios?.name}</p>
             <p className="text-[10px] uppercase tracking-widest text-rose-400/80 mb-5">{MESES[showReaberturaModal.mes_referencia]}/{showReaberturaModal.ano_referencia}</p>
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
@@ -680,11 +680,11 @@ export default function AprovacoesPage() {
               onChange={e => setMotivoReabertura(e.target.value)}
               rows={4}
               placeholder="Ex: Identifiquei um valor errado no condomínio, preciso corrigir o mês de julho."
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-600 resize-none mb-4"
+              className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-400 resize-none mb-4"
             />
             <div className="flex justify-end gap-3">
               <button onClick={() => setShowReaberturaModal(null)}
-                className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">
+                className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-700">
                 Cancelar
               </button>
               <button
@@ -702,22 +702,22 @@ export default function AprovacoesPage() {
       {/* ── Modal Correção ── */}
       {showRejectModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-fade-in">
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={() => setShowRejectModal(null)} />
-          <div className="glass-panel max-w-lg w-full p-10 rounded-[2.5rem] relative border border-white/10 shadow-3xl">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setShowRejectModal(null)} />
+          <div className="glass-panel max-w-lg w-full p-10 rounded-[2.5rem] relative border border-slate-200 shadow-3xl">
             <div className="flex items-center gap-4 mb-6">
               <div className="w-12 h-12 bg-rose-500/20 border border-rose-500/30 rounded-2xl flex items-center justify-center">
                 <MessageSquare className="w-6 h-6 text-rose-400" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-white uppercase tracking-tighter">Solicitar Correção</h3>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Solicitar Correção</h3>
                 <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mt-0.5">{showRejectModal.condominios?.name}</p>
               </div>
             </div>
             <textarea autoFocus value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={4}
-              className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-sm text-slate-200 focus:border-rose-500 outline-none transition-all placeholder:text-slate-700 mb-6 shadow-inner"
+              className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 focus:border-rose-500 outline-none transition-all placeholder:text-slate-700 mb-6 shadow-inner"
               placeholder="Descreva o que precisa ser corrigido..." />
             <div className="flex gap-3">
-              <button onClick={() => setShowRejectModal(null)} className="flex-1 py-3.5 text-xs font-black text-slate-600 uppercase tracking-widest hover:text-white transition-colors">Cancelar</button>
+              <button onClick={() => setShowRejectModal(null)} className="flex-1 py-3.5 text-xs font-black text-slate-600 uppercase tracking-widest hover:text-slate-900 transition-colors">Cancelar</button>
               <button disabled={!rejectReason || processing}
                 onClick={() => handleAction(showRejectModal.id, 'reject', rejectReason)}
                 className="flex-1 py-3.5 bg-rose-500 hover:bg-rose-400 text-white text-xs font-black rounded-2xl uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-50">

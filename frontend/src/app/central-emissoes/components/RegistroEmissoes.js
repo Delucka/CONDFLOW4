@@ -212,48 +212,48 @@ export default function RegistroEmissoes({ profile }) {
     <div className="space-y-6">
       {/* Header com stats */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="p-6 border border-white/10 rounded-3xl bg-[#0a0a0f] flex items-center gap-4">
+        <div className="p-6 border border-slate-200 rounded-3xl bg-white flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
             <Lock className="w-6 h-6 text-emerald-400" />
           </div>
           <div>
-            <p className="text-3xl font-black text-white">{pacotes.length}</p>
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Emissões Expedidas</p>
+            <p className="text-3xl font-black text-slate-900">{pacotes.length}</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Emissões Expedidas</p>
           </div>
         </div>
-        <div className="p-6 border border-white/10 rounded-3xl bg-[#0a0a0f] flex items-center gap-4">
+        <div className="p-6 border border-slate-200 rounded-3xl bg-white flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
             <RefreshCw className="w-6 h-6 text-amber-400" />
           </div>
           <div>
-            <p className="text-3xl font-black text-white">{pacotes.filter(p => p.eh_retificacao).length}</p>
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Retificações</p>
+            <p className="text-3xl font-black text-slate-900">{pacotes.filter(p => p.eh_retificacao).length}</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Retificações</p>
           </div>
         </div>
       </div>
 
       {/* Filtros */}
-      <div className="border border-white/10 rounded-3xl bg-white/5 p-6">
+      <div className="border border-slate-200 rounded-3xl bg-slate-50 p-6">
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Buscar Condomínio</label>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Buscar Condomínio</label>
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input value={busca} onChange={e => { setBusca(e.target.value); setPagina(1); }}
                 placeholder="Nome do condomínio..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm text-white outline-none focus:border-emerald-500 transition-all placeholder:text-gray-700" />
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-500 transition-all placeholder:text-slate-400" />
             </div>
           </div>
           <div className="min-w-[160px]">
-            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Competência</label>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Competência</label>
             <select value={competencia} onChange={e => { setCompetencia(e.target.value); setPagina(1); }}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 transition-all appearance-none">
-              <option value="" className="bg-[#0a0a0f]">Todas</option>
-              {competenciasDisponiveis.map(c => <option key={c} value={c} className="bg-[#0a0a0f]">{c}</option>)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-500 transition-all appearance-none">
+              <option value="" className="bg-white">Todas</option>
+              {competenciasDisponiveis.map(c => <option key={c} value={c} className="bg-white">{c}</option>)}
             </select>
           </div>
           {temFiltros && (
-            <button onClick={limparFiltros} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-gray-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
+            <button onClick={limparFiltros} className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-2">
               <X className="w-3 h-3" /> Limpar
             </button>
           )}
@@ -261,10 +261,10 @@ export default function RegistroEmissoes({ profile }) {
       </div>
 
       {/* Tabela */}
-      <div className="border border-white/10 rounded-3xl bg-white/5 overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-white/10 flex items-center gap-4">
+      <div className="border border-slate-200 rounded-3xl bg-slate-50 overflow-hidden shadow-2xl">
+        <div className="p-6 border-b border-slate-200 flex items-center gap-4">
           <Archive className="w-5 h-5 text-emerald-400" />
-          <h3 className="font-black text-white text-lg">Registro de Emissões Expedidas</h3>
+          <h3 className="font-black text-slate-900 text-lg">Registro de Emissões Expedidas</h3>
           <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
             {pacotesFiltrados.length} registro{pacotesFiltrados.length !== 1 ? 's' : ''}
           </span>
@@ -273,44 +273,44 @@ export default function RegistroEmissoes({ profile }) {
         {loading ? (
           <div className="flex flex-col items-center justify-center p-16 gap-3">
             <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Carregando registros...</p>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Carregando registros...</p>
           </div>
         ) : pacotesFiltrados.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-20 text-center">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 border border-white/10">
-              <Archive className="w-8 h-8 text-gray-600" />
+            <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-4 border border-slate-200">
+              <Archive className="w-8 h-8 text-slate-400" />
             </div>
-            <h4 className="text-white font-black text-lg">Nenhum registro encontrado</h4>
-            <p className="text-xs text-gray-500 max-w-[250px] mt-2">
+            <h4 className="text-slate-900 font-black text-lg">Nenhum registro encontrado</h4>
+            <p className="text-xs text-slate-500 max-w-[250px] mt-2">
               {temFiltros ? 'Tente ajustar os filtros.' : 'Emissões registradas aparecerão aqui.'}
             </p>
           </div>
         ) : (
           <>
             {/* Header da tabela */}
-            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-3 border-b border-white/5 bg-white/[0.02]">
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-3 border-b border-slate-200 bg-slate-50">
               {['Condomínio', 'Competência', 'Expedida em', 'Status', 'Ações'].map(h => (
-                <span key={h} className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{h}</span>
+                <span key={h} className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{h}</span>
               ))}
             </div>
 
             {/* Linhas */}
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-slate-200">
               {pacotesPaginados.map(p => {
                 const numArq = p.arquivos?.length || 0;
                 return (
-                  <div key={p.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-4 items-center hover:bg-white/[0.02] transition-colors">
+                  <div key={p.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-4 items-center hover:bg-slate-100 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                         <Building className="w-4 h-4 text-emerald-400" />
                       </div>
                       <div>
-                        <p className="font-bold text-white text-sm">{p.condominios?.name}</p>
-                        <p className="text-[10px] text-gray-500">1 emissão • {numArq} arquivo{numArq !== 1 ? 's' : ''}</p>
+                        <p className="font-bold text-slate-900 text-sm">{p.condominios?.name}</p>
+                        <p className="text-[10px] text-slate-500">1 emissão • {numArq} arquivo{numArq !== 1 ? 's' : ''}</p>
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-cyan-400">{String(p.mes_referencia).padStart(2,'0')}/{p.ano_referencia}</span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-sm font-bold text-violet-400">{String(p.mes_referencia).padStart(2,'0')}/{p.ano_referencia}</span>
+                    <span className="text-xs text-slate-500">
                       {p.lacrada_em ? new Date(p.lacrada_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).replace(',', ' às') : '—'}
                     </span>
                     <div className="flex items-center gap-2">
@@ -323,24 +323,24 @@ export default function RegistroEmissoes({ profile }) {
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => { setArqPacote(p); setShowArqModal(true); }}
-                        className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all" title="Ver arquivos">
+                        className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-violet-400 hover:border-violet-500/30 transition-all" title="Ver arquivos">
                         <Eye className="w-4 h-4" />
                       </button>
                       {(p.arquivos?.length || 0) > 0 && (
                         <button onClick={() => handleDownloadZip(p)}
-                          className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-emerald-400 hover:border-emerald-500/30 transition-all" title="Baixar pacote ZIP">
+                          className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30 transition-all" title="Baixar pacote ZIP">
                           <Download className="w-4 h-4" />
                         </button>
                       )}
                       {canRetif && (
                         <button onClick={() => { setRetifPacote(p); setShowRetifModal(true); setRetifMotivo(''); setRetifDescricao(''); }}
-                          className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-amber-400 hover:border-amber-500/30 transition-all" title="Solicitar retificação">
+                          className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-amber-400 hover:border-amber-500/30 transition-all" title="Solicitar retificação">
                           <RefreshCw className="w-4 h-4" />
                         </button>
                       )}
                       {canDelete && (
                         <button onClick={() => handleDelete(p)}
-                          className={`p-2 rounded-lg border transition-all ${confirmDeleteId === p.id ? 'bg-rose-500 border-rose-500 text-white animate-pulse' : 'bg-white/5 border-white/10 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30'}`}
+                          className={`p-2 rounded-lg border transition-all ${confirmDeleteId === p.id ? 'bg-rose-500 border-rose-500 text-white animate-pulse' : 'bg-slate-50 border-slate-200 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30'}`}
                           title={confirmDeleteId === p.id ? 'Clique para confirmar' : 'Excluir emissão'}>
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -353,17 +353,17 @@ export default function RegistroEmissoes({ profile }) {
 
             {/* Paginação */}
             {totalPaginas > 1 && (
-              <div className="px-6 py-4 border-t border-white/10 flex items-center justify-between bg-white/[0.02]">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+              <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   Página {pagina} de {totalPaginas}
                 </span>
                 <div className="flex gap-2">
                   <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina === 1}
-                    className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white disabled:opacity-30 transition-all">
+                    className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 disabled:opacity-30 transition-all">
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas}
-                    className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white disabled:opacity-30 transition-all">
+                    className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 disabled:opacity-30 transition-all">
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -375,27 +375,27 @@ export default function RegistroEmissoes({ profile }) {
 
       {/* ═══ MODAL VER ARQUIVOS ═══ */}
       {showArqModal && arqPacote && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-8 shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-8 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-lg font-black text-white">{arqPacote.condominios?.name}</h3>
+                <h3 className="text-lg font-black text-slate-900">{arqPacote.condominios?.name}</h3>
                 <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest">
                   {String(arqPacote.mes_referencia).padStart(2,'0')}/{arqPacote.ano_referencia} • Lacrada
                 </p>
               </div>
-              <button onClick={() => setShowArqModal(false)} className="p-2 hover:bg-white/5 rounded-full text-gray-500 hover:text-white transition-colors">
+              <button onClick={() => setShowArqModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {(arqPacote.arquivos || []).length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-8">Nenhum arquivo encontrado.</p>
+                <p className="text-sm text-slate-500 text-center py-8">Nenhum arquivo encontrado.</p>
               ) : arqPacote.arquivos.map(arq => (
                 <button key={arq.id} onClick={() => openFileUrl(arq, arqPacote)}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-white/5 border border-white/10 rounded-xl hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all group text-left">
-                  <FileText className="w-4 h-4 text-gray-500 group-hover:text-cyan-400 shrink-0" />
-                  <span className="text-sm font-bold text-gray-400 group-hover:text-white truncate">{arq.arquivo_nome}</span>
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl hover:border-violet-500/30 hover:bg-violet-500/5 transition-all group text-left">
+                  <FileText className="w-4 h-4 text-slate-500 group-hover:text-violet-400 shrink-0" />
+                  <span className="text-sm font-bold text-slate-500 group-hover:text-slate-900 truncate">{arq.arquivo_nome}</span>
                 </button>
               ))}
             </div>
@@ -416,14 +416,14 @@ export default function RegistroEmissoes({ profile }) {
 
       {/* ═══ MODAL RETIFICAÇÃO ═══ */}
       {showRetifModal && retifPacote && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-lg p-8 shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-8 shadow-2xl">
             <div className="flex items-center gap-4 mb-6">
               <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-center">
                 <RefreshCw className="w-6 h-6 text-amber-400" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-white">Solicitar Retificação</h3>
+                <h3 className="text-xl font-black text-slate-900">Solicitar Retificação</h3>
                 <p className="text-[10px] text-amber-400 font-black uppercase tracking-widest mt-1">
                   {retifPacote.condominios?.name} — {String(retifPacote.mes_referencia).padStart(2,'0')}/{retifPacote.ano_referencia}
                 </p>
@@ -439,29 +439,29 @@ export default function RegistroEmissoes({ profile }) {
 
             <div className="space-y-5">
               <div>
-                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Motivo</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Motivo</label>
                 <select value={retifMotivo} onChange={e => setRetifMotivo(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-amber-500 transition-all appearance-none">
-                  <option value="" className="bg-[#0a0a0f]">Selecione o motivo...</option>
-                  <option value="Cobrança extra esquecida" className="bg-[#0a0a0f]">Cobrança extra esquecida</option>
-                  <option value="Valor incorreto no rateio" className="bg-[#0a0a0f]">Valor incorreto no rateio</option>
-                  <option value="Dado cadastral desatualizado" className="bg-[#0a0a0f]">Dado cadastral desatualizado</option>
-                  <option value="Erro no demonstrativo" className="bg-[#0a0a0f]">Erro no demonstrativo</option>
-                  <option value="Outro" className="bg-[#0a0a0f]">Outro (descrever)</option>
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-amber-500 transition-all appearance-none">
+                  <option value="" className="bg-white">Selecione o motivo...</option>
+                  <option value="Cobrança extra esquecida" className="bg-white">Cobrança extra esquecida</option>
+                  <option value="Valor incorreto no rateio" className="bg-white">Valor incorreto no rateio</option>
+                  <option value="Dado cadastral desatualizado" className="bg-white">Dado cadastral desatualizado</option>
+                  <option value="Erro no demonstrativo" className="bg-white">Erro no demonstrativo</option>
+                  <option value="Outro" className="bg-white">Outro (descrever)</option>
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Descrição Detalhada</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Descrição Detalhada</label>
                 <textarea value={retifDescricao} onChange={e => setRetifDescricao(e.target.value)} rows={4}
                   placeholder="Descreva detalhadamente o que precisa ser retificado..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500 transition-all placeholder:text-gray-700" />
-                <p className="text-[9px] text-gray-600 mt-1 ml-1 uppercase font-bold tracking-widest">Mínimo 30 caracteres ({retifDescricao.length}/30)</p>
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-900 outline-none focus:border-amber-500 transition-all placeholder:text-slate-400" />
+                <p className="text-[9px] text-slate-400 mt-1 ml-1 uppercase font-bold tracking-widest">Mínimo 30 caracteres ({retifDescricao.length}/30)</p>
               </div>
             </div>
 
             <div className="flex gap-3 mt-6">
               <button onClick={() => { setShowRetifModal(false); setRetifPacote(null); }}
-                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
                 Cancelar
               </button>
               <button onClick={handleSolicitarRetif} disabled={retifSubmitting || !retifMotivo || retifDescricao.length < 30}

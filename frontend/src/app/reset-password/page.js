@@ -54,17 +54,17 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[150px] pointer-events-none" />
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-violet-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-violet-500/10 rounded-full blur-[150px] pointer-events-none" />
 
       <div className="glass-panel w-full max-w-md rounded-2xl p-8 relative z-10 animate-fade-up">
         <div className="flex items-center justify-center mb-6">
-          <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-cyan-400 border border-slate-800">
+          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-violet-400 border border-slate-800">
             <KeyRound className="w-8 h-8" />
           </div>
         </div>
-        <h2 className="text-2xl font-black text-center text-white mb-1 tracking-tight">NOVA SENHA</h2>
+        <h2 className="text-2xl font-black text-center text-slate-900 mb-1 tracking-tight">NOVA SENHA</h2>
         <p className="text-slate-400 text-center mb-8 text-sm">Crie uma senha segura para acessar o CondoFlow</p>
 
         {done ? (
@@ -77,15 +77,15 @@ export default function ResetPasswordPage() {
           </div>
         ) : !sessionReady ? (
           <div className="text-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-cyan-400 mx-auto mb-3" />
+            <Loader2 className="w-8 h-8 animate-spin text-violet-400 mx-auto mb-3" />
             <p className="text-sm text-slate-500">Validando link…</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             {erro && (
-              <div className="bg-red-500/10 border border-red-500/30 p-3 rounded-xl flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                <p className="text-xs text-red-400 font-semibold">{erro}</p>
+              <div className="bg-rose-500/10 border border-rose-500/30 p-3 rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <p className="text-xs text-rose-400 font-semibold">{erro}</p>
               </div>
             )}
             <div>
@@ -93,9 +93,9 @@ export default function ResetPasswordPage() {
               <div className="relative">
                 <input type={show ? 'text' : 'password'} required minLength={6} placeholder="••••••••"
                   value={pwd} onChange={(e) => setPwd(e.target.value)}
-                  className="w-full px-4 py-3 pr-11 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 focus:border-cyan-500 transition-all outline-none" />
+                  className="w-full px-4 py-3 pr-11 bg-white border border-slate-700 rounded-xl text-sm text-slate-800 focus:border-violet-500 transition-all outline-none" />
                 <button type="button" onClick={() => setShow(!show)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700">
                   {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -104,10 +104,10 @@ export default function ResetPasswordPage() {
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Confirmar senha</label>
               <input type={show ? 'text' : 'password'} required minLength={6} placeholder="••••••••"
                 value={pwd2} onChange={(e) => setPwd2(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 focus:border-cyan-500 transition-all outline-none" />
+                className="w-full px-4 py-3 bg-white border border-slate-700 rounded-xl text-sm text-slate-800 focus:border-violet-500 transition-all outline-none" />
             </div>
             <button type="submit" disabled={loading}
-              className="w-full py-3 bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold hover:bg-cyan-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+              className="w-full py-3 bg-violet-500 text-slate-950 rounded-xl text-sm font-bold hover:bg-violet-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               {loading ? 'SALVANDO...' : 'DEFINIR SENHA'}
             </button>

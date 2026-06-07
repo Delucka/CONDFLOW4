@@ -185,13 +185,13 @@ export default function CondominioEmissoesPage() {
       <div className="glass-panel p-6 mb-8 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex flex-col gap-4 w-full">
             <div className="flex items-center gap-5">
-                <div className="w-14 h-14 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.1)]">
-                    <FileUp className="w-7 h-7 text-blue-400" />
+                <div className="w-14 h-14 bg-violet-500/10 border border-violet-500/20 rounded-2xl flex items-center justify-center ">
+                    <FileUp className="w-7 h-7 text-violet-400" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-black text-white tracking-tight uppercase leading-none">{condo?.name || 'Condomínio'}</h1>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase leading-none">{condo?.name || 'Condomínio'}</h1>
                     <div className="flex items-center gap-3 mt-2">
-                        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                        <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest flex items-center gap-1 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
                             Gestão de Emissões (Arquivos)
                         </span>
                     </div>
@@ -199,11 +199,11 @@ export default function CondominioEmissoesPage() {
             </div>
 
             {/* TAB NAVIGATION SIMPLES */}
-            <div className="flex gap-4 border-t border-white/5 pt-4">
-                <Link href={`/condominio/${condoId}/arrecadacoes`} className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
+            <div className="flex gap-4 border-t border-slate-200 pt-4">
+                <Link href={`/condominio/${condoId}/arrecadacoes`} className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
                     Arrecadações
                 </Link>
-                <button className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-blue-500 text-slate-900 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+                <button className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-violet-500 text-white ">
                     Emissões (Arquivos)
                 </button>
             </div>
@@ -215,8 +215,8 @@ export default function CondominioEmissoesPage() {
           {canEdit && (
               <div className="col-span-12 lg:col-span-4">
                   <div className="glass-panel p-6 rounded-2xl sticky top-24">
-                      <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
-                          <PlusCircle className="w-4 h-4 text-blue-400" /> 
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
+                          <PlusCircle className="w-4 h-4 text-violet-400" /> 
                           Enviar Novo Arquivo
                       </h3>
 
@@ -228,7 +228,7 @@ export default function CondominioEmissoesPage() {
                                     placeholder="MM/YYYY"
                                     value={formMesAno}
                                     onChange={e => setFormMesAno(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white font-bold outline-none focus:border-blue-500" 
+                                    className="w-full bg-white border border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 font-bold outline-none focus:border-violet-500" 
                                 />
                             </div>
                             
@@ -237,7 +237,7 @@ export default function CondominioEmissoesPage() {
                                 <select 
                                     value={formTipo}
                                     onChange={e => setFormTipo(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm text-white font-bold outline-none focus:border-blue-500"
+                                    className="w-full bg-white border border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 font-bold outline-none focus:border-violet-500"
                                 >
                                     <option value="Boleto">Boleto de Cobrança</option>
                                     <option value="Balancete">Balancete Mensal</option>
@@ -248,7 +248,7 @@ export default function CondominioEmissoesPage() {
 
                             <div>
                                 <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Arquivo (PDF, Imagem, etc)</label>
-                                <div className="border border-dashed border-slate-600 rounded-lg p-4 bg-slate-900 hover:bg-slate-800 transition-colors text-center cursor-pointer relative">
+                                <div className="border border-dashed border-slate-600 rounded-lg p-4 bg-white hover:bg-slate-100 transition-colors text-center cursor-pointer relative">
                                     <input 
                                         type="file" 
                                         ref={fileInputRef}
@@ -258,14 +258,14 @@ export default function CondominioEmissoesPage() {
                                     />
                                     {file ? (
                                         <div className="flex flex-col items-center">
-                                            <FileText className="w-8 h-8 text-blue-400 mb-2" />
-                                            <span className="text-xs font-bold text-white truncate max-w-[200px]">{file.name}</span>
+                                            <FileText className="w-8 h-8 text-violet-400 mb-2" />
+                                            <span className="text-xs font-bold text-slate-900 truncate max-w-[200px]">{file.name}</span>
                                             <span className="text-[10px] text-slate-500">{formatSize(file.size)}</span>
                                         </div>
                                     ) : (
                                         <div className="flex flex-col items-center pointer-events-none">
                                             <FileUp className="w-8 h-8 text-slate-500 mb-2" />
-                                            <span className="text-xs font-bold text-slate-300">Clique ou arraste um arquivo</span>
+                                            <span className="text-xs font-bold text-slate-700">Clique ou arraste um arquivo</span>
                                             <span className="text-[9px] text-slate-500 mt-1">Limite recomendado: 50MB</span>
                                         </div>
                                     )}
@@ -276,7 +276,7 @@ export default function CondominioEmissoesPage() {
                       <button 
                           onClick={handleUpload}
                           disabled={!file || uploading}
-                          className="w-full py-3 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 disabled:hover:bg-blue-500 text-slate-950 text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-blue-500/20 flex justify-center items-center gap-2"
+                          className="w-full py-3 bg-violet-500 hover:bg-violet-400 disabled:opacity-50 disabled:hover:bg-violet-500 text-slate-950 text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-violet-500/20 flex justify-center items-center gap-2"
                       >
                           {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
                           {uploading ? 'Enviando...' : 'Salvar Emissão'}
@@ -288,31 +288,31 @@ export default function CondominioEmissoesPage() {
           {/* LIST OF FILES */}
           <div className="col-span-12 lg:col-span-8">
               <div className="glass-panel p-6 rounded-2xl min-h-[500px]">
-                  <h3 className="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
                       <FileText className="w-4 h-4 text-emerald-400" /> 
                       Histórico de Emissões
                   </h3>
 
                   {loading ? (
-                      <div className="flex justify-center p-10"><Loader2 className="w-8 h-8 text-blue-500 animate-spin" /></div>
+                      <div className="flex justify-center p-10"><Loader2 className="w-8 h-8 text-violet-500 animate-spin" /></div>
                   ) : emissoes.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center p-20 text-center border border-dashed border-white/10 rounded-2xl">
+                      <div className="flex flex-col items-center justify-center p-20 text-center border border-dashed border-slate-200 rounded-2xl">
                           <ShieldAlert className="w-12 h-12 text-slate-600 mb-4" />
-                          <h4 className="text-sm font-black text-white uppercase tracking-widest mb-2">Nenhum Documento</h4>
+                          <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">Nenhum Documento</h4>
                           <p className="text-xs font-bold text-slate-500">Este condomínio ainda não possui emissões cadastradas no sistema.</p>
                       </div>
                   ) : (
                       <div className="grid gap-4">
                           {emissoes.map(e => (
-                              <div key={e.id} className="bg-black/30 border border-white/5 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-blue-500/30 transition-colors">
+                              <div key={e.id} className="bg-slate-100 border border-slate-200 p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-violet-500/30 transition-colors">
                                   <div className="flex items-center gap-4 w-full md:w-auto">
-                                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${e.tipo === 'Boleto' ? 'bg-emerald-500/10 text-emerald-400' : e.tipo === 'Balancete' ? 'bg-violet-500/10 text-violet-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${e.tipo === 'Boleto' ? 'bg-emerald-500/10 text-emerald-400' : e.tipo === 'Balancete' ? 'bg-violet-500/10 text-violet-400' : 'bg-violet-500/10 text-violet-400'}`}>
                                           <FileText className="w-6 h-6" />
                                       </div>
                                       <div className="flex-1 min-w-0">
                                           <div className="flex flex-col md:flex-row md:items-center gap-2 mb-1">
-                                            <h5 className="text-sm font-black text-white truncate" title={e.nome_arquivo}>{e.nome_arquivo}</h5>
-                                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-slate-800 text-slate-300 w-max shrink-0">{e.tipo}</span>
+                                            <h5 className="text-sm font-black text-slate-900 truncate" title={e.nome_arquivo}>{e.nome_arquivo}</h5>
+                                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-slate-100 text-slate-700 w-max shrink-0">{e.tipo}</span>
                                           </div>
                                           <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest flex-wrap">
                                               <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {e.mes_ano}</span>
@@ -326,11 +326,11 @@ export default function CondominioEmissoesPage() {
 
                                   <div className="flex items-center gap-2 w-full md:w-auto justify-end mt-2 md:mt-0">
                                       {canEdit && (
-                                          <button onClick={() => handleDelete(e.id, e.storage_path)} className="p-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-all" title="Excluir">
+                                          <button onClick={() => handleDelete(e.id, e.storage_path)} className="p-2 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all" title="Excluir">
                                               <Trash2 className="w-4 h-4" />
                                           </button>
                                       )}
-                                      <button onClick={() => handleDownload(e)} className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-slate-900 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all w-full md:w-auto justify-center">
+                                      <button onClick={() => handleDownload(e)} className="flex items-center gap-2 px-4 py-2 bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all w-full md:w-auto justify-center">
                                           <Download className="w-4 h-4" />
                                           Baixar
                                       </button>

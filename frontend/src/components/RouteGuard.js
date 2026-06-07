@@ -45,7 +45,7 @@ export default function RouteGuard({ children, allowedRoles = null }) {
   if (loading || !profile) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
       </div>
     );
   }
@@ -58,8 +58,8 @@ export default function RouteGuard({ children, allowedRoles = null }) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <ShieldAlert className="w-12 h-12 text-red-400 mx-auto mb-3" />
-          <p className="text-red-400 font-bold">Acesso restrito</p>
+          <ShieldAlert className="w-12 h-12 text-rose-400 mx-auto mb-3" />
+          <p className="text-rose-400 font-bold">Acesso restrito</p>
           <p className="text-slate-500 text-sm mt-1">Redirecionando...</p>
         </div>
       </div>

@@ -30,7 +30,7 @@ export default function AppShell({ children }) {
     return (
       <div className="h-screen flex items-center justify-center bg-[#030712]">
         <div className="flex flex-col items-center gap-4 animate-fade-in">
-          <div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-cyan-500 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(139,92,246,0.6)]">
+          <div className="w-16 h-16 bg-violet-600 rounded-2xl flex items-center justify-center ">
             <Loader2 className="w-8 h-8 text-white animate-spin" />
           </div>
           <p className="text-sm font-bold tracking-widest uppercase text-violet-400 opacity-80 mt-2">AUTENTICANDO...</p>

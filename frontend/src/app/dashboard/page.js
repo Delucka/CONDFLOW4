@@ -110,16 +110,16 @@ function PipelineWidget({ processos, condosTotal, pipelineConfig, countdown }) {
             { v: countdown.m, l: 'min' },
             { v: countdown.s, l: 'seg' },
           ].map(({ v, l }) => (
-            <div key={l} className="bg-black/30 rounded-2xl p-3 text-center border border-white/5">
+            <div key={l} className="bg-slate-100 rounded-2xl p-3 text-center border border-slate-200">
               <p className={`text-2xl font-black ${style.text} tabular-nums`}>{String(v).padStart(2, '0')}</p>
-              <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{l}</p>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{l}</p>
             </div>
           ))}
         </div>
       )}
 
       {(iniFmt || prazoFmt) && (
-        <div className="flex items-center gap-4 text-[10px] text-gray-500 font-bold">
+        <div className="flex items-center gap-4 text-[10px] text-slate-500 font-bold">
           {iniFmt && <span className="flex items-center gap-1"><CalendarClock className="w-3 h-3" /> De {iniFmt}</span>}
           {prazoFmt && <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> Até {prazoFmt}</span>}
         </div>
@@ -127,17 +127,17 @@ function PipelineWidget({ processos, condosTotal, pipelineConfig, countdown }) {
 
       {/* Barra de progresso dos status */}
       <div className="space-y-2">
-        <div className="flex items-center gap-1 h-2 rounded-full overflow-hidden bg-black/30">
+        <div className="flex items-center gap-1 h-2 rounded-full overflow-hidden bg-slate-100">
           {emEdicao   > 0 && <div title="Em edição"   className="bg-amber-500 h-full transition-all" style={{ width: `${(emEdicao/total)*100}%` }} />}
           {finalizado > 0 && <div title="Finalizado"  className="bg-rose-500 h-full transition-all"  style={{ width: `${(finalizado/total)*100}%` }} />}
           {enviado    > 0 && <div title="Em fluxo"    className="bg-emerald-500 h-full transition-all" style={{ width: `${(enviado/total)*100}%` }} />}
-          {semProc    > 0 && <div title="Sem processo" className="bg-gray-700 h-full transition-all" style={{ width: `${(semProc/total)*100}%` }} />}
+          {semProc    > 0 && <div title="Sem processo" className="bg-slate-200 h-full transition-all" style={{ width: `${(semProc/total)*100}%` }} />}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <span className="flex items-center gap-1 text-[9px] text-amber-400 font-bold"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Em edição ({emEdicao})</span>
           <span className="flex items-center gap-1 text-[9px] text-rose-400 font-bold"><span className="w-2 h-2 rounded-full bg-rose-500 inline-block" /> Finalizado ({finalizado})</span>
           <span className="flex items-center gap-1 text-[9px] text-emerald-400 font-bold"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Em fluxo ({enviado})</span>
-          {semProc > 0 && <span className="flex items-center gap-1 text-[9px] text-gray-500 font-bold"><span className="w-2 h-2 rounded-full bg-gray-700 inline-block" /> Sem processo ({semProc})</span>}
+          {semProc > 0 && <span className="flex items-center gap-1 text-[9px] text-slate-500 font-bold"><span className="w-2 h-2 rounded-full bg-slate-200 inline-block" /> Sem processo ({semProc})</span>}
         </div>
       </div>
     </div>
@@ -241,10 +241,10 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center p-20 text-center glass-panel rounded-3xl">
-        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-        <h3 className="text-xl font-bold text-white mb-2">Erro de Conexão</h3>
+        <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
+        <h3 className="text-xl font-bold text-slate-900 mb-2">Erro de Conexão</h3>
         <p className="text-slate-400 mb-6">Não foi possível carregar os dados do painel.</p>
-        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-slate-800 rounded-xl font-bold border border-slate-700">TENTAR NOVAMENTE</button>
+        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-slate-100 rounded-xl font-bold border border-slate-700">TENTAR NOVAMENTE</button>
       </div>
     );
   }
@@ -274,10 +274,10 @@ export default function DashboardPage() {
 
         {/* Tabela de Condomínios (Esquerda - 2/3) */}
         <div className="lg:col-span-2 glass-panel rounded-xl overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-white/5 flex flex-wrap items-center justify-between gap-3">
+          <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <div className="border-l-2 border-violet-500 pl-3">
-              <h3 className="text-xs font-black text-white leading-none uppercase tracking-tight">Situação Semestral</h3>
-              <p className="text-[9px] uppercase tracking-widest text-cyan-400 font-bold mt-1">
+              <h3 className="text-xs font-black text-slate-900 leading-none uppercase tracking-tight">Situação Semestral</h3>
+              <p className="text-[9px] uppercase tracking-widest text-violet-400 font-bold mt-1">
                 {data?.year || ANO_ATUAL} · {data?.semester === 1 ? '1º' : '2º'} Semestre
               </p>
             </div>
@@ -288,7 +288,7 @@ export default function DashboardPage() {
                 <select
                   value={filtroGerente}
                   onChange={(e) => setFiltroGerente(e.target.value)}
-                  className="text-xs bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-slate-200 outline-none focus:border-cyan-500 transition-all cursor-pointer"
+                  className="text-xs bg-white border border-slate-200 rounded-xl px-4 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer"
                 >
                   <option value="">TODOS</option>
                   {gerentes.map((g) => (
@@ -307,14 +307,14 @@ export default function DashboardPage() {
             <div className="overflow-x-auto flex-1">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-white/5 text-[9px] uppercase tracking-widest font-black text-slate-500">
+                  <tr className="border-b border-slate-200 text-[9px] uppercase tracking-widest font-black text-slate-500">
                     <th className="px-4 py-2.5">Condomínio</th>
                     <th className="px-3 py-2.5">Planilha</th>
                     <th className="px-3 py-2.5">Emissão</th>
                     <th className="px-4 py-2.5 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="text-sm divide-y divide-white/5">
+                <tbody className="text-sm divide-y divide-slate-200">
                   {condos.map((c) => {
                     const proc         = processos[c.id];
                     const procStatus   = proc?.status || null;
@@ -322,7 +322,7 @@ export default function DashboardPage() {
                     const isLocked     = procStatus === 'Edição finalizada';
 
                     return (
-                      <tr key={c.id} className="hover:bg-white/[0.03] transition-colors group">
+                      <tr key={c.id} className="hover:bg-slate-100 transition-colors group">
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             {isLocked
@@ -330,27 +330,27 @@ export default function DashboardPage() {
                               : <Unlock  className="w-3 h-3 text-emerald-500/50 shrink-0" />
                             }
                             <div>
-                              <p className="font-bold text-gray-100 group-hover:text-cyan-400 transition-colors uppercase tracking-tight text-[11px]">{c.name}</p>
-                              <p className="text-[9px] text-gray-500 font-medium">{c.gerente_name || c.assistente || '—'}</p>
+                              <p className="font-bold text-slate-800 group-hover:text-violet-400 transition-colors uppercase tracking-tight text-[11px]">{c.name}</p>
+                              <p className="text-[9px] text-slate-500 font-medium">{c.gerente_name || c.assistente || '—'}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-3 py-2">
                           {procStatus
                             ? <StatusBadge status={procStatus} flow="processo" />
-                            : <span className="text-[10px] text-gray-600 font-bold">—</span>
+                            : <span className="text-[10px] text-slate-400 font-bold">—</span>
                           }
                         </td>
                         <td className="px-3 py-2">
                           {emissaoStatus
                             ? <StatusBadge status={emissaoStatus} flow="emissao" />
-                            : <span className="text-[10px] text-gray-600 font-bold">—</span>
+                            : <span className="text-[10px] text-slate-400 font-bold">—</span>
                           }
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex gap-1 justify-end">
-                            <Link href={`/condominio/${c.id}/arrecadacoes`} className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-all" title="Arrecadações"><Layers className="w-3 h-3" /></Link>
-                            <Link href={`/condominio/${c.id}/cobrancas`}    className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-slate-950 transition-all" title="Cobranças"><Receipt className="w-3 h-3" /></Link>
+                            <Link href={`/condominio/${c.id}/arrecadacoes`} className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-slate-950 transition-all" title="Arrecadações"><Layers className="w-3 h-3" /></Link>
+                            <Link href={`/condominio/${c.id}/cobrancas`}    className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-slate-950 transition-all" title="Cobranças"><Receipt className="w-3 h-3" /></Link>
                             <button onClick={() => handleQuickView(c.id)}   className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-slate-950 transition-all" title="Ver Info"><Eye className="w-3 h-3" /></button>
                           </div>
                         </td>
@@ -363,7 +363,7 @@ export default function DashboardPage() {
           ) : (
             <div className="p-20 text-center flex-1">
               <Inbox className="w-12 h-12 text-slate-700 mx-auto mb-4" />
-              <p className="text-slate-300 font-bold">Nenhum condomínio encontrado</p>
+              <p className="text-slate-700 font-bold">Nenhum condomínio encontrado</p>
             </div>
           )}
         </div>
@@ -408,15 +408,15 @@ export default function DashboardPage() {
 
       {showRejectModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-fade-in">
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={() => setShowRejectModal(null)} />
-          <div className="glass-panel max-w-lg w-full p-10 rounded-[2.5rem] relative animate-fade-up border border-white/10 shadow-3xl">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setShowRejectModal(null)} />
+          <div className="glass-panel max-w-lg w-full p-10 rounded-[2.5rem] relative animate-fade-up border border-slate-200 shadow-3xl">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 bg-red-500/20 border border-red-500/30 rounded-2xl flex items-center justify-center">
-                <MessageSquare className="w-7 h-7 text-red-400" />
+              <div className="w-14 h-14 bg-rose-500/20 border border-rose-500/30 rounded-2xl flex items-center justify-center">
+                <MessageSquare className="w-7 h-7 text-rose-400" />
               </div>
               <div>
-                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Solicitar Ajuste</h3>
-                <p className="text-[10px] text-red-400 font-black uppercase tracking-widest mt-1">Devolução p/ Emissor</p>
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Solicitar Ajuste</h3>
+                <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mt-1">Devolução p/ Emissor</p>
               </div>
             </div>
             <p className="text-slate-400 text-sm font-medium mb-6">
@@ -427,15 +427,15 @@ export default function DashboardPage() {
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}
               rows={4}
-              className="w-full bg-slate-950 border border-white/10 rounded-2xl p-5 text-sm text-slate-200 focus:border-red-500 outline-none transition-all placeholder:text-slate-700 mb-8 shadow-inner"
+              className="w-full bg-white border border-slate-200 rounded-2xl p-5 text-sm text-slate-800 focus:border-rose-500 outline-none transition-all placeholder:text-slate-700 mb-8 shadow-inner"
               placeholder="Ex: Valor da taxa condominial não condiz com a ata..."
             />
             <div className="flex gap-4">
-              <button onClick={() => setShowRejectModal(null)} className="flex-1 py-4 text-xs font-black text-slate-600 uppercase tracking-widest hover:text-white transition-colors">Cancelar</button>
+              <button onClick={() => setShowRejectModal(null)} className="flex-1 py-4 text-xs font-black text-slate-600 uppercase tracking-widest hover:text-slate-900 transition-colors">Cancelar</button>
               <button
                 disabled={!rejectReason || processing}
                 onClick={() => handleAction(showRejectModal.id, 'reject', rejectReason)}
-                className="flex-2 py-4 bg-red-500 hover:bg-red-400 text-white text-xs font-black rounded-2xl uppercase tracking-widest transition-all shadow-2xl shadow-red-500/30 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                className="flex-2 py-4 bg-rose-500 hover:bg-rose-400 text-white text-xs font-black rounded-2xl uppercase tracking-widest transition-all shadow-2xl shadow-rose-500/30 flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
               >
                 {processing === showRejectModal.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} ENVIAR CORREÇÃO
               </button>

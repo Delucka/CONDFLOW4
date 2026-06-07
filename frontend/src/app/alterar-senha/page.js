@@ -41,10 +41,10 @@ export default function AlterarSenhaPage() {
     <div className="animate-fade-in w-full max-w-2xl mx-auto py-8 px-4">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-            <KeyRound className="w-5 h-5 text-cyan-400" />
+          <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
+            <KeyRound className="w-5 h-5 text-violet-400" />
           </div>
-          <h2 className="text-2xl font-black text-white tracking-tight">Alterar Minha Senha</h2>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Alterar Minha Senha</h2>
         </div>
         <p className="text-slate-400 text-sm">Defina uma nova senha para <strong>sua própria conta</strong> ({user?.email}).</p>
       </div>
@@ -86,9 +86,9 @@ export default function AlterarSenhaPage() {
               placeholder="Mínimo 6 caracteres"
               value={pwd}
               onChange={(e) => setPwd(e.target.value)}
-              className="w-full px-4 py-3 pr-11 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 focus:border-cyan-500 transition-all outline-none" />
+              className="w-full px-4 py-3 pr-11 bg-white border border-slate-700 rounded-xl text-sm text-slate-800 focus:border-violet-500 transition-all outline-none" />
             <button type="button" onClick={() => setShow(!show)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700">
               {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
@@ -102,18 +102,18 @@ export default function AlterarSenhaPage() {
             placeholder="Digite a senha novamente"
             value={pwd2}
             onChange={(e) => setPwd2(e.target.value)}
-            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 focus:border-cyan-500 transition-all outline-none" />
+            className="w-full px-4 py-3 bg-white border border-slate-700 rounded-xl text-sm text-slate-800 focus:border-violet-500 transition-all outline-none" />
         </div>
 
         <div className="flex gap-3 pt-2">
           {!isForced && (
             <button type="button" onClick={() => router.push('/dashboard')}
-              className="px-6 py-3 text-xs font-black text-slate-500 uppercase tracking-widest hover:text-white transition-colors">
+              className="px-6 py-3 text-xs font-black text-slate-500 uppercase tracking-widest hover:text-slate-900 transition-colors">
               Cancelar
             </button>
           )}
           <button type="submit" disabled={loading}
-            className="flex-1 py-3 bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold hover:bg-cyan-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+            className="flex-1 py-3 bg-violet-500 text-slate-950 rounded-xl text-sm font-bold hover:bg-violet-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
             {loading ? 'SALVANDO...' : 'CONFIRMAR NOVA SENHA'}
           </button>

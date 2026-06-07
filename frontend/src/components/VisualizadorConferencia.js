@@ -218,25 +218,25 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const mesesParaExibir = planilha?.meses || [];
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex flex-col">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex flex-col">
 
       {/* Header */}
-      <div className="px-4 h-[52px] border-b border-slate-800 bg-slate-900/95 flex items-center justify-between gap-3 shrink-0">
+      <div className="px-4 h-[52px] border-b border-slate-800 bg-white flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <FileText className="w-4 h-4 text-violet-400 shrink-0" />
           <div className="min-w-0">
-            <h3 className="text-sm text-white font-bold truncate leading-tight">{currentFile?.nome || 'Documento'}</h3>
+            <h3 className="text-sm text-slate-900 font-bold truncate leading-tight">{currentFile?.nome || 'Documento'}</h3>
             <p className="text-[9px] uppercase tracking-widest text-slate-500">Conferência {arquivos.length > 1 ? `· ${currentIndex + 1} de ${arquivos.length}` : ''}</p>
           </div>
         </div>
 
         {/* Navegação entre arquivos */}
         {arquivos.length > 1 && (
-          <div className="flex items-center gap-1 bg-black/30 rounded-lg p-0.5 border border-white/5 shrink-0">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 border border-slate-200 shrink-0">
             <button
               onClick={() => handleNavigate(-1)}
               disabled={!hasPrev || loadingFile}
-              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-colors"
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-20 transition-colors"
               title="Anterior"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -250,10 +250,10 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   handleNavigate(idx - currentIndex);
                 }
               }}
-              className="bg-transparent text-[10px] font-bold text-white outline-none px-1.5 py-1 max-w-[140px] truncate cursor-pointer"
+              className="bg-transparent text-[10px] font-bold text-slate-900 outline-none px-1.5 py-1 max-w-[140px] truncate cursor-pointer"
             >
               {arquivos.map((a, i) => (
-                <option key={a.id} value={a.id} className="bg-slate-900">
+                <option key={a.id} value={a.id} className="bg-white">
                   {i + 1}. {a.arquivo_nome}
                 </option>
               ))}
@@ -261,7 +261,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             <button
               onClick={() => handleNavigate(1)}
               disabled={!hasNext || loadingFile}
-              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-colors"
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-20 transition-colors"
               title="Próximo"
             >
               <ChevronRight className="w-4 h-4" />
@@ -272,11 +272,11 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         <div className="flex items-center gap-1 shrink-0">
           {arquivo.url && (
             <a href={arquivo.url} target="_blank" rel="noopener noreferrer"
-              className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors" title="Abrir em nova aba">
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors" title="Abrir em nova aba">
               <ExternalLink className="w-4 h-4" />
             </a>
           )}
-          <button onClick={onClose} className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/5" title="Fechar">
+          <button onClick={onClose} className="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100" title="Fechar">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -341,13 +341,13 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
       {/* Banner de Observação de Aprovação */}
       {arquivo?.observacao_aprovacao && (
-        <div className="shrink-0 px-4 py-3 bg-cyan-500/10 border-b border-cyan-500/30 flex items-start gap-3">
-          <Check className="w-4 h-4 text-cyan-400 mt-0.5 shrink-0" />
+        <div className="shrink-0 px-4 py-3 bg-violet-500/10 border-b border-violet-500/30 flex items-start gap-3">
+          <Check className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400 mb-0.5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-violet-400 mb-0.5">
               Observação na Aprovação
             </p>
-            <p className="text-xs text-cyan-200/90 leading-snug whitespace-pre-wrap">{arquivo.observacao_aprovacao}</p>
+            <p className="text-xs text-violet-200/90 leading-snug whitespace-pre-wrap">{arquivo.observacao_aprovacao}</p>
           </div>
         </div>
       )}
@@ -356,10 +356,10 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden">
 
         {/* PDF */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col relative min-h-[60vh] lg:min-h-0">
+        <div className="bg-white border border-slate-800 rounded-xl overflow-hidden flex flex-col relative min-h-[60vh] lg:min-h-0">
           {loadingFile && (
-            <div className="absolute inset-0 z-10 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
-              <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+            <div className="absolute inset-0 z-10 bg-white backdrop-blur-sm flex items-center justify-center">
+              <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
             </div>
           )}
           {currentFile?.url
@@ -374,12 +374,12 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         <div className="flex flex-col gap-3 pr-2 conf-scroll min-h-0 lg:h-full lg:overflow-y-auto overflow-x-hidden">
 
           {/* Planilha Anual */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shrink-0">
-            <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between">
+          <div className="bg-white border border-slate-800 rounded-xl overflow-hidden shrink-0">
+            <div className="px-4 py-3 border-b border-slate-800 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Building2 className={`w-4 h-4 ${isSnapshot ? 'text-amber-400' : 'text-cyan-400'}`} />
+                <Building2 className={`w-4 h-4 ${isSnapshot ? 'text-amber-400' : 'text-violet-400'}`} />
                 <div>
-                  <h4 className="text-sm font-bold text-slate-200">
+                  <h4 className="text-sm font-bold text-slate-800">
                     Planilha {isSnapshot ? `· Mês ${String(arquivo.mes).padStart(2,'0')}/${arquivo.ano}` : (planilha?.ano ? `Anual · ${planilha.ano}` : 'Anual')}
                   </h4>
                   <p className="text-[10px] text-slate-500">
@@ -387,13 +387,13 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   </p>
                 </div>
               </div>
-              <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${isSnapshot ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'}`}>
+              <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${isSnapshot ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-violet-500/10 text-violet-400 border-violet-500/20'}`}>
                 {isSnapshot ? '🔒 Congelado' : 'Só leitura'}
               </span>
             </div>
 
             {loading
-              ? <div className="flex items-center justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-indigo-500" /></div>
+              ? <div className="flex items-center justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-violet-500" /></div>
               : mesesParaExibir.length === 0
                 ? <div className="p-6 text-center text-slate-500 text-sm">
                     <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -401,7 +401,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   </div>
                 : <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-slate-950/30">
+                      <tr className="bg-slate-50">
                         <th className="text-left px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Mês</th>
                         {(planilha?.colunas || []).map(col => (
                           <th key={col} className="text-right px-3 py-2 text-[10px] font-bold uppercase text-slate-500 whitespace-nowrap" title={col}>
@@ -416,11 +416,11 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                         <tr key={m.mes} className="border-t border-slate-800">
                           <td className="px-3 py-2 text-xs font-bold text-slate-400 uppercase">{m.mes_nome}</td>
                           {(planilha?.colunas || []).map(col => (
-                            <td key={col} className="text-right px-3 py-2 text-xs text-slate-300 font-mono whitespace-nowrap">
+                            <td key={col} className="text-right px-3 py-2 text-xs text-slate-700 font-mono whitespace-nowrap">
                               {fmt(m.valores?.[col])}
                             </td>
                           ))}
-                          <td className="text-right px-3 py-2 text-xs text-slate-200 font-mono font-bold">{fmt(m.total)}</td>
+                          <td className="text-right px-3 py-2 text-xs text-slate-800 font-mono font-bold">{fmt(m.total)}</td>
                         </tr>
                       ))}
                       {planilha?.totais && planilha.totais.total > 0 && (
@@ -440,12 +440,12 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           </div>
 
           {/* Cobranças Extras — sempre visível */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col max-h-72 shrink-0">
-            <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between shrink-0">
+          <div className="bg-white border border-slate-800 rounded-xl overflow-hidden flex flex-col max-h-72 shrink-0">
+            <div className="px-4 py-3 border-b border-slate-800 bg-slate-50 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-amber-400" />
                 <div>
-                  <h4 className="text-sm font-bold text-slate-200">Cobranças Extras</h4>
+                  <h4 className="text-sm font-bold text-slate-800">Cobranças Extras</h4>
                   <p className="text-[10px] text-slate-500">Lançadas pelo gerente/assistente</p>
                 </div>
               </div>
@@ -455,7 +455,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             </div>
 
             {loading
-              ? <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-indigo-500" /></div>
+              ? <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-violet-500" /></div>
               : cobrancas.length === 0
                 ? <div className="p-6 text-center">
                     <Receipt className="w-8 h-8 mx-auto mb-2 text-slate-700" />
@@ -464,7 +464,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   </div>
                 : <div className="overflow-y-auto flex-1">
                     <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-slate-950/90 backdrop-blur z-10">
+                      <thead className="sticky top-0 bg-slate-50 backdrop-blur z-10">
                         <tr>
                           <th className="text-left px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Descrição</th>
                           <th className="text-right px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Valor</th>
@@ -473,7 +473,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                       <tbody>
                         {cobrancas.map(c => (
                           <tr key={c.id} className="border-t border-slate-800">
-                            <td className="px-3 py-2 text-xs text-slate-300">
+                            <td className="px-3 py-2 text-xs text-slate-700">
                               <div className="flex items-center gap-2">
                                 {c.descricao}
                                 {c.attachments?.length > 0 && (
@@ -488,7 +488,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                                        });
                                        setLoadingFile(false);
                                      }}
-                                     className="text-slate-500 hover:text-cyan-400 transition-colors" 
+                                     className="text-slate-500 hover:text-violet-400 transition-colors" 
                                      title="Visualizar anexo aqui"
                                    >
                                      <FileText className="w-3 h-3" />
@@ -496,7 +496,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                                  )}
                               </div>
                             </td>
-                            <td className="text-right px-3 py-2 text-xs text-slate-200 font-mono font-bold">{fmt(c.valor)}</td>
+                            <td className="text-right px-3 py-2 text-xs text-slate-800 font-mono font-bold">{fmt(c.valor)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -510,36 +510,36 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             const concessionarias = arquivos.filter(a => a.categoria === 'concessionaria');
             if (concessionarias.length === 0) return null;
             return (
-              <div className="bg-slate-900 border border-orange-500/30 rounded-xl overflow-hidden shrink-0">
-                <div className="px-4 py-3 border-b border-orange-500/20 bg-orange-500/5 flex items-center gap-2">
-                  <Package className="w-4 h-4 text-orange-400" />
-                  <h4 className="text-sm font-bold text-orange-300">Concessionárias</h4>
-                  <span className="ml-auto text-[10px] text-orange-400/70 font-bold">{concessionarias.length} arquivo{concessionarias.length !== 1 ? 's' : ''}</span>
+              <div className="bg-white border border-amber-500/30 rounded-xl overflow-hidden shrink-0">
+                <div className="px-4 py-3 border-b border-amber-500/20 bg-amber-500/5 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-amber-400" />
+                  <h4 className="text-sm font-bold text-amber-300">Concessionárias</h4>
+                  <span className="ml-auto text-[10px] text-amber-400/70 font-bold">{concessionarias.length} arquivo{concessionarias.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="divide-y divide-slate-800/50">
                   {concessionarias.map(a => {
                     const eAtual = currentFile?.id === a.id;
                     return (
                       <button key={a.id} onClick={() => openArquivo(a)}
-                        className={`w-full px-4 py-2.5 flex items-start gap-3 hover:bg-orange-500/5 transition-colors text-left ${eAtual ? 'bg-orange-500/10' : ''}`}>
-                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30 shrink-0 mt-0.5">
+                        className={`w-full px-4 py-2.5 flex items-start gap-3 hover:bg-amber-500/5 transition-colors text-left ${eAtual ? 'bg-amber-500/10' : ''}`}>
+                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 mt-0.5">
                           {a.subtipo || 'Outra'}
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-300 truncate flex-1">{a.arquivo_nome}</span>
-                            {eAtual && <Check className="w-3.5 h-3.5 text-orange-400 shrink-0" />}
+                            <span className="text-xs text-slate-700 truncate flex-1">{a.arquivo_nome}</span>
+                            {eAtual && <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
                           </div>
                           {(a.nome_condominio_fatura || a.vencimento_fatura || a.valor_fatura) && (
                             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
                               {a.nome_condominio_fatura && (
-                                <span className="text-orange-300/90"><span className="text-orange-500/50">cliente:</span> {a.nome_condominio_fatura}</span>
+                                <span className="text-amber-300/90"><span className="text-amber-500/50">cliente:</span> {a.nome_condominio_fatura}</span>
                               )}
                               {a.vencimento_fatura && (
-                                <span className="text-orange-300/90"><span className="text-orange-500/50">venc:</span> {new Date(a.vencimento_fatura + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                                <span className="text-amber-300/90"><span className="text-amber-500/50">venc:</span> {new Date(a.vencimento_fatura + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                               )}
                               {a.valor_fatura != null && (
-                                <span className="text-orange-300 font-bold"><span className="text-orange-500/50 font-normal">total:</span> R$ {Number(a.valor_fatura).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="text-amber-300 font-bold"><span className="text-amber-500/50 font-normal">total:</span> R$ {Number(a.valor_fatura).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               )}
                             </div>
                           )}
@@ -557,10 +557,10 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             const outros = arquivos.filter(a => a.categoria === 'outros');
             if (outros.length === 0) return null;
             return (
-              <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shrink-0">
-                <div className="px-4 py-3 border-b border-slate-800 bg-slate-950/50 flex items-center gap-2">
+              <div className="bg-white border border-slate-700 rounded-xl overflow-hidden shrink-0">
+                <div className="px-4 py-3 border-b border-slate-800 bg-slate-50 flex items-center gap-2">
                   <FolderOpen className="w-4 h-4 text-slate-400" />
-                  <h4 className="text-sm font-bold text-slate-200">Outros Anexos</h4>
+                  <h4 className="text-sm font-bold text-slate-800">Outros Anexos</h4>
                   <span className="ml-auto text-[10px] text-slate-500 font-bold">{outros.length} arquivo{outros.length !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="divide-y divide-slate-800/50">
@@ -568,14 +568,14 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                     const eAtual = currentFile?.id === a.id;
                     return (
                       <button key={a.id} onClick={() => openArquivo(a)}
-                        className={`w-full px-4 py-2.5 flex items-center gap-3 hover:bg-slate-800/50 transition-colors text-left ${eAtual ? 'bg-slate-800/70' : ''}`}>
+                        className={`w-full px-4 py-2.5 flex items-center gap-3 hover:bg-slate-100/50 transition-colors text-left ${eAtual ? 'bg-slate-100/70' : ''}`}>
                         {a.subtipo && (
-                          <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/20 text-slate-300 border border-slate-500/30 shrink-0 truncate max-w-[100px]" title={a.subtipo}>
+                          <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/20 text-slate-700 border border-slate-500/30 shrink-0 truncate max-w-[100px]" title={a.subtipo}>
                             {a.subtipo}
                           </span>
                         )}
-                        <span className="text-xs text-slate-300 truncate flex-1">{a.arquivo_nome}</span>
-                        {eAtual && <Check className="w-3.5 h-3.5 text-slate-300 shrink-0" />}
+                        <span className="text-xs text-slate-700 truncate flex-1">{a.arquivo_nome}</span>
+                        {eAtual && <Check className="w-3.5 h-3.5 text-slate-700 shrink-0" />}
                       </button>
                     );
                   })}
@@ -602,7 +602,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           : 'Aprovar e assinar';
 
         return (
-          <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-slate-900/95">
+          <div className="shrink-0 px-4 py-3 border-t border-slate-800 bg-white">
             {!modoCorrecao
               ? <div className="space-y-2">
                   {/* Observacao opcional */}
@@ -610,12 +610,12 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                     value={observacaoAprovacao}
                     onChange={(e) => setObservacaoAprovacao(e.target.value)}
                     placeholder="Observação ao aprovar (opcional)"
-                    className="w-full bg-slate-800/60 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-emerald-500/40 placeholder-slate-500"
+                    className="w-full bg-slate-100/60 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-emerald-500/40 placeholder-slate-500"
                   />
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
                       {modoPacote
-                        ? <><span className="text-[9px] uppercase tracking-widest text-slate-500">Status</span> <span className="text-cyan-400 font-bold">{arquivo?.pacote_status || '—'}</span></>
+                        ? <><span className="text-[9px] uppercase tracking-widest text-slate-500">Status</span> <span className="text-violet-400 font-bold">{arquivo?.pacote_status || '—'}</span></>
                         : (podeAssinar && <><PenTool className="w-3 h-3" /> Ao aprovar, você assina digitalmente.</>)
                       }
                     </p>
@@ -638,7 +638,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   </label>
                   <textarea value={comentario} onChange={e => setComentario(e.target.value)} rows={5}
                     placeholder="Descreva o que precisa ser corrigido... (sem limite de caracteres)"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-600 resize-y" />
+                    className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-400 resize-y" />
 
                   {/* Anexo opcional - so para fluxo de pacote */}
                   {modoPacote && (
@@ -653,19 +653,19 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                             {correcaoFile.name}
                             <span className="text-[10px] text-rose-400/60">({(correcaoFile.size/1024).toFixed(0)} KB)</span>
                           </span>
-                          <button onClick={() => setCorrecaoFile(null)} className="text-rose-400 hover:text-white text-xs font-bold">Remover</button>
+                          <button onClick={() => setCorrecaoFile(null)} className="text-rose-400 hover:text-slate-900 text-xs font-bold">Remover</button>
                         </div>
                       ) : (
                         <input type="file" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
                           onChange={(e) => setCorrecaoFile(e.target.files?.[0] || null)}
-                          className="block w-full text-xs text-slate-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-rose-500/10 file:text-rose-300 hover:file:bg-rose-500/20" />
+                          className="block w-full text-xs text-slate-700 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-rose-500/10 file:text-rose-300 hover:file:bg-rose-500/20" />
                       )}
                     </div>
                   )}
 
                   <div className="flex justify-end gap-3">
                     <button onClick={() => { setModoCorrecao(false); setComentario(''); setCorrecaoFile(null); }} disabled={executando}
-                      className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
+                      className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-700 transition-colors">
                       Cancelar
                     </button>
                     <button onClick={correcaoFn} disabled={executando || !comentario.trim()}

@@ -489,16 +489,16 @@ export default function VisaoMaster() {
       {/* ── Navegação de Mês ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navMes(-1)} className="p-2 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
+          <button onClick={() => navMes(-1)} className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <div className="px-6 py-2.5 bg-[#0a0a0f] border border-white/10 rounded-xl min-w-[160px] text-center">
-            <span className="text-white font-black text-lg">{MESES[mesAtivo - 1]} {anoAtivo}</span>
+          <div className="px-6 py-2.5 bg-white border border-slate-200 rounded-xl min-w-[160px] text-center">
+            <span className="text-slate-900 font-black text-lg">{MESES[mesAtivo - 1]} {anoAtivo}</span>
             {mesAtivo === hoje.getMonth() + 1 && anoAtivo === hoje.getFullYear() && (
-              <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded-full">Atual</span>
+              <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full">Atual</span>
             )}
           </div>
-          <button onClick={() => navMes(1)} className="p-2 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
+          <button onClick={() => navMes(1)} className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all">
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
@@ -506,7 +506,7 @@ export default function VisaoMaster() {
         {/* Botão Expedir Mês — aparece quando há emissões registradas prontas para expedir */}
         {prontosParaExpedir.length > 0 && (profile?.role === 'master' || profile?.role === 'departamento') && (
           <button onClick={abrirFecharMes}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 text-white font-black text-[11px] uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:from-emerald-500 hover:to-cyan-500 transition-all border border-white/10">
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-black text-[11px] uppercase tracking-widest  transition-all border border-slate-200">
             <Rocket className="w-4 h-4" />
             Expedir Mês — {prontosParaExpedir.length} emissão{prontosParaExpedir.length !== 1 ? 'ões' : ''}
           </button>
@@ -516,48 +516,48 @@ export default function VisaoMaster() {
       {/* ── Cards de Métricas ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
         {[
-          { label: 'Total no Mês',       value: stats.total,            icon: Building,    color: 'text-gray-400',    bg: 'bg-white/5',             filter: null                           },
-          { label: 'Em edição',          value: stats.rascunho,         icon: Edit,        color: 'text-blue-400',    bg: 'bg-blue-500/10',         filter: 'rascunho'                     },
+          { label: 'Total no Mês',       value: stats.total,            icon: Building,    color: 'text-slate-500',    bg: 'bg-slate-50',             filter: null                           },
+          { label: 'Em edição',          value: stats.rascunho,         icon: Edit,        color: 'text-violet-400',    bg: 'bg-violet-500/10',         filter: 'rascunho'                     },
           { label: 'Aguard. Registro',   value: stats.aprovado,         icon: CheckCircle, color: 'text-violet-400',  bg: 'bg-violet-500/10',       filter: 'aprovado'                     },
-          { label: 'Registrada',         value: stats.registrado,       icon: FileCheck,   color: 'text-cyan-400',    bg: 'bg-cyan-500/10',         filter: 'registrado'                   },
-          { label: 'Com o Gerente',      value: stats.gerente,          icon: User,        color: 'text-pink-400',    bg: 'bg-pink-500/10',         filter: 'pendente_gerente'             },
+          { label: 'Registrada',         value: stats.registrado,       icon: FileCheck,   color: 'text-violet-400',    bg: 'bg-violet-500/10',         filter: 'registrado'                   },
+          { label: 'Com o Gerente',      value: stats.gerente,          icon: User,        color: 'text-rose-400',    bg: 'bg-rose-500/10',         filter: 'pendente_gerente'             },
           { label: 'Com o Sup. Gerente', value: stats.supGerente,       icon: Activity,    color: 'text-amber-400',   bg: 'bg-amber-500/10',        filter: 'pendente_sup_gerentes'        },
-          { label: 'Sup. Contabilidade', value: stats.supContabilidade, icon: ShieldCheck, color: 'text-orange-400',  bg: 'bg-orange-500/10',       filter: 'pendente_sup_contabilidade'   },
+          { label: 'Sup. Contabilidade', value: stats.supContabilidade, icon: ShieldCheck, color: 'text-amber-400',  bg: 'bg-amber-500/10',       filter: 'pendente_sup_contabilidade'   },
         ].map((stat, i) => (
           <button key={i}
             onClick={() => setFiltroAtivo(filtroAtivo === stat.filter ? null : stat.filter)}
-            className={`p-6 border rounded-3xl bg-[#0a0a0f] flex flex-col justify-center gap-2 transition-all text-left group ${
+            className={`p-6 border rounded-3xl bg-white flex flex-col justify-center gap-2 transition-all text-left group ${
               filtroAtivo === stat.filter
-                ? 'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)] ring-2 ring-blue-500/20'
-                : 'border-white/10 hover:border-white/20'
+                ? 'border-violet-500  ring-2 ring-violet-500/20'
+                : 'border-slate-200 hover:border-slate-200'
             } ${stat.bg}`}
           >
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mix-blend-lighten ${stat.bg} group-hover:scale-110 transition-transform`}>
                 <stat.icon className={`w-5 h-5 ${stat.color}`} />
               </div>
-              <p className="text-3xl font-black text-white leading-none">{stat.value}</p>
+              <p className="text-3xl font-black text-slate-900 leading-none">{stat.value}</p>
             </div>
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mt-1">{stat.label}</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-1">{stat.label}</p>
           </button>
         ))}
       </div>
 
       {/* ── Lista do mês ── */}
-      <div className="border border-white/10 rounded-3xl bg-white/5 overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-white/10 flex items-center justify-between gap-4 flex-wrap">
+      <div className="border border-slate-200 rounded-3xl bg-slate-50 overflow-hidden shadow-2xl">
+        <div className="p-6 border-b border-slate-200 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3 flex-wrap">
-            <h3 className="font-black text-white text-lg flex items-center gap-2">
-              <Activity className="text-cyan-400 w-5 h-5"/>
+            <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
+              <Activity className="text-violet-400 w-5 h-5"/>
               FLUXO — {MESES[mesAtivo - 1]}/{anoAtivo}
             </h3>
             {filtroAtivo && (
-              <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full">
-                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
+              <div className="flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 px-3 py-1 rounded-full">
+                <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest">
                   Filtro: {filtroAtivo.replace(/_/g, ' ')}
                 </span>
-                <button onClick={() => setFiltroAtivo(null)} className="p-1 hover:bg-blue-500/20 rounded-full transition-colors">
-                  <X className="w-3 h-3 text-blue-400" />
+                <button onClick={() => setFiltroAtivo(null)} className="p-1 hover:bg-violet-500/20 rounded-full transition-colors">
+                  <X className="w-3 h-3 text-violet-400" />
                 </button>
               </div>
             )}
@@ -569,7 +569,7 @@ export default function VisaoMaster() {
               onClick={() => setApenasMinhasPendencias(v => !v)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all ${
                 apenasMinhasPendencias
-                  ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
+                  ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 '
                   : 'bg-rose-500/5 hover:bg-rose-500/10 border-rose-500/20 text-rose-400'
               }`}
               title={apenasMinhasPendencias ? 'Mostrar todos os pacotes do mês' : 'Filtrar só pacotes que pendem da sua aprovação'}
@@ -585,9 +585,9 @@ export default function VisaoMaster() {
           )}
         </div>
 
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-slate-200">
           {pacotesFiltrados.length === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-500 text-sm">
+            <div className="px-6 py-12 text-center text-slate-500 text-sm">
               {pacotesAtivos.length === 0
                 ? `Nenhuma emissão em ${MESES[mesAtivo - 1]}/${anoAtivo}.`
                 : 'Nenhum pacote nesta categoria.'}
@@ -599,18 +599,18 @@ export default function VisaoMaster() {
             const roleAutorizado = profile?.role === 'master' || profile?.role === 'departamento';
 
             return (
-              <div key={pacote.id} className={`hover:bg-white/[0.02] transition-colors ${isRegistrado ? 'border-l-2 border-cyan-500/30' : ''}`}>
+              <div key={pacote.id} className={`hover:bg-slate-100 transition-colors ${isRegistrado ? 'border-l-2 border-violet-500/30' : ''}`}>
                 <div className="px-6 py-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isRegistrado ? 'bg-cyan-500/10' : 'bg-white/5'}`}>
-                      <Package className={`w-5 h-5 ${isRegistrado ? 'text-cyan-400' : 'text-violet-400'}`} />
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isRegistrado ? 'bg-violet-500/10' : 'bg-slate-50'}`}>
+                      <Package className={`w-5 h-5 ${isRegistrado ? 'text-violet-400' : 'text-violet-400'}`} />
                     </div>
                     <div>
-                      <p className="font-bold text-white text-sm">{pacote.condominios?.name}</p>
-                      <p className="text-[10px] text-gray-500">
+                      <p className="font-bold text-slate-900 text-sm">{pacote.condominios?.name}</p>
+                      <p className="text-[10px] text-slate-500">
                         {String(pacote.mes_referencia).padStart(2,'0')}/{pacote.ano_referencia} • {numArq} arquivo{numArq !== 1 ? 's' : ''}
                         {isRegistrado && pacote.planilha_snapshot && (
-                          <span className="ml-2 text-cyan-500">• 🔒 planilha congelada</span>
+                          <span className="ml-2 text-violet-500">• 🔒 planilha congelada</span>
                         )}
                       </p>
                     </div>
@@ -623,7 +623,7 @@ export default function VisaoMaster() {
                       {/* Registrar (aprovado → registrado) */}
                       {statusLower === 'aprovado' && roleAutorizado && (
                         <button onClick={() => handleRegistrar(pacote)}
-                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-blue-500 text-white hover:from-violet-400 hover:to-blue-400 transition-all shadow-lg font-black text-[10px] uppercase tracking-widest border border-white/10">
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 text-white transition-all shadow-lg font-black text-[10px] uppercase tracking-widest border border-slate-200">
                           <FileCheck className="w-4 h-4" />
                           Registrar
                         </button>
@@ -632,7 +632,7 @@ export default function VisaoMaster() {
                       {/* Expedir (registrado → expedida → histórico) */}
                       {isRegistrado && roleAutorizado && (
                         <button onClick={() => handleExpedir(pacote)}
-                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-400 hover:to-cyan-400 transition-all shadow-lg font-black text-[10px] uppercase tracking-widest border border-white/10">
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white transition-all shadow-lg font-black text-[10px] uppercase tracking-widest border border-slate-200">
                           <Rocket className="w-4 h-4" />
                           Expedir
                         </button>
@@ -640,7 +640,7 @@ export default function VisaoMaster() {
 
                       {/* Solicitar correção */}
                       {statusLower !== 'registrado' && statusLower !== 'rascunho' && statusLower !== 'aprovado' && statusLower !== 'expedida' && (
-                        <button onClick={() => handleRejeitar(pacote)} className="p-2 rounded-lg bg-white/5 text-rose-400 hover:bg-rose-500/20 transition-all" title="Solicitar Correção">
+                        <button onClick={() => handleRejeitar(pacote)} className="p-2 rounded-lg bg-slate-50 text-rose-400 hover:bg-rose-500/20 transition-all" title="Solicitar Correção">
                           <XCircle className="w-4 h-4" />
                         </button>
                       )}
@@ -661,7 +661,7 @@ export default function VisaoMaster() {
                     </div>
 
                     <button onClick={(e) => handleDelete(e, pacote.id)}
-                      className={`p-2 rounded-lg transition-all ${confirmDeleteId === pacote.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-white/5 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10'}`}
+                      className={`p-2 rounded-lg transition-all ${confirmDeleteId === pacote.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-50 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10'}`}
                       title={confirmDeleteId === pacote.id ? 'Clique para confirmar' : 'Excluir'}>
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -672,9 +672,9 @@ export default function VisaoMaster() {
                   <div className="px-6 pb-4 flex flex-wrap gap-2">
                     {pacote.arquivos.map(arq => (
                       <button key={arq.id} onClick={() => openFileUrl(arq, pacote)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-[#0a0a0f] border border-white/10 rounded-lg hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all group text-xs">
-                        <FileText className="w-3 h-3 text-gray-500 group-hover:text-cyan-400" />
-                        <span className="font-bold text-gray-400 group-hover:text-white truncate max-w-[120px]">{arq.arquivo_nome}</span>
+                        className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg hover:border-violet-500/30 hover:bg-violet-500/5 transition-all group text-xs">
+                        <FileText className="w-3 h-3 text-slate-500 group-hover:text-violet-400" />
+                        <span className="font-bold text-slate-500 group-hover:text-slate-900 truncate max-w-[120px]">{arq.arquivo_nome}</span>
                       </button>
                     ))}
                   </div>
@@ -689,7 +689,7 @@ export default function VisaoMaster() {
       {orphans.length > 0 && (
         <div className="border border-rose-500/20 rounded-3xl bg-rose-500/5 overflow-hidden shadow-xl">
           <div className="p-6 border-b border-rose-500/10 flex items-center justify-between">
-            <h3 className="font-black text-white text-lg flex items-center gap-2">
+            <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
               <FileText className="text-rose-400 w-5 h-5"/>Arquivos Órfãos / Legados
             </h3>
             <span className="text-[10px] font-bold text-rose-400/60 uppercase tracking-widest bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">
@@ -704,19 +704,19 @@ export default function VisaoMaster() {
                     <FileText className="w-5 h-5 text-rose-400" />
                   </div>
                   <div>
-                    <p className="font-bold text-white text-sm">{arq.arquivo_nome}</p>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest">
+                    <p className="font-bold text-slate-900 text-sm">{arq.arquivo_nome}</p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest">
                       {arq.condominios?.name || 'Condomínio não identificado'} • {new Date(arq.criado_em).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <StatusBadge status={arq.status} />
-                  <button onClick={() => openFileUrl(arq, { status: 'none' })} className="p-2 rounded-lg bg-white/5 text-gray-400 hover:text-white" title="Visualizar">
+                  <button onClick={() => openFileUrl(arq, { status: 'none' })} className="p-2 rounded-lg bg-slate-50 text-slate-500 hover:text-slate-900" title="Visualizar">
                     <ExternalLink className="w-4 h-4" />
                   </button>
                   <button onClick={(e) => handleDeleteOrphan(e, arq.id, arq.arquivo_url)}
-                    className={`p-2 rounded-lg transition-all ${confirmDeleteOrphanId === arq.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-white/5 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10'}`}
+                    className={`p-2 rounded-lg transition-all ${confirmDeleteOrphanId === arq.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-50 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10'}`}
                     title="Excluir Permanentemente">
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -741,19 +741,19 @@ export default function VisaoMaster() {
 
       {/* ═══ MODAL EXPEDIR INDIVIDUAL ═══ */}
       {showExpedirModal && pacoteExpedir && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
 
             {/* Header */}
             <div className="flex items-center justify-between px-8 pt-8 pb-4 shrink-0">
               <div>
-                <h3 className="text-xl font-black text-white">Expedir Emissão</h3>
+                <h3 className="text-xl font-black text-slate-900">Expedir Emissão</h3>
                 <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mt-1">
                   {pacoteExpedir.condominios?.name} — {String(pacoteExpedir.mes_referencia).padStart(2,'0')}/{pacoteExpedir.ano_referencia}
                 </p>
               </div>
               <button onClick={() => !expedindo && setShowExpedirModal(false)}
-                className="p-2 hover:bg-white/5 rounded-full text-gray-500 hover:text-white transition-colors">
+                className="p-2 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -761,18 +761,18 @@ export default function VisaoMaster() {
             <div className="px-8 pb-8 overflow-y-auto space-y-5">
               {/* Data e hora */}
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Data e Hora da Expedição</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Data e Hora da Expedição</label>
                 <input type="datetime-local" value={dataExpedicao}
                   onChange={e => setDataExpedicao(e.target.value)}
                   disabled={expedindo}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500 transition-all disabled:opacity-50" />
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 outline-none focus:border-emerald-500 transition-all disabled:opacity-50" />
               </div>
 
               {/* Área de upload */}
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
                   Boletos e Arquivos
-                  <span className="ml-2 text-gray-600 normal-case font-normal">— opcional, qualquer tamanho</span>
+                  <span className="ml-2 text-slate-400 normal-case font-normal">— opcional, qualquer tamanho</span>
                 </label>
 
                 <div
@@ -783,12 +783,12 @@ export default function VisaoMaster() {
                   className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
                     dragOver
                       ? 'border-emerald-500/60 bg-emerald-500/5'
-                      : 'border-white/10 hover:border-emerald-500/30 hover:bg-white/[0.02]'
+                      : 'border-slate-200 hover:border-emerald-500/30 hover:bg-slate-100'
                   } ${expedindo ? 'pointer-events-none opacity-50' : ''}`}
                 >
-                  <Upload className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-gray-400">Arraste os boletos aqui</p>
-                  <p className="text-xs text-gray-600 mt-1">ou clique para selecionar — PDF, imagens, qualquer formato</p>
+                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
+                  <p className="text-sm font-bold text-slate-500">Arraste os boletos aqui</p>
+                  <p className="text-xs text-slate-400 mt-1">ou clique para selecionar — PDF, imagens, qualquer formato</p>
                   <input id="expedir-file-input" type="file" multiple className="hidden"
                     onChange={e => { adicionarArquivos(e.target.files); e.target.value = ''; }} />
                 </div>
@@ -803,20 +803,20 @@ export default function VisaoMaster() {
                           st === 'done'     ? 'bg-emerald-500/5 border-emerald-500/20' :
                           st === 'error'    ? 'bg-rose-500/5 border-rose-500/20' :
                           st === 'uploading'? 'bg-violet-500/5 border-violet-500/20' :
-                          'bg-white/5 border-white/10'
+                          'bg-slate-50 border-slate-200'
                         }`}>
                           <FileText className={`w-4 h-4 shrink-0 ${
-                            st === 'done' ? 'text-emerald-400' : st === 'error' ? 'text-rose-400' : 'text-gray-400'
+                            st === 'done' ? 'text-emerald-400' : st === 'error' ? 'text-rose-400' : 'text-slate-500'
                           }`} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-gray-300 truncate">{file.name}</p>
-                            <p className="text-[10px] text-gray-600">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                            <p className="text-xs font-bold text-slate-700 truncate">{file.name}</p>
+                            <p className="text-[10px] text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                           </div>
                           {st === 'done'      && <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />}
                           {st === 'uploading' && <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />}
                           {st === 'error'     && <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />}
                           {!st               && (
-                            <button onClick={() => removerArquivo(i)} className="p-1 rounded-lg text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all">
+                            <button onClick={() => removerArquivo(i)} className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all">
                               <X className="w-3.5 h-3.5" />
                             </button>
                           )}
@@ -827,7 +827,7 @@ export default function VisaoMaster() {
                 )}
 
                 {arquivosExpedir.length > 0 && !expedindo && (
-                  <p className="text-[10px] text-gray-600 mt-2 text-center">
+                  <p className="text-[10px] text-slate-400 mt-2 text-center">
                     {arquivosExpedir.length} arquivo{arquivosExpedir.length > 1 ? 's' : ''} selecionado{arquivosExpedir.length > 1 ? 's' : ''} •{' '}
                     {(arquivosExpedir.reduce((a, f) => a + f.size, 0) / 1024 / 1024).toFixed(2)} MB total
                   </p>
@@ -837,7 +837,7 @@ export default function VisaoMaster() {
               {/* Botões */}
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowExpedirModal(false)} disabled={expedindo}
-                  className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-30">
+                  className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-30">
                   Cancelar
                 </button>
                 <button onClick={confirmarExpedir} disabled={expedindo}
@@ -859,30 +859,30 @@ export default function VisaoMaster() {
 
       {/* ═══ MODAL EXPEDIR MÊS ═══ */}
       {showFecharMesModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-8 shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-8 shadow-2xl">
             <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
               <Rocket className="w-8 h-8 text-emerald-400" />
             </div>
-            <h3 className="text-xl font-black text-white text-center mb-1">Expedir {MESES[mesAtivo - 1]}/{anoAtivo}</h3>
-            <p className="text-sm text-gray-400 text-center mb-2">
-              <span className="font-black text-white">{prontosParaExpedir.length}</span> emissão{prontosParaExpedir.length !== 1 ? 'ões' : ''} serão expedidas e arquivadas no histórico.
+            <h3 className="text-xl font-black text-slate-900 text-center mb-1">Expedir {MESES[mesAtivo - 1]}/{anoAtivo}</h3>
+            <p className="text-sm text-slate-500 text-center mb-2">
+              <span className="font-black text-slate-900">{prontosParaExpedir.length}</span> emissão{prontosParaExpedir.length !== 1 ? 'ões' : ''} serão expedidas e arquivadas no histórico.
             </p>
             <p className="text-[10px] text-emerald-400/70 text-center mb-6 font-bold uppercase tracking-widest">
               Esta ação não pode ser desfeita.
             </p>
 
             <div className="mb-8">
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Data e Hora da Expedição</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Data e Hora da Expedição</label>
               <input type="datetime-local" value={dataFechamento}
                 onChange={(e) => setDataFechamento(e.target.value)}
                 min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-emerald-500 transition-all" />
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 outline-none focus:border-emerald-500 transition-all" />
             </div>
 
             <div className="flex gap-3">
               <button onClick={() => setShowFecharMesModal(false)} disabled={fechandoMes}
-                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-30">
+                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-30">
                 Cancelar
               </button>
               <button onClick={confirmarFechamentoMes} disabled={fechandoMes}
@@ -900,13 +900,13 @@ export default function VisaoMaster() {
       {showConcluirModal && (() => {
         const ehRespostaCorrecao = (activePacote?.status || '').toLowerCase() === 'solicitar_correcao';
         return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-lg p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className={`w-16 h-16 ${ehRespostaCorrecao ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'} border rounded-full flex items-center justify-center mx-auto mb-6`}>
               {ehRespostaCorrecao ? <Send className="w-8 h-8 text-amber-400" /> : <CheckCircle className="w-8 h-8 text-emerald-400" />}
             </div>
-            <h3 className="text-xl font-black text-white text-center mb-2">{ehRespostaCorrecao ? 'Reenviar com correção' : 'Concluir Emissão'}</h3>
-            <p className="text-sm text-gray-400 text-center mb-6">{activePacote?.arquivos?.length || 0} arquivos neste pacote.</p>
+            <h3 className="text-xl font-black text-slate-900 text-center mb-2">{ehRespostaCorrecao ? 'Reenviar com correção' : 'Concluir Emissão'}</h3>
+            <p className="text-sm text-slate-500 text-center mb-6">{activePacote?.arquivos?.length || 0} arquivos neste pacote.</p>
 
             {/* Bloco resposta de correcao */}
             {ehRespostaCorrecao && (
@@ -925,7 +925,7 @@ export default function VisaoMaster() {
                         <FileText className="w-4 h-4 shrink-0" />{respostaCorrecaoFile.name}
                         <span className="text-[10px] text-amber-400/60">({(respostaCorrecaoFile.size/1024).toFixed(0)} KB)</span>
                       </span>
-                      <button onClick={() => setRespostaCorrecaoFile(null)} className="text-amber-300 hover:text-white text-xs font-bold">Remover</button>
+                      <button onClick={() => setRespostaCorrecaoFile(null)} className="text-amber-300 hover:text-slate-900 text-xs font-bold">Remover</button>
                     </div>
                   ) : (
                     <input type="file" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
@@ -937,7 +937,7 @@ export default function VisaoMaster() {
                   <label className="text-[10px] font-black uppercase tracking-widest text-amber-400 block mb-1.5">O que foi corrigido <span className="text-rose-400">*</span></label>
                   <textarea value={respostaCorrecaoComentario} onChange={(e) => setRespostaCorrecaoComentario(e.target.value)} rows={3}
                     placeholder="Ex: Corrigi o valor do fundo de obras e ajustei o rateio de junho."
-                    className="w-full bg-black/40 border border-amber-500/30 rounded-lg px-3 py-2 text-sm text-amber-100 placeholder-amber-500/40 outline-none focus:border-amber-500/60 resize-y" />
+                    className="w-full bg-slate-100 border border-amber-500/30 rounded-lg px-3 py-2 text-sm text-amber-100 placeholder-amber-500/40 outline-none focus:border-amber-500/60 resize-y" />
                 </div>
               </div>
             )}
@@ -951,14 +951,14 @@ export default function VisaoMaster() {
                 { id: 4, label: 'Nível 4 - Com empresas terceirizadas', desc: 'Passa por Gerente ➔ Sup. Gerentes ➔ Supervisora' },
               ].map(n => (
                 <button key={n.id} onClick={() => setNivelAprovacao(n.id)}
-                  className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${nivelAprovacao === n.id ? 'border-violet-600 bg-violet-600/10' : 'border-white/5 bg-white/5 hover:border-white/20'}`}>
+                  className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${nivelAprovacao === n.id ? 'border-violet-600 bg-violet-600/10' : 'border-slate-200 bg-slate-50 hover:border-slate-200'}`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${nivelAprovacao === n.id ? 'border-violet-500' : 'border-gray-600'}`}>
                       {nivelAprovacao === n.id && <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />}
                     </div>
                     <div>
-                      <p className="font-bold text-white">{n.label}</p>
-                      <p className="text-xs text-gray-400">{n.desc}</p>
+                      <p className="font-bold text-slate-900">{n.label}</p>
+                      <p className="text-xs text-slate-500">{n.desc}</p>
                     </div>
                   </div>
                 </button>
@@ -967,7 +967,7 @@ export default function VisaoMaster() {
             )}
 
             <div className="flex gap-3">
-              <button onClick={() => { setShowConcluirModal(false); setRespostaCorrecaoFile(null); setRespostaCorrecaoComentario(''); }} disabled={enviandoResposta} className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50">Cancelar</button>
+              <button onClick={() => { setShowConcluirModal(false); setRespostaCorrecaoFile(null); setRespostaCorrecaoComentario(''); }} disabled={enviandoResposta} className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50">Cancelar</button>
               <button onClick={confirmarConclusao} disabled={enviandoResposta} className={`flex-[2] py-3 rounded-xl text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${ehRespostaCorrecao ? 'bg-amber-600 hover:bg-amber-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}>
                 {enviandoResposta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 {ehRespostaCorrecao ? 'Reenviar para aprovação' : 'Confirmar e Enviar'}
@@ -980,28 +980,28 @@ export default function VisaoMaster() {
 
       {/* ═══ MODAL DE REGISTRO ═══ */}
       {showRegistroModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl w-full max-w-md p-8 shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-8 shadow-2xl">
             <div className="w-16 h-16 bg-violet-500/10 border border-violet-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
               <FileCheck className="w-8 h-8 text-violet-400" />
             </div>
-            <h3 className="text-xl font-black text-white text-center mb-2">Registrar Emissão</h3>
-            <p className="text-sm text-gray-400 text-center mb-1">Confirme a data e hora do registro.</p>
+            <h3 className="text-xl font-black text-slate-900 text-center mb-2">Registrar Emissão</h3>
+            <p className="text-sm text-slate-500 text-center mb-1">Confirme a data e hora do registro.</p>
             <p className="text-[10px] text-amber-400/70 text-center mb-8 font-bold uppercase tracking-widest">
               A planilha será congelada. A emissão permanece no painel até ser expedida.
             </p>
 
             <div className="mb-8">
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Data e Hora</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Data e Hora</label>
               <input type="datetime-local" value={dataRegistro}
                 onChange={(e) => setDataRegistro(e.target.value)}
                 min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-violet-500 transition-all" />
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 outline-none focus:border-violet-500 transition-all" />
             </div>
 
             <div className="flex gap-3">
               <button onClick={() => { setShowRegistroModal(false); setActivePacote(null); }}
-                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
                 Cancelar
               </button>
               <button onClick={confirmarRegistro}

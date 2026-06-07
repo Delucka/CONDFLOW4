@@ -451,30 +451,30 @@ export default function FilaOcorrencias() {
   const contadorAbertas = ocorrencias.filter(o => o.status === 'aberta').length;
 
   return (
-    <div className="border border-white/10 rounded-3xl bg-white/5 overflow-hidden shadow-2xl flex flex-col h-full min-h-[500px]">
+    <div className="border border-slate-200 rounded-3xl bg-slate-50 overflow-hidden shadow-2xl flex flex-col h-full min-h-[500px]">
       {/* Header */}
-      <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+      <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
             <AlertTriangle className="w-6 h-6 text-rose-400" />
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <h3 className="font-black text-white text-lg uppercase tracking-tight">Fila de Conferência</h3>
+              <h3 className="font-black text-slate-900 text-lg uppercase tracking-tight">Fila de Conferência</h3>
               {contadorAbertas > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
                   {contadorAbertas} ABERTAS
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500 font-medium">Ocorrências e solicitações de alteração pendentes</p>
+            <p className="text-xs text-slate-500 font-medium">Ocorrências e solicitações de alteração pendentes</p>
           </div>
         </div>
         
         {abaAtiva !== 'afazer' && (
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all text-xs font-bold uppercase tracking-widest"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 hover:bg-slate-100 transition-all text-xs font-bold uppercase tracking-widest"
           >
             <Plus className="w-4 h-4 text-rose-400" />
             Nova
@@ -483,7 +483,7 @@ export default function FilaOcorrencias() {
       </div>
 
       {/* Tabs */}
-      <div className="flex px-6 border-b border-white/10 bg-white/[0.01]">
+      <div className="flex px-6 border-b border-slate-200 bg-slate-50">
         {[
           { id: 'afazer',    label: 'A Fazer',     count: acoes.length },
           { id: 'ocorrencia', label: 'Ocorrências', count: ocorrencias.filter(o => o.tipo === 'ocorrencia').length },
@@ -494,13 +494,13 @@ export default function FilaOcorrencias() {
             onClick={() => setAbaAtiva(tab.id)}
             className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 flex items-center gap-2 ${
               abaAtiva === tab.id
-                ? 'border-cyan-500 text-white bg-cyan-500/5'
-                : 'border-transparent text-gray-500 hover:text-gray-300'
+                ? 'border-violet-500 text-white bg-violet-500/5'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
             {tab.label}
             {tab.count > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${abaAtiva === tab.id ? 'bg-cyan-500 text-white' : 'bg-white/10 text-gray-400'}`}>
+              <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${abaAtiva === tab.id ? 'bg-violet-500 text-white' : 'bg-slate-50 text-slate-500'}`}>
                 {tab.count}
               </span>
             )}
@@ -510,7 +510,7 @@ export default function FilaOcorrencias() {
 
       {/* Search */}
       {abaAtiva !== 'afazer' && (
-        <div className="px-6 py-3 border-b border-white/10 bg-white/[0.02]">
+        <div className="px-6 py-3 border-b border-slate-200 bg-slate-50">
           <div className="relative">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
@@ -520,10 +520,10 @@ export default function FilaOcorrencias() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar por descrição ou condomínio..."
-              className="w-full bg-slate-950/50 border border-white/5 rounded-xl pl-10 pr-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-500/50 placeholder-slate-600"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-2 text-xs text-slate-800 outline-none focus:border-violet-500/50 placeholder-slate-400"
             />
             {search && (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             )}
@@ -542,38 +542,38 @@ export default function FilaOcorrencias() {
               <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4 border border-emerald-500/20">
                 <CheckCircle className="w-8 h-8 text-emerald-400" />
               </div>
-              <h4 className="text-white font-black text-lg uppercase tracking-tight">Nada pendente!</h4>
-              <p className="text-xs text-gray-500 max-w-[220px] mt-2">Você está em dia com todas as ações.</p>
+              <h4 className="text-slate-900 font-black text-lg uppercase tracking-tight">Nada pendente!</h4>
+              <p className="text-xs text-slate-500 max-w-[220px] mt-2">Você está em dia com todas as ações.</p>
             </div>
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-slate-200">
               {acoes.map(a => {
                 const ColorIcon = a.icon || AlertCircle;
                 const COLOR_MAP = {
                   violet:  'bg-violet-500/10 border-violet-500/20 text-violet-400',
                   emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
                   rose:    'bg-rose-500/10 border-rose-500/20 text-rose-400',
-                  pink:    'bg-pink-500/10 border-pink-500/20 text-pink-400',
-                  blue:    'bg-blue-500/10 border-blue-500/20 text-blue-400',
-                  orange:  'bg-orange-500/10 border-orange-500/20 text-orange-400',
+                  pink:    'bg-rose-500/10 border-rose-500/20 text-rose-400',
+                  blue:    'bg-violet-500/10 border-violet-500/20 text-violet-400',
+                  orange:  'bg-amber-500/10 border-amber-500/20 text-amber-400',
                   amber:   'bg-amber-500/10 border-amber-500/20 text-amber-400',
-                  purple:  'bg-purple-500/10 border-purple-500/20 text-purple-400',
-                  cyan:    'bg-cyan-500/10 border-cyan-500/20 text-cyan-400',
+                  purple:  'bg-violet-500/10 border-violet-500/20 text-violet-400',
+                  cyan:    'bg-violet-500/10 border-violet-500/20 text-violet-400',
                 };
                 const iconCls = COLOR_MAP[a.color] || COLOR_MAP.cyan;
                 return (
                   <Link key={a.id} href={a.link || '#'}
-                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors group">
+                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-100 transition-colors group">
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${iconCls}`}>
                         <ColorIcon className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="text-white text-sm font-bold leading-tight">{a.titulo}</p>
-                        <p className="text-[11px] text-gray-500 mt-0.5">{a.subtitulo}</p>
+                        <p className="text-slate-900 text-sm font-bold leading-tight">{a.titulo}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">{a.subtitulo}</p>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-white transition-colors" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-900 transition-colors" />
                   </Link>
                 );
               })}
@@ -592,16 +592,16 @@ export default function FilaOcorrencias() {
             <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4 border border-emerald-500/20">
               <CheckCircle className="w-8 h-8 text-emerald-400" />
             </div>
-            <h4 className="text-white font-black text-lg uppercase tracking-tight">Tudo limpo!</h4>
-            <p className="text-xs text-gray-500 max-w-[200px] mt-2">Nenhuma ocorrência ou solicitação pendente no momento.</p>
+            <h4 className="text-slate-900 font-black text-lg uppercase tracking-tight">Tudo limpo!</h4>
+            <p className="text-xs text-slate-500 max-w-[200px] mt-2">Nenhuma ocorrência ou solicitação pendente no momento.</p>
           </div>
         ) : (
-          <div className="divide-y divide-white/5">
+          <div className="divide-y divide-slate-200">
             {itensFiltrados.map(item => (
               <button 
                 key={item.id}
                 onClick={() => abrirDetalhes(item)}
-                className="w-full px-6 py-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors group text-left"
+                className="w-full px-6 py-5 flex items-center justify-between hover:bg-slate-100 transition-colors group text-left"
               >
                 <div className="flex items-center gap-5">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
@@ -614,7 +614,7 @@ export default function FilaOcorrencias() {
                   
                   <div>
                     <div className="flex items-center gap-3 mb-1">
-                      <span className="text-sm font-bold text-white group-hover:text-rose-400 transition-colors">
+                      <span className="text-sm font-bold text-slate-900 group-hover:text-rose-400 transition-colors">
                         {item.condominios?.name}
                       </span>
                       <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${
@@ -624,15 +624,15 @@ export default function FilaOcorrencias() {
                         {item.status}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400 line-clamp-1 mb-2">{item.descricao}</p>
+                    <p className="text-xs text-slate-500 line-clamp-1 mb-2">{item.descricao}</p>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1.5">
-                        <User className="w-3 h-3 text-gray-600" />
-                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{item.profiles?.full_name}</span>
+                        <User className="w-3 h-3 text-slate-400" />
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{item.profiles?.full_name}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Clock className="w-3 h-3 text-gray-600" />
-                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                           {new Date(item.criado_em).toLocaleDateString()}
                         </span>
                       </div>
@@ -640,7 +640,7 @@ export default function FilaOcorrencias() {
                   </div>
                 </div>
                 
-                <ChevronRight className="w-5 h-5 text-gray-700 group-hover:text-white transition-all transform group-hover:translate-x-1" />
+                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-900 transition-all transform group-hover:translate-x-1" />
               </button>
             ))}
           </div>
@@ -650,14 +650,14 @@ export default function FilaOcorrencias() {
 
       {/* ═══ MODAL DE CRIAÇÃO ═══ */}
       {showModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="bg-[#0a0a0f] border border-white/10 rounded-[2.5rem] w-full max-w-lg p-10 shadow-3xl animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-white border border-slate-200 rounded-[2.5rem] w-full max-w-lg p-10 shadow-3xl animate-in zoom-in-95 duration-300">
             <div className="flex items-center gap-4 mb-8">
               <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center justify-center">
                 <Plus className="w-7 h-7 text-rose-400" />
               </div>
               <div>
-                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Nova Ocorrência</h3>
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Nova Ocorrência</h3>
                 <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mt-1">Central de Fluxo</p>
               </div>
             </div>
@@ -666,31 +666,31 @@ export default function FilaOcorrencias() {
               <div className="grid grid-cols-2 gap-4">
                 {/* Condomínio */}
                 <div className="col-span-2">
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Condomínio</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Condomínio</label>
                   <select
                     required
                     value={formData.condominio_id}
                     onChange={(e) => setFormData({ ...formData, condominio_id: e.target.value, pacote_id: '' })}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white outline-none focus:border-rose-500 transition-all appearance-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm text-slate-900 outline-none focus:border-rose-500 transition-all appearance-none"
                   >
-                    <option value="" className="bg-[#0a0a0f]">Selecione o condomínio...</option>
-                    {condominios.map(c => <option key={c.id} value={c.id} className="bg-[#0a0a0f]">{c.name}</option>)}
+                    <option value="" className="bg-white">Selecione o condomínio...</option>
+                    {condominios.map(c => <option key={c.id} value={c.id} className="bg-white">{c.name}</option>)}
                   </select>
                 </div>
 
                 {/* Pacote */}
                 <div className="col-span-2">
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Pacote de Emissão</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Pacote de Emissão</label>
                   <select
                     required
                     disabled={!formData.condominio_id}
                     value={formData.pacote_id}
                     onChange={(e) => setFormData({ ...formData, pacote_id: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white outline-none focus:border-rose-500 transition-all appearance-none disabled:opacity-30"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm text-slate-900 outline-none focus:border-rose-500 transition-all appearance-none disabled:opacity-30"
                   >
-                    <option value="" className="bg-[#0a0a0f]">Selecione o pacote...</option>
+                    <option value="" className="bg-white">Selecione o pacote...</option>
                     {pacotesDisponiveis.map(p => (
-                      <option key={p.id} value={p.id} className="bg-[#0a0a0f]">
+                      <option key={p.id} value={p.id} className="bg-white">
                         Ref. {String(p.mes_referencia).padStart(2,'0')}/{p.ano_referencia} ({p.status})
                       </option>
                     ))}
@@ -699,7 +699,7 @@ export default function FilaOcorrencias() {
 
                 {/* Tipo */}
                 <div className="col-span-2">
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 ml-1 text-center">Tipo de Pendência</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1 text-center">Tipo de Pendência</label>
                   <div className="grid grid-cols-2 gap-3">
                     {[
                       { id: 'ocorrencia', label: 'Ocorrência', desc: 'Erro na emissão' },
@@ -712,11 +712,11 @@ export default function FilaOcorrencias() {
                         className={`p-4 rounded-2xl border-2 text-left transition-all ${
                           formData.tipo === t.id
                             ? 'border-rose-600 bg-rose-600/10 shadow-lg shadow-rose-600/10'
-                            : 'border-white/5 bg-white/5 hover:border-white/10'
+                            : 'border-slate-200 bg-slate-50 hover:border-slate-200'
                         }`}
                       >
-                        <p className={`text-xs font-black uppercase tracking-tight ${formData.tipo === t.id ? 'text-white' : 'text-gray-400'}`}>{t.label}</p>
-                        <p className="text-[10px] text-gray-500">{t.desc}</p>
+                        <p className={`text-xs font-black uppercase tracking-tight ${formData.tipo === t.id ? 'text-slate-900' : 'text-slate-500'}`}>{t.label}</p>
+                        <p className="text-[10px] text-slate-500">{t.desc}</p>
                       </button>
                     ))}
                   </div>
@@ -724,16 +724,16 @@ export default function FilaOcorrencias() {
 
                 {/* Descrição */}
                 <div className="col-span-2">
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Descrição Detalhada</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Descrição Detalhada</label>
                   <textarea
                     required
                     value={formData.descricao}
                     onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                     rows={4}
                     placeholder="Descreva o problema ou a alteração solicitada..."
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-sm text-white outline-none focus:border-rose-500 transition-all placeholder:text-gray-700 shadow-inner"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 text-sm text-slate-900 outline-none focus:border-rose-500 transition-all placeholder:text-slate-400 shadow-inner"
                   />
-                  <p className="text-[9px] text-gray-600 mt-2 ml-1 uppercase font-bold tracking-widest">Mínimo 10 caracteres</p>
+                  <p className="text-[9px] text-slate-400 mt-2 ml-1 uppercase font-bold tracking-widest">Mínimo 10 caracteres</p>
                 </div>
               </div>
 
@@ -741,7 +741,7 @@ export default function FilaOcorrencias() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-4 text-xs font-black text-gray-500 uppercase tracking-widest hover:text-white transition-colors"
+                  className="flex-1 py-4 text-xs font-black text-slate-500 uppercase tracking-widest hover:text-slate-900 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -762,18 +762,18 @@ export default function FilaOcorrencias() {
       {/* ═══ DRAWER DE DETALHES ═══ */}
       {showDrawer && itemAtivo && (
         <div className="fixed inset-0 z-[200] flex justify-end animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDrawer(false)} />
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowDrawer(false)} />
           
-          <div className="relative w-full max-w-md bg-[#0a0a0f] border-l border-white/10 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="relative w-full max-w-md bg-white border-l border-slate-200 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
             {/* Header Drawer */}
-            <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+            <div className="p-8 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div>
-                <h3 className="text-xl font-black text-white uppercase tracking-tight">Detalhes da Pendência</h3>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Detalhes da Pendência</h3>
                 <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mt-1">
                   ID: {itemAtivo.id.slice(0,8)}...
                 </p>
               </div>
-              <button onClick={() => setShowDrawer(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-500 hover:text-white">
+              <button onClick={() => setShowDrawer(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-slate-900">
                 <Plus className="w-6 h-6 rotate-45" />
               </button>
             </div>
@@ -783,11 +783,11 @@ export default function FilaOcorrencias() {
               {/* Condomínio & Status */}
               <div className="flex items-start justify-between">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Condomínio</label>
-                  <p className="text-lg font-bold text-white leading-tight">{itemAtivo.condominios?.name}</p>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Condomínio</label>
+                  <p className="text-lg font-bold text-slate-900 leading-tight">{itemAtivo.condominios?.name}</p>
                 </div>
                 <div className="text-right">
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Tipo</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Tipo</label>
                   <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
                     itemAtivo.tipo === 'ocorrencia' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'
                   }`}>
@@ -798,33 +798,33 @@ export default function FilaOcorrencias() {
 
               {/* Descrição */}
               <div>
-                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Descrição</label>
-                <div className="p-5 bg-white/5 border border-white/10 rounded-2xl text-sm text-gray-300 leading-relaxed italic">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Descrição</label>
+                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-700 leading-relaxed italic">
                   &quot;{itemAtivo.descricao}&quot;
                 </div>
               </div>
 
               {/* Metadados */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Criado por</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Criado por</label>
                   <div className="flex items-center gap-2">
                     <User className="w-3 h-3 text-rose-400" />
-                    <span className="text-xs font-bold text-white">{itemAtivo.profiles?.full_name}</span>
+                    <span className="text-xs font-bold text-slate-900">{itemAtivo.profiles?.full_name}</span>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Data</label>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Data</label>
                   <div className="flex items-center gap-2">
                     <Clock className="w-3 h-3 text-rose-400" />
-                    <span className="text-xs font-bold text-white">{new Date(itemAtivo.criado_em).toLocaleDateString()}</span>
+                    <span className="text-xs font-bold text-slate-900">{new Date(itemAtivo.criado_em).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
 
               {/* Área de Ação / Resolução */}
-              <div className="pt-8 border-t border-white/10">
-                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4 ml-1">Fluxo de Resolução</label>
+              <div className="pt-8 border-t border-slate-200">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 ml-1">Fluxo de Resolução</label>
                 
                 {itemAtivo.status === 'aberta' && (
                   <div className="space-y-4">
@@ -854,7 +854,7 @@ export default function FilaOcorrencias() {
                       value={resposta}
                       onChange={(e) => setResposta(e.target.value)}
                       rows={4}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-sm text-white outline-none focus:border-emerald-500 transition-all placeholder:text-gray-700"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 text-sm text-slate-900 outline-none focus:border-emerald-500 transition-all placeholder:text-slate-400"
                     />
                     {canResolve && (
                       <button
@@ -876,8 +876,8 @@ export default function FilaOcorrencias() {
                         <CheckCircle className="w-4 h-4 text-emerald-400" />
                         <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Resolvido</span>
                       </div>
-                      <p className="text-sm text-gray-300 leading-relaxed italic mb-4">&quot;{itemAtivo.resposta}&quot;</p>
-                      <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">
+                      <p className="text-sm text-slate-700 leading-relaxed italic mb-4">&quot;{itemAtivo.resposta}&quot;</p>
+                      <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">
                         Resolvido em {new Date(itemAtivo.resolvido_em).toLocaleDateString()} às {new Date(itemAtivo.resolvido_em).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </div>
                     </div>

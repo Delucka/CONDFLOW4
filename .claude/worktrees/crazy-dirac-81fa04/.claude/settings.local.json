@@ -35,7 +35,11 @@
       "Bash(cp /tmp/skill-inspect/aesthetics.md ~/.claude/skills/frontend-pro/references/aesthetics.md)",
       "Bash(cp /tmp/skill-inspect/ux-patterns.md ~/.claude/skills/frontend-pro/references/ux-patterns.md)",
       "Bash(cp /tmp/skill-inspect/integrating-existing-project.md ~/.claude/skills/frontend-pro/references/integrating-existing-project.md)",
-      "Bash(rm -rf /tmp/skill-inspect)"
+      "Bash(rm -rf /tmp/skill-inspect)",
+      "Bash(grep -v \":0$\")",
+      "Bash(sed -n '814p' app/central-emissoes/components/VisaoEmissor.js)",
+      "Bash(sed -n '509p' app/central-emissoes/components/VisaoMaster.js)",
+      "Bash(sed -n '33p' components/AppShell.js)"
     ]
   }
 }

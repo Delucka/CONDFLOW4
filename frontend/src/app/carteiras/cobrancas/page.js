@@ -125,14 +125,14 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
   const anos = [anoAtual, anoAtual + 1, anoAtual + 2];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+      <div className="bg-white border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Receipt className="w-5 h-5 text-amber-400" />
-            <h3 className="text-lg font-bold text-slate-200">Nova Cobrança Extra</h3>
+            <h3 className="text-lg font-bold text-slate-800">Nova Cobrança Extra</h3>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-700"><X className="w-5 h-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
@@ -140,7 +140,7 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Descrição</label>
             <input required value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })}
               placeholder="Ex: Reforma portão eletrônico"
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-amber-500 placeholder-slate-600" />
+              className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500 placeholder-slate-400" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -149,12 +149,12 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
               <input required value={form.valor_total}
                 onChange={e => setForm({ ...form, valor_total: e.target.value })}
                 placeholder="0,00"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-amber-500 placeholder-slate-600 font-mono" />
+                className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500 placeholder-slate-400 font-mono" />
             </div>
             <div>
               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Parcelas</label>
               <select value={form.parcelas} onChange={e => setForm({ ...form, parcelas: Number(e.target.value) })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-amber-500">
+                className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500">
                 {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
                   <option key={n} value={n}>{n === 1 ? 'À vista (1x)' : `${n}x`}</option>
                 ))}
@@ -176,7 +176,7 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
             <div>
               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mês inicial</label>
               <select value={form.mes_inicio} onChange={e => setForm({ ...form, mes_inicio: Number(e.target.value) })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-amber-500">
+                className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500">
                 {MESES.map((m, i) => {
                   const mes = i + 1;
                   const bloq = isMesTravado(mes) || isMesNoPassado(mes, form.ano_inicio);
@@ -187,7 +187,7 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
             <div>
               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Ano</label>
               <select value={form.ano_inicio} onChange={e => setForm({ ...form, ano_inicio: Number(e.target.value) })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-amber-500">
+                className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500">
                 {anos.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
@@ -195,7 +195,7 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
 
           {/* Preview meses */}
           {form.parcelas > 1 && (
-            <div className="bg-slate-800 rounded-lg p-3">
+            <div className="bg-slate-100 rounded-lg p-3">
               <p className="text-[10px] text-slate-500 font-bold uppercase mb-2">Parcelas agendadas:</p>
               <div className="flex flex-wrap gap-1">
                 {Array.from({ length: form.parcelas }).map((_, i) => {
@@ -227,16 +227,16 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
           {/* Anexo de Documento */}
         <div className="pt-2">
             <label className="block text-center border-2 border-dashed border-slate-700 
-hover:border-amber-500/50 rounded-xl p-4 cursor-pointer bg-slate-800/50 hover:bg-amber-500/5 transition-all group">
+hover:border-amber-500/50 rounded-xl p-4 cursor-pointer bg-slate-100/50 hover:bg-amber-500/5 transition-all group">
                 <input type="file" className="hidden" onChange={(e) => setSelectedFile(e.target.files[0])} />
                 <div className="flex flex-col items-center gap-2">
-                    <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center 
+                    <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center 
 group-hover:scale-110 transition-transform">
                         {selectedFile ? <FileText className="w-5 h-5 text-amber-400" /> : <UploadCloud 
 className="w-5 h-5 text-slate-500 group-hover:text-amber-400" />}
                     </div>
                     <div className="text-center">
-                        <p className="text-xs font-bold text-slate-300">
+                        <p className="text-xs font-bold text-slate-700">
                             {selectedFile ? selectedFile.name : 'Anexar comprovante/NF'}
                         </p>
                     </div>
@@ -287,25 +287,25 @@ function ModalCancelar({ cobranca, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+      <div className="bg-white border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-rose-400" />
-            <h3 className="text-lg font-bold text-slate-200">Solicitar Cancelamento</h3>
+            <h3 className="text-lg font-bold text-slate-800">Solicitar Cancelamento</h3>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-700"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="bg-slate-800 rounded-lg p-3 text-sm text-slate-300">
-            <p className="font-bold text-slate-200 mb-1">{cobranca.descricao_base}</p>
+          <div className="bg-slate-100 rounded-lg p-3 text-sm text-slate-700">
+            <p className="font-bold text-slate-800 mb-1">{cobranca.descricao_base}</p>
             <p className="text-xs text-slate-400">As parcelas <strong>já emitidas</strong> permanecem. Apenas as parcelas futuras serão canceladas pelo emissor.</p>
           </div>
           <div>
             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Motivo do cancelamento</label>
             <textarea value={motivo} onChange={e => setMotivo(e.target.value)} rows={3}
               placeholder="Ex: Obra foi concluída antecipadamente..."
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-600 resize-none" />
+              className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-rose-500 placeholder-slate-400 resize-none" />
           </div>
           <button type="submit" disabled={loading}
             className="w-full py-3 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-500 transition-colors flex justify-center items-center gap-2 disabled:opacity-50">
@@ -461,13 +461,13 @@ export default function CobrancasExtrasPage() {
     <div className="animate-fade-in w-full space-y-6 pb-20">
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-panel p-6 rounded-[2rem] border-white/5 shadow-xl">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-panel p-6 rounded-[2rem] border-slate-200 shadow-xl">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
             <Receipt className="w-7 h-7 text-amber-400" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-white uppercase tracking-tight">Cobranças Extras</h2>
+            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Cobranças Extras</h2>
             <p className="text-xs text-slate-400 mt-1">
               {role === 'gerente' ? 'Sua carteira' : role === 'assistente' ? 'Carteira do seu gerente' : 'Todos os condomínios'} · Lançamentos vinculados por mês
             </p>
@@ -480,13 +480,13 @@ export default function CobrancasExtrasPage() {
             </span>
           ) : (
             <select value={condoSel} onChange={e => setCondoSel(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-200 outline-none focus:border-amber-500 min-w-[260px]">
+              className="bg-slate-100 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-800 outline-none focus:border-amber-500 min-w-[260px]">
               {condominios.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
           {podeLancar && condominios.length > 0 && (
             <button onClick={() => setModalLancar(true)}
-              className="bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-amber-500 transition-all shadow-[0_0_15px_rgba(217,119,6,0.3)]">
+              className="bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-amber-500 transition-all ">
               <Plus className="w-4 h-4" /> Nova Cobrança
             </button>
           )}
@@ -496,9 +496,9 @@ export default function CobrancasExtrasPage() {
       {/* Stats cards (só quando tem condo + cobrancas) */}
       {condoSel && todosGrupos.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="glass-panel p-4 rounded-2xl border border-white/5">
+          <div className="glass-panel p-4 rounded-2xl border border-slate-200">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total</p>
-            <p className="text-2xl font-black text-white mt-1">{stats.total}</p>
+            <p className="text-2xl font-black text-slate-900 mt-1">{stats.total}</p>
             <p className="text-[10px] text-slate-500 mt-0.5">cobrança{stats.total !== 1 ? 's' : ''}</p>
           </div>
           <div className="glass-panel p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5">
@@ -528,9 +528,9 @@ export default function CobrancasExtrasPage() {
             </svg>
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Pesquisar descrição..."
-              className="w-full bg-slate-900/60 border border-white/10 rounded-xl pl-10 pr-3 py-2 text-sm text-slate-200 outline-none focus:border-amber-500/50 placeholder-slate-600" />
+              className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-3 py-2 text-sm text-slate-800 outline-none focus:border-amber-500/50 placeholder-slate-400" />
           </div>
-          <div className="flex gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/5">
+          <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
             {[
               { id: 'todos',        label: 'Todas' },
               { id: 'ativa',        label: 'Ativas' },
@@ -538,7 +538,7 @@ export default function CobrancasExtrasPage() {
             ].map(opt => (
               <button key={opt.id} onClick={() => setFiltroStatus(opt.id)}
                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                  filtroStatus === opt.id ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                  filtroStatus === opt.id ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-slate-900'
                 }`}>
                 {opt.label}
               </button>
@@ -558,7 +558,7 @@ export default function CobrancasExtrasPage() {
             {cancelamentos.map(c => (
               <div key={c.grupo_id} className="px-6 py-4 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-bold text-slate-200">{c.descricao} — {c.condominio}</p>
+                  <p className="text-sm font-bold text-slate-800">{c.descricao} — {c.condominio}</p>
                   <p className="text-xs text-slate-400 mt-1">
                     {c.parcelas_pendentes} parcela(s) de R$ {Number(c.valor_parcela).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • Motivo: <em>{c.motivo}</em>
                   </p>
@@ -598,7 +598,7 @@ export default function CobrancasExtrasPage() {
           {gruposFiltrados.map(grupo => (
             <div key={grupo.grupo_id}
               className={`glass-panel rounded-2xl border overflow-hidden shadow-lg
-                ${grupo.status === 'solicitado_cancelamento' ? 'border-rose-500/30' : 'border-white/5'}`}>
+                ${grupo.status === 'solicitado_cancelamento' ? 'border-rose-500/30' : 'border-slate-200'}`}>
               <div className="px-5 py-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0
@@ -608,7 +608,7 @@ export default function CobrancasExtrasPage() {
                       : <Receipt className="w-5 h-5 text-amber-400" />}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-slate-200 truncate">{grupo.descricao_base}</p>
+                    <p className="font-bold text-slate-800 truncate">{grupo.descricao_base}</p>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {grupo.parcela_total > 1
                         ? `${grupo.parcela_total}x de R$ ${Number(grupo.valor_parcela).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -620,7 +620,7 @@ export default function CobrancasExtrasPage() {
                 <div className="flex items-center gap-3 shrink-0">
                   {grupo.attachments?.length > 0 && (
                     <a href={grupo.attachments[0]} target="_blank" rel="noreferrer"
-                      className="text-slate-400 hover:text-cyan-400 transition-colors" title="Ver documento anexado">
+                      className="text-slate-400 hover:text-violet-400 transition-colors" title="Ver documento anexado">
                       <FileText className="w-4 h-4" />
                     </a>
                   )}
@@ -640,7 +640,7 @@ export default function CobrancasExtrasPage() {
 
               {/* Parcelas */}
               {grupo.parcelas.length > 0 && (
-                <div className="border-t border-white/5">
+                <div className="border-t border-slate-200">
                   <div className="flex flex-wrap gap-2 px-5 py-3">
                     {grupo.parcelas.sort((a, b) => a.parcela_atual - b.parcela_atual).map(p => {
                       const bloq = isMesNoPassado(p.mes, p.ano);
@@ -650,8 +650,8 @@ export default function CobrancasExtrasPage() {
                         <span key={p.id}
                           className={`text-[10px] font-bold px-2.5 py-1 rounded border
                             ${cancelado ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 line-through'
-                              : processada ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                              : bloq ? 'bg-slate-800 text-slate-500 border-slate-700'
+                              : processada ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+                              : bloq ? 'bg-slate-100 text-slate-500 border-slate-700'
                               : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
                           {MESES[(p.mes || 1) - 1]}/{p.ano}
                           {p.parcela_total > 1 ? ` (${p.parcela_atual}/${p.parcela_total})` : ''}

@@ -36,7 +36,7 @@ export default function Sidebar() {
       <div className="flex-1 flex flex-col py-4 glass-panel rounded-2xl overflow-hidden relative">
 
         <div className={`flex items-center gap-2.5 px-4 mb-6 mt-1 ${collapsed ? 'justify-center px-0' : ''}`}>
-          <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-cyan-500 rounded-xl flex items-center justify-center text-white shrink-0">
+          <div className="w-8 h-8 bg-violet-600 rounded-xl flex items-center justify-center text-white shrink-0">
             <Zap className="w-4 h-4 fill-white" />
           </div>
           {!collapsed && <h1 className="text-lg font-black tracking-tight text-slate-900 italic">CONDO<span className="text-violet-600">FLOW</span></h1>}
@@ -45,7 +45,7 @@ export default function Sidebar() {
         {profile && (
           <div className="px-3 mb-5">
             <div className={`flex items-center gap-2.5 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl ${collapsed ? 'justify-center p-2' : ''}`}>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+              <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
                 {profile.full_name?.[0]?.toUpperCase() || '?'}
               </div>
               {!collapsed && (

@@ -105,12 +105,12 @@ export default function CobrancasPage() {
     }
   }
 
-  if (loading) return <div className="flex w-full justify-center p-20"><div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div></div>;
+  if (loading) return <div className="flex w-full justify-center p-20"><div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
   return (
     <div className="animate-fade-in w-full h-full relative">
       <div className="flex gap-4 items-center mb-6">
-        <Link href={`/condominio/${condoId}/arrecadacoes`} className="bg-slate-800 p-2 rounded-lg hover:bg-slate-700 transition">
+        <Link href={`/condominio/${condoId}/arrecadacoes`} className="bg-slate-100 p-2 rounded-lg hover:bg-slate-700 transition">
           <ArrowLeft className="w-5 h-5 text-slate-400" />
         </Link>
         <StatusBadge status={data.processo?.status} flow="processo" />
@@ -146,50 +146,50 @@ export default function CobrancasPage() {
       <div className="grid md:grid-cols-2 gap-6">
         {/* Formulário */}
         {canEdit && (
-          <form onSubmit={handleAdd} className="bg-slate-900 border border-slate-800 shadow-xl rounded-xl p-6 relative overflow-hidden">
-            <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-              <PlusCircle className="w-4 h-4 text-orange-500" /> Adicionar Cobrança
+          <form onSubmit={handleAdd} className="bg-white border border-slate-800 shadow-xl rounded-xl p-6 relative overflow-hidden">
+            <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <PlusCircle className="w-4 h-4 text-amber-500" /> Adicionar Cobrança
             </h4>
             
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] text-slate-400 font-bold uppercase">Descrição</label>
                 <input required value={descricao} onChange={e => setDescricao(e.target.value)}
-                       className="w-full bg-slate-800 rounded-lg p-2 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-orange-500" />
+                       className="w-full bg-slate-100 rounded-lg p-2 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500" />
               </div>
               <div>
                 <label className="text-[10px] text-slate-400 font-bold uppercase">Valor (R$)</label>
                 <input required value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00"
-                       className="w-full bg-slate-800 rounded-lg p-2 text-sm text-slate-200 mt-1 outline-none focus:ring-1 focus:ring-orange-500" />
+                       className="w-full bg-slate-100 rounded-lg p-2 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500" />
               </div>
               <button disabled={submitting} type="submit"
-                      className="w-full py-2 bg-orange-500 text-slate-900 font-bold text-sm rounded-lg hover:bg-orange-400 transition-colors">
+                      className="w-full py-2 bg-amber-500 text-white font-bold text-sm rounded-lg hover:bg-amber-400 transition-colors">
                 {submitting ? 'Adicionando...' : 'Adicionar'}
               </button>
             </div>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-bl-[100px] pointer-events-none" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-bl-[100px] pointer-events-none" />
           </form>
         )}
 
         {/* Lista */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-          <div className="p-4 bg-slate-800/50 border-b border-slate-800">
-            <h3 className="text-sm font-bold text-slate-200">Lista de Cobranças</h3>
+        <div className="bg-white border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+          <div className="p-4 bg-slate-100/50 border-b border-slate-800">
+            <h3 className="text-sm font-bold text-slate-800">Lista de Cobranças</h3>
           </div>
           <div className="divide-y divide-slate-800/50 max-h-[400px] overflow-y-auto">
             {data.cobrancas.length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-sm">Nenhuma cobrança inserida.</div>
             ) : (
               data.cobrancas.map(cb => (
-                <div key={cb.id} className="p-4 flex justify-between items-center hover:bg-slate-800/30">
+                <div key={cb.id} className="p-4 flex justify-between items-center hover:bg-slate-100/30">
                   <div>
-                    <h4 className="text-sm font-bold text-slate-300">{cb.description}</h4>
+                    <h4 className="text-sm font-bold text-slate-700">{cb.description}</h4>
                     <span className="text-[10px] text-slate-500">{new Date(cb.created_at).toLocaleDateString()}</span>
                   </div>
                   <div className="flex gap-4 items-center">
-                    <span className="text-sm font-black text-orange-400">R$ {cb.amount}</span>
+                    <span className="text-sm font-black text-amber-400">R$ {cb.amount}</span>
                     {canEdit && (
-                      <button onClick={() => handleRemove(cb.id)} className="text-slate-500 hover:text-red-400">
+                      <button onClick={() => handleRemove(cb.id)} className="text-slate-500 hover:text-rose-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}

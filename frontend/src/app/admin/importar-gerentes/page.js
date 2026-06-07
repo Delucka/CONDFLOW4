@@ -157,8 +157,8 @@ export default function ImportarGerentesPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <ShieldAlert className="w-12 h-12 text-red-400 mx-auto mb-3" />
-          <p className="text-red-400 font-bold">Acesso restrito</p>
+          <ShieldAlert className="w-12 h-12 text-rose-400 mx-auto mb-3" />
+          <p className="text-rose-400 font-bold">Acesso restrito</p>
           <p className="text-slate-500 text-sm mt-1">Apenas o master pode importar gerentes.</p>
           <p className="text-slate-600 text-xs mt-2">Seu role: {profile?.role || 'desconhecido'}</p>
         </div>
@@ -174,7 +174,7 @@ export default function ImportarGerentesPage() {
           <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
             <Users className="w-5 h-5 text-violet-400" />
           </div>
-          <h2 className="text-2xl font-black text-white tracking-tight">Importar Gerentes</h2>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Importar Gerentes</h2>
         </div>
         <p className="text-slate-400 text-sm">Cria os usuários dos gerentes-fantasma (importados do Ahreas) em lote.</p>
       </div>
@@ -188,15 +188,15 @@ export default function ImportarGerentesPage() {
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-violet-500/10 border border-violet-500/30 rounded-2xl px-5 py-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-violet-400">Ghosts pendentes</p>
-          <p className="text-3xl font-black text-white mt-1">{ghosts.length}</p>
+          <p className="text-3xl font-black text-slate-900 mt-1">{ghosts.length}</p>
         </div>
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-5 py-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Prontos pra criar</p>
-          <p className="text-3xl font-black text-white mt-1">{totalCriaveis}</p>
+          <p className="text-3xl font-black text-slate-900 mt-1">{totalCriaveis}</p>
         </div>
         <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl px-5 py-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-rose-400">Sem email</p>
-          <p className="text-3xl font-black text-white mt-1">{totalSemEmail}</p>
+          <p className="text-3xl font-black text-slate-900 mt-1">{totalSemEmail}</p>
         </div>
       </div>
 
@@ -207,13 +207,13 @@ export default function ImportarGerentesPage() {
           Criar todos ({totalCriaveis})
         </button>
         <button onClick={fetchGhosts} disabled={loading}
-          className="px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition-colors">
+          className="px-4 py-3 bg-slate-100 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-700 transition-colors">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
       {msg && (
-        <div className="mb-4 px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-300 text-xs">{msg}</div>
+        <div className="mb-4 px-4 py-2 bg-violet-500/10 border border-violet-500/30 rounded-xl text-violet-300 text-xs">{msg}</div>
       )}
 
       <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 mb-6 text-xs text-amber-200/80 flex items-start gap-2">
@@ -231,13 +231,13 @@ export default function ImportarGerentesPage() {
       ) : ghosts.length === 0 ? (
         <div className="p-20 text-center bg-emerald-500/5 border border-emerald-500/20 rounded-3xl">
           <Check className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-          <p className="text-white font-black text-lg">Tudo limpo!</p>
+          <p className="text-slate-900 font-black text-lg">Tudo limpo!</p>
           <p className="text-slate-400 text-sm mt-1">Não há mais ghosts pendentes de criação.</p>
         </div>
       ) : (
-        <div className="bg-slate-900/50 border border-white/5 rounded-3xl overflow-hidden overflow-x-auto">
+        <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-white/5 border-b border-white/5">
+            <thead className="bg-slate-50 border-b border-slate-200">
               <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                 <th className="px-4 py-3 text-left">Cód / Nome</th>
                 <th className="px-4 py-3 text-left">Email</th>
@@ -246,7 +246,7 @@ export default function ImportarGerentesPage() {
                 <th className="px-4 py-3 text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-slate-200">
               {ghosts.map(g => {
                 const row = rows[g.id] || {};
                 const status = row.resultado;
@@ -257,7 +257,7 @@ export default function ImportarGerentesPage() {
                       <input
                         value={row.nome || ''}
                         onChange={(e) => atualizar(g.id, { nome: e.target.value })}
-                        className="text-sm font-bold text-white bg-transparent border-none outline-none w-full focus:bg-white/5 px-1 rounded"
+                        className="text-sm font-bold text-slate-900 bg-transparent border-none outline-none w-full focus:bg-slate-50 px-1 rounded"
                       />
                     </td>
                     <td className="px-4 py-3 min-w-[260px] align-top">
@@ -268,7 +268,7 @@ export default function ImportarGerentesPage() {
                           value={row.email || ''}
                           onChange={(e) => atualizar(g.id, { email: e.target.value })}
                           placeholder="email@dominio.com.br"
-                          className="w-full pl-7 pr-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-slate-200 focus:border-violet-500 outline-none"
+                          className="w-full pl-7 pr-2 py-1.5 bg-white border border-slate-700 rounded text-xs text-slate-800 focus:border-violet-500 outline-none"
                         />
                       </div>
                     </td>
@@ -278,18 +278,18 @@ export default function ImportarGerentesPage() {
                           type={showPass[g.id] ? 'text' : 'password'}
                           value={row.senha || ''}
                           onChange={(e) => atualizar(g.id, { senha: e.target.value })}
-                          className="flex-1 min-w-0 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-cyan-300 font-mono focus:border-cyan-500 outline-none"
+                          className="flex-1 min-w-0 px-2 py-1.5 bg-white border border-slate-700 rounded text-xs text-violet-300 font-mono focus:border-violet-500 outline-none"
                         />
                         <button onClick={() => setShowPass(p => ({ ...p, [g.id]: !p[g.id] }))}
-                          className="p-1.5 text-slate-500 hover:text-cyan-400 shrink-0">
+                          className="p-1.5 text-slate-500 hover:text-violet-400 shrink-0">
                           {showPass[g.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                         </button>
                         <button onClick={() => copiar(g.id, row.senha)}
-                          className={`p-1.5 shrink-0 ${copiou[g.id] ? 'text-emerald-400' : 'text-slate-500 hover:text-cyan-400'}`}>
+                          className={`p-1.5 shrink-0 ${copiou[g.id] ? 'text-emerald-400' : 'text-slate-500 hover:text-violet-400'}`}>
                           {copiou[g.id] ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                         </button>
                         <button onClick={() => atualizar(g.id, { senha: gerarSenhaTemp() })}
-                          className="p-1.5 text-slate-500 hover:text-cyan-400 shrink-0">
+                          className="p-1.5 text-slate-500 hover:text-violet-400 shrink-0">
                           <RefreshCw className="w-3 h-3" />
                         </button>
                       </div>
