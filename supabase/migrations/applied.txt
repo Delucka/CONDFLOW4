@@ -45,3 +45,4 @@
 0040_consumos_relatorios_leitura.sql
 0041_status_extracao.sql
 0042_condominios_cnpj.sql
+0043_origem_emissao_faturas.sql

@@ -535,6 +535,31 @@ export default function ConsumosPage() {
     return m;
   }, [relatorios]);
 
+  // ─── Matriz de relatórios de leitura: condo × (empresa+serviço) × mês ───
+  const condosComRelatorios = useMemo(() => {
+    const byCondo = {};
+    relatorios.forEach(r => {
+      const cid = r.condominio_id;
+      if (!byCondo[cid]) {
+        byCondo[cid] = { id: cid, name: r.condominios?.name || '—', linhas: new Set() };
+      }
+      byCondo[cid].linhas.add(`${r.empresa_leitura}||${r.tipo_servico}`);
+    });
+    let list = Object.values(byCondo).map(c => ({
+      ...c,
+      linhas: Array.from(c.linhas).sort(),
+    }));
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter(c =>
+        (c.name || '').toLowerCase().includes(s) ||
+        c.linhas.some(l => l.toLowerCase().includes(s))
+      );
+    }
+    list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    return list;
+  }, [relatorios, search]);
+
   const stats = useMemo(() => {
     const processadas = todasFaturas.length + relatorios.length;
     const totalValor =
@@ -870,6 +895,98 @@ export default function ConsumosPage() {
           )}
         </div>
       </div>
+
+      {/* ─── Matriz de Relatórios de Leitura Individualizada (Prosper/Outra) ─── */}
+      {condosComRelatorios.length > 0 && (
+        <div className="glass-panel rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Droplet className="w-3.5 h-3.5 text-violet-500" /> Relatórios de leitura · {anoSel} · {condosComRelatorios.length} {condosComRelatorios.length === 1 ? 'condomínio' : 'condomínios'}
+            </p>
+            <p className="text-[10px] text-slate-500">Consumo em m³ · clique pra ver leitura por unidade</p>
+          </div>
+          <div className="overflow-auto max-h-[60vh]">
+            <table className="w-full text-xs border-collapse">
+              <thead className="sticky top-0 bg-slate-50 z-10">
+                <tr>
+                  <th className="text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 sticky left-0 bg-slate-50 z-20 min-w-[220px]">Condomínio</th>
+                  <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[140px] border-r border-slate-200">Empresa · Serviço</th>
+                  {Array.from({length:12}, (_,i)=>i+1).map(m => (
+                    <th key={m} className="text-center px-1 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[64px]">{MESES[m]}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {condosComRelatorios.flatMap(c =>
+                  c.linhas.map((linha, idx) => {
+                    const [empresa, servico] = linha.split('||');
+                    return (
+                      <tr key={`${c.id}-${linha}`} className="border-t border-slate-200 hover:bg-slate-100">
+                        {idx === 0 && (
+                          <td rowSpan={c.linhas.length} className="px-3 py-2 align-top font-bold text-slate-800 sticky left-0 bg-slate-50 z-10 truncate max-w-[220px] border-r border-slate-200" title={c.name}>
+                            {c.name}
+                          </td>
+                        )}
+                        <td className="px-2 py-2 border-r border-slate-200">
+                          <span className="font-black text-[10px] uppercase tracking-widest text-violet-400">{empresa}</span>
+                          <span className="ml-1.5 text-[9px] text-slate-400">{servico === 'gas' ? '🔥 gás' : '💧 água'}</span>
+                        </td>
+                        {Array.from({length:12}, (_,i)=>i+1).map(m => {
+                          const r = relatoriosMap[`${c.id}|${empresa}|${servico}|${m}`];
+                          const rAnt = relatoriosMap[`${c.id}|${empresa}|${servico}|${m-1}`];
+                          // Variação de CONSUMO (m³) — o que importa em leitura individualizada
+                          let varConsumo = null;
+                          if (r && rAnt && r.consumo_total != null && rAnt.consumo_total != null && Number(rAnt.consumo_total) > 0) {
+                            varConsumo = (Number(r.consumo_total) - Number(rAnt.consumo_total)) / Number(rAnt.consumo_total) * 100;
+                          }
+                          const anomalia = varConsumo !== null && Math.abs(varConsumo) >= 50;
+                          const isRepetida = r?.marcada_repetida === true;
+                          const tip = [];
+                          if (r) {
+                            tip.push(`${empresa} ${MESES[m]}/${anoSel}`);
+                            if (r.consumo_total != null) tip.push(`${Number(r.consumo_total).toLocaleString('pt-BR', {maximumFractionDigits:1})} m³`);
+                            if (r.valor_total != null) tip.push(`R$ ${fmtBRL(r.valor_total)}`);
+                            if (varConsumo !== null) tip.push(`Δ consumo ${varConsumo >= 0 ? '+' : ''}${varConsumo.toFixed(1)}% vs ${MESES[m-1] || 'ant.'}`);
+                            if (isRepetida) tip.push(`🔴 REPETIDA${r.motivo_repeticao ? ': ' + r.motivo_repeticao : ''}`);
+                          }
+                          return (
+                            <td key={m} className="p-0.5 border-r border-slate-200">
+                              {r ? (
+                                <button
+                                  onClick={() => abrirUnidades({
+                                    nome: c.name, empresa, mes: m, servico,
+                                    origem: r.origem_emissao_arquivo_id,
+                                  })}
+                                  title={tip.join(' · ')}
+                                  className={`relative w-full h-full px-1 py-1.5 rounded text-[10px] font-bold leading-tight transition-all ${
+                                    isRepetida ? 'bg-rose-500/15 border border-rose-500/40 text-rose-700 hover:bg-rose-500/25'
+                                    : anomalia ? 'bg-amber-500/20 border border-amber-500/50 text-amber-700 hover:bg-amber-500/30'
+                                    : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/25'
+                                  }`}>
+                                  <span className="block">{r.consumo_total != null ? `${Number(r.consumo_total).toLocaleString('pt-BR', {maximumFractionDigits:0})}m³` : '✓'}</span>
+                                  {varConsumo !== null && (
+                                    <span className={`block text-[8px] font-mono ${Math.abs(varConsumo) >= 50 ? 'text-amber-700' : 'text-slate-500'}`}>
+                                      {varConsumo >= 0 ? '+' : ''}{varConsumo.toFixed(0)}%
+                                    </span>
+                                  )}
+                                  {isRepetida && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full border border-white" />}
+                                  {!isRepetida && anomalia && <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full border border-white animate-pulse" />}
+                                </button>
+                              ) : (
+                                <div className="w-full h-full px-1 py-1.5 text-center text-slate-300 text-[10px]">·</div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Modal Nova/Edit */}
       {showNovaModal && condoSel && (
