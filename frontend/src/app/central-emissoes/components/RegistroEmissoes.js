@@ -72,7 +72,7 @@ export default function RegistroEmissoes({ profile }) {
       if (ids.length > 0) {
         const { data: arquivos } = await supabase
           .from('emissoes_arquivos')
-          .select('id, pacote_id, arquivo_nome, arquivo_url, formato, categoria, subtipo, nome_condominio_fatura, vencimento_fatura, valor_fatura, condominio_id, mes_referencia, ano_referencia')
+          .select('id, pacote_id, arquivo_nome, arquivo_url, formato, categoria, subtipo, nome_condominio_fatura, vencimento_fatura, valor_fatura, relatorio_empresa, relatorio_tipo_servico, relatorio_data_leitura, relatorio_unidades, relatorio_consumo_total, relatorio_valor_total, extracao_dados_brutos, condominio_id, mes_referencia, ano_referencia')
           .in('pacote_id', ids);
         (arquivos || []).forEach(a => {
           if (!arqMap[a.pacote_id]) arqMap[a.pacote_id] = [];

@@ -2011,6 +2011,103 @@ class CheckDuplicataCompletaFatura(BaseModel):
     arquivo_hash: Optional[str] = None
 
 
+# ========== Validação de pertencimento (a conta é deste condomínio?) ==========
+import re
+import unicodedata as _unicodedata
+
+# Palavras genéricas que não identificam o condomínio (removidas na comparação)
+_PALAVRAS_GENERICAS = {
+    "CONDOMINIO", "CONDOMINIOS", "COND", "CD",
+    "EDIFICIO", "EDIF", "ED", "EDIFICIOS",
+    "RESIDENCIAL", "RESID", "RES",
+    "COMERCIAL", "EMPRESARIAL",
+    "PREDIO", "BLOCO", "TORRE", "TORRES", "CONJUNTO", "CONJ", "CJ",
+    "AUTONOMO", "AUTONOMA", "ASSOCIACAO", "ASSOC",
+    "DO", "DA", "DE", "DOS", "DAS", "E",
+}
+
+
+def _tokens_significativos(nome: Optional[str]) -> set:
+    """Normaliza um nome (sem acento, maiúsculo, sem código numérico/genéricos) -> set de tokens."""
+    if not nome:
+        return set()
+    s = _unicodedata.normalize("NFKD", str(nome)).encode("ascii", "ignore").decode("ascii").upper()
+    s = re.sub(r"[^A-Z0-9 ]", " ", s)
+    toks = set()
+    for t in s.split():
+        if not t or t.isdigit():           # ignora códigos numéricos ("002")
+            continue
+        if t in _PALAVRAS_GENERICAS:
+            continue
+        if len(t) < 3:                      # ignora siglas curtas/ruído
+            continue
+        toks.add(t)
+    return toks
+
+
+def _score_pertencimento(cliente: Optional[str], condo_nome: Optional[str]) -> float:
+    """0.0 a 1.0 — quão bem o nome do cliente (na conta) casa com o nome do condomínio."""
+    a = _tokens_significativos(cliente)
+    b = _tokens_significativos(condo_nome)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / min(len(a), len(b))
+
+
+def checar_pertencimento(db: Client, condominio_id: str, cliente: Optional[str]) -> Optional[dict]:
+    """
+    Retorna um alerta de BLOQUEIO se a conta claramente NÃO pertence ao condomínio
+    selecionado (o nome do cliente casa muito melhor com outro condomínio cadastrado).
+    Retorna None quando passa (ou quando não há dados suficientes para decidir).
+    """
+    if not cliente or len(_tokens_significativos(cliente)) < 2:
+        return None  # sem nome confiável na conta -> não dá pra validar
+
+    try:
+        sel = db.table("condominios").select("id, name").eq("id", condominio_id).maybeSingle().execute()
+        condo_sel = sel.data or {}
+    except Exception:
+        return None
+    nome_sel = condo_sel.get("name")
+    score_sel = _score_pertencimento(cliente, nome_sel)
+    if score_sel >= 0.34:
+        return None  # casa com o condomínio selecionado -> ok
+
+    # Não casou com o selecionado. Procura se casa com OUTRO condomínio.
+    try:
+        todos = db.table("condominios").select("id, name").execute().data or []
+    except Exception:
+        todos = []
+
+    melhor = None
+    melhor_score = 0.0
+    for c in todos:
+        if c.get("id") == condominio_id:
+            continue
+        sc = _score_pertencimento(cliente, c.get("name"))
+        if sc > melhor_score:
+            melhor_score = sc
+            melhor = c
+
+    # Só bloqueia quando há outro condomínio que casa claramente melhor.
+    if melhor and melhor_score >= 0.5 and melhor_score > score_sel:
+        return {
+            "nivel": "bloqueio",
+            "tipo": "pertencimento",
+            "mensagem": (
+                f"Esta conta é do cliente \"{cliente}\", que corresponde ao condomínio "
+                f"\"{melhor.get('name')}\" — NÃO a \"{nome_sel or 'este condomínio'}\". "
+                f"Retire esta conta: não é permitido anexar fatura de outro condomínio."
+            ),
+            "detalhes": {
+                "cliente": cliente,
+                "condominio_selecionado": nome_sel,
+                "condominio_correto": melhor.get("name"),
+            },
+        }
+    return None
+
+
 @router.post("/consumos/check-duplicata-completa")
 def api_check_duplicata_completa(data: CheckDuplicataCompletaFatura, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     """
@@ -2193,26 +2290,53 @@ def api_check_duplicata_completa(data: CheckDuplicataCompletaFatura, user: dict 
 
 class ConfirmarRepeticaoSchema(BaseModel):
     tipo: str  # 'fatura' ou 'relatorio'
-    registro_id: str   # id que ja existe (se ja inserido) OU usar antes do insert (so registra log)
+    condominio_id: str
+    mes_referencia: int
+    ano_referencia: int
     motivo: str
+    anexo_url: Optional[str] = None      # documento de aprovação da repetição (obrigatório)
+    anexo_nome: Optional[str] = None
+    # Identificação do registro recém-criado pelo trigger
+    concessionaria: Optional[str] = None  # fatura
+    empresa: Optional[str] = None         # relatorio
+    tipo_servico: Optional[str] = None    # relatorio
 
 
 @router.post("/consumos/sancionar-repeticao")
 def api_sancionar_repeticao(data: ConfirmarRepeticaoSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
-    """Master/departamento sanciona uma repeticao com motivo obrigatorio."""
-    if user.get("role") not in ("master", "departamento"):
-        raise HTTPException(403, "Apenas master/emissor pode sancionar repeticao")
+    """
+    Sanciona a repetição de uma conta. Exige MOTIVO e ANEXO de aprovação.
+    O emissor (assistente/departamento/master) pode sancionar a própria repetição.
+    """
+    if not _is_assistente_or_emissor_or_master(user.get("role")):
+        raise HTTPException(403, "Sem permissao para sancionar repeticao")
     if not data.motivo or not data.motivo.strip():
         raise HTTPException(400, "Motivo e obrigatorio")
+    if not data.anexo_url:
+        raise HTTPException(400, "Anexo de aprovacao da repeticao e obrigatorio")
     from datetime import datetime, timezone
     payload = {
         "marcada_repetida": True,
         "motivo_repeticao": data.motivo.strip(),
+        "repeticao_anexo_url": data.anexo_url,
+        "repeticao_anexo_nome": data.anexo_nome,
         "repeticao_confirmada_por": user["id"],
         "repeticao_confirmada_em": datetime.now(timezone.utc).isoformat(),
     }
     table = "consumos_faturas" if data.tipo == "fatura" else "consumos_relatorios_leitura"
-    db.table(table).update(payload).eq("id", data.registro_id).execute()
+    q = db.table(table).update(payload) \
+        .eq("condominio_id", data.condominio_id) \
+        .eq("ano_referencia", data.ano_referencia) \
+        .eq("mes_referencia", data.mes_referencia)
+    if data.tipo == "fatura":
+        if data.concessionaria:
+            q = q.eq("concessionaria", data.concessionaria.upper())
+    else:
+        if data.empresa:
+            q = q.eq("empresa_leitura", data.empresa.upper())
+        if data.tipo_servico:
+            q = q.eq("tipo_servico", data.tipo_servico.lower())
+    q.execute()
     return {"ok": True}
 
 
@@ -2262,6 +2386,16 @@ async def api_extrair_pdf(
     anomalia = None
     bloqueia = False
 
+    # ===== Pertencimento: a conta é DESTE condomínio? (bloqueio duro, prioridade máxima) =====
+    if condominio_id and not extracao.get('erro'):
+        try:
+            alerta_pert = checar_pertencimento(db, condominio_id, extracao.get('cliente'))
+            if alerta_pert:
+                alertas.append(alerta_pert)
+                bloqueia = True
+        except Exception as e:
+            print(f"[extrair-pdf] check pertencimento falhou: {e}")
+
     # Se identificou a empresa e tem contexto, valida duplicata
     if extracao.get('subtipo') and condominio_id and mes_referencia and ano_referencia:
         check_body = CheckDuplicataCompletaFatura(
@@ -2286,9 +2420,10 @@ async def api_extrair_pdf(
 
         try:
             result = api_check_duplicata_completa(check_body, user, db)
-            alertas = result.get('alertas', [])
+            # Mantém o alerta de pertencimento já adicionado (não sobrescreve)
+            alertas = alertas + (result.get('alertas') or [])
             anomalia = result.get('anomalia')
-            bloqueia = result.get('bloqueia', False)
+            bloqueia = bloqueia or result.get('bloqueia', False)
         except Exception as e:
             print(f"[extrair-pdf] check duplicata falhou: {e}")
 

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -66,7 +66,9 @@ export default function VisaoEmissor({ profile }) {
   // Modal de duplicata detectada
   const [duplicataInfo, setDuplicataInfo] = useState(null); // { alertas, anomalia, pendingFile, pendingMeta }
   const [sancionandoMotivo, setSancionandoMotivo] = useState('');
+  const [sancionandoAnexo, setSancionandoAnexo] = useState(null); // File do documento de aprovação
   const [sancionando, setSancionando] = useState(false);
+  const [pertencimentoInfo, setPertencimentoInfo] = useState(null); // { alerta, file, categoria } — bloqueio duro, sem sancionamento
 
   // Form inline para dados manuais da fatura de concessionaria
   const [editandoFaturaId, setEditandoFaturaId] = useState(null);
@@ -395,6 +397,7 @@ export default function VisaoEmissor({ profile }) {
         uploaded_by: profile.id,
         ...extras,
       };
+      if (arquivoHash && !insertPayload.arquivo_hash) insertPayload.arquivo_hash = arquivoHash;
       const { data: inserted, error: dbError } = await supabase
         .from('emissoes_arquivos')
         .insert(insertPayload)
@@ -423,10 +426,36 @@ export default function VisaoEmissor({ profile }) {
     return session?.access_token || '';
   }
 
+  // Sobe o documento que comprova a APROVAÇÃO da repetição (anexo 'outros') e devolve {url, nome}
+  async function uploadAnexoAprovacao(file) {
+    const extensao = file.name.split('.').pop().toLowerCase();
+    const randomId = Math.random().toString(36).substring(7);
+    const displayName = `Aprovacao_repeticao_${file.name}`;
+    const filePath = `${activePacote.condominio_id}/${ano}/${mes}/outros/${randomId}_${displayName}`;
+    const { error: upErr } = await supabase.storage.from('emissoes').upload(filePath, file);
+    if (upErr) throw upErr;
+    await supabase.from('emissoes_arquivos').insert({
+      condominio_id: activePacote.condominio_id,
+      pacote_id: activePacote.id,
+      tipo: 'emissao',
+      categoria: 'outros',
+      subtipo: 'Aprovação de repetição',
+      arquivo_url: filePath,
+      arquivo_nome: displayName,
+      formato: extensao,
+      mes_referencia: mes,
+      ano_referencia: ano,
+      status: 'pendente',
+      uploaded_by: profile.id,
+    });
+    return { url: filePath, nome: displayName };
+  }
+
   // Converte o dict da extração nos campos (colunas) de emissoes_arquivos
   function mapExtracaoToExtras(extracao, categoria) {
     const { texto_bruto, ...brutos } = extracao || {};
     const base = {
+      arquivo_hash: extracao?.arquivo_hash || null,
       extracao_status: extracao?.status || (extracao?.erro ? 'falha' : ((extracao?.confianca || 0) >= 0.8 ? 'sucesso' : 'parcial')),
       extracao_confianca: extracao?.confianca ?? null,
       extracao_dados_brutos: brutos,
@@ -453,6 +482,44 @@ export default function VisaoEmissor({ profile }) {
       relatorio_consumo_total: extracao?.consumo_total ?? null,
       relatorio_valor_total: extracao?.valor_total ?? null,
     };
+  }
+
+  // Detecta duplicata DENTRO do mesmo pacote (instantâneo, sem depender do banco/trigger).
+  // Pega o caso "anexei a mesma conta 2x" mesmo antes da sincronização chegar em /consumos.
+  function detectarDuplicataLocal(extracao, categoria) {
+    const lista = pacoteArquivos || [];
+    const hash = extracao?.arquivo_hash;
+    // 1) Mesmo arquivo (hash idêntico)
+    if (hash) {
+      const igual = lista.find(a => a.arquivo_hash && a.arquivo_hash === hash);
+      if (igual) return {
+        nivel: 'bloqueio', tipo: 'hash_identico',
+        mensagem: 'Este mesmo arquivo PDF já foi anexado nesta emissão.',
+        detalhes: { arquivo_nome: igual.arquivo_nome },
+      };
+    }
+    // 2) Mesma concessionária / mesma empresa de relatório no mesmo pacote (mesmo mês)
+    if (categoria === 'concessionaria') {
+      const sub = (extracao?.subtipo || '').toUpperCase();
+      const igual = lista.find(a => a.categoria === 'concessionaria' && (a.subtipo || '').toUpperCase() === sub && sub);
+      if (igual) return {
+        nivel: 'bloqueio', tipo: 'fatura_ja_existe',
+        mensagem: `Já existe uma fatura de ${sub} anexada nesta emissão.`,
+        detalhes: { concessionaria: sub, arquivo_nome: igual.arquivo_nome },
+      };
+    } else if (categoria === 'relatorio_leitura') {
+      const emp = (extracao?.subtipo || '').toUpperCase();
+      const serv = (extracao?.tipo_servico || 'agua').toLowerCase();
+      const igual = lista.find(a => a.categoria === 'relatorio_leitura'
+        && (a.relatorio_empresa || '').toUpperCase() === emp && emp
+        && (a.relatorio_tipo_servico || 'agua').toLowerCase() === serv);
+      if (igual) return {
+        nivel: 'bloqueio', tipo: 'relatorio_ja_existe',
+        mensagem: `Já existe um relatório de ${emp} (${serv}) anexado nesta emissão.`,
+        detalhes: { empresa_leitura: emp, tipo_servico: serv, arquivo_nome: igual.arquivo_nome },
+      };
+    }
+    return null;
   }
 
   // Fluxo de upload com extração automática (concessionaria + relatorio_leitura).
@@ -483,10 +550,27 @@ export default function VisaoEmissor({ profile }) {
       const subtipo = extracao?.subtipo
         || (categoria === 'relatorio_leitura' ? extras.relatorio_empresa : null);
 
-      // 1) Duplicata bloqueante -> modal de sancionamento (reusa o existente)
+      // 0) PERTENCIMENTO — bloqueio duro, sem sancionamento (conta de OUTRO condomínio)
+      const alertaPert = (alertas || []).find(a => a.tipo === 'pertencimento');
+      if (alertaPert) {
+        setPertencimentoInfo({ alerta: alertaPert, file, categoria });
+        return;
+      }
+
+      // 0.5) Duplicata LOCAL no mesmo pacote (instantânea)
+      const localDup = detectarDuplicataLocal(extracao, categoria);
+      if (localDup) {
+        setDuplicataInfo({
+          alertas: [localDup], anomalia: null,
+          pendingFile: file, pendingMeta: { categoria, subtipo, extras },
+        });
+        return;
+      }
+
+      // 1) Duplicata bloqueante (banco) -> modal de sancionamento (reusa o existente)
       if (bloqueia) {
         setDuplicataInfo({
-          alertas: alertas || [],
+          alertas: (alertas || []).filter(a => a.tipo !== 'pertencimento'),
           anomalia,
           pendingFile: file,
           pendingMeta: { categoria, subtipo, extras },
@@ -1543,71 +1627,114 @@ export default function VisaoEmissor({ profile }) {
               </div>
             )}
 
-            {/* Sanctionamento - so master/departamento */}
-            {(profile?.role === 'master' || profile?.role === 'departamento') ? (
-              <>
-                <div className="mb-4">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1.5">
-                    Justifique o motivo da repetição <span className="text-rose-400">*</span>
-                  </label>
-                  <textarea value={sancionandoMotivo} onChange={e => setSancionandoMotivo(e.target.value)} rows={3}
-                    placeholder="Ex: A concessionária reemitiu a mesma fatura por erro deles. Confirmei por telefone."
-                    className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 outline-none focus:border-rose-500/60 placeholder-slate-400 resize-y" />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => { setDuplicataInfo(null); setSancionandoMotivo(''); }} disabled={sancionando}
-                    className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-700 disabled:opacity-50">
-                    Cancelar upload
-                  </button>
-                  <button disabled={!sancionandoMotivo.trim() || sancionando}
-                    onClick={async () => {
-                      if (!sancionandoMotivo.trim()) return;
-                      setSancionando(true);
-                      try {
-                        const meta = duplicataInfo.pendingMeta;
-                        // 1) Sobe o arquivo com flag de repeticao
-                        await handleUploadArquivo(duplicataInfo.pendingFile, {
-                          ...meta,
-                          extras: { ...(meta.extras || {}), marcada_repetida: true, motivo_repeticao: sancionandoMotivo.trim() },
-                          skipDuplicataCheck: true,
-                        });
-                        // 2) Sanciona o registro recem-criado em consumos
-                        try {
-                          await apiPost('/api/consumos/sancionar-repeticao', {
-                            tipo: meta.categoria === 'relatorio_leitura' ? 'relatorio' : 'fatura',
-                            registro_id: '', // backend sanciona o ultimo
-                            motivo: sancionandoMotivo.trim(),
-                          });
-                        } catch {}
-                        addToast('Repetição sancionada e arquivo anexado.', 'success');
-                        setDuplicataInfo(null);
-                        setSancionandoMotivo('');
-                      } catch (e) {
-                        addToast('Erro: ' + e.message, 'error');
-                      } finally {
-                        setSancionando(false);
-                      }
-                    }}
-                    className="px-5 py-2 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50 flex items-center gap-2">
-                    {sancionando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                    Confirmar repetição e prosseguir
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="bg-amber-500/5 border border-amber-500/30 rounded-xl p-4">
-                <p className="text-xs text-amber-200 mb-3">
-                  ⚠ Você não tem permissão para sancionar repetições.
-                  Solicite ao <strong>master ou emissor</strong> que confirme esta exceção.
-                </p>
-                <div className="flex justify-end">
-                  <button onClick={() => { setDuplicataInfo(null); setSancionandoMotivo(''); }}
-                    className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-700">
-                    OK, cancelar upload
-                  </button>
-                </div>
+            {/* Sancionamento — exige MOTIVO + ANEXO de aprovação da repetição */}
+            <div className="mb-4">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1.5">
+                Motivo da repetição <span className="text-rose-400">*</span>
+              </label>
+              <textarea value={sancionandoMotivo} onChange={e => setSancionandoMotivo(e.target.value)} rows={3}
+                placeholder="Ex: A concessionária reemitiu a mesma fatura por erro deles. Confirmei por telefone."
+                className="w-full bg-slate-100 border border-slate-300 rounded-lg p-3 text-sm text-slate-800 outline-none focus:border-rose-500/60 placeholder-slate-400 resize-y" />
+            </div>
+            <div className="mb-4">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1.5">
+                Anexo da aprovação da repetição <span className="text-rose-400">*</span>
+              </label>
+              <label className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-rose-400 transition-colors">
+                <Paperclip className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="text-xs text-slate-600 truncate flex-1">
+                  {sancionandoAnexo ? sancionandoAnexo.name : 'Selecionar documento que comprova a aprovação…'}
+                </span>
+                {sancionandoAnexo && <Check className="w-4 h-4 text-emerald-500 shrink-0" />}
+                <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                  onChange={e => setSancionandoAnexo(e.target.files?.[0] || null)} />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setDuplicataInfo(null); setSancionandoMotivo(''); setSancionandoAnexo(null); }} disabled={sancionando}
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50">
+                Cancelar upload
+              </button>
+              <button disabled={!sancionandoMotivo.trim() || !sancionandoAnexo || sancionando}
+                onClick={async () => {
+                  if (!sancionandoMotivo.trim() || !sancionandoAnexo) return;
+                  setSancionando(true);
+                  try {
+                    const meta = duplicataInfo.pendingMeta;
+                    // 1) Sobe o documento que comprova a aprovação da repetição
+                    const anexo = await uploadAnexoAprovacao(sancionandoAnexo);
+                    // 2) Sobe a fatura/relatório repetido
+                    await handleUploadArquivo(duplicataInfo.pendingFile, { ...meta, skipDuplicataCheck: true });
+                    // 3) Sanciona o registro em consumos (motivo + anexo)
+                    const ehRelatorio = meta.categoria === 'relatorio_leitura';
+                    await apiPost('/api/consumos/sancionar-repeticao', {
+                      tipo: ehRelatorio ? 'relatorio' : 'fatura',
+                      condominio_id: activePacote.condominio_id,
+                      mes_referencia: mes,
+                      ano_referencia: ano,
+                      concessionaria: !ehRelatorio ? (meta.subtipo || '').toUpperCase() : null,
+                      empresa: ehRelatorio ? (meta.subtipo || '').toUpperCase() : null,
+                      tipo_servico: ehRelatorio ? (meta.extras?.relatorio_tipo_servico || 'agua') : null,
+                      motivo: sancionandoMotivo.trim(),
+                      anexo_url: anexo.url,
+                      anexo_nome: anexo.nome,
+                    });
+                    addToast('Repetição sancionada com anexo de aprovação.', 'success');
+                    setDuplicataInfo(null); setSancionandoMotivo(''); setSancionandoAnexo(null);
+                  } catch (e) {
+                    addToast('Erro: ' + e.message, 'error');
+                  } finally {
+                    setSancionando(false);
+                  }
+                }}
+                className="px-5 py-2 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50 flex items-center gap-2">
+                {sancionando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Confirmar repetição e prosseguir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MODAL DE PERTENCIMENTO — BLOQUEIO DURO (conta de outro condomínio) ═══ */}
+      {pertencimentoInfo && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white border border-rose-500/40 rounded-3xl w-full max-w-lg p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center shrink-0">
+                <Ban className="w-6 h-6 text-rose-500" />
               </div>
-            )}
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Conta de outro condomínio</h3>
+                <p className="text-[11px] text-rose-500/90 font-bold">Não é permitido anexar — retire esta conta.</p>
+              </div>
+            </div>
+
+            <div className="bg-rose-500/5 border border-rose-500/30 rounded-xl px-4 py-3 mb-4">
+              <p className="text-sm text-slate-800">{pertencimentoInfo.alerta?.mensagem}</p>
+              {pertencimentoInfo.alerta?.detalhes && (
+                <div className="mt-2 flex flex-col gap-0.5 text-[11px] text-slate-500">
+                  {pertencimentoInfo.alerta.detalhes.cliente && (
+                    <span><span className="text-slate-400">cliente na conta:</span> <strong className="text-slate-700">{pertencimentoInfo.alerta.detalhes.cliente}</strong></span>
+                  )}
+                  {pertencimentoInfo.alerta.detalhes.condominio_correto && (
+                    <span><span className="text-slate-400">pertence a:</span> <strong className="text-rose-600">{pertencimentoInfo.alerta.detalhes.condominio_correto}</strong></span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-500 mb-4">
+              A emissão <strong>não pode prosseguir</strong> com uma fatura de outro condomínio.
+              Selecione o arquivo correto deste condomínio e tente novamente.
+            </p>
+
+            <div className="flex justify-end">
+              <button onClick={() => setPertencimentoInfo(null)}
+                className="px-5 py-2 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 flex items-center gap-2">
+                <X className="w-4 h-4" /> Entendi, vou retirar a conta
+              </button>
+            </div>
           </div>
         </div>
       )}

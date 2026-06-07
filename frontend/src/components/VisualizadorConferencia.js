@@ -5,7 +5,9 @@ import { apiFetcher } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
-import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen } from 'lucide-react';
+import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen, Droplet, AlertTriangle, ClipboardList } from 'lucide-react';
+
+const MESES_LONG_VC = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 
 
@@ -38,6 +40,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const [executando, setExecutando]   = useState(false);
   const [correcaoFile, setCorrecaoFile] = useState(null);
   const [observacaoAprovacao, setObservacaoAprovacao] = useState('');
+  const [leituraModal, setLeituraModal] = useState(null); // { arq } — leitura por unidade do relatório
 
   // Snapshot congela os valores; dados ao vivo são mutáveis
   const planilha = isSnapshot ? arquivo.planilha_snapshot : data?.planilha;
@@ -552,7 +555,67 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             );
           })()}
 
-          {/* Outros anexos (relatórios, atas, etc) */}
+          {/* Relatórios de Leitura — card espelho do de Concessionárias */}
+          {(() => {
+            const relatorios = arquivos.filter(a => a.categoria === 'relatorio_leitura');
+            if (relatorios.length === 0) return null;
+            return (
+              <div className="bg-white border border-violet-500/30 rounded-xl overflow-hidden shrink-0">
+                <div className="px-4 py-3 border-b border-violet-500/20 bg-violet-500/5 flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-violet-500" />
+                  <h4 className="text-sm font-bold text-violet-600">Relatórios de Leitura</h4>
+                  <span className="ml-auto text-[10px] text-violet-500/70 font-bold">{relatorios.length} arquivo{relatorios.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="divide-y divide-slate-200">
+                  {relatorios.map(a => {
+                    const eAtual = currentFile?.id === a.id;
+                    const serv = (a.relatorio_tipo_servico || 'agua').toLowerCase();
+                    const temUnidades = (a.extracao_dados_brutos?.unidades || []).length > 0;
+                    return (
+                      <div key={a.id} className={`px-4 py-2.5 ${eAtual ? 'bg-violet-500/10' : ''}`}>
+                        <div className="flex items-start gap-3">
+                          <button onClick={() => openArquivo(a)} className="flex items-start gap-3 text-left flex-1 min-w-0 hover:opacity-80">
+                            <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-600 border border-violet-500/30 shrink-0 mt-0.5">
+                              {a.relatorio_empresa || a.subtipo || 'Relatório'}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-700 truncate flex-1">{a.arquivo_nome}</span>
+                                {eAtual && <Check className="w-3.5 h-3.5 text-violet-500 shrink-0" />}
+                              </div>
+                              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
+                                <span className="text-violet-600/90"><span className="text-violet-500/50">serviço:</span> {serv === 'gas' ? 'Gás' : 'Água'}</span>
+                                {a.relatorio_data_leitura && (
+                                  <span className="text-violet-600/90"><span className="text-violet-500/50">leitura:</span> {new Date(a.relatorio_data_leitura + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                                )}
+                                {a.relatorio_unidades != null && (
+                                  <span className="text-violet-600/90"><span className="text-violet-500/50">unidades:</span> {a.relatorio_unidades}</span>
+                                )}
+                                {a.relatorio_consumo_total != null && (
+                                  <span className="text-violet-600/90"><span className="text-violet-500/50">consumo:</span> {Number(a.relatorio_consumo_total).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} m³</span>
+                                )}
+                                {a.relatorio_valor_total != null && (
+                                  <span className="text-violet-600 font-bold"><span className="text-violet-500/50 font-normal">valor:</span> R$ {fmt(a.relatorio_valor_total)}</span>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                        {temUnidades && (
+                          <button onClick={() => setLeituraModal({ arq: a })}
+                            className="mt-2 ml-[68px] text-[10px] font-bold text-violet-600 hover:text-violet-500 flex items-center gap-1">
+                            <Droplet className="w-3 h-3" /> ver leitura por unidade
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Outros anexos (atas, etc) */}
           {(() => {
             const outros = arquivos.filter(a => a.categoria === 'outros');
             if (outros.length === 0) return null;
@@ -676,6 +739,93 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   </div>
                 </div>
             }
+          </div>
+        );
+      })()}
+
+      {/* Modal: leitura por unidade do relatório */}
+      {leituraModal && (() => {
+        const arq = leituraModal.arq;
+        const lista = arq?.extracao_dados_brutos?.unidades || [];
+        const serv = (arq?.relatorio_tipo_servico || 'agua').toLowerCase();
+        const consumos = lista.map(u => Number(u.m3_total) || 0).filter(v => v > 0).sort((a, b) => a - b);
+        const mediana = consumos.length ? consumos[Math.floor(consumos.length / 2)] : 0;
+        const limiar = mediana * 2;
+        const somaM3 = lista.reduce((s, u) => s + (Number(u.m3_total) || 0), 0);
+        const somaValor = lista.reduce((s, u) => s + (Number(u.valor_total) || 0), 0);
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-4" onClick={() => setLeituraModal(null)}>
+            <div className="bg-white border border-violet-500/20 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
+                    {serv === 'gas' ? <span className="text-lg">🔥</span> : <Droplet className="w-5 h-5 text-violet-500" />}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">{arq.relatorio_empresa || 'Relatório'}</h3>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+                      {serv === 'gas' ? 'Gás' : 'Água'}{arq.mes_referencia ? ` · ${MESES_LONG_VC[arq.mes_referencia]}` : ''} · leitura por unidade
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setLeituraModal(null)} className="text-slate-400 hover:text-slate-900"><X className="w-5 h-5" /></button>
+              </div>
+
+              {lista.length > 0 && (
+                <div className="px-6 py-3 border-b border-slate-200 grid grid-cols-3 gap-3 text-center shrink-0">
+                  <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Unidades</p><p className="text-lg font-black text-slate-900">{lista.length}</p></div>
+                  <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Consumo total</p><p className="text-lg font-black text-violet-600">{somaM3.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} m³</p></div>
+                  <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Valor total</p><p className="text-lg font-black text-emerald-600">R$ {fmt(somaValor)}</p></div>
+                </div>
+              )}
+
+              <div className="overflow-auto p-4">
+                {lista.length === 0 ? (
+                  <p className="text-sm text-slate-400 text-center py-12">Nenhuma unidade encontrada na leitura.</p>
+                ) : (
+                  <table className="w-full text-xs border-collapse">
+                    <thead className="sticky top-0 bg-white">
+                      <tr className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+                        <th className="text-left px-2 py-2">Apto</th>
+                        <th className="text-left px-2 py-2">Leituras (ant → atual)</th>
+                        <th className="text-right px-2 py-2">Consumo m³</th>
+                        <th className="text-right px-2 py-2">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lista.map((u, i) => {
+                        const m3 = Number(u.m3_total) || 0;
+                        const anomala = limiar > 0 && m3 > limiar;
+                        return (
+                          <tr key={`${u.apto}-${i}`} className={`border-t border-slate-200 ${anomala ? 'bg-amber-500/10' : 'hover:bg-slate-100'}`}>
+                            <td className="px-2 py-1.5 font-bold text-slate-800">{u.apto}</td>
+                            <td className="px-2 py-1.5 text-slate-400 font-mono text-[11px]">
+                              {(u.medidores || []).map((m, j) => (
+                                <span key={j} className="inline-block mr-3">
+                                  {m.ant != null ? m.ant : '—'} → {m.atual != null ? m.atual : '—'}
+                                  <span className="text-slate-500"> ({m.consumo != null ? m.consumo : '—'})</span>
+                                </span>
+                              ))}
+                            </td>
+                            <td className={`px-2 py-1.5 text-right font-mono font-bold ${anomala ? 'text-amber-500' : 'text-violet-600'}`}>
+                              {m3.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
+                              {anomala && <AlertTriangle className="inline w-3 h-3 ml-1 text-amber-500" />}
+                            </td>
+                            <td className="px-2 py-1.5 text-right font-mono text-slate-900">R$ {fmt(u.valor_total)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              {lista.length > 0 && limiar > 0 && (
+                <div className="px-6 py-2.5 border-t border-slate-200 text-[10px] text-slate-500 flex items-center gap-2 shrink-0">
+                  <span className="inline-block w-3 h-3 rounded bg-amber-500/20 border border-amber-500/40" />
+                  Destacado: consumo &gt; 2× a mediana ({limiar.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m³)
+                </div>
+              )}
+            </div>
           </div>
         );
       })()}
