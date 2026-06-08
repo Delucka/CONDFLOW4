@@ -2569,15 +2569,34 @@ def api_deletar_consumo(consumo_id: str, user: dict = Depends(get_current_user),
     role = user.get("role")
     if role not in ("master", "departamento"):
         raise HTTPException(403, "Apenas master/emissor pode deletar")
-    # Remove arquivo do storage se houver
+
+    arquivo_url = None
+    origem_id = None
     try:
-        c = db.table("consumos_faturas").select("arquivo_url").eq("id", consumo_id).maybeSingle().execute()
-        if c.data and c.data.get("arquivo_url"):
-            try:
-                db.storage.from_("emissoes").remove([c.data["arquivo_url"]])
-            except Exception:
-                pass
+        c = db.table("consumos_faturas").select(
+            "arquivo_url, origem_emissao_arquivo_id"
+        ).eq("id", consumo_id).maybeSingle().execute()
+        if c.data:
+            arquivo_url = c.data.get("arquivo_url")
+            origem_id = c.data.get("origem_emissao_arquivo_id")
     except Exception:
         pass
+
+    # 1) Remove a fatura sincronizada
     db.table("consumos_faturas").delete().eq("id", consumo_id).execute()
+
+    # 2) Remove o anexo de origem na Central (o trigger AFTER DELETE limpa o resto)
+    if origem_id:
+        try:
+            db.table("emissoes_arquivos").delete().eq("id", origem_id).execute()
+        except Exception:
+            pass
+
+    # 3) Remove o PDF do storage
+    if arquivo_url:
+        try:
+            db.storage.from_("emissoes").remove([arquivo_url])
+        except Exception:
+            pass
+
     return {"ok": True}

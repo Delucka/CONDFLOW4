@@ -47,3 +47,4 @@
 0042_condominios_cnpj.sql
 0043_origem_emissao_faturas.sql
 0044_validacao_pertencimento_anexo_repeticao.sql
+0045_cascade_delete_anexo_consumo.sql

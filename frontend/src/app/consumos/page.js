@@ -64,6 +64,7 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
   });
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [duplicatas, setDuplicatas] = useState([]);
   const [checking, setChecking] = useState(false);
 
@@ -127,6 +128,23 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
       addToast(err.message || 'Erro ao salvar', 'error');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleExcluir() {
+    if (!fatura?.id) return;
+    const msg = `Excluir a fatura ${fatura.concessionaria} de ${MESES_LONG[fatura.mes_referencia]}/${fatura.ano_referencia}?\n\nIsso remove a fatura de /Consumos E o anexo correspondente na Central de Emissões. Esta ação não pode ser desfeita.`;
+    if (!confirm(msg)) return;
+    setDeleting(true);
+    try {
+      await apiFetch(`/api/consumos/${fatura.id}`, { method: 'DELETE' });
+      addToast('Fatura excluída.', 'success');
+      onSaved?.();
+      onClose?.();
+    } catch (err) {
+      addToast(err.message || 'Erro ao excluir', 'error');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -248,12 +266,21 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
             </div>
           </label>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-700">Cancelar</button>
-            <button type="submit" disabled={loading} className="px-5 py-2 rounded-lg text-sm font-bold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50 flex items-center gap-2">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              {isEdicao ? 'Salvar' : 'Enviar fatura'}
-            </button>
+          <div className="flex items-center gap-3 pt-2">
+            {isEdicao && podeEditarFinal && (
+              <button type="button" onClick={handleExcluir} disabled={deleting || loading}
+                className="px-4 py-2 rounded-lg text-sm font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 flex items-center gap-2">
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Excluir
+              </button>
+            )}
+            <div className="flex justify-end gap-3 ml-auto">
+              <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-700">Cancelar</button>
+              <button type="submit" disabled={loading || deleting} className="px-5 py-2 rounded-lg text-sm font-bold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50 flex items-center gap-2">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                {isEdicao ? 'Salvar' : 'Enviar fatura'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
