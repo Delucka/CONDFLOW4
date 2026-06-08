@@ -820,11 +820,13 @@ export default function ConsumosPage() {
         </span>
       </div>
 
-      {/* Matriz mensal */}
-      <div className="glass-panel rounded-2xl border border-slate-200 overflow-hidden">
+      {/* Matrizes lado a lado: Faturas (concessionárias) + Relatórios de leitura */}
+      <div className="flex flex-col xl:flex-row gap-4 items-start">
+      {/* Matriz mensal — Faturas */}
+      <div className="glass-panel rounded-2xl border border-slate-200 overflow-hidden flex-1 min-w-0 w-full">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Matriz {anoSel} · {condosFiltrados.length} de {condosComFaturas.length} condomínios
+            Faturas {anoSel} · {condosFiltrados.length} de {condosComFaturas.length} condomínios
           </p>
           <p className="text-[10px] text-slate-500">Passe o mouse na célula para ver detalhes · Click pra editar</p>
         </div>
@@ -925,7 +927,7 @@ export default function ConsumosPage() {
 
       {/* ─── Matriz de Relatórios de Leitura Individualizada (Prosper/Outra) ─── */}
       {condosComRelatorios.length > 0 && (
-        <div className="glass-panel rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="glass-panel rounded-2xl border border-slate-200 overflow-hidden flex-1 min-w-0 w-full">
           <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
               <Droplet className="w-3.5 h-3.5 text-violet-500" /> Relatórios de leitura · {anoSel} · {condosComRelatorios.length} {condosComRelatorios.length === 1 ? 'condomínio' : 'condomínios'}
@@ -1014,6 +1016,7 @@ export default function ConsumosPage() {
           </div>
         </div>
       )}
+      </div>{/* fim matrizes lado a lado */}
 
       {/* Modal Nova/Edit */}
       {showNovaModal && condoSel && (
