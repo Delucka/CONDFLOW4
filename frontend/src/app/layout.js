@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { ToastProvider } from "@/components/Toast";
 import AppShell from "@/components/AppShell";
+import SWRProvider from "@/components/SWRProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -14,13 +15,15 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
-      <body className={`${inter.variable} font-sans text-gray-200 antialiased min-h-screen bg-[#030712]`}>
+      <body className={`${inter.variable} font-sans text-slate-800 antialiased min-h-screen bg-slate-50`}>
         <AuthProvider>
-          <ToastProvider>
-            <AppShell>
-              {children}
-            </AppShell>
-          </ToastProvider>
+          <SWRProvider>
+            <ToastProvider>
+              <AppShell>
+                {children}
+              </AppShell>
+            </ToastProvider>
+          </SWRProvider>
         </AuthProvider>
       </body>
     </html>

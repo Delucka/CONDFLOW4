@@ -400,7 +400,7 @@ export default function ConsumosPage() {
   // Faturas do ano (para a matriz + dashboard) — polling 30s
   const { data: matrizData, mutate: mutateMatriz } = useSWR(
     `/api/consumos?ano=${anoSel}`, apiFetcher,
-    { revalidateOnFocus: true, refreshInterval: 30000, dedupingInterval: 5000 }
+    { refreshInterval: 60000 }
   );
   const todasFaturas = matrizData?.consumos || [];
 
@@ -415,7 +415,7 @@ export default function ConsumosPage() {
   }, [supabase, anoSel]);
   useEffect(() => {
     fetchRelatorios();
-    const t = setInterval(fetchRelatorios, 30000);
+    const t = setInterval(fetchRelatorios, 60000);
     return () => clearInterval(t);
   }, [fetchRelatorios]);
 

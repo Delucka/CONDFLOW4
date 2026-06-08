@@ -76,7 +76,7 @@ export default function AprovacoesPage() {
 
   // ── Fila de aprovações (processos legados, mantido para retro) ──
   const { data: filaData, error: filaError, isLoading: filaLoading, mutate: mutateF } =
-    useSWR('/api/aprovacoes', apiFetcher, { revalidateOnFocus: true, refreshInterval: 30000 });
+    useSWR('/api/aprovacoes', apiFetcher, { refreshInterval: 60000 });
 
   // ── Edicoes Mensais (novo ciclo: gerente libera condos do mes alvo) ──
   const { data: edicoesData, isLoading: edicoesLoading, mutate: mutateE } =
