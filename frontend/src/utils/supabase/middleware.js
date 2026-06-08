@@ -51,6 +51,7 @@ export async function updateSession(request) {
 
   if (
     !user &&
+    path !== '/' &&
     !path.startsWith('/login')
   ) {
     const url = request.nextUrl.clone()

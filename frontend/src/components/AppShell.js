@@ -11,7 +11,7 @@ export default function AppShell({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user && pathname !== '/login' && pathname !== '/reset-password') {
+    if (!loading && !user && pathname !== '/' && pathname !== '/login' && pathname !== '/reset-password') {
       router.push('/login');
     }
   }, [user, loading, router, pathname]);
@@ -23,8 +23,8 @@ export default function AppShell({ children }) {
     }
   }, [user?.must_change_password, loading, router, pathname]);
 
-  // Rotas que não embalam no layout (login + redefinição de senha vinda do email)
-  if (pathname === '/login' || pathname === '/reset-password') return children;
+  // Rotas públicas/standalone (sem sidebar): landing, login e redefinição de senha
+  if (pathname === '/' || pathname === '/login' || pathname === '/reset-password') return children;
 
   if (loading) {
     return (
