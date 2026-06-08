@@ -70,6 +70,11 @@ export default function VisaoEmissor({ profile }) {
   const [sancionando, setSancionando] = useState(false);
   const [pertencimentoInfo, setPertencimentoInfo] = useState(null); // { alerta, file, categoria } — bloqueio duro, sem sancionamento
 
+  // Referência do gerente (planilha do mês + cobranças extras) na tela de anexos
+  const [confData, setConfData]       = useState(null);  // { planilha, cobrancas_extras }
+  const [confLoading, setConfLoading] = useState(false);
+  const [cobrancasSel, setCobrancasSel] = useState(null); // Set de ids selecionados (null = ainda carregando)
+
   // Form inline para dados manuais da fatura de concessionaria
   const [editandoFaturaId, setEditandoFaturaId] = useState(null);
   const [savingFaturaId, setSavingFaturaId]     = useState(null);
@@ -125,6 +130,44 @@ export default function VisaoEmissor({ profile }) {
 
   // Refaz a busca de preparacao quando mes/ano mudam
   useEffect(() => { fetchPreparacao(); fetchAlteracoes(); }, [mes, ano]);
+
+  // Carrega a referência do gerente (planilha do mês + cobranças extras) ao abrir um pacote
+  useEffect(() => {
+    if (!activePacote?.condominio_id) { setConfData(null); setCobrancasSel(null); return; }
+    let cancel = false;
+    (async () => {
+      setConfLoading(true);
+      try {
+        const token = await getAccessToken();
+        const resp = await fetch(
+          `/api/condominio/${activePacote.condominio_id}/conferencia?mes=${activePacote.mes_referencia}&ano=${activePacote.ano_referencia}&retificacao=false`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!resp.ok || cancel) return;
+        const d = await resp.json();
+        if (cancel) return;
+        setConfData(d);
+        const ids = (d.cobrancas_extras || []).map(c => c.id);
+        const salvas = activePacote.cobrancas_incluidas;
+        // Seleção inicial: o que já foi salvo no pacote, senão todas marcadas
+        setCobrancasSel(new Set(Array.isArray(salvas) ? salvas.filter(id => ids.includes(id)) : ids));
+      } catch { /* referência é opcional, não bloqueia a emissão */ }
+      finally { if (!cancel) setConfLoading(false); }
+    })();
+    return () => { cancel = true; };
+  }, [activePacote?.id]);
+
+  // Marca/desmarca uma cobrança e persiste a seleção no pacote
+  async function toggleCobranca(id) {
+    setCobrancasSel(prev => {
+      const next = new Set(prev || []);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      const arr = Array.from(next);
+      supabase.from('emissoes_pacotes').update({ cobrancas_incluidas: arr }).eq('id', activePacote.id)
+        .then(({ error }) => { if (error) addToast('Erro ao salvar seleção: ' + error.message, 'error'); });
+      return next;
+    });
+  }
 
   async function fetchAlteracoes() {
     const { data } = await supabase
@@ -910,6 +953,84 @@ export default function VisaoEmissor({ profile }) {
             >
               <X className="w-5 h-5" />
             </button>
+          </div>
+
+          {/* Referência do gerente: planilha do mês + cobranças extras a incluir */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white overflow-hidden">
+            <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+              <ClipboardCheck className="w-4 h-4 text-violet-500" />
+              <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-600">
+                Referência do gerente · {String(activePacote.mes_referencia).padStart(2,'0')}/{activePacote.ano_referencia}
+              </h4>
+              {confLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 ml-auto" />}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+              {/* Planilha de rateios do mês */}
+              <div className="p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5" /> Planilha de rateios
+                </p>
+                {(() => {
+                  const mesObj = (confData?.planilha?.meses || []).find(m => m.mes === activePacote.mes_referencia);
+                  const colunas = (confData?.planilha?.colunas || []).filter(c => c !== 'Condomínio');
+                  const valores = mesObj?.valores || {};
+                  if (!colunas.length) return <p className="text-xs text-slate-400 py-2">{confLoading ? 'Carregando…' : 'Sem planilha para este mês.'}</p>;
+                  return (
+                    <div className="space-y-1">
+                      {colunas.map(col => (
+                        <div key={col} className="flex items-center justify-between text-xs py-1 border-b border-slate-100 last:border-0">
+                          <span className="text-slate-600 truncate pr-2">{col}</span>
+                          <span className="font-mono font-bold text-slate-800 shrink-0">R$ {Number(valores[col] || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between text-xs pt-2 mt-1">
+                        <span className="font-black uppercase tracking-widest text-[10px] text-slate-500">Total do mês</span>
+                        <span className="font-mono font-black text-emerald-600">R$ {Number(mesObj?.total || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+              {/* Cobranças extras do mês — selecionáveis */}
+              <div className="p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5" /> Cobranças extras · marque as que entram
+                </p>
+                {(() => {
+                  const cobrancas = confData?.cobrancas_extras || [];
+                  if (!cobrancas.length) return <p className="text-xs text-slate-400 py-2">{confLoading ? 'Carregando…' : 'Nenhuma cobrança extra lançada neste mês.'}</p>;
+                  const sel = cobrancasSel || new Set();
+                  return (
+                    <div className="space-y-1.5">
+                      {cobrancas.map(c => {
+                        const checked = sel.has(c.id);
+                        return (
+                          <label key={c.id} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg border cursor-pointer transition-colors ${checked ? 'bg-violet-50 border-violet-200' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
+                            <input type="checkbox" checked={checked} onChange={() => toggleCobranca(c.id)} className="w-4 h-4 accent-violet-600 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-bold truncate ${checked ? 'text-slate-800' : 'text-slate-500'}`}>{c.descricao}</p>
+                              {c.attachments?.length > 0 && (
+                                <a href={c.attachments[0]} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                                  className="text-[10px] text-violet-500 hover:underline inline-flex items-center gap-1">
+                                  <Paperclip className="w-2.5 h-2.5" /> anexo
+                                </a>
+                              )}
+                            </div>
+                            <span className="font-mono text-xs font-bold text-slate-700 shrink-0">R$ {Number(c.valor || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                          </label>
+                        );
+                      })}
+                      <div className="flex items-center justify-between text-xs pt-2">
+                        <span className="font-black uppercase tracking-widest text-[10px] text-slate-500">{sel.size} de {cobrancas.length} selecionadas</span>
+                        <span className="font-mono font-black text-emerald-600">
+                          R$ {cobrancas.filter(c => sel.has(c.id)).reduce((s,c)=>s+Number(c.valor||0),0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
           </div>
 
           {/* Lista de Arquivos do Pacote */}

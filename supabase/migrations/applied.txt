@@ -48,3 +48,4 @@
 0043_origem_emissao_faturas.sql
 0044_validacao_pertencimento_anexo_repeticao.sql
 0045_cascade_delete_anexo_consumo.sql
+0046_cobrancas_incluidas_emissao.sql

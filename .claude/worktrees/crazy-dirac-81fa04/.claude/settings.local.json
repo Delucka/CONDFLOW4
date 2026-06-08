@@ -40,7 +40,9 @@
       "Bash(sed -n '814p' app/central-emissoes/components/VisaoEmissor.js)",
       "Bash(sed -n '509p' app/central-emissoes/components/VisaoMaster.js)",
       "Bash(sed -n '33p' components/AppShell.js)",
-      "Bash(xargs grep -l \"arquivo_hash\")"
+      "Bash(xargs grep -l \"arquivo_hash\")",
+      "Bash(xargs grep -l \"status\\\\|mes\\\\|ano\\\\|processada\\\\|attachments\")",
+      "Bash(grep -n \"function fmt\\\\|const fmt\\\\|MESES\\\\|toLocaleString.*BRL\\\\|R\\\\\\\\$ \" VisaoEmissor.js)"
     ]
   }
 }
