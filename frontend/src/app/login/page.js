@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { Building2, Loader2, KeyRound, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Building2, Loader2, KeyRound, Mail, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('login'); // 'login' | 'forgot' | 'sent'
+  const [showSenha, setShowSenha] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const { signIn, sendPasswordReset, user } = useAuth();
   const router = useRouter();
@@ -85,9 +86,17 @@ export default function LoginPage() {
             </div>
             <div>
               <label htmlFor="senha" className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Senha</label>
-              <input id="senha" type="password" required placeholder="••••••••"
-                value={senha} onChange={(e) => setSenha(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-slate-700 rounded-xl text-sm text-slate-800 placeholder-slate-500 focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 transition-all outline-none" />
+              <div className="relative">
+                <input id="senha" type={showSenha ? 'text' : 'password'} required placeholder="••••••••"
+                  value={senha} onChange={(e) => setSenha(e.target.value)}
+                  className="w-full px-4 py-3 pr-12 bg-white border border-slate-700 rounded-xl text-sm text-slate-800 placeholder-slate-500 focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 transition-all outline-none" />
+                <button type="button" onClick={() => setShowSenha(v => !v)}
+                  aria-label={showSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                  title={showSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">
+                  {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <button type="submit" disabled={loading}
               className="w-full mt-2 py-3 bg-violet-500 text-slate-950 rounded-xl text-sm font-bold  hover:bg-violet-400 hover: transition-all disabled:opacity-50 flex items-center justify-center gap-2">

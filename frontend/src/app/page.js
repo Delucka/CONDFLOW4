@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
   Zap, Receipt, FileUp, FileCheck2, Droplet, LayoutDashboard, ShieldCheck,
-  ArrowRight, Check, ScanLine, Building2,
+  ArrowRight, Check, ScanLine, Building2, ChevronDown, Clock, Layers,
 } from 'lucide-react';
 
 export const metadata = {
@@ -40,6 +40,49 @@ const RECURSOS = [
     icon: ShieldCheck, tint: 'rose',
     titulo: 'Acessos & Auditoria',
     desc: 'Cada perfil vê só o que deve (síndico, gerente, supervisor, master). Toda ação fica registrada para prestação de contas.',
+  },
+];
+
+const PARA_QUEM = ['Administradoras', 'Síndicos', 'Gerentes de carteira', 'Equipes de cobrança', 'Contabilidade'];
+
+const BENEFICIOS = [
+  {
+    icon: Layers,
+    titulo: 'Menos planilha solta',
+    desc: 'Arrecadações, cobranças, emissões e consumos num lugar só — todo mundo trabalha sobre a mesma informação, sempre atualizada.',
+  },
+  {
+    icon: Clock,
+    titulo: 'Menos retrabalho e erro',
+    desc: 'Leitura automática das faturas e validações que barram duplicata e conta de outro condomínio antes de entrar na emissão.',
+  },
+  {
+    icon: ShieldCheck,
+    titulo: 'Prestação de contas pronta',
+    desc: 'Aprovação multinível com assinatura e trilha de auditoria. Documentos e histórico organizados por mês e por condomínio.',
+  },
+];
+
+const FAQ = [
+  {
+    q: 'Preciso instalar alguma coisa?',
+    a: 'Não. O CondoFlow roda no navegador, em qualquer computador ou celular. Basta acessar o site e entrar.',
+  },
+  {
+    q: 'Como funciona a leitura automática das faturas?',
+    a: 'Ao anexar o PDF da concessionária (SABESP, COMGÁS, ENEL), o sistema extrai cliente, vencimento, valor e a leitura por unidade automaticamente — e ainda avisa se a conta está duplicada ou pertence a outro condomínio.',
+  },
+  {
+    q: 'Cada pessoa enxerga tudo?',
+    a: 'Não. O acesso é por perfil (síndico, gerente, supervisor, master): cada um vê e faz apenas o que lhe cabe, e toda ação fica registrada para auditoria.',
+  },
+  {
+    q: 'Dá para controlar água, gás e energia?',
+    a: 'Sim. Há uma matriz mensal de consumos por condomínio, com variação de consumo e alerta de anomalia, alimentada pelas faturas e relatórios anexados nas emissões.',
+  },
+  {
+    q: 'Como começo a usar?',
+    a: 'Clique em “Entrar” e acesse com as credenciais fornecidas pela sua administradora. A partir daí, o fluxo do mês já fica disponível.',
   },
 ];
 
@@ -190,8 +233,47 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ─── Para quem é (faixa de confiança) ─── */}
+      <section className="border-y border-slate-200 bg-white">
+        <div className="max-w-6xl mx-auto px-5 py-8">
+          <p className="text-center text-xs font-black uppercase tracking-widest text-slate-400">
+            Feito para quem cuida de condomínios
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            {PARA_QUEM.map(t => (
+              <span key={t} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200 text-sm font-bold text-slate-600">
+                <Check className="w-3.5 h-3.5 text-violet-600" /> {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Benefícios / resultados ─── */}
+      <section className="max-w-6xl mx-auto px-5 py-16 md:py-24">
+        <div className="max-w-2xl">
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
+            Por que o CondoFlow
+          </h2>
+          <p className="mt-4 text-lg text-slate-500">
+            Não é mais uma planilha — é o ciclo do mês organizado de ponta a ponta.
+          </p>
+        </div>
+        <div className="mt-12 grid md:grid-cols-3 gap-6">
+          {BENEFICIOS.map(({ icon: Icon, titulo, desc }) => (
+            <div key={titulo} className="rounded-2xl border border-slate-200 bg-white p-7">
+              <span className="inline-flex w-12 h-12 rounded-2xl items-center justify-center bg-violet-600 text-white">
+                <Icon className="w-6 h-6" />
+              </span>
+              <h3 className="mt-5 text-lg font-black text-slate-900">{titulo}</h3>
+              <p className="mt-2 text-sm text-slate-500 leading-relaxed">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ─── Recursos ─── */}
-      <section id="recursos" className="max-w-6xl mx-auto px-5 py-16 md:py-24 scroll-mt-20">
+      <section id="recursos" className="max-w-6xl mx-auto px-5 pb-16 md:pb-24 scroll-mt-20">
         <div className="max-w-2xl">
           <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
             Tudo o que a gestão precisa, sem complicação
@@ -243,6 +325,24 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ─── FAQ ─── */}
+      <section id="faq" className="max-w-3xl mx-auto px-5 py-16 md:py-24 scroll-mt-20">
+        <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 text-center">
+          Perguntas frequentes
+        </h2>
+        <div className="mt-10 space-y-3">
+          {FAQ.map(({ q, a }) => (
+            <details key={q} className="group rounded-2xl border border-slate-200 bg-white p-5 open:shadow-sm">
+              <summary className="flex items-center justify-between gap-4 cursor-pointer list-none">
+                <span className="text-base font-bold text-slate-900">{q}</span>
+                <ChevronDown className="w-5 h-5 text-slate-400 shrink-0 transition-transform group-open:rotate-180" />
+              </summary>
+              <p className="mt-3 text-sm text-slate-500 leading-relaxed">{a}</p>
+            </details>
+          ))}
         </div>
       </section>
 
