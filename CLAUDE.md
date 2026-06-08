@@ -8,7 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `frontend/` — Next.js 16 (App Router, React 19, Tailwind CSS 4, Supabase SSR)
 - `api/` — FastAPI backend (Python, Supabase service-role client)
 
-Production URL: https://frontend-theta-liard-32.vercel.app
+Production URL: https://condominios-gamma.vercel.app  (projeto Vercel: `condominios`)
+
+> Nota: existe um projeto Vercel antigo `frontend` (frontend-theta-liard-32.vercel.app) que NÃO é mais usado e não recebe deploys. O oficial é `condominios-gamma.vercel.app`.
 
 ---
 
