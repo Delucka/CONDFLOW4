@@ -59,11 +59,12 @@ def get_gerente_id(db: Client, profile_id: str) -> Optional[str]:
 # ═══ API ENDPOINTS ═══════════════════════════════════════════════════
 
 @router.get("/dashboard")
-def api_dashboard(gerente_id: Optional[str] = None, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, ano: Optional[int] = None, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:
         from datetime import datetime
         year = datetime.now().year
         sem = 1 if datetime.now().month <= 6 else 2
+        emis_ano = int(ano) if ano else year
 
         query = db.table("condominios").select("*, processos(*)")
         
@@ -107,9 +108,12 @@ def api_dashboard(gerente_id: Optional[str] = None, user: dict = Depends(get_cur
         emissao_stats = {"gerente": 0, "supGerente": 0, "supContabilidade": 0, "aguardando": 0, "registrada": 0}
         emissao_by_condo = {}
         if condo_ids:
-            pacotes_q = db.table("emissoes_pacotes").select("status, condominio_id, criado_em") \
+            pacotes_q = db.table("emissoes_pacotes").select("status, condominio_id, criado_em, mes_referencia, ano_referencia") \
                 .in_("condominio_id", condo_ids) \
                 .order("criado_em", desc=True)
+            # Filtra a emissão pelo mês selecionado (status daquele mês, não o último de todos)
+            if mes:
+                pacotes_q = pacotes_q.eq("mes_referencia", int(mes)).eq("ano_referencia", emis_ano)
             pacotes = pacotes_q.execute().data or []
             for p in pacotes:
                 s = (p.get("status") or "").lower()
@@ -135,6 +139,8 @@ def api_dashboard(gerente_id: Optional[str] = None, user: dict = Depends(get_cur
             "gerentes": gerentes,
             "emissao_stats": emissao_stats,
             "emissao_by_condo": emissao_by_condo,
+            "emissao_mes": int(mes) if mes else None,
+            "emissao_ano": emis_ano,
             "pipeline_config": pipeline_config,
         }
     except Exception as e:

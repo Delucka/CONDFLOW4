@@ -9,7 +9,7 @@ import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
   AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2,
   FileCheck, User, Activity, Zap, Lock, Unlock, Timer, TrendingUp,
-  ClipboardList, CalendarClock, BarChart3, ChevronRight
+  ClipboardList, CalendarClock, BarChart3, ChevronRight, ArrowUpDown
 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
@@ -19,6 +19,8 @@ import FilaOcorrencias from '@/app/central-emissoes/components/FilaOcorrencias';
 import { SkeletonTable } from '@/components/Skeleton';
 
 const ANO_ATUAL = new Date().getFullYear();
+const MES_ATUAL = new Date().getMonth() + 1;
+const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 function useCountdown(pipelineConfig) {
   const [countdown, setCountdown] = useState(null);
@@ -146,6 +148,8 @@ function PipelineWidget({ processos, condosTotal, pipelineConfig, countdown }) {
 
 export default function DashboardPage() {
   const [filtroGerente, setFiltroGerente] = useState('');
+  const [mesEmissao, setMesEmissao] = useState(MES_ATUAL);
+  const [ordemAsc, setOrdemAsc] = useState(true);
   const { user } = useAuth();
   const supabase = createClient();
   const { addToast } = useToast();
@@ -155,8 +159,11 @@ export default function DashboardPage() {
   const [showRejectModal, setShowRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
 
-  const query = filtroGerente ? `?gerente_id=${filtroGerente}` : '';
-  const { data, error, isLoading, mutate } = useSWR(`/api/dashboard${query}`, apiFetcher, {
+  const dashParams = new URLSearchParams();
+  if (filtroGerente) dashParams.set('gerente_id', filtroGerente);
+  dashParams.set('mes', String(mesEmissao));
+  dashParams.set('ano', String(ANO_ATUAL));
+  const { data, error, isLoading, mutate } = useSWR(`/api/dashboard?${dashParams.toString()}`, apiFetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 30000
   });
@@ -252,6 +259,12 @@ export default function DashboardPage() {
   const stats    = data?.stats    || { total: 0, em_edicao: 0, pendentes: 0, aprovados: 0 };
   const condos   = data?.condos   || [];
   const gerentes = data?.gerentes || [];
+
+  // Ordena por número do condomínio (prefixo do nome, ex: "411 - ...") asc/desc
+  const condosOrdenados = useMemo(() => {
+    const codeOf = (n) => { const m = String(n || '').match(/^\s*0*(\d+)/); return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER; };
+    return [...condos].sort((a, b) => ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name));
+  }, [condos, ordemAsc]);
   const processos = data?.processos || {};
 
   const pendingProcesses = useMemo(() => {
@@ -282,21 +295,37 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {user?.role !== 'gerente' && (
-              <div className="flex items-center gap-3">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Filtrar:</label>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Mês da emissão */}
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Emissão de:</label>
                 <select
-                  value={filtroGerente}
-                  onChange={(e) => setFiltroGerente(e.target.value)}
-                  className="text-xs bg-white border border-slate-200 rounded-xl px-4 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer"
+                  value={mesEmissao}
+                  onChange={(e) => setMesEmissao(Number(e.target.value))}
+                  className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer"
                 >
-                  <option value="">TODOS</option>
-                  {gerentes.map((g) => (
-                    <option key={g.id} value={g.id}>{g.profiles?.full_name || g.nome || '—'}{!g.profile_id && !g.profiles && g.nome ? ' (sem login)' : ''}</option>
+                  {MESES.slice(1).map((m, i) => (
+                    <option key={i + 1} value={i + 1}>{m}/{ANO_ATUAL}</option>
                   ))}
                 </select>
               </div>
-            )}
+              {/* Filtro por gerente (oculto pro próprio gerente) */}
+              {user?.role !== 'gerente' && (
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Gerente:</label>
+                  <select
+                    value={filtroGerente}
+                    onChange={(e) => setFiltroGerente(e.target.value)}
+                    className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer"
+                  >
+                    <option value="">TODOS</option>
+                    {gerentes.map((g) => (
+                      <option key={g.id} value={g.id}>{g.profiles?.full_name || g.nome || '—'}{!g.profile_id && !g.profiles && g.nome ? ' (sem login)' : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
 
           {isLoading ? (
@@ -308,14 +337,21 @@ export default function DashboardPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-slate-200 text-[9px] uppercase tracking-widest font-black text-slate-500">
-                    <th className="px-4 py-2.5">Condomínio</th>
+                    <th className="px-4 py-2.5">
+                      <button onClick={() => setOrdemAsc(v => !v)}
+                        className="inline-flex items-center gap-1 hover:text-violet-600 transition-colors uppercase tracking-widest"
+                        title={ordemAsc ? 'Ordem: menor → maior (clique para inverter)' : 'Ordem: maior → menor (clique para inverter)'}>
+                        Condomínio <ArrowUpDown className="w-3 h-3" />
+                        <span className="text-[8px] text-violet-500 font-black">{ordemAsc ? '↑' : '↓'}</span>
+                      </button>
+                    </th>
                     <th className="px-3 py-2.5">Planilha</th>
                     <th className="px-3 py-2.5">Emissão</th>
                     <th className="px-4 py-2.5 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-slate-200">
-                  {condos.map((c) => {
+                  {condosOrdenados.map((c) => {
                     const proc         = processos[c.id];
                     const procStatus   = proc?.status || null;
                     const emissaoStatus = emissaoByCondominio[c.id] || null;
