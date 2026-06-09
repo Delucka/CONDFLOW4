@@ -47,6 +47,7 @@ export default function AppShell({ children }) {
     '/condominios': 'Gestão de Condomínios',
     '/carteiras': 'Pastas e Carteiras',
     '/aprovacoes': 'Aprovações & Auditoria',
+    '/correios': 'Correios — Gerador de Rateio',
     '/admin/usuarios': 'Usuários do Sistema'
   };
   

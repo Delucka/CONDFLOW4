@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useState } from 'react';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
 import { usePendingCount } from '@/lib/usePendingCount';
-import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp, KeyRound, Droplet } from 'lucide-react';
+import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp, KeyRound, Droplet, Mail } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/dashboard',           icon: LayoutDashboard, label: 'Painel Central' },
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/consumos',            icon: Droplet,         label: 'Consumos' },
   { href: '/aprovacoes',          icon: FileCheck2,      label: 'Aprovações & Auditoria', showBadge: true },
   { href: '/central-emissoes',    icon: FileUp,          label: 'Central de Emissões', showBadge: true },
+  { href: '/correios',            icon: Mail,            label: 'Correios' },
 ];
 const ADMIN_ITEMS = [{ href: '/admin/usuarios', icon: Users, label: 'Acessos e Perfis' }];
 

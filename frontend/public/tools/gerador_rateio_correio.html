@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador de Rateio · Correio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.4/dist/tesseract.min.js"></script>
+<style>
+  :root{
+    --paper:#f2ede2; --paper-2:#ece5d6; --card:#fffdf8;
+    --ink:#221f17; --ink-soft:#5b5343; --muted:#938b76;
+    --line:#e2dac9; --line-strong:#d3c9b3;
+    --accent:#136f66; --accent-d:#0c534c; --accent-soft:#e4f0ee;
+    --danger:#b23a2e; --danger-soft:#f6e4e1;
+    --ok:#2f7d4f; --ok-soft:#e6f1e8;
+    --f-cond:#9c4a24; --f-cond-bg:rgba(156,74,36,.10);
+    --f-bloco:#2f6f4f; --f-bloco-bg:rgba(47,111,79,.12);
+    --f-uni:#1f5f8b; --f-uni-bg:rgba(31,95,139,.10);
+    --f-val:#8a5a00; --f-val-bg:rgba(138,90,0,.13);
+    --f-compl:#6b5b95; --f-compl-bg:rgba(107,91,149,.11);
+    --shadow:0 1px 2px rgba(40,33,18,.04), 0 8px 28px -14px rgba(40,33,18,.18);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:"Hanken Grotesk",system-ui,sans-serif;color:var(--ink);
+    background:radial-gradient(1200px 700px at 12% -10%, #fbf7ee 0%, rgba(251,247,238,0) 55%),radial-gradient(1000px 600px at 110% 8%, #f6f0e3 0%, rgba(246,240,227,0) 50%),var(--paper);
+    background-attachment:fixed;-webkit-font-smoothing:antialiased;line-height:1.45}
+  .wrap{max-width:980px;margin:0 auto;padding:34px 22px 80px}
+
+  header.top{display:flex;align-items:center;gap:16px;margin-bottom:22px;animation:rise .5s ease both}
+  .mark{flex:0 0 auto;width:52px;height:52px;border-radius:13px;background:linear-gradient(155deg,var(--accent),var(--accent-d));display:grid;place-items:center;box-shadow:0 6px 18px -8px rgba(19,111,102,.7)}
+  .mark svg{width:28px;height:28px;display:block}
+  .htxt h1{font-family:"Fraunces",Georgia,serif;font-weight:600;font-size:1.72rem;margin:0;letter-spacing:-.01em;line-height:1.05}
+  .htxt p{margin:3px 0 0;color:var(--ink-soft);font-size:.95rem}
+  .htxt .accentword{color:var(--accent-d)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px 18px 20px;margin-bottom:18px;animation:rise .45s ease both}
+
+  .settings{display:flex;flex-wrap:wrap;gap:16px 22px;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:.78rem;font-weight:600;color:var(--ink-soft)}
+  .field .hint{font-size:.72rem;color:var(--muted);font-weight:400}
+  input[type=text],select,textarea{font-family:inherit;font-size:.95rem;color:var(--ink);background:#fffefb;border:1px solid var(--line-strong);border-radius:10px;padding:9px 11px;transition:border-color .15s,box-shadow .15s,background .15s;width:100%}
+  input[type=text]:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-soft)}
+  .mono-in{font-family:"JetBrains Mono",monospace;letter-spacing:.02em}
+  select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%235b5343' stroke-width='1.6' stroke-linecap='round'/></svg>");background-repeat:no-repeat;background-position:right 11px center;padding-right:30px;cursor:pointer}
+  .money{position:relative}
+  .money .cur{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.9rem;pointer-events:none}
+  .money input{padding-left:30px;width:120px}
+
+  .seg{display:inline-flex;background:var(--paper-2);border:1px solid var(--line-strong);border-radius:11px;padding:3px;gap:3px}
+  .seg button{border:0;background:transparent;font-family:inherit;font-size:.88rem;font-weight:600;color:var(--ink-soft);padding:7px 14px;border-radius:8px;cursor:pointer;transition:all .15s;white-space:nowrap}
+  .seg button[aria-pressed=true]{background:#fff;color:var(--accent-d);box-shadow:0 1px 3px rgba(40,33,18,.12)}
+
+  details.tariffs{margin-top:4px}
+  details.tariffs summary{cursor:pointer;font-size:.82rem;font-weight:600;color:var(--accent-d);list-style:none;display:inline-flex;align-items:center;gap:6px}
+  details.tariffs summary::-webkit-details-marker{display:none}
+  details.tariffs .chev{transition:transform .2s} details.tariffs[open] .chev{transform:rotate(90deg)}
+  .tariff-row{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px}
+
+  .drop{border:2px dashed var(--line-strong);border-radius:16px;background:linear-gradient(180deg,#fdfbf6,#f8f3ea);padding:28px 22px;text-align:center;cursor:pointer;transition:all .18s;animation:rise .45s ease both}
+  .drop:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .drop.over{border-color:var(--accent);background:var(--accent-soft);transform:scale(1.005)}
+  .drop.disabled{opacity:.55;cursor:not-allowed}
+  .drop .dicon{width:46px;height:46px;border-radius:12px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 12px;color:var(--accent)}
+  .drop .dicon svg{width:24px;height:24px}
+  .drop .dtitle{font-family:"Fraunces",serif;font-weight:600;font-size:1.12rem;margin:0 0 3px}
+  .drop .dsub{color:var(--muted);font-size:.86rem;margin:0}
+  .drop .dformats{color:var(--muted);font-size:.74rem;margin:9px 0 0}
+
+  .ocrstatus{display:inline-flex;align-items:center;gap:8px;font-size:.8rem;font-weight:600;color:var(--ink-soft);margin-top:12px}
+  .ocrstatus .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .ocrstatus.ok{color:var(--ok)} .ocrstatus.ok .dot{background:var(--ok)}
+  .ocrstatus.bad{color:var(--danger)} .ocrstatus.bad .dot{background:var(--danger)}
+  .ocrstatus .spin{color:var(--accent)}
+
+  .note{display:flex;gap:9px;align-items:flex-start;background:#eef4f3;border:1px solid #cfe2df;color:#1f5249;border-radius:11px;padding:10px 13px;font-size:.82rem;margin:14px 0 0}
+  .note svg{flex:0 0 auto;width:16px;height:16px;margin-top:1px}
+  .banner{display:flex;gap:10px;align-items:flex-start;background:#fdf6e8;border:1px solid #ecd9ad;color:#7a5a14;border-radius:12px;padding:12px 14px;font-size:.85rem;margin:14px 0 0;line-height:1.5}
+  .banner svg{flex:0 0 auto;width:18px;height:18px;margin-top:2px}
+  .banner.hidden{display:none}
+
+  .topbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 4px}
+  .topbar .count{font-size:.85rem;color:var(--muted);font-weight:600;margin-right:auto}
+
+  .btn{font-family:inherit;font-weight:600;font-size:.9rem;border-radius:10px;cursor:pointer;transition:all .15s;border:1px solid transparent;padding:9px 15px;display:inline-flex;align-items:center;gap:7px}
+  .btn:active{transform:translateY(1px)}
+  .btn-soft{background:var(--accent-soft);color:var(--accent-d);border-color:#cfe4e1}
+  .btn-soft:hover{background:#d8ebe8}
+  .btn-line{background:#fff;color:var(--ink-soft);border-color:var(--line-strong)}
+  .btn-line:hover{border-color:var(--accent);color:var(--accent-d)}
+  .btn-primary{background:linear-gradient(155deg,var(--accent),var(--accent-d));color:#fff;box-shadow:0 6px 16px -8px rgba(19,111,102,.8)}
+  .btn-primary:hover{filter:brightness(1.05)}
+  .btn-primary:disabled{background:var(--line-strong);box-shadow:none;cursor:not-allowed;filter:none}
+  .btn-ghost{background:transparent;color:var(--accent-d);border-color:transparent}
+  .btn-ghost:hover{background:var(--accent-soft)}
+  .btn .ic{width:16px;height:16px}
+  .btn-sm{padding:7px 12px;font-size:.85rem}
+
+  .doc{padding:0;overflow:hidden}
+  .doc-head{display:flex;align-items:center;gap:11px;padding:13px 16px;border-bottom:1px solid var(--line);background:#fbf9f3}
+  .doc-head .fico{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;color:var(--accent-d)}
+  .doc-head .fico svg{width:16px;height:16px}
+  .doc-head .fname{font-weight:600;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .doc-head .fmeta{font-size:.76rem;color:var(--muted)}
+  .doc-head .grow{flex:1;min-width:0}
+  .badge{flex:0 0 auto;font-size:.74rem;font-weight:700;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .badge.reading{background:var(--accent-soft);color:var(--accent-d)}
+  .badge.ready{background:var(--ok-soft);color:var(--ok)}
+  .badge.err{background:var(--danger-soft);color:var(--danger)}
+  .spin{width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+  .x-doc{flex:0 0 auto;border:1px solid var(--line);background:#fff;color:var(--muted);width:30px;height:30px;border-radius:8px;cursor:pointer;display:grid;place-items:center;transition:all .15s;padding:0}
+  .x-doc:hover{background:var(--danger-soft);color:var(--danger);border-color:#e7cbc6}
+
+  .doc-body{padding:16px}
+  .reading-state{display:flex;align-items:center;gap:10px;color:var(--ink-soft);font-size:.9rem;padding:8px 2px}
+  .err-msg{display:flex;gap:9px;align-items:flex-start;background:#fdf6e8;border:1px solid #ecd9ad;color:#7a5a14;border-radius:11px;padding:10px 13px;font-size:.83rem;margin-bottom:14px}
+  .err-msg svg{flex:0 0 auto;width:16px;height:16px;margin-top:2px}
+
+  .dfields{display:grid;grid-template-columns:90px 80px 1fr;gap:12px;margin-bottom:14px}
+  .dfields .seg-wrap{display:flex;flex-direction:column;gap:5px}
+  @media (max-width:560px){.dfields{grid-template-columns:1fr 1fr}}
+
+  .uhead,.urow{display:grid;grid-template-columns:26px 1fr 116px 92px 32px;gap:8px;align-items:center}
+  .uhead{padding:0 4px 6px;font-size:.72rem;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase}
+  .uhead .right{text-align:right}
+  .rows{display:flex;flex-direction:column;gap:7px}
+  .urow{animation:pop .2s ease both}
+  .urow .idx{font-family:"JetBrains Mono",monospace;font-size:.8rem;color:var(--muted);text-align:center}
+  .urow .uval{font-family:"JetBrains Mono",monospace;font-size:.84rem;text-align:right;color:var(--ink-soft);font-weight:500;white-space:nowrap}
+  .urow.invalid input{border-color:#e7c9a6;background:#fffaf2}
+  .udel{border:1px solid var(--line);background:#fff;color:var(--muted);width:30px;height:30px;border-radius:8px;cursor:pointer;display:grid;place-items:center;transition:all .15s;padding:0}
+  .udel:hover{background:var(--danger-soft);color:var(--danger);border-color:#e7cbc6}
+  @media (max-width:560px){
+    .uhead{display:none}
+    .urow{grid-template-columns:22px 1fr 32px;grid-template-areas:"idx uni del" "idx tipo val";row-gap:6px}
+    .urow .idx{grid-area:idx;align-self:start;margin-top:9px}
+    .urow .uni{grid-area:uni}.urow .utipo{grid-area:tipo}
+    .urow .uval{grid-area:val;align-self:center}.urow .udel{grid-area:del;align-self:start}
+  }
+  .add-unit{margin-top:11px}
+
+  .dsummary{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;padding:11px 14px;background:linear-gradient(180deg,#fbfaf5,#f7f3ea);border:1px solid var(--line);border-radius:12px;margin:14px 0}
+  .dsummary .s-big{font-family:"Fraunces",serif;font-weight:600;font-size:1.25rem;line-height:1;color:var(--ink)}
+  .dsummary .s-lbl{font-size:.8rem;color:var(--muted);font-weight:500}
+  .dsummary .s-total{font-family:"Fraunces",serif;font-weight:600;font-size:1.25rem;line-height:1;color:var(--accent-d)}
+  .dsummary .s-break{flex-basis:100%;font-size:.78rem;color:var(--ink-soft)}
+
+  .countchk{border-radius:11px;padding:9px 12px;font-size:.82rem;margin-bottom:13px;display:flex;gap:8px;align-items:flex-start;line-height:1.45}
+  .countchk svg{flex:0 0 auto;width:15px;height:15px;margin-top:2px}
+  .countchk.ok{background:var(--ok-soft);border:1px solid #bfe0c8;color:var(--ok);font-weight:600}
+  .countchk.bad{background:var(--danger-soft);border:1px solid #e7cbc6;color:var(--danger);font-weight:600}
+
+  details.prev{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:14px}
+  details.prev summary{cursor:pointer;font-size:.84rem;font-weight:600;color:var(--accent-d);list-style:none;padding:10px 13px;background:#fbf9f3;display:flex;align-items:center;gap:7px}
+  details.prev summary::-webkit-details-marker{display:none}
+  details.prev summary .chev{transition:transform .2s} details.prev[open] summary .chev{transform:rotate(90deg)}
+  .legend{display:flex;flex-wrap:wrap;gap:5px 7px;padding:11px 13px 4px}
+  .lg{font-size:.68rem;font-weight:600;padding:3px 8px;border-radius:20px}
+  .lg-cond{color:var(--f-cond);background:var(--f-cond-bg)}.lg-bloco{color:var(--f-bloco);background:var(--f-bloco-bg)}
+  .lg-uni{color:var(--f-uni);background:var(--f-uni-bg)}.lg-val{color:var(--f-val);background:var(--f-val-bg)}
+  .lg-compl{color:var(--f-compl);background:var(--f-compl-bg)}
+  pre.preview{margin:0;padding:11px 13px 13px;font-family:"JetBrains Mono",monospace;font-size:.86rem;line-height:1.65;white-space:pre;overflow-x:auto;max-height:220px;letter-spacing:.01em}
+  pre.preview .ln{display:block}
+  .f1{color:var(--f-cond);background:var(--f-cond-bg)}.f2{color:var(--f-bloco);background:var(--f-bloco-bg)}
+  .f3{color:var(--f-uni);background:var(--f-uni-bg)}.f4{color:var(--f-val);background:var(--f-val-bg);font-weight:700}
+  .f5{color:var(--f-compl);background:var(--f-compl-bg)}
+  .empty-prev{color:var(--muted);font-style:italic;font-family:"Hanken Grotesk",sans-serif;font-size:.88rem}
+
+  .warn{display:flex;gap:9px;align-items:flex-start;background:#fdf6e8;border:1px solid #ecd9ad;color:#7a5a14;border-radius:11px;padding:9px 12px;font-size:.81rem;margin-bottom:13px}
+  .warn svg{flex:0 0 auto;width:16px;height:16px;margin-top:2px}
+  .warn.hidden{display:none}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(14px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:11px;font-size:.88rem;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;box-shadow:0 10px 30px -10px rgba(0,0,0,.5);z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .empty-docs{text-align:center;color:var(--muted);font-size:.9rem;padding:18px 0 4px;font-style:italic}
+  .foot{text-align:center;color:var(--muted);font-size:.78rem;margin-top:26px;line-height:1.6}
+  .foot code{font-family:"JetBrains Mono",monospace;background:var(--paper-2);padding:1px 6px;border-radius:5px;font-size:.92em}
+
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.99)}to{opacity:1;transform:none}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.2"/><path d="M3 7l9 6 9-6"/></svg></div>
+    <div class="htxt">
+      <h1>Gerador de Rateio <span class="accentword">· Correio</span></h1>
+      <p>Lê as relações do Correio no seu navegador e gera o arquivo&nbsp;.txt de importação.</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="settings">
+      <div class="field"><label>Tipo padrão</label>
+        <div class="seg" id="segDefault" role="group" aria-label="Tipo padrão de envio">
+          <button type="button" data-tipo="simples" aria-pressed="true">Simples</button>
+          <button type="button" data-tipo="ar" aria-pressed="false">A.R</button>
+        </div>
+      </div>
+      <div class="field"><label>Complemento do histórico <span class="hint">(opcional)</span></label>
+        <input type="text" id="complGlobal" maxlength="15" value="" placeholder="ex.: CORREIO JUN/2026" style="width:220px"></div>
+      <details class="tariffs"><summary><span class="chev">▸</span> Tarifas</summary>
+        <div class="tariff-row">
+          <div class="field"><label for="rSimples">Simples</label><div class="money"><span class="cur">R$</span><input type="text" id="rSimples" class="mono-in" inputmode="decimal" value="3,85"></div></div>
+          <div class="field"><label for="rAR">A.R</label><div class="money"><span class="cur">R$</span><input type="text" id="rAR" class="mono-in" inputmode="decimal" value="18,05"></div></div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Anexar documentos">
+    <div class="dicon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7 9m5-5l5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></div>
+    <p class="dtitle">Arraste os documentos aqui</p>
+    <p class="dsub">ou clique para selecionar — pode anexar vários de uma vez</p>
+    <p class="dformats">PDF ou imagem (JPG, PNG) · uma relação por arquivo</p>
+    <input type="file" id="fileInput" accept="application/pdf,image/*" multiple hidden>
+  </div>
+
+  <div class="ocrstatus" id="ocrStatus"><span class="spin"></span><span id="ocrStatusText">Carregando o reconhecedor de texto…</span></div>
+
+  <div class="banner hidden" id="libBanner">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 1.5L15 14H1L8 1.5z"/><path d="M8 6.5v3.2M8 11.8v.01"/></svg>
+    <span><strong>Para a leitura automática funcionar, baixe este arquivo e abra direto no seu navegador</strong> (Chrome ou Edge), conectado à internet. Dentro desta janela o reconhecedor de texto não consegue carregar. Ao abrir no navegador, a primeira leitura baixa os dados de reconhecimento uma única vez e depois funciona até offline. Enquanto isso, você pode preencher manualmente com o botão "+ Em branco".</span>
+  </div>
+
+  <div class="note">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.2v3.4M8 5.2v.01"/></svg>
+    <span>A leitura roda no seu navegador, <strong>sem usar créditos</strong>. Ela reconhece os números impressos e confere a quantidade contra o total da folha ("Quantidade de Unidade listadas"). O tipo <strong>Simples/A.R você escolhe</strong>.</span>
+  </div>
+
+  <div class="topbar">
+    <span class="count" id="docCount">Nenhum documento</span>
+    <button type="button" class="btn btn-line btn-sm" id="btnManual">+ Em branco</button>
+    <button type="button" class="btn btn-primary btn-sm" id="btnAll" disabled>
+      <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13.5h12"/></svg>
+      Baixar todos
+    </button>
+  </div>
+
+  <div id="docs"></div>
+  <div class="empty-docs" id="emptyDocs">Os documentos anexados aparecerão aqui, um quadro para cada.</div>
+
+  <p class="foot">
+    Formato de importação de rateio · largura fixa · quebra de linha <code>CRLF</code>.<br>
+    Posições: <code>1–4</code> condomínio · <code>5–8</code> bloco · <code>9–14</code> unidade · <code>15–26</code> valor (centavos) · <code>27–41</code> complemento.
+  </p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+  let defaultTipo="simples", docSeq=0, ocrReady=false;
+
+  const digits = s => (s||"").replace(/\D/g,"");
+  function parseMoney(s){ if(s==null) return NaN; let v=String(s).trim().replace(/\s|R\$/gi,""); if(v.indexOf(",")>=0) v=v.replace(/\./g,"").replace(",","."); const n=parseFloat(v); return isNaN(n)?NaN:n; }
+  const brl = n => (n||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+  function rate(t){ const rs=parseMoney($("#rSimples").value), ra=parseMoney($("#rAR").value); return t==="ar"?(isNaN(ra)?0:ra):(isNaN(rs)?0:rs); }
+
+  /* fixed-width builders (validated byte-for-byte vs. the model file) */
+  function fCond(c){let d=digits(c); if(d.length>4) d=d.slice(-4); return d.padStart(4,"0");}
+  function fBloco(b){let v=(b||"").trim()||"0"; if(v.length>4) v=v.slice(0,4); return v.padStart(4," ");}
+  function fUni(u){let v=(u||"").trim(); if(/^\d+$/.test(v)){if(v.length>6)v=v.slice(-6);return v.padStart(6,"0");} if(v.length>6)v=v.slice(-6); return v.padStart(6," ");}
+  function fValor(c){let v=String(Math.max(0,Math.round(c))); if(v.length>12)v=v.slice(-12); return v.padStart(12,"0");}
+  function fCompl(c){let v=(c||"").trim(); return v.length>15?v.slice(0,15):v;}
+  const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/ /g,"\u00a0");
+  const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
+
+  /* ---------- OCR availability ---------- */
+  function waitForLibs(timeout=14000){
+    return new Promise(res=>{ const t0=Date.now();
+      (function chk(){ if(window.pdfjsLib&&window.Tesseract) res(true);
+        else if(Date.now()-t0>timeout) res(false); else setTimeout(chk,300); })(); });
+  }
+  async function initOCR(){
+    const ok=await waitForLibs(); const st=$("#ocrStatus");
+    if(ok){
+      try{ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; }catch(e){}
+      ocrReady=true; st.className="ocrstatus ok";
+      st.innerHTML='<span class="dot"></span><span>Leitor pronto — pode anexar seus documentos</span>';
+    }else{
+      ocrReady=false; st.className="ocrstatus bad";
+      st.innerHTML='<span class="dot"></span><span>O leitor não carregou aqui</span>';
+      $("#libBanner").classList.remove("hidden"); $("#drop").classList.add("disabled");
+    }
+  }
+
+  /* ---------- PDF/image -> OCR text (page by page, memory-friendly) ---------- */
+  function loadImage(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=()=>rej(new Error("Falha ao abrir a imagem")); img.src=URL.createObjectURL(file); }); }
+  const SCALE=2.6;
+  async function ocrOne(canvas, onProgress){
+    const {data}=await Tesseract.recognize(canvas,"por",{ logger:m=>{ if(m.status==="recognizing text"&&onProgress) onProgress(m.progress||0); } });
+    return (data&&data.text)||"";
+  }
+  async function ocrFile(file, onProgress){
+    const isPdf = file.type==="application/pdf" || /\.pdf$/i.test(file.name);
+    let text="";
+    if(isPdf){
+      const buf=await file.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
+      const n=pdf.numPages;
+      for(let p=1;p<=n;p++){
+        const page=await pdf.getPage(p);
+        const vp=page.getViewport({scale:SCALE});
+        const cv=document.createElement("canvas");
+        cv.width=Math.ceil(vp.width); cv.height=Math.ceil(vp.height);
+        await page.render({canvasContext:cv.getContext("2d",{alpha:false}), viewport:vp}).promise;
+        text+="\n"+await ocrOne(cv, fr=>{ if(onProgress) onProgress(((p-1)+fr)/n); });
+        cv.width=cv.height=0; if(page.cleanup) page.cleanup();
+      }
+    }else{
+      const img=await loadImage(file);
+      const cv=document.createElement("canvas");
+      cv.width=img.naturalWidth||img.width; cv.height=img.naturalHeight||img.height;
+      cv.getContext("2d").drawImage(img,0,0);
+      text+="\n"+await ocrOne(cv, onProgress);
+    }
+    return text;
+  }
+
+  /* ---------- OCR digit-confusion recovery ---------- */
+  const NMAP={O:"0",o:"0",D:"0",Q:"0",I:"1",l:"1",i:"1","|":"1","!":"1",L:"1",Z:"2",z:"2",E:"3",A:"4",S:"5",s:"5",G:"6",b:"6",B:"8",T:"7",t:"7",g:"9",q:"9"};
+  function normToDigits(t){ let o=""; for(const ch of t){ if(ch>="0"&&ch<="9") o+=ch; else if(Object.prototype.hasOwnProperty.call(NMAP,ch)) o+=NMAP[ch]; else return null; } return o; }
+  function unitFromToken(tok){
+    tok=tok.replace(/^[^0-9A-Za-z|]+/,"").replace(/[^0-9A-Za-z|]+$/,"");
+    if(tok.length!==6 && tok.length!==7) return null;
+    const dc=(tok.match(/[0-9]/g)||[]).length;
+    if(dc < tok.length-2) return null;        // at most 2 OCR-confused chars
+    let n=normToDigits(tok); if(!n) return null;
+    if(n.length===7) n=n.slice(1);            // merged "bloco+unidade"
+    if(n.length!==6) return null;
+    if(n[0]!=="0") return null;               // zero-padded unit codes always start with 0
+    return n;
+  }
+
+  /* ---------- parse OCR text (no AI) ---------- */
+  function parseText(text){
+    text=text||"";
+    let cond="";
+    let cm=text.match(/Cond[o0O]m[il1|]?n[il1|]o\s*[:\-]?\s*([0-9OoIlDQ|SBzZEAGgqTt]{3,6})/i);
+    if(cm){ const n=normToDigits(cm[1]); if(n) cond=n; }
+    if(!cond){ cm=text.match(/Cond\w*\s*[:\-]?\s*([0-9OoIlDQ|SBzZEAGgqTt]{3,6})/i); if(cm){ const n=normToDigits(cm[1]); if(n) cond=n; } }
+    let nome=""; const nm=text.match(/Cond\w*\s*[:\-]?\s*[0-9A-Za-z|]{3,6}\s*[-–]\s*([^\n\r]{2,55})/i); if(nm) nome=nm[1].trim().replace(/\s{2,}/g," ");
+    let esperado=null; const qm=text.match(/Quantidade[^\n\r]{0,40}?listad\w*\s*[:\-]?\s*([0-9OoIlSBzZEAGgqTt|]{1,5})/i);
+    if(qm){ const n=normToDigits(qm[1]); if(n) esperado=parseInt(n,10); }
+    const uni=[], seen=new Set();
+    text.split(/\s+/).forEach(tok=>{ const v=unitFromToken(tok); if(v && !seen.has(v)){ seen.add(v); uni.push(v); } });
+    return {condominio_codigo:cond, condominio_nome:nome, tipo:"", esperado:esperado, unidades:uni.map(u=>({bloco:"0",unidade:u}))};
+  }
+
+  /* ---------- cards ---------- */
+  function makeCard(name, meta){
+    docSeq++;
+    const card=document.createElement("section");
+    card.className="card doc"; card.dataset.id="d"+docSeq;
+    card.innerHTML=
+      '<div class="doc-head">'+
+        '<span class="fico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></span>'+
+        '<div class="grow"><div class="fname">'+esc(name)+'</div><div class="fmeta">'+esc(meta||"")+'</div></div>'+
+        '<span class="badge reading"><span class="spin"></span> <span class="btxt">Lendo…</span></span>'+
+        '<button class="x-doc" type="button" title="Remover"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>'+
+      '</div>'+
+      '<div class="doc-body"><div class="reading-state"><span class="spin" style="color:var(--accent)"></span> <span class="rtext">Preparando…</span></div></div>';
+    $("#docs").appendChild(card); refreshTop();
+    card.querySelector(".x-doc").addEventListener("click",()=>{ card.remove(); refreshTop(); });
+    return card;
+  }
+  function bodyTemplate(){ return ''+
+    '<div class="errslot"></div>'+
+    '<div class="dfields">'+
+      '<div class="field"><label>Condomínio</label><input type="text" class="f-cond mono-in" inputmode="numeric" maxlength="6" placeholder="0000"></div>'+
+      '<div class="field"><label>Bloco</label><input type="text" class="f-bloco mono-in" maxlength="4" value="0"></div>'+
+      '<div class="seg-wrap"><label>Tipo deste documento</label><div class="seg seg-tipo" data-tipo="'+defaultTipo+'"><button type="button" data-tipo="simples">Simples</button><button type="button" data-tipo="ar">A.R</button></div></div>'+
+    '</div>'+
+    '<div class="uhead"><div></div><div>Unidade</div><div>Tipo</div><div class="right">Valor</div><div></div></div>'+
+    '<div class="rows"></div>'+
+    '<button type="button" class="btn btn-soft btn-sm add-unit"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg> Adicionar unidade</button>'+
+    '<div class="dsummary"><div><span class="s-big s-count">0</span> <span class="s-lbl">unidades</span></div><div><span class="s-lbl">total</span> <span class="s-total">R$ 0,00</span></div><div class="s-break"></div></div>'+
+    '<div class="countchk" style="display:none"></div>'+
+    '<div class="warn hidden"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 1.5L15 14H1L8 1.5z"/><path d="M8 6.5v3.2M8 11.8v.01"/></svg><span class="warntext"></span></div>'+
+    '<details class="prev"><summary><span class="chev">▸</span> Ver prévia do .txt</summary><div class="legend"><span class="lg lg-cond">Condomínio</span><span class="lg lg-bloco">Bloco</span><span class="lg lg-uni">Unidade</span><span class="lg lg-val">Valor</span><span class="lg lg-compl">Compl.</span></div><pre class="preview"></pre></details>'+
+    '<button type="button" class="btn btn-primary dl"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13.5h12"/></svg> Baixar .txt</button>';
+  }
+  function setupBody(card){
+    const body=card.querySelector(".doc-body"); body.innerHTML=bodyTemplate();
+    body.querySelector(".seg-tipo").addEventListener("click",e=>{ const b=e.target.closest("button[data-tipo]"); if(!b) return; const seg=b.parentElement; seg.dataset.tipo=b.dataset.tipo; seg.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false")); recompute(card); });
+    ['.f-cond','.f-bloco'].forEach(s=>body.querySelector(s).addEventListener("input",()=>recompute(card)));
+    body.querySelector(".rows").addEventListener("input",()=>recompute(card));
+    body.querySelector(".rows").addEventListener("change",()=>recompute(card));
+    body.querySelector(".rows").addEventListener("click",e=>{ const d=e.target.closest(".udel"); if(!d) return; d.closest(".urow").remove(); recompute(card); });
+    body.querySelector(".add-unit").addEventListener("click",()=>{ addUnit(card,"","padrao"); const last=body.querySelector(".urow:last-child .uni"); if(last) last.focus(); recompute(card); });
+    body.querySelector(".dl").addEventListener("click",()=>downloadCard(card));
+    const seg=body.querySelector(".seg-tipo"); seg.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.tipo===seg.dataset.tipo?"true":"false"));
+  }
+  function addUnit(card, uni, tipo){
+    const rows=card.querySelector(".rows"); const row=document.createElement("div"); row.className="urow";
+    row.innerHTML='<div class="idx"></div>'+
+      '<input class="uni mono-in" type="text" inputmode="numeric" maxlength="6" value="'+(uni||"").replace(/"/g,"")+'" placeholder="000000">'+
+      '<select class="utipo"><option value="padrao">Padrão</option><option value="simples">Simples</option><option value="ar">A.R</option></select>'+
+      '<div class="uval">—</div>'+
+      '<button class="udel" type="button" title="Remover"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>';
+    row.querySelector(".utipo").value=tipo||"padrao"; rows.appendChild(row);
+  }
+  function populate(card, data){
+    setupBody(card); const body=card.querySelector(".doc-body");
+    card._failed=false; card._esperado=(data&&typeof data.esperado==="number"&&data.esperado>0)?data.esperado:null;
+    body.querySelector(".f-cond").value=digits(data&&data.condominio_codigo||"");
+    let tipo=(data&&data.tipo||"").toLowerCase(); if(tipo!=="simples"&&tipo!=="ar") tipo=defaultTipo;
+    const seg=body.querySelector(".seg-tipo"); seg.dataset.tipo=tipo; seg.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.tipo===tipo?"true":"false"));
+    const us=(data&&Array.isArray(data.unidades))?data.unidades:[];
+    let bloco="0"; if(us.length){ const b=(us[0].bloco||"").toString().replace(/[^0-9A-Za-z]/g,""); if(b) bloco=b; }
+    body.querySelector(".f-bloco").value=bloco;
+    if(us.length) us.forEach(u=>addUnit(card,(u.unidade||"").toString().replace(/[^0-9A-Za-z]/g,""),"padrao")); else addUnit(card,"","padrao");
+    const nome=(data&&data.condominio_nome)||""; if(nome) card.querySelector(".fmeta").textContent=nome;
+    recompute(card);
+  }
+  function manualBody(card){ setupBody(card); card._failed=false; card._esperado=null; addUnit(card,"","padrao"); recompute(card); }
+  function showError(card, msg){
+    setupBody(card); card._failed=true; card._esperado=null;
+    card.querySelector(".errslot").innerHTML='<div class="err-msg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 1.5L15 14H1L8 1.5z"/><path d="M8 6.5v3.2M8 11.8v.01"/></svg><span>'+esc(msg)+' Preencha os dados abaixo manualmente.</span></div>';
+    addUnit(card,"","padrao"); recompute(card);
+  }
+  function badge(card, kind, label){
+    const b=card.querySelector(".badge"); if(!b) return;
+    b.className="badge "+(kind==="ready"?"ready":kind==="err"?"err":"reading");
+    if(kind==="ready") b.innerHTML='<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 5"/></svg> Pronto';
+    else if(kind==="err") b.innerHTML='<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg> Conferir';
+    else b.innerHTML='<span class="spin"></span> <span class="btxt">'+(label||"Lendo…")+'</span>';
+  }
+  function setRead(card, label){ const r=card.querySelector(".rtext"); if(r) r.textContent=label; }
+
+  /* ---------- recompute ---------- */
+  function recompute(card){
+    const body=card.querySelector(".doc-body"); if(!body||!body.querySelector(".rows")) return;
+    const cond=body.querySelector(".f-cond").value, bloco=body.querySelector(".f-bloco").value, compl=$("#complGlobal").value;
+    const cardTipo=body.querySelector(".seg-tipo").dataset.tipo;
+    const rows=$$(".urow",body); let lines=[], total=0, nS=0, nA=0, skip=0;
+    rows.forEach((row,i)=>{
+      row.querySelector(".idx").textContent=i+1;
+      const uniRaw=row.querySelector(".uni").value;
+      const t=(row.querySelector(".utipo").value==="padrao")?cardTipo:row.querySelector(".utipo").value;
+      const r=rate(t), cents=Math.round(r*100), vc=row.querySelector(".uval");
+      if(uniRaw.trim()===""){ vc.textContent="—"; row.classList.add("invalid"); skip++; return; }
+      row.classList.remove("invalid"); vc.textContent=brl(r); total+=r; if(t==="ar") nA++; else nS++;
+      lines.push({cond:fCond(cond),bloco:fBloco(bloco),uni:fUni(uniRaw),cents,compl:fCompl(compl)});
+    });
+    body.querySelector(".s-count").textContent=lines.length;
+    body.querySelector(".s-total").textContent=brl(total);
+    let parts=[]; if(nS)parts.push(nS+" Simples × "+brl(rate("simples"))); if(nA)parts.push(nA+" A.R × "+brl(rate("ar")));
+    body.querySelector(".s-break").textContent=parts.join("   +   ");
+
+    // count check vs the folha total
+    const cc=body.querySelector(".countchk"); const exp=card._esperado;
+    if(exp && exp>0){
+      cc.style.display="flex";
+      if(lines.length===exp){ cc.className="countchk ok"; cc.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 5"/></svg><span>'+lines.length+' unidades — confere com a folha ('+exp+').</span>'; }
+      else { const diff=exp-lines.length; cc.className="countchk bad";
+        cc.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 1.5L15 14H1L8 1.5z"/><path d="M8 6.5v3.2M8 11.8v.01"/></svg><span>A folha indica <b>'+exp+'</b> unidades, mas '+lines.length+' '+(lines.length===1?'foi lida':'foram lidas')+'. '+(diff>0?('Faltam '+diff+' — confira na folha e adicione.'):('Há '+(-diff)+' a mais — confira e remova.'))+'</span>'; }
+    } else { cc.style.display="none"; cc.className="countchk"; cc.innerHTML=""; }
+
+    const prev=body.querySelector(".preview");
+    if(!lines.length) prev.innerHTML='<span class="empty-prev">Sem unidades válidas ainda.</span>';
+    else prev.innerHTML=lines.map(L=>{const c=esc(L.compl); return '<span class="ln"><span class="f1">'+esc(L.cond)+'</span><span class="f2">'+esc(L.bloco)+'</span><span class="f3">'+esc(L.uni)+'</span><span class="f4">'+esc(fValor(L.cents))+'</span>'+(c?'<span class="f5">'+c+'</span>':'')+'</span>';}).join("");
+    card._raw = lines.length ? (lines.map(L=>L.cond+L.bloco+L.uni+fValor(L.cents)+L.compl).join("\r\n")+"\r\n") : "";
+    card._cond = fCond(cond);
+
+    let w=[];
+    if(digits(cond).length===0) w.push("informe o código do condomínio");
+    else if(digits(cond).length>4) w.push("o código do condomínio passou de 4 dígitos");
+    if(skip>0) w.push(skip+" linha"+(skip>1?"s":"")+" sem unidade "+(skip>1?"ignoradas":"ignorada"));
+    const wb=body.querySelector(".warn");
+    if(w.length){ wb.classList.remove("hidden"); body.querySelector(".warntext").innerHTML=cap(w.join("; "))+"."; } else wb.classList.add("hidden");
+
+    body.querySelector(".dl").disabled=!lines.length;
+
+    // badge state
+    if(card._failed) badge(card,"err");
+    else if(exp && lines.length!==exp) badge(card,"err");
+    else badge(card,"ready");
+
+    refreshTop();
+  }
+  function recomputeAll(){ $$(".doc").forEach(c=>{ if(c.querySelector(".rows")) recompute(c); }); }
+
+  /* ---------- downloads ---------- */
+  function ymd(){const d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");}
+  function triggerDownload(text,name){ const blob=new Blob([text],{type:"text/plain;charset=utf-8"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},200); }
+  function downloadCard(card){ const txt=card._raw||""; if(!txt) return; triggerDownload(txt,"rateio_correio_"+(card._cond||"0000")+"_"+ymd()+".txt"); showToast("Arquivo baixado"); }
+  $("#btnAll").addEventListener("click",()=>{ const cards=$$(".doc").filter(c=>c._raw); if(!cards.length) return; cards.forEach((c,i)=>setTimeout(()=>downloadCard(c), i*350)); });
+
+  function refreshTop(){
+    const cards=$$(".doc"); $("#emptyDocs").style.display=cards.length?"none":"block";
+    const ready=cards.filter(c=>c._raw).length;
+    $("#docCount").textContent=cards.length?(cards.length+" documento"+(cards.length>1?"s":"")+(ready?(" · "+ready+" pronto"+(ready>1?"s":"")):"")):"Nenhum documento";
+    $("#btnAll").disabled=ready===0;
+  }
+
+  /* ---------- intake ---------- */
+  async function handleFiles(files){
+    for(const file of files){
+      const sizeMB=file.size/1048576; const meta=(sizeMB<1?Math.round(file.size/1024)+" KB":sizeMB.toFixed(1)+" MB");
+      const card=makeCard(file.name, meta);
+      if(!ocrReady){ showError(card,"O leitor automático não está disponível aqui."); continue; }
+      try{
+        setRead(card,"Lendo o documento…");
+        const text=await ocrFile(file,(frac)=>{ const pct=Math.round(frac*100); badge(card,"reading","Lendo… "+pct+"%"); setRead(card,"Reconhecendo o texto… "+pct+"%"); });
+        populate(card, parseText(text));
+      }catch(err){ showError(card,(err&&err.message)||"Não consegui ler o documento."); }
+    }
+  }
+  const drop=$("#drop"), input=$("#fileInput");
+  drop.addEventListener("click",()=>{ if(!drop.classList.contains("disabled")) input.click(); });
+  drop.addEventListener("keydown",e=>{ if((e.key==="Enter"||e.key===" ")&&!drop.classList.contains("disabled")){e.preventDefault();input.click();} });
+  input.addEventListener("change",e=>{ if(e.target.files.length) handleFiles(e.target.files); input.value=""; });
+  ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();if(!drop.classList.contains("disabled"))drop.classList.add("over");}));
+  ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+  drop.addEventListener("drop",e=>{ if(drop.classList.contains("disabled")) return; const f=e.dataTransfer.files; if(f&&f.length) handleFiles(f); });
+
+  $("#btnManual").addEventListener("click",()=>{ const card=makeCard("Documento manual","preenchimento manual"); manualBody(card); const c=card.querySelector(".f-cond"); if(c) c.focus(); });
+
+  $("#segDefault").addEventListener("click",e=>{ const b=e.target.closest("button[data-tipo]"); if(!b) return; defaultTipo=b.dataset.tipo; $("#segDefault").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false")); recomputeAll(); });
+  ["#complGlobal","#rSimples","#rAR"].forEach(s=>$(s).addEventListener("input",recomputeAll));
+
+  let tT; function showToast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(tT);tT=setTimeout(()=>t.classList.remove("show"),1700);}
+
+  refreshTop(); initOCR();
+})();
+</script>
+</body>
+</html>

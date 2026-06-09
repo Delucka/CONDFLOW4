@@ -17,6 +17,7 @@ export const ROUTE_ACCESS = {
   '/carteiras/cobrancas': ['master','gerente','assistente'],
   '/aprovacoes':          ['master','gerente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
   '/central-emissoes':    ['master','departamento'],
+  '/correios':            ['master','departamento'],
   '/consumos':            ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
   '/admin/usuarios':      ['master'],
   '/admin/importar-gerentes': ['master'],
