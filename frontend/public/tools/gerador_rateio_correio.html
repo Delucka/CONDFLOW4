@@ -299,21 +299,26 @@
     }
     try{ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; }catch(e){}
     st.className="ocrstatus"; st.innerHTML='<span class="spin"></span><span>Preparando o leitor ('+POOL_SIZE+' em paralelo)…</span>';
+    pool = [];
     try{
-      pool = await Promise.all(Array.from({length:POOL_SIZE}, ()=>Tesseract.createWorker("por")));
-      ocrReady=true; st.className="ocrstatus ok";
-      st.innerHTML='<span class="dot"></span><span>Leitor pronto ('+POOL_SIZE+' em paralelo) — pode anexar centenas de documentos de uma vez</span>';
+      // Sequencial (evita corrida de inicialização ao criar vários ao mesmo tempo)
+      for(let i=0;i<POOL_SIZE;i++){ pool.push(await Tesseract.createWorker("por")); }
     }catch(e){
-      ocrReady=false; st.className="ocrstatus bad";
-      st.innerHTML='<span class="dot"></span><span>Falha ao iniciar o leitor</span>';
-      $("#libBanner").classList.remove("hidden"); $("#drop").classList.add("disabled");
+      // Sem motor persistente -> as raias usam o método convencional (mais lento, porém funciona)
+      pool = Array.from({length:POOL_SIZE}, ()=>null);
     }
+    ocrReady=true; st.className="ocrstatus ok";
+    st.innerHTML='<span class="dot"></span><span>Leitor pronto ('+POOL_SIZE+' em paralelo) — pode anexar centenas de documentos de uma vez</span>';
   }
 
   /* ---------- PDF/imagem -> texto (página a página, com um worker JÁ pronto) ---------- */
   function loadImage(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=()=>rej(new Error("Falha ao abrir a imagem")); img.src=URL.createObjectURL(file); }); }
   async function ocrCanvas(worker, canvas){
-    const { data } = await worker.recognize(canvas);   // reutiliza o motor — rápido
+    if(worker){
+      try{ const { data } = await worker.recognize(canvas); return (data&&data.text)||""; }
+      catch(e){ /* motor persistente falhou -> usa o método convencional abaixo */ }
+    }
+    const { data } = await Tesseract.recognize(canvas, "por");  // fallback garantido (o que já funcionava)
     return (data && data.text) || "";
   }
   async function ocrFileWithWorker(file, worker, onProgress){
