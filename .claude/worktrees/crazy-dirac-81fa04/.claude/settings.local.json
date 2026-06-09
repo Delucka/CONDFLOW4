@@ -45,7 +45,9 @@
       "Bash(grep -n \"function fmt\\\\|const fmt\\\\|MESES\\\\|toLocaleString.*BRL\\\\|R\\\\\\\\$ \" VisaoEmissor.js)",
       "Bash(curl -s -A \"Mozilla/5.0\" \"https://condominios-gamma.vercel.app/?t=$\\(date +%s\\)\")",
       "Bash(curl -s -o /dev/null -w \"status=%{http_code} -> %{url_effective}\\\\n\" -L \"https://frontend-theta-liard-32.vercel.app/\")",
-      "Bash(curl -s -A \"Mozilla/5.0\" -L \"https://frontend-theta-liard-32.vercel.app/\")"
+      "Bash(curl -s -A \"Mozilla/5.0\" -L \"https://frontend-theta-liard-32.vercel.app/\")",
+      "Bash(python -c \"import pdfplumber; print\\('pdfplumber OK'\\)\")",
+      "Bash(python -)"
     ]
   }
 }

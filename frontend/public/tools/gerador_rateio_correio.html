@@ -278,33 +278,45 @@
   const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/ /g,"\u00a0");
   const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
 
-  /* ---------- OCR availability ---------- */
+  /* ---------- OCR engine: POOL de workers PERSISTENTES (rápido + aguenta centenas) ---------- */
+  const POOL_SIZE = Math.min(4, Math.max(2, (navigator.hardwareConcurrency||2)));
+  let pool = [];          // workers reaproveitados — NÃO recria o motor a cada página (é isso que dava lentidão/travamento)
+  const SCALE = 2.0;      // resolução suficiente p/ dígitos impressos; mais leve e rápida que 2.6
+
   function waitForLibs(timeout=14000){
     return new Promise(res=>{ const t0=Date.now();
       (function chk(){ if(window.pdfjsLib&&window.Tesseract) res(true);
         else if(Date.now()-t0>timeout) res(false); else setTimeout(chk,300); })(); });
   }
   async function initOCR(){
-    const ok=await waitForLibs(); const st=$("#ocrStatus");
-    if(ok){
-      try{ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; }catch(e){}
-      ocrReady=true; st.className="ocrstatus ok";
-      st.innerHTML='<span class="dot"></span><span>Leitor pronto — pode anexar seus documentos</span>';
-    }else{
+    const st=$("#ocrStatus");
+    const ok=await waitForLibs();
+    if(!ok){
       ocrReady=false; st.className="ocrstatus bad";
       st.innerHTML='<span class="dot"></span><span>O leitor não carregou aqui</span>';
+      $("#libBanner").classList.remove("hidden"); $("#drop").classList.add("disabled");
+      return;
+    }
+    try{ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; }catch(e){}
+    st.className="ocrstatus"; st.innerHTML='<span class="spin"></span><span>Preparando o leitor ('+POOL_SIZE+' em paralelo)…</span>';
+    try{
+      pool = await Promise.all(Array.from({length:POOL_SIZE}, ()=>Tesseract.createWorker("por")));
+      ocrReady=true; st.className="ocrstatus ok";
+      st.innerHTML='<span class="dot"></span><span>Leitor pronto ('+POOL_SIZE+' em paralelo) — pode anexar centenas de documentos de uma vez</span>';
+    }catch(e){
+      ocrReady=false; st.className="ocrstatus bad";
+      st.innerHTML='<span class="dot"></span><span>Falha ao iniciar o leitor</span>';
       $("#libBanner").classList.remove("hidden"); $("#drop").classList.add("disabled");
     }
   }
 
-  /* ---------- PDF/image -> OCR text (page by page, memory-friendly) ---------- */
+  /* ---------- PDF/imagem -> texto (página a página, com um worker JÁ pronto) ---------- */
   function loadImage(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=()=>rej(new Error("Falha ao abrir a imagem")); img.src=URL.createObjectURL(file); }); }
-  const SCALE=2.6;
-  async function ocrOne(canvas, onProgress){
-    const {data}=await Tesseract.recognize(canvas,"por",{ logger:m=>{ if(m.status==="recognizing text"&&onProgress) onProgress(m.progress||0); } });
-    return (data&&data.text)||"";
+  async function ocrCanvas(worker, canvas){
+    const { data } = await worker.recognize(canvas);   // reutiliza o motor — rápido
+    return (data && data.text) || "";
   }
-  async function ocrFile(file, onProgress){
+  async function ocrFileWithWorker(file, worker, onProgress){
     const isPdf = file.type==="application/pdf" || /\.pdf$/i.test(file.name);
     let text="";
     if(isPdf){
@@ -317,15 +329,19 @@
         const cv=document.createElement("canvas");
         cv.width=Math.ceil(vp.width); cv.height=Math.ceil(vp.height);
         await page.render({canvasContext:cv.getContext("2d",{alpha:false}), viewport:vp}).promise;
-        text+="\n"+await ocrOne(cv, fr=>{ if(onProgress) onProgress(((p-1)+fr)/n); });
-        cv.width=cv.height=0; if(page.cleanup) page.cleanup();
+        if(onProgress) onProgress(p, n);
+        text+="\n"+await ocrCanvas(worker, cv);
+        cv.width=cv.height=0; if(page.cleanup) page.cleanup();   // libera a memória da página
       }
+      try{ pdf.destroy(); }catch(e){}
     }else{
       const img=await loadImage(file);
       const cv=document.createElement("canvas");
       cv.width=img.naturalWidth||img.width; cv.height=img.naturalHeight||img.height;
       cv.getContext("2d").drawImage(img,0,0);
-      text+="\n"+await ocrOne(cv, onProgress);
+      if(onProgress) onProgress(1,1);
+      text+="\n"+await ocrCanvas(worker, cv);
+      cv.width=cv.height=0;
     }
     return text;
   }
@@ -507,18 +523,34 @@
     $("#btnAll").disabled=ready===0;
   }
 
-  /* ---------- intake ---------- */
-  async function handleFiles(files){
-    for(const file of files){
+  /* ---------- intake (fila com POOL_SIZE arquivos em paralelo) ---------- */
+  async function handleFiles(fileList){
+    const files = Array.from(fileList||[]);
+    if(!files.length) return;
+    // Cria os cards já, na ordem
+    const jobs = files.map(file=>{
       const sizeMB=file.size/1048576; const meta=(sizeMB<1?Math.round(file.size/1024)+" KB":sizeMB.toFixed(1)+" MB");
-      const card=makeCard(file.name, meta);
-      if(!ocrReady){ showError(card,"O leitor automático não está disponível aqui."); continue; }
-      try{
-        setRead(card,"Lendo o documento…");
-        const text=await ocrFile(file,(frac)=>{ const pct=Math.round(frac*100); badge(card,"reading","Lendo… "+pct+"%"); setRead(card,"Reconhecendo o texto… "+pct+"%"); });
-        populate(card, parseText(text));
-      }catch(err){ showError(card,(err&&err.message)||"Não consegui ler o documento."); }
+      return { file, card: makeCard(file.name, meta) };
+    });
+    if(!ocrReady){ jobs.forEach(j=>showError(j.card,"O leitor ainda está carregando — aguarde alguns segundos e solte os arquivos de novo.")); return; }
+
+    let idx=0;
+    async function lane(worker){
+      while(idx < jobs.length){
+        const my = idx++;                 // JS é single-thread entre awaits → sem corrida; cada raia pega um índice
+        const { file, card } = jobs[my];
+        try{
+          badge(card,"reading","Lendo…"); setRead(card,"Reconhecendo o texto…");
+          const text=await ocrFileWithWorker(file, worker, (p,n)=>{
+            badge(card,"reading", n>1 ? ("Lendo… pág "+p+"/"+n) : "Lendo…");
+            setRead(card, n>1 ? ("Reconhecendo… página "+p+" de "+n) : "Reconhecendo o texto…");
+          });
+          populate(card, parseText(text));
+        }catch(err){ showError(card,(err&&err.message)||"Não consegui ler o documento."); }
+      }
     }
+    // Uma "raia" por worker do pool → processa POOL_SIZE arquivos ao mesmo tempo, memória limitada
+    await Promise.all(pool.map(w=>lane(w)));
   }
   const drop=$("#drop"), input=$("#fileInput");
   drop.addEventListener("click",()=>{ if(!drop.classList.contains("disabled")) input.click(); });
