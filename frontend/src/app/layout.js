@@ -12,9 +12,14 @@ export const metadata = {
   description: "Gestão moderna de arrecadações, cobranças e aprovações de condomínios",
 };
 
+const themeScript = `(function(){try{if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`;
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className={`${inter.variable} font-sans text-slate-800 antialiased min-h-screen bg-slate-50`}>
         <AuthProvider>
           <SWRProvider>

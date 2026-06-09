@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useState } from 'react';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
 import { usePendingCount } from '@/lib/usePendingCount';
+import ThemeToggle from './ThemeToggle';
 import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp, KeyRound, Droplet, Mail } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -102,6 +103,7 @@ export default function Sidebar() {
         </button>
 
         <div className="px-3 mt-auto mb-4 relative z-10 space-y-0.5">
+          <ThemeToggle collapsed={collapsed} />
           <Link href="/alterar-senha" title={collapsed ? 'Alterar senha' : undefined}
             className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-500 hover:bg-slate-100 hover:text-violet-600 transition-colors font-bold w-full ${collapsed ? 'justify-center px-0' : ''}`}>
             <KeyRound className="w-4 h-4 shrink-0" />
