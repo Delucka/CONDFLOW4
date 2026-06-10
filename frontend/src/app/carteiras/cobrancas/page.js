@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
@@ -7,7 +7,7 @@ import { can } from '@/lib/roles';
 import {
   Plus, Trash2, Loader2, X, AlertCircle, CheckCircle2,
   Receipt, Calendar, Repeat, Building2, Clock, Lock,
-  UploadCloud, FileText
+  UploadCloud, FileText, ChevronDown, Search
 } from 'lucide-react';
 
 import { useLockedMonths } from '@/lib/useLockedMonths';
@@ -44,6 +44,58 @@ async function apiFetch(url, opts = {}) {
 }
 
 // ─── Modal: Lançar Cobrança ────────────────────────────────────────
+// ─── Picker de condomínio com busca (digita código ou nome) ───
+function CondoPicker({ condominios, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const ref = useRef(null);
+  const sel = condominios.find(c => c.id === value);
+
+  useEffect(() => {
+    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return s ? condominios.filter(c => (c.name || '').toLowerCase().includes(s)) : condominios;
+  }, [condominios, q]);
+
+  return (
+    <div className="relative w-full sm:w-[280px]" ref={ref}>
+      <button type="button" onClick={() => { setOpen(o => !o); setQ(''); }}
+        className="w-full flex items-center justify-between gap-2 bg-slate-100 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-800 outline-none focus:border-amber-500">
+        <span className="truncate">{sel ? sel.name : 'Selecione o condomínio'}</span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden">
+          <div className="p-2 border-b border-slate-100">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input autoFocus value={q} onChange={e => setQ(e.target.value)}
+                placeholder="Buscar por código ou nome…"
+                className="w-full pl-8 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-amber-500 placeholder-slate-400" />
+            </div>
+          </div>
+          <div className="max-h-72 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-5 text-xs text-slate-400 text-center">Nenhum condomínio encontrado.</p>
+            ) : filtered.map(c => (
+              <button key={c.id} type="button" onClick={() => { onChange(c.id); setOpen(false); }}
+                className={`w-full text-left px-3 py-2 text-sm transition-colors ${c.id === value ? 'bg-amber-50 text-amber-700 font-bold' : 'text-slate-700 hover:bg-slate-100'}`}>
+                {c.name}
+              </button>
+            ))}
+          </div>
+          <div className="px-3 py-1.5 border-t border-slate-100 text-[10px] text-slate-400">{filtered.length} condomínio{filtered.length !== 1 ? 's' : ''}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ModalLancar({ condominioId, condominioNome, onClose, onSaved }) {
   const { addToast } = useToast();
   const { mes: mesAtual, ano: anoAtual } = getMesAtual();
@@ -514,10 +566,7 @@ export default function CobrancasExtrasPage() {
               {loadingCondos ? 'Carregando carteira...' : 'Nenhum condomínio na sua carteira'}
             </span>
           ) : (
-            <select value={condoSel} onChange={e => setCondoSel(e.target.value)}
-              className="bg-slate-100 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-800 outline-none focus:border-amber-500 min-w-[260px]">
-              {condominios.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <CondoPicker condominios={condominios} value={condoSel} onChange={setCondoSel} />
           )}
           {podeLancar && condominios.length > 0 && (
             <button onClick={() => setModalLancar(true)}
