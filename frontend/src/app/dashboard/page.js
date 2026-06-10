@@ -150,6 +150,11 @@ export default function DashboardPage() {
   const [filtroGerente, setFiltroGerente] = useState('');
   const [mesEmissao, setMesEmissao] = useState(MES_ATUAL);
   const [ordemAsc, setOrdemAsc] = useState(true);
+
+  // Persiste o mês escolhido: mantém ao sair/voltar; só muda quando o usuário troca
+  useEffect(() => { const v = parseInt(localStorage.getItem('dash_mes') || '', 10); if (v >= 1 && v <= 12) setMesEmissao(v); }, []);
+  useEffect(() => { try { localStorage.setItem('dash_mes', String(mesEmissao)); } catch {} }, [mesEmissao]);
+
   const { user } = useAuth();
   const supabase = createClient();
   const { addToast } = useToast();

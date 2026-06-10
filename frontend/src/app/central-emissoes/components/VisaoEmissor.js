@@ -33,6 +33,13 @@ export default function VisaoEmissor({ profile }) {
   const [condoId, setCondoId] = useState('');
   const [mes, setMes] = useState(new Date().getMonth() + 1);
   const [ano, setAno] = useState(new Date().getFullYear());
+
+  // Persiste mês/ano: mantém ao sair/voltar; só muda quando o usuário troca
+  useEffect(() => {
+    const m = parseInt(localStorage.getItem('emissor_mes') || '', 10); if (m >= 1 && m <= 12) setMes(m);
+    const a = parseInt(localStorage.getItem('emissor_ano') || '', 10); if (a > 2000) setAno(a);
+  }, []);
+  useEffect(() => { try { localStorage.setItem('emissor_mes', String(mes)); localStorage.setItem('emissor_ano', String(ano)); } catch {} }, [mes, ano]);
   
   // Modal de conclusão
   const [showConcluirModal, setShowConcluirModal] = useState(false);
