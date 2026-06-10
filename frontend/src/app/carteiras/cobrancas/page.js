@@ -44,12 +44,13 @@ async function apiFetch(url, opts = {}) {
 }
 
 // ─── Modal: Lançar Cobrança ────────────────────────────────────────
-function ModalLancar({ condominioId, onClose, onSaved }) {
+function ModalLancar({ condominioId, condominioNome, onClose, onSaved }) {
   const { addToast } = useToast();
   const { mes: mesAtual, ano: anoAtual } = getMesAtual();
 
   const [form, setForm] = useState({
     descricao: '',
+    unidades: '',
     valor_total: '',
     mes_inicio: mesAtual,
     ano_inicio: anoAtual,
@@ -79,8 +80,25 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
     return arr;
   }, [form.parcelas, form.mes_inicio, form.ano_inicio, isMesTravado]);
 
+  // Meses disponíveis para INÍCIO: oculta bloqueados/emitidos/passados (nem aparecem)
+  const mesesDisponiveis = useMemo(
+    () => MESES.map((m, i) => ({ mes: i + 1, label: m }))
+      .filter(({ mes }) => !(isMesTravado(mes) || isMesNoPassado(mes, form.ano_inicio))),
+    [isMesTravado, form.ano_inicio]
+  );
+  // Se o mês inicial selecionado ficou indisponível, pula pro primeiro disponível
+  useEffect(() => {
+    if (mesesDisponiveis.length && !mesesDisponiveis.some(x => x.mes === form.mes_inicio)) {
+      setForm(f => ({ ...f, mes_inicio: mesesDisponiveis[0].mes }));
+    }
+  }, [mesesDisponiveis, form.mes_inicio]);
+
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!form.unidades.trim()) {
+      addToast('Informe a(s) unidade(s) do condomínio.', 'error');
+      return;
+    }
     if (parcelasEmMesBloqueado.length > 0) {
       addToast('Alguma parcela cai em mês bloqueado. Escolha outro mês inicial.', 'error');
       return;
@@ -108,6 +126,7 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
           mes_inicio: form.mes_inicio,
           ano_inicio: form.ano_inicio,
           parcelas: form.parcelas,
+          unidades: form.unidades.trim(),
           attachments: fileUrl ? [fileUrl] : []
         })
       });
@@ -136,11 +155,28 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+          {/* Condomínio (selecionado na página) */}
+          <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+            <Building2 className="w-4 h-4 text-violet-600 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[9px] text-violet-500 font-black uppercase tracking-widest leading-none">Condomínio</p>
+              <p className="text-sm font-bold text-slate-800 truncate">{condominioNome || '—'}</p>
+            </div>
+          </div>
+
           <div>
             <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Descrição</label>
             <input required value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })}
               placeholder="Ex: Reforma portão eletrônico"
               className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500 placeholder-slate-400" />
+          </div>
+
+          <div>
+            <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Unidade(s) <span className="text-rose-500">*</span></label>
+            <input required value={form.unidades} onChange={e => setForm({ ...form, unidades: e.target.value })}
+              placeholder="Ex: 101, 102, 203 — pode ser mais de uma"
+              className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500 placeholder-slate-400" />
+            <p className="text-[10px] text-slate-400 mt-1">Informe a(s) unidade(s) a que esta cobrança se refere (separe por vírgula).</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -177,11 +213,10 @@ function ModalLancar({ condominioId, onClose, onSaved }) {
               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mês inicial</label>
               <select value={form.mes_inicio} onChange={e => setForm({ ...form, mes_inicio: Number(e.target.value) })}
                 className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500">
-                {MESES.map((m, i) => {
-                  const mes = i + 1;
-                  const bloq = isMesTravado(mes) || isMesNoPassado(mes, form.ano_inicio);
-                  return <option key={i} value={mes} disabled={bloq}>{m}{bloq ? ' 🔒' : ''}</option>;
-                })}
+                {mesesDisponiveis.length === 0 && <option value="">— sem meses disponíveis —</option>}
+                {mesesDisponiveis.map(({ mes, label }) => (
+                  <option key={mes} value={mes}>{label}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -668,7 +703,7 @@ export default function CobrancasExtrasPage() {
       )}
 
       {modalLancar && (
-        <ModalLancar condominioId={condoSel} onClose={() => setModalLancar(false)} onSaved={carregar} />
+        <ModalLancar condominioId={condoSel} condominioNome={condoNome} onClose={() => setModalLancar(false)} onSaved={carregar} />
       )}
       {modalCancelar && (
         <ModalCancelar cobranca={modalCancelar} onClose={() => setModalCancelar(null)} onSaved={carregar} />

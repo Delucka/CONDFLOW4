@@ -1017,7 +1017,7 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
         is_retif = request.query_params.get("retificacao") == "true"
 
         query = db.table("cobrancas_extras") \
-            .select("id,description,amount,created_at,attachments,status,mes,ano") \
+            .select("id,description,amount,created_at,attachments,status,mes,ano,unidades") \
             .eq("condominio_id", condo_id) \
             .neq("status", "cancelada")
 
@@ -1048,6 +1048,7 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
                 'mes_nome':    MESES_PT.get(mes_int, '—'),
                 'ano':         c.get('ano'),
                 'valor':       parse_valor(c.get('amount')),
+                'unidades':    c.get('unidades'),
                 'attachments': signed_atts,
             })
     except Exception as e:
@@ -1302,6 +1303,7 @@ class CobrancaExtraSchema(BaseModel):
     ano_inicio: int
     parcelas: int = 1   # 1 = sem parcelamento
     attachments: Optional[list] = []
+    unidades: Optional[str] = None   # unidade(s) do condomínio (obrigatório)
 
 @router.post("/cobrancas-extras/lancar")
 def api_lancar_cobranca_extra(
@@ -1324,6 +1326,9 @@ def api_lancar_cobranca_extra(
 
     if data.valor_total <= 0:
         raise HTTPException(400, "Valor deve ser maior que zero.")
+
+    if not (data.unidades and data.unidades.strip()):
+        raise HTTPException(400, "Informe a(s) unidade(s) do condomínio.")
 
     import uuid
     grupo_id = str(uuid.uuid4())
@@ -1354,6 +1359,7 @@ def api_lancar_cobranca_extra(
                 "grupo_id": grupo_id,
                 "status": "ativa",
                 "attachments": data.attachments,
+                "unidades": data.unidades.strip(),
             })
 
         db.table("cobrancas_extras").insert(registros).execute()

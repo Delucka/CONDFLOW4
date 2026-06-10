@@ -1016,6 +1016,9 @@ export default function VisaoEmissor({ profile }) {
                             <input type="checkbox" checked={checked} onChange={() => toggleCobranca(c.id)} className="w-4 h-4 accent-violet-600 shrink-0" />
                             <div className="flex-1 min-w-0">
                               <p className={`text-xs font-bold truncate ${checked ? 'text-slate-800' : 'text-slate-500'}`}>{c.descricao}</p>
+                              {c.unidades && (
+                                <p className="text-[10px] text-violet-600 font-bold truncate">🏠 unid.: {c.unidades}</p>
+                              )}
                               {c.attachments?.length > 0 && (
                                 <a href={c.attachments[0]} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
                                   className="text-[10px] text-violet-500 hover:underline inline-flex items-center gap-1">
