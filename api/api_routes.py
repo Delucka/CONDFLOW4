@@ -147,6 +147,49 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         print(f"ERROR /dashboard: {e}")
         raise HTTPException(500, str(e))
 
+
+class EmailHookSchema(BaseModel):
+    to: str
+    subject: str
+    html: str
+
+@router.post("/notificacoes/email-hook")
+def api_email_hook(data: EmailHookSchema, request: Request):
+    """Envia e-mail via SMTP (Gmail). Chamado pelo banco (pg_net) com o segredo no header.
+    NÃO usa get_current_user — é protegido pelo header x-notif-secret."""
+    import os, smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    secret = os.getenv("NOTIF_EMAIL_SECRET")
+    if not secret or request.headers.get("x-notif-secret") != secret:
+        raise HTTPException(401, "unauthorized")
+
+    smtp_user = os.getenv("SMTP_USER") or os.getenv("GMAIL_USER")
+    smtp_pass = os.getenv("SMTP_PASS") or os.getenv("GMAIL_APP_PASSWORD")
+    if not smtp_user or not smtp_pass:
+        return {"ok": False, "reason": "SMTP não configurado (defina GMAIL_USER e GMAIL_APP_PASSWORD)"}
+
+    host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    port = int(os.getenv("SMTP_PORT", "465"))
+    from_name = os.getenv("EMAIL_FROM_NAME", "CondoFlow")
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = data.subject
+    msg["From"] = f"{from_name} <{smtp_user}>"
+    msg["To"] = data.to
+    msg.attach(MIMEText(data.html, "html", "utf-8"))
+
+    try:
+        with smtplib.SMTP_SSL(host, port, timeout=15) as s:
+            s.login(smtp_user, smtp_pass)
+            s.sendmail(smtp_user, [data.to], msg.as_string())
+        return {"ok": True}
+    except Exception as e:
+        print(f"[email-hook] erro ao enviar para {data.to}: {e}")
+        raise HTTPException(500, "falha no envio de e-mail")
+
+
 @router.get("/condominios")
 def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:

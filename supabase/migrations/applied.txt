@@ -52,3 +52,4 @@
 0047_cobrancas_extras_unidades.sql
 0048_notificacoes.sql
 0049_email_notificacoes.sql
+0050_email_via_backend_smtp.sql
