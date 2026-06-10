@@ -3,7 +3,8 @@ import { useAuth } from '@/lib/auth';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import Sidebar from './Sidebar';
-import { Loader2, Bell } from 'lucide-react';
+import NotificationsBell from './NotificationsBell';
+import { Loader2 } from 'lucide-react';
 
 export default function AppShell({ children }) {
   const { user, loading } = useAuth();
@@ -71,10 +72,7 @@ export default function AppShell({ children }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="relative p-1.5 rounded-lg hover:bg-slate-100 transition-all group">
-              <Bell className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
-              <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
-            </button>
+            <NotificationsBell />
             <div className="hidden sm:flex items-center gap-2">
               <div className="text-right">
                 <p className="text-xs font-bold text-slate-700 leading-tight">Painel de Acesso</p>
