@@ -51,3 +51,4 @@
 0046_cobrancas_incluidas_emissao.sql
 0047_cobrancas_extras_unidades.sql
 0048_notificacoes.sql
+0049_email_notificacoes.sql

@@ -23,8 +23,47 @@ export default function NotificationsBell() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const ref = useRef(null);
+  const audioCtxRef = useRef(null);
+  const prevIdsRef = useRef(null);   // null = ainda não carregou a 1ª vez
+  const tituloOrigRef = useRef(null);
+  const blinkRef = useRef(null);
 
   const naoLidas = items.filter(n => !n.lida).length;
+
+  // Beep curto (Web Audio — sem arquivo). Desbloqueado no 1º clique do usuário.
+  function beep() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const ctx = audioCtxRef.current || new Ctx();
+      audioCtxRef.current = ctx;
+      if (ctx.state === 'suspended') ctx.resume();
+      const t = ctx.currentTime;
+      [880, 1175].forEach((freq, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = freq;
+        const start = t + i * 0.14;
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(0.18, start + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + 0.13);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(start); o.stop(start + 0.14);
+      });
+    } catch { /* navegador pode bloquear sem gesto — ignora */ }
+  }
+
+  function pararBlink() {
+    if (blinkRef.current) { clearInterval(blinkRef.current); blinkRef.current = null; }
+    if (tituloOrigRef.current != null) { document.title = tituloOrigRef.current; }
+  }
+  function iniciarBlink() {
+    if (blinkRef.current) return;
+    if (tituloOrigRef.current == null) tituloOrigRef.current = document.title;
+    let on = false;
+    blinkRef.current = setInterval(() => {
+      document.title = on ? tituloOrigRef.current : '🔔 Nova notificação!';
+      on = !on;
+    }, 1000);
+  }
 
   const fetchItems = useCallback(async () => {
     const { data } = await supabase
@@ -54,6 +93,41 @@ export default function NotificationsBell() {
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
+
+  // Desbloqueia o áudio no 1º gesto do usuário (política de autoplay)
+  useEffect(() => {
+    function unlock() {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+        audioCtxRef.current.resume?.();
+      } catch {}
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    }
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); };
+  }, []);
+
+  // Detecta NOVA notificação -> beep + aba piscando
+  useEffect(() => {
+    const ids = new Set(items.map(i => i.id));
+    if (prevIdsRef.current === null) { prevIdsRef.current = ids; return; } // ignora 1ª carga
+    const chegou = items.some(i => !prevIdsRef.current.has(i.id) && !i.lida);
+    prevIdsRef.current = ids;
+    if (chegou) { beep(); iniciarBlink(); }
+  }, [items]);
+
+  // Para de piscar quando o usuário volta pra aba, abre o sino ou zera as não lidas
+  useEffect(() => {
+    function onFocus() { if (!document.hidden) pararBlink(); }
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => { window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus); };
+  }, []);
+  useEffect(() => { if (open || naoLidas === 0) pararBlink(); }, [open, naoLidas]);
+  useEffect(() => () => pararBlink(), []);
 
   async function marcarLida(n) {
     if (!n.lida) {
