@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -27,6 +28,9 @@ export default function NotificationsBell() {
   const prevIdsRef = useRef(null);   // null = ainda não carregou a 1ª vez
   const tituloOrigRef = useRef(null);
   const blinkRef = useRef(null);
+  const btnRef = useRef(null);
+  const dropRef = useRef(null);
+  const [pos, setPos] = useState({ top: 56, right: 16 });
 
   const naoLidas = items.filter(n => !n.lida).length;
 
@@ -87,9 +91,13 @@ export default function NotificationsBell() {
     return () => { clearInterval(t); supabase.removeChannel(ch); };
   }, [user, fetchItems, supabase]);
 
-  // Fecha ao clicar fora
+  // Fecha ao clicar fora (considera o dropdown, que agora é renderizado via portal)
   useEffect(() => {
-    function onDoc(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+    function onDoc(e) {
+      if (ref.current && ref.current.contains(e.target)) return;
+      if (dropRef.current && dropRef.current.contains(e.target)) return;
+      setOpen(false);
+    }
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
@@ -149,9 +157,17 @@ export default function NotificationsBell() {
     if (n.link) router.push(n.link);
   }
 
+  function toggle() {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: Math.round(r.bottom + 8), right: Math.round(window.innerWidth - r.right) });
+    }
+    setOpen(o => !o);
+  }
+
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(o => !o)} className="relative p-1.5 rounded-lg hover:bg-slate-100 transition-all group" title="Notificações">
+      <button ref={btnRef} onClick={toggle} className="relative p-1.5 rounded-lg hover:bg-slate-100 transition-all group" title="Notificações">
         <Bell className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
         {naoLidas > 0 && (
           <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black min-w-[15px] h-[15px] px-1 rounded-full flex items-center justify-center leading-none">
@@ -160,8 +176,9 @@ export default function NotificationsBell() {
         )}
       </button>
 
-      {open && (
-        <div className="absolute right-0 mt-2 w-[340px] max-w-[90vw] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden z-[100]">
+      {open && createPortal(
+        <div ref={dropRef} style={{ top: pos.top, right: pos.right }}
+          className="fixed w-[340px] max-w-[90vw] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden z-[9999]">
           <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
             <p className="text-xs font-black uppercase tracking-widest text-slate-600">Notificações</p>
             {naoLidas > 0 && (
@@ -193,7 +210,8 @@ export default function NotificationsBell() {
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

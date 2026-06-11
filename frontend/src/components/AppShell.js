@@ -66,7 +66,7 @@ export default function AppShell({ children }) {
       <main className="flex-1 flex flex-col min-w-0 min-h-0 glass-panel rounded-2xl overflow-hidden relative">
 
         {/* Header Fixo */}
-        <header className="h-[56px] px-5 flex flex-wrap items-center justify-between shrink-0 border-b border-slate-200 z-50 relative">
+        <header className="h-[56px] px-5 flex flex-wrap items-center justify-between shrink-0 border-b border-slate-200 z-20 relative">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-black text-slate-900 tracking-tight">{pageTitle}</h2>
           </div>
