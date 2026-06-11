@@ -395,6 +395,24 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted }) {
   const style = roleStyle[u.role] || roleStyle.gerente;
   const condos = u.condominios || [];
   const [expanded, setExpanded] = useState(false);
+  const { addToast } = useToast();
+  const [notifEmail, setNotifEmail] = useState(u.notificacao_email || '');
+  const [savingNotif, setSavingNotif] = useState(false);
+
+  async function salvarNotif() {
+    setSavingNotif(true);
+    try {
+      await apiFetch(`/api/usuarios/${u.id}/notificacao-email`, {
+        method: 'POST',
+        body: JSON.stringify({ notificacao_email: notifEmail.trim() || null }),
+      });
+      addToast('E-mail de notificação salvo.', 'success');
+    } catch (e) {
+      addToast(e.message || 'Erro ao salvar', 'error');
+    } finally {
+      setSavingNotif(false);
+    }
+  }
 
   return (
     <div className="bg-white border border-slate-800 p-5 rounded-xl shadow-xl hover:border-violet-500/30 transition-colors group flex flex-col gap-4">
@@ -427,8 +445,25 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted }) {
         )}
       </div>
 
+      {/* E-mail de notificação (para onde vão os avisos por e-mail) */}
+      <div className="border-t border-slate-200 pt-3">
+        <label className="text-[10px] text-slate-500 uppercase font-bold tracking-wider flex items-center gap-1.5 mb-1.5">
+          <Mail className="w-3 h-3" /> E-mail de notificação
+        </label>
+        <div className="flex gap-2">
+          <input type="email" value={notifEmail} onChange={e => setNotifEmail(e.target.value)}
+            placeholder={`${u.email} (login)`}
+            className="flex-1 min-w-0 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-violet-500 placeholder-slate-400" />
+          <button onClick={salvarNotif} disabled={savingNotif}
+            className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[10px] font-bold uppercase hover:bg-violet-500 disabled:opacity-50 shrink-0">
+            {savingNotif ? '...' : 'Salvar'}
+          </button>
+        </div>
+        <p className="text-[10px] text-slate-400 mt-1">Vazio = usa o e-mail de login. Os avisos por e-mail vão pra cá.</p>
+      </div>
+
       {isGerente && (
-        <div className="border-t border-slate-800 pt-3">
+        <div className="border-t border-slate-200 pt-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider flex items-center gap-1.5">
               <Building2 className="w-3 h-3" /> Carteira ({condos.length})

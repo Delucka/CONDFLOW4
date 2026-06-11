@@ -966,6 +966,19 @@ def api_usuarios_completo(user: dict = Depends(get_current_user), db: Client = D
     
     return {"usuarios": result}
 
+
+class NotificacaoEmailSchema(BaseModel):
+    notificacao_email: Optional[str] = None
+
+@router.post("/usuarios/{profile_id}/notificacao-email")
+def api_set_notificacao_email(profile_id: str, data: NotificacaoEmailSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Define o e-mail para onde vão as notificações deste usuário (vazio = usa o e-mail de login)."""
+    if user["role"] != "master":
+        raise HTTPException(403, "Acesso negado")
+    val = (data.notificacao_email or "").strip() or None
+    db.table("profiles").update({"notificacao_email": val}).eq("id", profile_id).execute()
+    return {"success": True}
+
 # ═══════════════════════════════════════════════════════════════════════
 # CondoFlow — Novas rotas RBAC + Conferência
 # ═══════════════════════════════════════════════════════════════════════

@@ -47,7 +47,8 @@
       "Bash(curl -s -o /dev/null -w \"status=%{http_code} -> %{url_effective}\\\\n\" -L \"https://frontend-theta-liard-32.vercel.app/\")",
       "Bash(curl -s -A \"Mozilla/5.0\" -L \"https://frontend-theta-liard-32.vercel.app/\")",
       "Bash(python -c \"import pdfplumber; print\\('pdfplumber OK'\\)\")",
-      "Bash(python -)"
+      "Bash(python -)",
+      "Bash(curl -s -X POST https://condominios-gamma.vercel.app/api/notificacoes/email-hook -H 'Content-Type: application/json' -H 'x-notif-secret: cfnotif_c991d44b7b10c9947407b18f68c186c5' -d '{\"to\":\"denner.dlucka@gmail.com\",\"subject\":\"🔔 Teste CondoFlow\",\"html\":\"<div style=\\\\\"font-family:Arial\\\\\"><h2>Funcionou!</h2><p>Se você recebeu este e-mail, as notificações por e-mail do CondoFlow estão ativas. ✅</p></div>\"}' -w '\\\\n--- HTTP %{http_code} ---\\\\n')"
     ]
   }
 }

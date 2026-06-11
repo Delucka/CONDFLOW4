@@ -53,3 +53,4 @@
 0048_notificacoes.sql
 0049_email_notificacoes.sql
 0050_email_via_backend_smtp.sql
+0051_notificacao_email_todos.sql
