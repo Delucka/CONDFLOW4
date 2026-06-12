@@ -425,12 +425,50 @@
       if(!/^\d{2,6}[A-Za-z]?$/.test(uni)) continue;          // unidade válida (aceita letra no fim)
       if(cols.dest>=0 && !cellWin(r,cols.dest)) continue;     // guarda contra linhas de rodapé/continuação
       const bloco=cellWin(r,cols.bloco) || "0";
-      const key=(curCond||"")+"|"+bloco;
+      const snap=snapUnidade(curCond, bloco, uni);            // encaixa na lista oficial (se houver cadastro carregado)
+      const fb=snap.bloco, fu=snap.unidade;
+      const key=(curCond||"")+"|"+fb;
       let g=groups.get(key);
-      if(!g){ g={condominio_codigo:curCond||"", condominio_nome:curNome, bloco:bloco, unidades:[]}; groups.set(key,g); }
-      g.unidades.push({bloco:bloco, unidade:uni});            // NÃO deduplica: cada objeto = uma cobrança
+      if(!g){ g={condominio_codigo:curCond||"", condominio_nome:curNome, bloco:fb, unidades:[], fora:0, temCadastro:(snap.status!=="sem_cadastro")}; groups.set(key,g); }
+      g.unidades.push({bloco:fb, unidade:fu});                // NÃO deduplica: cada objeto = uma cobrança
+      if(snap.status==="fora") g.fora++;
     }
     const out=[]; groups.forEach(g=>{ g.esperado=g.unidades.length; out.push(g); }); return out;
+  }
+
+  /* ---------- Cadastro de unidades (lista oficial -> encaixe/validação 100%) ---------- */
+  let CAD=null, cadIndex=null;
+  const condKey = c => String(c||"").replace(/\D/g,"").padStart(4,"0");
+  // normaliza unidade/bloco: tira zeros à esquerda, mantém letra final (000015 == 00015 == 15; 011A == 11A)
+  function uniNorm(u){ const s=String(u||"").trim().toUpperCase(); const m=s.match(/^0*(\d+)([A-Z]?)$/); return m?(m[1]+m[2]):s; }
+  function buildCadIndex(cad){
+    const idx=new Map();
+    for(const c in cad){
+      const v=cad[c]; const byUni=new Map();
+      for(const par of (v.u||[])){ const b=par[0], u=par[1]; const k=uniNorm(u); if(!byUni.has(k)) byUni.set(k,[]); byUni.get(k).push({bloco:b,unidade:u}); }
+      idx.set(condKey(c), {nome:v.n, byUni});
+    }
+    return idx;
+  }
+  async function carregarCadastro(){
+    if(cadIndex) return cadIndex;
+    try{ const resp=await fetch("cadastro_unidades.json",{cache:"force-cache"}); if(resp.ok) CAD=await resp.json(); }catch(e){}
+    cadIndex = buildCadIndex(CAD||{});
+    return cadIndex;
+  }
+  // Encaixa (bloco,unidade) lidos na lista oficial. Casa por (bloco+unidade) com padding normalizado.
+  function snapUnidade(cond, bloco, uni){
+    const b = String(bloco||"0").trim();
+    const e = cadIndex && cadIndex.get(condKey(cond));
+    if(!e) return { bloco:b, unidade:uni, status:"sem_cadastro" };
+    const cands = e.byUni.get(uniNorm(uni));
+    if(cands && cands.length){
+      const igual = cands.find(x=>x.bloco===b) || cands.find(x=>uniNorm(x.bloco)===uniNorm(b));
+      if(igual) return { bloco:igual.bloco, unidade:igual.unidade, status:"exato" };
+      if(cands.length===1) return { bloco:cands[0].bloco, unidade:cands[0].unidade, status:"bloco_corrigido" };
+      return { bloco:b, unidade:cands[0].unidade, status:"ambiguo" };   // unidade existe em vários blocos; o lido não bate
+    }
+    return { bloco:b, unidade:uni, status:"fora" };                      // não está no cadastro
   }
 
   /* ---------- cards ---------- */
@@ -583,6 +621,7 @@
   /* ---------- intake XLS dos Correios (exato, sem OCR) ---------- */
   async function handleXlsxFiles(files){
     const ok = await waitForXlsx();
+    await carregarCadastro();                                  // lista oficial pronta antes de ler (encaixe + validação)
     for(const file of files){
       if(!ok || !window.XLSX){ showError(makeCard(file.name,"planilha"),"O leitor de planilha não carregou — recarregue a página conectado à internet."); continue; }
       let datasets=[];
@@ -592,7 +631,11 @@
       let i=0;
       for(const ds of datasets){
         const titulo = ds.condominio_codigo + (ds.bloco && ds.bloco!=="0" ? (" · Bloco "+ds.bloco) : "");
-        populate(makeCard(titulo, (ds.condominio_nome||"")), ds);
+        const nome = ds.condominio_nome||"";
+        const metaCad = ds.temCadastro ? (ds.fora>0 ? (" · ⚠ "+ds.fora+" fora do cadastro") : " · ✓ confere com o cadastro") : "";
+        const card = makeCard(titulo, nome);
+        populate(card, ds);
+        if(metaCad){ const fm=card.querySelector(".fmeta"); if(fm) fm.textContent = nome + metaCad; }
         if(++i % 10 === 0) await new Promise(r=>requestAnimationFrame(r));   // mantém a UI fluida em arquivos grandes
       }
     }
