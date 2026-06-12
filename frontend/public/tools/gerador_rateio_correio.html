@@ -431,7 +431,7 @@
       let g=groups.get(key);
       if(!g){ g={condominio_codigo:curCond||"", condominio_nome:curNome, bloco:fb, unidades:[], fora:0, temCadastro:(snap.status!=="sem_cadastro")}; groups.set(key,g); }
       g.unidades.push({bloco:fb, unidade:fu});                // NÃO deduplica: cada objeto = uma cobrança
-      if(snap.status==="fora") g.fora++;
+      if(snap.status==="fora"||snap.status==="ambiguo") g.fora++;
     }
     const out=[]; groups.forEach(g=>{ g.esperado=g.unidades.length; out.push(g); }); return out;
   }
@@ -456,8 +456,19 @@
     cadIndex = buildCadIndex(CAD||{});
     return cadIndex;
   }
+  function withinOne(a,b){            // distância de edição <= 1 (pra corrigir 1 dígito de OCR)
+    if(a===b) return true;
+    const la=a.length, lb=b.length;
+    if(la===lb){ let d=0; for(let i=0;i<la;i++){ if(a[i]!==b[i] && ++d>1) return false; } return d<=1; }
+    if(Math.abs(la-lb)!==1) return false;
+    const s=la<lb?a:b, t=la<lb?b:a;
+    let i=0,j=0,d=0;
+    while(i<s.length && j<t.length){ if(s[i]===t[j]){i++;j++;} else { if(++d>1) return false; j++; } }
+    return true;
+  }
   // Encaixa (bloco,unidade) lidos na lista oficial. Casa por (bloco+unidade) com padding normalizado.
-  function snapUnidade(cond, bloco, uni){
+  // fuzzy=true (OCR): se não houver match exato, encaixa na unidade válida a 1 de distância, se for ÚNICA.
+  function snapUnidade(cond, bloco, uni, fuzzy){
     const b = String(bloco||"0").trim();
     const e = cadIndex && cadIndex.get(condKey(cond));
     if(!e) return { bloco:b, unidade:uni, status:"sem_cadastro" };
@@ -468,8 +479,28 @@
       if(cands.length===1) return { bloco:cands[0].bloco, unidade:cands[0].unidade, status:"bloco_corrigido" };
       return { bloco:b, unidade:cands[0].unidade, status:"ambiguo" };   // unidade existe em vários blocos; o lido não bate
     }
+    if(fuzzy){
+      const alvo=uniNorm(uni); let achou=null, n=0;
+      e.byUni.forEach((arr,k)=>{ if(withinOne(alvo,k)){ n++; achou=arr; } });
+      if(n===1 && achou){ const igual=achou.find(x=>x.bloco===b)||achou[0]; return { bloco:igual.bloco, unidade:igual.unidade, status:"corrigido_ocr" }; }
+    }
     return { bloco:b, unidade:uni, status:"fora" };                      // não está no cadastro
   }
+  // OCR (parseText devolve tudo num grupo, bloco "0") -> encaixa no cadastro e RE-AGRUPA por bloco real (vira N quadros)
+  function snapOCRDatasets(parsed){
+    const cond=parsed.condominio_codigo, nome=parsed.condominio_nome||"";
+    const groups=new Map();
+    for(const u of (parsed.unidades||[])){
+      const s=snapUnidade(cond, u.bloco||"0", u.unidade, true);
+      let g=groups.get(s.bloco);
+      if(!g){ g={condominio_codigo:cond, condominio_nome:nome, bloco:s.bloco, unidades:[], fora:0, temCadastro:(s.status!=="sem_cadastro")}; groups.set(s.bloco,g); }
+      g.unidades.push({bloco:s.bloco, unidade:s.unidade});
+      if(s.status==="fora"||s.status==="ambiguo") g.fora++;
+    }
+    const out=[]; groups.forEach(g=>{ g.esperado=(groups.size===1?parsed.esperado:g.unidades.length); out.push(g); });
+    return out.length?out:[parsed];
+  }
+  function cadMetaSuffix(ds){ return ds.temCadastro ? (ds.fora>0 ? (" · ⚠ "+ds.fora+" a conferir") : " · ✓ confere com o cadastro") : ""; }
 
   /* ---------- cards ---------- */
   function makeCard(name, meta){
@@ -652,6 +683,8 @@
     if(xlsxFiles.length) await handleXlsxFiles(xlsxFiles);
     if(!files.length) return;
 
+    await carregarCadastro();   // cadastro pronto p/ encaixar/​corrigir o que o OCR ler
+
     // Cria os cards já, na ordem (caminho OCR)
     const jobs = files.map(file=>{
       const sizeMB=file.size/1048576; const meta=(sizeMB<1?Math.round(file.size/1024)+" KB":sizeMB.toFixed(1)+" MB");
@@ -670,7 +703,17 @@
             badge(card,"reading", n>1 ? ("Lendo… pág "+p+"/"+n) : "Lendo…");
             setRead(card, n>1 ? ("Reconhecendo… página "+p+" de "+n) : "Reconhecendo o texto…");
           });
-          populate(card, parseText(text));
+          const parsed=parseText(text);
+          const dss = cadIndex ? snapOCRDatasets(parsed) : [parsed];
+          // 1º dataset reaproveita o card já criado (com título/condomínio)
+          if(dss[0].condominio_codigo){ const fn=card.querySelector(".fname"); if(fn) fn.textContent = dss[0].condominio_codigo + (dss[0].bloco&&dss[0].bloco!=="0"?(" · Bloco "+dss[0].bloco):""); }
+          populate(card, dss[0]);
+          { const fm=card.querySelector(".fmeta"), sfx=cadMetaSuffix(dss[0]); if(fm&&sfx) fm.textContent=(dss[0].condominio_nome||"")+sfx; }
+          for(let k=1;k<dss.length;k++){           // demais blocos -> quadros extras
+            const t=dss[k].condominio_codigo + (dss[k].bloco&&dss[k].bloco!=="0"?(" · Bloco "+dss[k].bloco):"");
+            const c2=makeCard(t, dss[k].condominio_nome||""); populate(c2, dss[k]);
+            const fm2=c2.querySelector(".fmeta"), sfx2=cadMetaSuffix(dss[k]); if(fm2&&sfx2) fm2.textContent=(dss[k].condominio_nome||"")+sfx2;
+          }
         }catch(err){ showError(card,(err&&err.message)||"Não consegui ler o documento."); }
       }
     }
