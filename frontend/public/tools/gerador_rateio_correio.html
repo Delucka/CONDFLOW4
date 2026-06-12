@@ -314,17 +314,37 @@
 
   /* ---------- PDF/imagem -> texto (página a página, com um worker JÁ pronto) ---------- */
   function loadImage(file){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=()=>rej(new Error("Falha ao abrir a imagem")); img.src=URL.createObjectURL(file); }); }
-  async function ocrCanvas(worker, canvas){
-    if(worker){
-      try{ const { data } = await worker.recognize(canvas); return (data&&data.text)||""; }
-      catch(e){ /* motor persistente falhou -> usa o método convencional abaixo */ }
+  // Extrai palavras com posição (x,y,largura) do resultado do Tesseract — via TSV (estável) ou blocks (v4)
+  function wordsFromData(data){
+    const out=[];
+    if(data && typeof data.tsv==="string" && data.tsv){
+      for(const ln of data.tsv.split("\n")){
+        const c=ln.split("\t");
+        if(c.length>=12 && c[0]==="5"){ const t=(c[11]||"").trim(); if(t) out.push({x:+c[6], y:+c[7], w:+c[8], h:+c[9], text:t}); }
+      }
+      if(out.length) return out;
     }
-    const { data } = await Tesseract.recognize(canvas, "por");  // fallback garantido (o que já funcionava)
-    return (data && data.text) || "";
+    try{
+      (data&&data.blocks||[]).forEach(bl=>(bl.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(li=>(li.words||[]).forEach(w=>{
+        const t=(w.text||"").trim(); if(t && w.bbox) out.push({x:w.bbox.x0, y:w.bbox.y0, w:(w.bbox.x1-w.bbox.x0), h:(w.bbox.y1-w.bbox.y0), text:t});
+      }))));
+    }catch(e){}
+    return out;
+  }
+  async function ocrCanvasData(worker, canvas){
+    let data=null;
+    if(worker){
+      try{ const r=await worker.recognize(canvas, {}, { text:true, blocks:true, tsv:true }); data=r.data; }
+      catch(e){ data=null; }
+    }
+    if(!data){
+      try{ const r=await Tesseract.recognize(canvas, "por"); data=r.data; }catch(e){ data=null; }   // fallback garantido
+    }
+    return { text:(data&&data.text)||"", words: wordsFromData(data) };
   }
   async function ocrFileWithWorker(file, worker, onProgress){
     const isPdf = file.type==="application/pdf" || /\.pdf$/i.test(file.name);
-    let text="";
+    let text=""; const pages=[];
     if(isPdf){
       const buf=await file.arrayBuffer();
       const pdf=await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
@@ -336,7 +356,7 @@
         cv.width=Math.ceil(vp.width); cv.height=Math.ceil(vp.height);
         await page.render({canvasContext:cv.getContext("2d",{alpha:false}), viewport:vp}).promise;
         if(onProgress) onProgress(p, n);
-        text+="\n"+await ocrCanvas(worker, cv);
+        const r=await ocrCanvasData(worker, cv); text+="\n"+r.text; pages.push(r.words);
         cv.width=cv.height=0; if(page.cleanup) page.cleanup();   // libera a memória da página
       }
       try{ pdf.destroy(); }catch(e){}
@@ -346,10 +366,10 @@
       cv.width=img.naturalWidth||img.width; cv.height=img.naturalHeight||img.height;
       cv.getContext("2d").drawImage(img,0,0);
       if(onProgress) onProgress(1,1);
-      text+="\n"+await ocrCanvas(worker, cv);
+      const r=await ocrCanvasData(worker, cv); text+="\n"+r.text; pages.push(r.words);
       cv.width=cv.height=0;
     }
-    return text;
+    return { text, pages };
   }
 
   /* ---------- OCR digit-confusion recovery ---------- */
@@ -501,6 +521,65 @@
     return out.length?out:[parsed];
   }
   function cadMetaSuffix(ds){ return ds.temCadastro ? (ds.fora>0 ? (" · ⚠ "+ds.fora+" a conferir") : " · ✓ confere com o cadastro") : ""; }
+
+  /* ---------- OCR por COLUNA: lê bloco/unidade pela posição X (resolve multi-bloco) ---------- */
+  function ocrUnidade(tok){             // limpa token -> unidade (corrige O->0 etc, mantém letra final)
+    let s=String(tok).replace(/[^0-9A-Za-z|]/g,"");
+    let letter="";
+    if(/[A-Za-z]$/.test(s) && s.length>1 && !/^[A-Za-z]+$/.test(s)){ letter=s.slice(-1).toUpperCase(); s=s.slice(0,-1); }
+    const d=normToDigits(s);
+    if(!d || d.length<3 || d.length>6) return null;
+    return d+letter;
+  }
+  function colCenter(it){ return it.x + (it.w||0)/2; }
+  function xLabel(items, key){ const it=items.find(i=>norm(i.text)===key) || items.find(i=>norm(i.text).indexOf(key)===0); return it?colCenter(it):null; }
+  function pickNear(items, target, minX, maxX, re){
+    let best=null, bd=1e9;
+    for(const it of items){ const cx=colCenter(it); if(cx<=minX||cx>=maxX) continue; if(!re.test(it.text)) continue; const d=Math.abs(cx-target); if(d<bd){bd=d;best=it;} }
+    return best;
+  }
+  // pages = [[{x,y,w,h,text},...]]. Devolve datasets ou null se não achou a estrutura de colunas.
+  function parseOcrWords(pages){
+    let curCond=null, curNome="", section=null, bx=null, ux=null, dx=null, achou=false;
+    const groups=new Map();
+    for(const words of pages){
+      if(!words||!words.length) continue;
+      const sorted=words.slice().sort((a,b)=>(a.y-b.y)||(a.x-b.x));
+      const lines=[]; let cl=null;
+      for(const w of sorted){ const tol=Math.max(6,(w.h||12)*0.6); if(!cl||Math.abs(w.y-cl.y)>tol){ cl={y:w.y, items:[]}; lines.push(cl); } cl.items.push(w); cl.y=w.y; }
+      for(const ln of lines){
+        const items=ln.items.slice().sort((a,b)=>a.x-b.x);
+        const joined=items.map(i=>i.text).join(" ");
+        const low=norm(joined);
+        if(/\(\s*geral\s*\)/i.test(joined)) section="skip";
+        else if(/\(\s*correio\s*\)/i.test(joined)) section="objetos";
+        const mc=joined.match(/Cond[o0]m[ií1l|]?n[ií1l|]o\s*[:.\-]?\s*(\d{3,5})\s*[-–]?\s*(.*)$/i);
+        if(mc){ curCond=mc[1]; curNome=(mc[2]||"").replace(/CNPJ.*/i,"").replace(/\(.*$/,"").trim(); continue; }   // linha do condomínio: não é objeto
+        if(low.indexOf("bloco")>=0 && low.indexOf("unidade")>=0){
+          if(low.indexOf("destinatario")>=0||low.indexOf("especie")>=0||low.indexOf("destino")>=0){
+            section="objetos"; bx=xLabel(items,"bloco"); ux=xLabel(items,"unidade"); dx=xLabel(items,"destinatario")||xLabel(items,"destino")||xLabel(items,"especie");
+          } else if(low.indexOf("condomino")>=0||low.indexOf("assinatura")>=0){ section="skip"; }
+          continue;
+        }
+        if(section!=="objetos" || ux==null) continue;
+        const hasName = items.some(it=>colCenter(it)>ux && /[A-Za-zÀ-ÿ]{3,}/.test(it.text));   // linha de objeto tem o destinatário
+        if(!hasName) continue;
+        const uniTok=pickNear(items, ux, (bx==null?-1e9:bx+1), (dx==null?1e9:dx), /[0-9OoIlSZBzeagq|]{3,}/);
+        if(!uniTok) continue;
+        const uni=ocrUnidade(uniTok.text); if(!uni) continue;
+        const blTok = bx==null ? null : pickNear(items, bx, -1e9, ux, /^[0-9A-Za-z*]{1,5}$/);
+        let bloco = blTok ? blTok.text.replace(/[^0-9A-Za-z]/g,"") : "0"; if(!bloco) bloco="0";
+        const snap=snapUnidade(curCond, bloco, uni, true); achou=true;
+        const fb=snap.bloco, key=(curCond||"")+"|"+fb;
+        let g=groups.get(key);
+        if(!g){ g={condominio_codigo:curCond||"", condominio_nome:curNome, bloco:fb, unidades:[], fora:0, temCadastro:(snap.status!=="sem_cadastro")}; groups.set(key,g); }
+        g.unidades.push({bloco:fb, unidade:snap.unidade});
+        if(snap.status==="fora"||snap.status==="ambiguo") g.fora++;
+      }
+    }
+    if(!achou) return null;
+    const out=[]; groups.forEach(g=>{ g.esperado=g.unidades.length; out.push(g); }); return out;
+  }
 
   /* ---------- cards ---------- */
   function makeCard(name, meta){
@@ -663,7 +742,7 @@
       for(const ds of datasets){
         const titulo = ds.condominio_codigo + (ds.bloco && ds.bloco!=="0" ? (" · Bloco "+ds.bloco) : "");
         const nome = ds.condominio_nome||"";
-        const metaCad = ds.temCadastro ? (ds.fora>0 ? (" · ⚠ "+ds.fora+" fora do cadastro") : " · ✓ confere com o cadastro") : "";
+        const metaCad = cadMetaSuffix(ds);
         const card = makeCard(titulo, nome);
         populate(card, ds);
         if(metaCad){ const fm=card.querySelector(".fmeta"); if(fm) fm.textContent = nome + metaCad; }
@@ -699,12 +778,12 @@
         const { file, card } = jobs[my];
         try{
           badge(card,"reading","Lendo…"); setRead(card,"Reconhecendo o texto…");
-          const text=await ocrFileWithWorker(file, worker, (p,n)=>{
+          const { text, pages }=await ocrFileWithWorker(file, worker, (p,n)=>{
             badge(card,"reading", n>1 ? ("Lendo… pág "+p+"/"+n) : "Lendo…");
             setRead(card, n>1 ? ("Reconhecendo… página "+p+" de "+n) : "Reconhecendo o texto…");
           });
-          const parsed=parseText(text);
-          const dss = cadIndex ? snapOCRDatasets(parsed) : [parsed];
+          let dss = cadIndex ? parseOcrWords(pages) : null;      // 1º: OCR por COLUNA (lê o bloco -> resolve multi-bloco)
+          if(!dss || !dss.length){ const parsed=parseText(text); dss = cadIndex ? snapOCRDatasets(parsed) : [parsed]; }  // reserva: texto + encaixe
           // 1º dataset reaproveita o card já criado (com título/condomínio)
           if(dss[0].condominio_codigo){ const fn=card.querySelector(".fname"); if(fn) fn.textContent = dss[0].condominio_codigo + (dss[0].bloco&&dss[0].bloco!=="0"?(" · Bloco "+dss[0].bloco):""); }
           populate(card, dss[0]);
