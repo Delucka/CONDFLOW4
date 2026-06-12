@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import { apiFetcher, apiPost, apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -395,7 +395,11 @@ export default function ConsumosPage() {
   // Pré-seleciona condo+concessionaria+mes ao abrir Nova fatura via clique numa celula vazia
   const [preFatura, setPreFatura] = useState(null);
   // Modal de leitura por unidade (tabela extraída do relatório)
-  const [unidadesModal, setUnidadesModal] = useState(null); // { nome, empresa, mes, servico, loading, unidades, erro }
+  const [unidadesModal, setUnidadesModal] = useState(null); // { nome, empresa, mes, servico, loading, unidades, erro, arquivo_url }
+
+  // Scroll horizontal das matrizes — abre já no mês atual (não travado em janeiro)
+  const faturasScrollRef = useRef(null);
+  const relatoriosScrollRef = useRef(null);
 
   // Faturas do ano (para a matriz + dashboard) — polling 30s
   const { data: matrizData, mutate: mutateMatriz } = useSWR(
@@ -418,6 +422,22 @@ export default function ConsumosPage() {
     const t = setInterval(fetchRelatorios, 60000);
     return () => clearInterval(t);
   }, [fetchRelatorios]);
+
+  // Ao carregar (ano corrente), rola as duas matrizes pra deixar o mês atual visível
+  useEffect(() => {
+    if (anoSel !== new Date().getFullYear()) return;
+    const mesAtual = new Date().getMonth() + 1;
+    const rolar = (container) => {
+      if (!container) return;
+      const alvo = container.querySelector(`[data-mes="${mesAtual}"]`);
+      if (!alvo) return;
+      const c = container.getBoundingClientRect();
+      const t = alvo.getBoundingClientRect();
+      container.scrollLeft += (t.left - c.left) - c.width * 0.45; // centraliza o mês atual, sem mexer no scroll vertical
+    };
+    const id = requestAnimationFrame(() => { rolar(faturasScrollRef.current); rolar(relatoriosScrollRef.current); });
+    return () => cancelAnimationFrame(id);
+  }, [anoSel, todasFaturas.length, relatorios.length]);
 
   // Map: chave `${condo}|${conc}|${mes}` => fatura
   const matrizMap = useMemo(() => {
@@ -536,11 +556,16 @@ export default function ConsumosPage() {
 
   // Abre a tabela de leitura por unidade de um relatório (lê extracao_dados_brutos)
   async function abrirUnidades(item) {
+    // Abre sempre o modal: mostra a tabela por unidade SE existir, e o PDF anexado de qualquer forma.
+    setUnidadesModal({
+      nome: item.nome, empresa: item.empresa, mes: item.mes, servico: item.servico,
+      arquivo_url: item.arquivo_url || null, loading: !!item.origem, unidades: null, erro: null,
+    });
     if (!item.origem) {
-      addToast('Relatório sem dados de unidades (anexado antes da extração automática).', 'info');
+      setUnidadesModal(prev => prev && { ...prev, loading: false, unidades: null,
+        erro: item.arquivo_url ? null : 'Relatório anexado antes da extração automática — sem tabela de unidades.' });
       return;
     }
-    setUnidadesModal({ nome: item.nome, empresa: item.empresa, mes: item.mes, servico: item.servico, loading: true, unidades: null });
     try {
       const { data, error } = await supabase
         .from('emissoes_arquivos')
@@ -549,7 +574,8 @@ export default function ConsumosPage() {
         .maybeSingle();
       if (error) throw error;
       const unidades = data?.extracao_dados_brutos?.unidades || null;
-      setUnidadesModal(prev => prev && { ...prev, loading: false, unidades, erro: unidades ? null : 'Sem tabela de unidades neste relatório.' });
+      setUnidadesModal(prev => prev && { ...prev, loading: false, unidades,
+        erro: (unidades || item.arquivo_url) ? null : 'Sem tabela de unidades neste relatório.' });
     } catch (e) {
       setUnidadesModal(prev => prev && { ...prev, loading: false, erro: e.message || 'Erro ao carregar' });
     }
@@ -830,7 +856,7 @@ export default function ConsumosPage() {
           </p>
           <p className="text-[10px] text-slate-500">Passe o mouse na célula para ver detalhes · Click pra editar</p>
         </div>
-        <div className="overflow-auto max-h-[75vh]">
+        <div ref={faturasScrollRef} className="overflow-auto max-h-[75vh]">
           {condosFiltrados.length === 0 ? (
             <p className="text-xs text-slate-500 px-4 py-12 text-center">Nada encontrado com esses filtros.</p>
           ) : (
@@ -842,7 +868,7 @@ export default function ConsumosPage() {
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[120px]">Gerente</th>
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[80px]">Conta</th>
                   {Array.from({length:12}, (_,i)=>i+1).map(m => (
-                    <th key={m} className="text-center px-1 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[60px]">{MESES[m]}</th>
+                    <th key={m} data-mes={m} className="text-center px-1 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[60px]">{MESES[m]}</th>
                   ))}
                 </tr>
               </thead>
@@ -934,14 +960,14 @@ export default function ConsumosPage() {
             </p>
             <p className="text-[10px] text-slate-500">Consumo em m³ · clique pra ver leitura por unidade</p>
           </div>
-          <div className="overflow-auto max-h-[60vh]">
+          <div ref={relatoriosScrollRef} className="overflow-auto max-h-[60vh]">
             <table className="w-full text-xs border-collapse">
               <thead className="sticky top-0 bg-slate-50 z-10">
                 <tr>
                   <th className="text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 sticky left-0 bg-slate-50 z-20 min-w-[220px]">Condomínio</th>
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[140px] border-r border-slate-200">Empresa · Serviço</th>
                   {Array.from({length:12}, (_,i)=>i+1).map(m => (
-                    <th key={m} className="text-center px-1 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[64px]">{MESES[m]}</th>
+                    <th key={m} data-mes={m} className="text-center px-1 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[64px]">{MESES[m]}</th>
                   ))}
                 </tr>
               </thead>
@@ -985,6 +1011,7 @@ export default function ConsumosPage() {
                                   onClick={() => abrirUnidades({
                                     nome: c.name, empresa, mes: m, servico,
                                     origem: r.origem_emissao_arquivo_id,
+                                    arquivo_url: r.arquivo_url,
                                   })}
                                   title={tip.join(' · ')}
                                   className={`relative w-full h-full px-1 py-1.5 rounded text-[10px] font-bold leading-tight transition-all ${
@@ -1070,8 +1097,21 @@ export default function ConsumosPage() {
 
 // ─── Modal: leitura por unidade (extraída do relatório) ─────────────
 function RelatorioUnidadesModal({ info, onClose }) {
-  const { nome, empresa, mes, servico, loading, unidades, erro } = info;
+  const { nome, empresa, mes, servico, loading, unidades, erro, arquivo_url } = info;
   const lista = unidades || [];
+  const supabase = useMemo(() => createClient(), []);
+  const [abrindoPdf, setAbrindoPdf] = useState(false);
+  async function abrirPdf() {
+    if (!arquivo_url) return;
+    setAbrindoPdf(true);
+    try {
+      const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arquivo_url, 300);
+      if (error || !data?.signedUrl) throw error || new Error('URL não gerada');
+      window.open(data.signedUrl, '_blank', 'noopener');
+    } catch (e) {
+      alert('Não consegui abrir o PDF do relatório: ' + (e?.message || 'erro'));
+    } finally { setAbrindoPdf(false); }
+  }
 
   // Estatísticas + detecção de unidade anômala (m³ > 2× mediana)
   const consumos = lista.map(u => Number(u.m3_total) || 0).filter(v => v > 0).sort((a, b) => a - b);
@@ -1095,7 +1135,15 @@ function RelatorioUnidadesModal({ info, onClose }) {
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-900"><X className="w-5 h-5" /></button>
+          <div className="flex items-center gap-2">
+            {arquivo_url && (
+              <button onClick={abrirPdf} disabled={abrindoPdf}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-bold hover:bg-violet-700 disabled:opacity-60 transition-all">
+                {abrindoPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />} Abrir PDF
+              </button>
+            )}
+            <button onClick={onClose} className="text-slate-500 hover:text-slate-900"><X className="w-5 h-5" /></button>
+          </div>
         </div>
 
         {/* Resumo */}
@@ -1110,10 +1158,21 @@ function RelatorioUnidadesModal({ info, onClose }) {
         <div className="overflow-auto p-4">
           {loading ? (
             <p className="text-sm text-slate-400 text-center py-12 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando leituras...</p>
-          ) : erro ? (
-            <p className="text-sm text-amber-300 text-center py-12 flex items-center justify-center gap-2"><AlertTriangle className="w-4 h-4" /> {erro}</p>
-          ) : lista.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-12">Nenhuma unidade encontrada.</p>
+          ) : (erro || lista.length === 0) ? (
+            <div className="flex flex-col items-center gap-4 py-12 text-center">
+              <p className={`text-sm flex items-center justify-center gap-2 ${erro ? 'text-amber-600' : 'text-slate-500'}`}>
+                {erro && <AlertTriangle className="w-4 h-4" />}
+                {erro || 'Este relatório não tem tabela de unidades extraída.'}
+              </p>
+              {arquivo_url ? (
+                <button onClick={abrirPdf} disabled={abrindoPdf}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 disabled:opacity-60 transition-all">
+                  {abrindoPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Abrir PDF do relatório
+                </button>
+              ) : (
+                <p className="text-xs text-slate-400">Nenhum PDF anexado a este relatório.</p>
+              )}
+            </div>
           ) : (
             <table className="w-full text-xs border-collapse">
               <thead className="sticky top-0 bg-white">
