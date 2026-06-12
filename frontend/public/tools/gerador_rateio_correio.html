@@ -538,47 +538,38 @@
     for(const it of items){ const cx=colCenter(it); if(cx<=minX||cx>=maxX) continue; if(!re.test(it.text)) continue; const d=Math.abs(cx-target); if(d<bd){bd=d;best=it;} }
     return best;
   }
-  // pages = [[{x,y,w,h,text},...]]. Devolve datasets ou null se não achou a estrutura de colunas.
+  // pages = [[{x,y,w,h,text},...]]. Token-based + geometria — robusto a cabeçalho/linhas embolados no scan.
   function parseOcrWords(pages){
-    let curCond=null, curNome="", section=null, bx=null, ux=null, dx=null, achou=false;
+    let curCond=null, curNome="", achou=false; const esp={};
     const groups=new Map();
+    function blocoClean(t){ let b=String(t||"").replace(/[^0-9A-Za-z]/g,""); if(/^[oOdDqQ]$/.test(b)) b="0"; else if(/^[il|]$/.test(b)) b="1"; return b||"0"; }
     for(const words of pages){
       if(!words||!words.length) continue;
-      const sorted=words.slice().sort((a,b)=>(a.y-b.y)||(a.x-b.x));
-      const lines=[]; let cl=null;
-      for(const w of sorted){ const tol=Math.max(6,(w.h||12)*0.6); if(!cl||Math.abs(w.y-cl.y)>tol){ cl={y:w.y, items:[]}; lines.push(cl); } cl.items.push(w); cl.y=w.y; }
-      for(const ln of lines){
-        const items=ln.items.slice().sort((a,b)=>a.x-b.x);
-        const joined=items.map(i=>i.text).join(" ");
-        const low=norm(joined);
-        if(/\(\s*geral\s*\)/i.test(joined)) section="skip";
-        else if(/\(\s*correio\s*\)/i.test(joined)) section="objetos";
-        const mc=joined.match(/Cond[o0]m[ií1l|]?n[ií1l|]o\s*[:.\-]?\s*(\d{3,5})\s*[-–]?\s*(.*)$/i);
-        if(mc){ curCond=mc[1]; curNome=(mc[2]||"").replace(/CNPJ.*/i,"").replace(/\(.*$/,"").trim(); continue; }   // linha do condomínio: não é objeto
-        if(low.indexOf("bloco")>=0 && low.indexOf("unidade")>=0){
-          if(low.indexOf("destinatario")>=0||low.indexOf("especie")>=0||low.indexOf("destino")>=0){
-            section="objetos"; bx=xLabel(items,"bloco"); ux=xLabel(items,"unidade"); dx=xLabel(items,"destinatario")||xLabel(items,"destino")||xLabel(items,"especie");
-          } else if(low.indexOf("condomino")>=0||low.indexOf("assinatura")>=0){ section="skip"; }
-          continue;
-        }
-        if(section!=="objetos" || ux==null) continue;
-        const hasName = items.some(it=>colCenter(it)>ux && /[A-Za-zÀ-ÿ]{3,}/.test(it.text));   // linha de objeto tem o destinatário
-        if(!hasName) continue;
-        const uniTok=pickNear(items, ux, (bx==null?-1e9:bx+1), (dx==null?1e9:dx), /[0-9OoIlSZBzeagq|]{3,}/);
-        if(!uniTok) continue;
-        const uni=ocrUnidade(uniTok.text); if(!uni) continue;
-        const blTok = bx==null ? null : pickNear(items, bx, -1e9, ux, /^[0-9A-Za-z*]{1,5}$/);
-        let bloco = blTok ? blTok.text.replace(/[^0-9A-Za-z]/g,"") : "0"; if(!bloco) bloco="0";
-        const snap=snapUnidade(curCond, bloco, uni, true); achou=true;
+      const txt=words.map(w=>w.text).join(" ").replace(/\s+/g," ");
+      const mc=txt.match(/Cond[o0]m\S{0,4}nio\s*[:.\-]?\s*(\d{3,5})\s*[-–]?\s*([0-9A-Za-zÀ-ÿ .&]{0,40})/i);
+      if(mc){ curCond=mc[1]; if(mc[2]&&mc[2].replace(/[^A-Za-zÀ-ÿ]/g,"").length>2) curNome=mc[2].replace(/CNPJ.*/i,"").trim(); }
+      if(/\(\s*geral\s*\)/i.test(txt)) continue;        // folha de assinatura -> ignora a página (best-effort)
+      for(const w of words){
+        const u=ocrUnidade(w.text); if(!u) continue;
+        const dd=u.replace(/[A-Za-z]$/,""); if(!/^0\d{2,5}$/.test(dd)) continue;   // unidade = código zero-padded (começa em 0)
+        const ux=colCenter(w), uy=w.y;
+        let bl=null, bd=1e9;                            // bloco = token curto mais próximo à esquerda, mesma faixa de y
+        for(const o of words){ const x=colCenter(o); if(x<ux-5 && Math.abs(o.y-uy)<22 && /^[*]?[0-9A-Za-z]{1,4}$/.test(o.text)){ const d=ux-x; if(d<bd){ bd=d; bl=o.text; } } }
+        const bloco=blocoClean(bl);
+        const snap=snapUnidade(curCond, bloco, u, true); achou=true;
         const fb=snap.bloco, key=(curCond||"")+"|"+fb;
         let g=groups.get(key);
         if(!g){ g={condominio_codigo:curCond||"", condominio_nome:curNome, bloco:fb, unidades:[], fora:0, temCadastro:(snap.status!=="sem_cadastro")}; groups.set(key,g); }
         g.unidades.push({bloco:fb, unidade:snap.unidade});
         if(snap.status==="fora"||snap.status==="ambiguo") g.fora++;
       }
+      const mq=txt.match(/listad\w*\s*:?\s*([0-9OoIlSZBzeagq|]{1,4})/i);   // "Quantidade de Unidade listadas: N"
+      if(mq){ const n=parseInt(normToDigits(mq[1])||"0",10); if(n>0 && curCond!=null) esp[curCond]=(esp[curCond]||0)+n; }
     }
     if(!achou) return null;
-    const out=[]; groups.forEach(g=>{ g.esperado=g.unidades.length; out.push(g); }); return out;
+    const nGrp={}; groups.forEach(g=>{ nGrp[g.condominio_codigo]=(nGrp[g.condominio_codigo]||0)+1; });
+    const out=[]; groups.forEach(g=>{ g.esperado=(nGrp[g.condominio_codigo]===1 ? (esp[g.condominio_codigo]||g.unidades.length) : g.unidades.length); out.push(g); });
+    return out;
   }
 
   /* ---------- cards ---------- */
