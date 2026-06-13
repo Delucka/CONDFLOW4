@@ -204,7 +204,10 @@ export default function VisaoMaster() {
     const nextStatus = fluxos[fluxoId]?.[pacote.status] ?? fluxos[fluxoId]?.default ?? 'aprovado';
 
     const { data, error } = await supabase.from('emissoes_pacotes')
-      .update({ status: nextStatus, atualizado_em: new Date().toISOString() })
+      .update({ status: nextStatus, atualizado_em: new Date().toISOString(),
+        aprovado_por_nome: user?.full_name || user?.email || null,
+        aprovado_por_role: user?.role || null,
+        aprovado_em: new Date().toISOString() })
       .eq('id', pacote.id)
       .select('id, status');
 
@@ -404,7 +407,9 @@ export default function VisaoMaster() {
     const reason = prompt('Motivo da correção:');
     if (!reason) return;
     await supabase.from('emissoes_pacotes')
-      .update({ status: 'solicitar_correcao', comentario_correcao: reason, atualizado_em: new Date().toISOString() })
+      .update({ status: 'solicitar_correcao', comentario_correcao: reason, atualizado_em: new Date().toISOString(),
+        correcao_por_nome: user?.full_name || user?.email || null,
+        correcao_em: new Date().toISOString() })
       .eq('id', pacote.id);
     fetchPacotes();
     addToast('Correção solicitada.', 'info');
@@ -613,6 +618,12 @@ export default function VisaoMaster() {
                           <span className="ml-2 text-violet-500">• 🔒 planilha congelada</span>
                         )}
                       </p>
+                      {pacote.aprovado_em && (
+                        <p className="text-[10px] text-emerald-600 mt-0.5">✓ Aprovado por {pacote.aprovado_por_nome || '—'}{pacote.aprovado_por_role ? ` · ${pacote.aprovado_por_role}` : ''} · {new Date(pacote.aprovado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ')}</p>
+                      )}
+                      {pacote.correcao_em && (
+                        <p className="text-[10px] text-amber-600 mt-0.5">⚠ Correção por {pacote.correcao_por_nome || '—'} · {new Date(pacote.correcao_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ')}</p>
+                      )}
                     </div>
                   </div>
 

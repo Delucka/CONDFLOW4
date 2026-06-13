@@ -107,7 +107,10 @@ export default function VisaoGerente({ profile }) {
 
     const { data, error } = await supabase
       .from('emissoes_pacotes')
-      .update({ status: nextStatus, atualizado_em: new Date().toISOString() })
+      .update({ status: nextStatus, atualizado_em: new Date().toISOString(),
+        aprovado_por_nome: user?.full_name || user?.email || null,
+        aprovado_por_role: user?.role || null,
+        aprovado_em: new Date().toISOString() })
       .eq('id', pacote.id)
       .select('id, status');
 
@@ -133,7 +136,9 @@ export default function VisaoGerente({ profile }) {
 
     const { error } = await supabase
       .from('emissoes_pacotes')
-      .update({ status: 'solicitar_correcao', comentario_correcao: comment, atualizado_em: new Date().toISOString() })
+      .update({ status: 'solicitar_correcao', comentario_correcao: comment, atualizado_em: new Date().toISOString(),
+        correcao_por_nome: user?.full_name || user?.email || null,
+        correcao_em: new Date().toISOString() })
       .eq('id', currentPacote.id);
 
     if (error) {

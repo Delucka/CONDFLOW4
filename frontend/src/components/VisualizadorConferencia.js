@@ -113,7 +113,13 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     const nextStatus = fluxos[fluxoId]?.[pacoteStatus] ?? fluxos[fluxoId]?.default ?? 'aprovado';
     setExecutando(true);
     try {
-      const payload = { status: nextStatus, atualizado_em: new Date().toISOString() };
+      const agora = new Date().toISOString();
+      const payload = {
+        status: nextStatus, atualizado_em: agora,
+        aprovado_por_nome: currentUser?.full_name || currentUser?.email || null,
+        aprovado_por_role: currentUser?.role || null,
+        aprovado_em: agora,
+      };
       if (observacaoAprovacao.trim()) {
         payload.observacao_aprovacao = observacaoAprovacao.trim();
       }
@@ -153,6 +159,8 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           correcao_arquivo_url: correcaoUrl,
           correcao_arquivo_nome: correcaoNome,
           atualizado_em: new Date().toISOString(),
+          correcao_por_nome: currentUser?.full_name || currentUser?.email || null,
+          correcao_em: new Date().toISOString(),
         })
         .eq('id', pacoteId);
       if (error) throw error;
