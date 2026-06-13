@@ -8,6 +8,7 @@ import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { apiPost } from '@/lib/api';
+import { ocrFileToText, parseFaturaOcr, decodeBoletoValor } from '@/lib/ocrClient';
 import ModalPreparacao from './ModalPreparacao';
 import { FileWarning } from 'lucide-react';
 
@@ -68,6 +69,7 @@ export default function VisaoEmissor({ profile }) {
 
   // Extração automática de PDF (concessionaria/relatorio)
   const [extraindo, setExtraindo] = useState(false);  // overlay "Lendo PDF..."
+  const [ocrProg, setOcrProg] = useState(null);       // {p,n} progresso do OCR de scan
   // Modal de revisão (extração com baixa confiança ou empresa não identificada)
   const [revisaoInfo, setRevisaoInfo] = useState(null); // { extracao, categoria, alertas, file }
   // Modal de duplicata detectada
@@ -594,7 +596,30 @@ export default function VisaoEmissor({ profile }) {
         body: formData,
       });
       if (!res.ok) throw new Error(`Falha na leitura do PDF (HTTP ${res.status})`);
-      const { extracao, alertas, anomalia, bloqueia } = await res.json();
+      const resp = await res.json();
+      let extracao = resp.extracao;
+      const { alertas, anomalia, bloqueia } = resp;
+
+      // PDF escaneado (sem texto) -> OCR no navegador decifra a imagem e pré-preenche (você confere na revisão)
+      const semCampos = !extracao || (extracao.valor == null && extracao.valor_total == null && !extracao.vencimento);
+      if (semCampos && categoria === 'concessionaria') {
+        try {
+          setOcrProg({ p: 0, n: 1 });
+          const bc = await decodeBoletoValor(file);                       // VALOR exato (código de barras)
+          const texto = await ocrFileToText(file, (p, n) => setOcrProg({ p, n }));
+          const parsed = parseFaturaOcr(texto);                            // vencimento + concessionária (OCR)
+          extracao = {
+            ...(extracao || {}), ...parsed,
+            valor: (bc && bc.valor != null) ? bc.valor : parsed.valor,     // barcode tem prioridade sobre OCR
+            subtipo: (extracao && extracao.subtipo) || parsed.subtipo,
+            confianca: 0.5, ocr: true, barcode: bc ? bc.barcode : null, erro: null,
+          };
+        } catch (e) {
+          addToast('Não consegui decifrar a imagem — preencha manualmente.', 'warning');
+        } finally {
+          setOcrProg(null);
+        }
+      }
 
       const extras = mapExtracaoToExtras(extracao, categoria);
       const subtipo = extracao?.subtipo
@@ -1692,8 +1717,8 @@ export default function VisaoEmissor({ profile }) {
         <div className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white border border-violet-500/30 rounded-2xl px-8 py-6 shadow-2xl flex flex-col items-center gap-3">
             <Sparkles className="w-8 h-8 text-violet-400 animate-pulse" />
-            <p className="text-sm font-black text-slate-900 uppercase tracking-widest">Lendo PDF…</p>
-            <p className="text-[11px] text-slate-500">Extraindo dados automaticamente</p>
+            <p className="text-sm font-black text-slate-900 uppercase tracking-widest">{ocrProg ? 'Decifrando a imagem (OCR)…' : 'Lendo PDF…'}</p>
+            <p className="text-[11px] text-slate-500">{ocrProg ? `Página ${ocrProg.p} de ${ocrProg.n} · no seu navegador, sem créditos` : 'Extraindo dados automaticamente'}</p>
           </div>
         </div>
       )}
@@ -2119,7 +2144,15 @@ function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /> {extracao.erro}
           </div>
         )}
-        {!extracao?.erro && (
+        {(extracao?.barcode || extracao?.ocr) ? (
+          <div className="mb-3 px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/30 text-[11px] text-violet-700 flex items-start gap-2">
+            <Sparkles className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              {extracao?.barcode ? <><b>Valor lido do código de barras</b> (exato). </> : <>Imagem lida por OCR. </>}
+              <b>Confira o vencimento</b> e os demais campos com o PDF antes de anexar.
+            </span>
+          </div>
+        ) : !extracao?.erro && (
           <p className="mb-3 text-[11px] text-slate-400">
             A leitura automática não teve confiança suficiente. Revise os campos abaixo antes de anexar.
           </p>
