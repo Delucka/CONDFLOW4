@@ -101,7 +101,10 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         gerentes = []
         if user["role"] != "gerente":
             # inclui o campo 'nome' direto da tabela gerentes pra cobrir os "ghosts" (sem profile)
-            gerentes = db.table("gerentes").select("id, nome, profiles!gerentes_profile_id_fkey(full_name)").execute().data
+            try:
+                gerentes = db.table("gerentes").select("id, nome, profiles!gerentes_profile_id_fkey(full_name)").execute().data
+            except Exception as e:
+                print(f"[dashboard] gerentes falhou (segue sem): {e}")
 
         # ── Emissões: stats agregados + status mais recente por condomínio ──
         condo_ids = [c["id"] for c in raw_condos]
@@ -114,7 +117,11 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             # Filtra a emissão pelo mês selecionado (status daquele mês, não o último de todos)
             if mes:
                 pacotes_q = pacotes_q.eq("mes_referencia", int(mes)).eq("ano_referencia", emis_ano)
-            pacotes = pacotes_q.execute().data or []
+            try:
+                pacotes = pacotes_q.execute().data or []
+            except Exception as e:
+                print(f"[dashboard] emissoes_pacotes falhou (segue sem): {e}")
+                pacotes = []
             for p in pacotes:
                 s = (p.get("status") or "").lower()
                 if "gerente" in s or s == "pendente": emissao_stats["gerente"] += 1
@@ -126,9 +133,13 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                 if cid and cid not in emissao_by_condo:
                     emissao_by_condo[cid] = p.get("status") or "sem_processo"
 
-        # ── Pipeline config do ano corrente ──
-        pipeline_res = db.table("pipeline_config").select("*").eq("ano", year).limit(1).execute()
-        pipeline_config = (pipeline_res.data or [None])[0]
+        # ── Pipeline config do ano corrente (tolera ausência da tabela) ──
+        pipeline_config = None
+        try:
+            pipeline_res = db.table("pipeline_config").select("*").eq("ano", year).limit(1).execute()
+            pipeline_config = (pipeline_res.data or [None])[0]
+        except Exception as e:
+            print(f"[dashboard] pipeline_config falhou (segue sem): {e}")
 
         return {
             "year": year,

@@ -170,7 +170,10 @@ export default function DashboardPage() {
   dashParams.set('ano', String(ANO_ATUAL));
   const { data, error, isLoading, mutate } = useSWR(`/api/dashboard?${dashParams.toString()}`, apiFetcher, {
     revalidateOnFocus: false,
-    dedupingInterval: 30000
+    dedupingInterval: 30000,
+    keepPreviousData: true,
+    errorRetryCount: 4,
+    errorRetryInterval: 4000,   // aguenta o cold start: re-tenta enquanto a função "esquenta"
   });
 
   // Single source: tudo vem do endpoint /api/dashboard agora
@@ -250,13 +253,13 @@ export default function DashboardPage() {
     }
   };
 
-  if (error) {
+  if (error && !data) {   // só bloqueia se NÃO houver nenhum dado (com cache, mostra os dados e revalida em silêncio)
     return (
       <div className="flex flex-col items-center justify-center p-20 text-center glass-panel rounded-3xl">
         <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
         <h3 className="text-xl font-bold text-slate-900 mb-2">Erro de Conexão</h3>
-        <p className="text-slate-400 mb-6">Não foi possível carregar os dados do painel.</p>
-        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-slate-100 rounded-xl font-bold border border-slate-700">TENTAR NOVAMENTE</button>
+        <p className="text-slate-400 mb-6">Não foi possível carregar os dados do painel. O servidor pode estar iniciando — tente de novo em alguns segundos.</p>
+        <button onClick={() => mutate()} className="px-6 py-2 bg-violet-600 text-white rounded-xl font-bold">TENTAR NOVAMENTE</button>
       </div>
     );
   }
