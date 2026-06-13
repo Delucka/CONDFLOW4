@@ -58,6 +58,11 @@ def get_gerente_id(db: Client, profile_id: str) -> Optional[str]:
 
 # ═══ API ENDPOINTS ═══════════════════════════════════════════════════
 
+@router.get("/health")
+def api_health():
+    # Endpoint leve (sem auth, sem DB) só para "acordar" a função e tirar o cold start.
+    return {"ok": True}
+
 @router.get("/dashboard")
 def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, ano: Optional[int] = None, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:

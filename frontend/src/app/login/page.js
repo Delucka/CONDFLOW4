@@ -21,6 +21,9 @@ export default function LoginPage() {
     }
   }, [user, router]);
 
+  // Pré-aquece a função Python do backend enquanto o usuário digita — mata o cold start no 1º dashboard
+  useEffect(() => { try { fetch('/api/health').catch(() => {}); } catch {} }, []);
+
   async function handleSubmit(e) {
     e.preventDefault();
     setErro('');
