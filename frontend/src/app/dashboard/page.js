@@ -267,6 +267,8 @@ export default function DashboardPage() {
   const stats    = data?.stats    || { total: 0, em_edicao: 0, pendentes: 0, aprovados: 0 };
   const condos   = data?.condos   || [];
   const gerentes = data?.gerentes || [];
+  const gerenteNomePorId = {};
+  gerentes.forEach(g => { gerenteNomePorId[g.id] = g.profiles?.full_name || g.nome || null; });
 
   // Ordena por número do condomínio (prefixo do nome, ex: "411 - ...") asc/desc
   const condosOrdenados = useMemo(() => {
@@ -375,7 +377,10 @@ export default function DashboardPage() {
                             }
                             <div>
                               <p className="font-bold text-slate-800 group-hover:text-violet-400 transition-colors uppercase tracking-tight text-[11px]">{c.name}</p>
-                              <p className="text-[9px] text-slate-500 font-medium">{c.gerente_name || c.assistente || '—'}</p>
+                              <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap">
+                                <span>{gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}</span>
+                                {c.due_day && <span className="text-slate-400">· venc. dia {c.due_day}</span>}
+                              </p>
                             </div>
                           </div>
                         </td>
