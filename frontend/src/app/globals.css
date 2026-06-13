@@ -199,3 +199,16 @@ html.dark {
 /* Hovers */
 .dark .hover\:bg-slate-100:hover { background-color: var(--color-surface-sunken) !important; }
 .dark .hover\:bg-slate-50:hover  { background-color: var(--color-surface-2) !important; }
+
+/* ============================================================
+   CONTRASTE — texto semântico herdado do tema escuro (tons 200/300)
+   ficava fraco no fundo claro. Aqui: tom forte no CLARO, tom claro no ESCURO.
+   ============================================================ */
+.text-emerald-300, .text-emerald-200 { color:#047857 !important; }
+.text-amber-300,   .text-amber-200   { color:#b45309 !important; }
+.text-rose-300,    .text-rose-200    { color:#be123c !important; }
+.text-violet-300,  .text-violet-200  { color:#1e40af !important; }
+.dark .text-emerald-300, .dark .text-emerald-200 { color:#6ee7b7 !important; }
+.dark .text-amber-300,   .dark .text-amber-200   { color:#fcd34d !important; }
+.dark .text-rose-300,    .dark .text-rose-200    { color:#fda4af !important; }
+.dark .text-violet-300,  .dark .text-violet-200  { color:#9fc0ff !important; }
