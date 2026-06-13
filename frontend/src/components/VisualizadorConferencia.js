@@ -21,6 +21,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
   const [currentFile, setCurrentFile] = useState(arquivo);
   const [loadingFile, setLoadingFile] = useState(false);
+  const [docList, setDocList] = useState(arquivos);   // lista de navegação (troca quando abrimos outro mês)
   
   // Se o arquivo tiver snapshot congelado (emissão registrada), não busca dados ao vivo
   const isSnapshot = !!arquivo?.planilha_snapshot;
@@ -47,10 +48,9 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const cobrancas = isSnapshot ? [] : (data?.cobrancas_extras || []);
 
   useEffect(() => {
-    if (arquivo) {
-      setCurrentFile(arquivo);
-    }
-  }, [arquivo]);
+    if (arquivo) setCurrentFile(arquivo);
+    setDocList(arquivos);   // nova conferência -> volta a navegar a lista do pacote atual
+  }, [arquivo, arquivos]);
 
   const podeAprovar = can(currentUser?.role, 'approve_document');
   const podeAssinar = can(currentUser?.role, 'sign_document');
@@ -163,9 +163,9 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   }
 
   // Navegação entre arquivos
-  const currentIndex = arquivos.findIndex(a => String(a.id) === String(currentFile?.id));
+  const currentIndex = docList.findIndex(a => String(a.id) === String(currentFile?.id));
   const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex >= 0 && currentIndex < arquivos.length - 1;
+  const hasNext = currentIndex >= 0 && currentIndex < docList.length - 1;
 
   async function openArquivo(a) {
     setLoadingFile(true);
@@ -199,25 +199,34 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     setCurrentFile({ ...currentFile, id: `att_${c.id}`, nome: `Anexo: ${c.descricao}`, url: c.attachments[0] });
   }
 
-  // Abre a emissão de um mês (clicar na linha do mês na planilha) — pra conferir meses anteriores
+  // Volta pra emissão que está sendo conferida (restaura a lista do pacote atual)
+  function voltarEmissaoAtual() {
+    setDocList(arquivos);
+    if (arquivo) openArquivo(arquivo);
+  }
+
+  // Abre a emissão de um mês (clicar na linha do mês na planilha) — pra conferir meses anteriores.
+  // Troca a LISTA de navegação pra os documentos daquele mês (assim as setas transitam dentro dele).
   async function abrirMesEmissao(m) {
     if (isSnapshot) return;
     const condoId = currentFile?.condominio_id || arquivo?.condominio_id;
     const ano = currentFile?.ano || arquivo?.ano;
     if (!condoId || !ano) return;
-    // 1) já está no pacote atual? abre direto (sem ir ao banco)
-    const local = arquivos.find(a => (a.mes_referencia ?? a.mes) === m.mes && String(a.ano_referencia ?? a.ano) === String(ano));
-    if (local) { openArquivo(local); return; }
-    // 2) busca a emissão daquele mês no banco
+    // mês do pacote atual -> restaura a lista original
+    if (String(m.mes) === String(arquivo?.mes) && String(ano) === String(arquivo?.ano)) {
+      voltarEmissaoAtual();
+      return;
+    }
     setLoadingFile(true);
     try {
       const { data: arqs, error } = await supabase
         .from('emissoes_arquivos')
-        .select('id, arquivo_url, arquivo_nome, condominio_id, mes_referencia, ano_referencia, categoria')
+        .select('*')
         .eq('condominio_id', condoId).eq('mes_referencia', m.mes).eq('ano_referencia', ano);
       if (error) throw error;
       const lista = arqs || [];
       if (!lista.length) { addToast(`Sem emissão registrada em ${m.mes_nome}.`, 'info'); return; }
+      setDocList(lista);   // agora as setas/seletor navegam os documentos DESTE mês
       const principal = lista.find(a => a.categoria !== 'concessionaria' && a.categoria !== 'relatorio_leitura') || lista[0];
       await openArquivo(principal);
     } catch (e) {
@@ -227,12 +236,24 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     }
   }
 
+  // Setas ←/→ do teclado transitam entre os documentos da lista
+  useEffect(() => {
+    function onKey(e) {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || loadingFile) return;
+      if (e.key === 'ArrowRight' && hasNext) { e.preventDefault(); handleNavigate(1); }
+      else if (e.key === 'ArrowLeft' && hasPrev) { e.preventDefault(); handleNavigate(-1); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [hasNext, hasPrev, currentIndex, docList, loadingFile]);
+
   async function handleNavigate(direction) {
     const nextIndex = currentIndex + direction;
-    if (nextIndex < 0 || nextIndex >= arquivos.length) return;
+    if (nextIndex < 0 || nextIndex >= docList.length) return;
 
     setLoadingFile(true);
-    const nextDoc = arquivos[nextIndex];
+    const nextDoc = docList[nextIndex];
     
     try {
       const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(nextDoc.arquivo_url, 300);
@@ -263,43 +284,50 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           <FileText className="w-4 h-4 text-violet-400 shrink-0" />
           <div className="min-w-0">
             <h3 className="text-sm text-slate-900 font-bold truncate leading-tight">{currentFile?.nome || 'Documento'}</h3>
-            <p className="text-[9px] uppercase tracking-widest text-slate-500">Conferência {arquivos.length > 1 ? `· ${currentIndex + 1} de ${arquivos.length}` : ''}</p>
+            <p className="text-[9px] uppercase tracking-widest text-slate-500">Conferência{currentFile?.mes ? ` · ${MESES_LONG_VC[currentFile.mes]}/${currentFile.ano || ''}` : ''}{docList.length > 1 ? ` · doc ${currentIndex + 1} de ${docList.length}` : ''}</p>
           </div>
         </div>
 
-        {/* Navegação entre arquivos */}
-        {arquivos.length > 1 && (
+        {/* Voltar à emissão conferida (quando espiando outro mês na planilha) */}
+        {!isSnapshot && arquivo?.mes != null && currentFile?.mes != null &&
+          (String(currentFile.mes) !== String(arquivo.mes) || String(currentFile.ano) !== String(arquivo.ano)) && (
+          <button onClick={voltarEmissaoAtual} disabled={loadingFile}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-100 text-violet-700 border border-violet-200 hover:bg-violet-200 text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-colors"
+            title="Voltar à emissão que você está conferindo">
+            <ChevronLeft className="w-3.5 h-3.5" /> Emissão de {MESES_LONG_VC[arquivo.mes]}
+          </button>
+        )}
+
+        {/* Navegação entre documentos */}
+        {docList.length > 1 && (
           <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 border border-slate-200 shrink-0">
             <button
               onClick={() => handleNavigate(-1)}
               disabled={!hasPrev || loadingFile}
-              className="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-20 transition-colors"
-              title="Anterior"
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-white disabled:opacity-20 transition-colors"
+              title="Anterior (seta ←)"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <select
               value={currentFile?.id || ''}
               onChange={(e) => {
-                const arq = arquivos.find(a => String(a.id) === e.target.value);
-                if (arq) {
-                  const idx = arquivos.indexOf(arq);
-                  handleNavigate(idx - currentIndex);
-                }
+                const idx = docList.findIndex(a => String(a.id) === e.target.value);
+                if (idx >= 0) handleNavigate(idx - currentIndex);
               }}
-              className="bg-transparent text-[10px] font-bold text-slate-900 outline-none px-1.5 py-1 max-w-[140px] truncate cursor-pointer"
+              className="bg-transparent text-[10px] font-bold text-slate-900 outline-none px-1.5 py-1 max-w-[160px] truncate cursor-pointer"
             >
-              {arquivos.map((a, i) => (
+              {docList.map((a, i) => (
                 <option key={a.id} value={a.id} className="bg-white">
-                  {i + 1}. {a.arquivo_nome}
+                  {i + 1}/{docList.length} · {a.arquivo_nome || a.nome}
                 </option>
               ))}
             </select>
             <button
               onClick={() => handleNavigate(1)}
               disabled={!hasNext || loadingFile}
-              className="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-20 transition-colors"
-              title="Próximo"
+              className="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-white disabled:opacity-20 transition-colors"
+              title="Próximo (seta →)"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -531,7 +559,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
           {/* Concessionárias — só se houver anexos dessa categoria */}
           {(() => {
-            const concessionarias = arquivos.filter(a => a.categoria === 'concessionaria');
+            const concessionarias = docList.filter(a => a.categoria === 'concessionaria');
             if (concessionarias.length === 0) return null;
             return (
               <div className="bg-white border border-amber-500/30 rounded-xl overflow-hidden shrink-0">
@@ -578,7 +606,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
           {/* Relatórios de Leitura — card espelho do de Concessionárias */}
           {(() => {
-            const relatorios = arquivos.filter(a => a.categoria === 'relatorio_leitura');
+            const relatorios = docList.filter(a => a.categoria === 'relatorio_leitura');
             if (relatorios.length === 0) return null;
             return (
               <div className="bg-white border border-violet-500/30 rounded-xl overflow-hidden shrink-0">
@@ -638,7 +666,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
           {/* Outros anexos (atas, etc) */}
           {(() => {
-            const outros = arquivos.filter(a => a.categoria === 'outros');
+            const outros = docList.filter(a => a.categoria === 'outros');
             if (outros.length === 0) return null;
             return (
               <div className="bg-white border border-slate-700 rounded-xl overflow-hidden shrink-0">
