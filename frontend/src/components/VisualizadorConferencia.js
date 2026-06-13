@@ -193,6 +193,40 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     }
   }
 
+  // Abre o anexo da cobrança extra ao clicar em qualquer lugar da linha
+  function abrirCobranca(c) {
+    if (!c?.attachments?.length) { addToast('Esta cobrança não tem anexo.', 'info'); return; }
+    setCurrentFile({ ...currentFile, id: `att_${c.id}`, nome: `Anexo: ${c.descricao}`, url: c.attachments[0] });
+  }
+
+  // Abre a emissão de um mês (clicar na linha do mês na planilha) — pra conferir meses anteriores
+  async function abrirMesEmissao(m) {
+    if (isSnapshot) return;
+    const condoId = currentFile?.condominio_id || arquivo?.condominio_id;
+    const ano = currentFile?.ano || arquivo?.ano;
+    if (!condoId || !ano) return;
+    // 1) já está no pacote atual? abre direto (sem ir ao banco)
+    const local = arquivos.find(a => (a.mes_referencia ?? a.mes) === m.mes && String(a.ano_referencia ?? a.ano) === String(ano));
+    if (local) { openArquivo(local); return; }
+    // 2) busca a emissão daquele mês no banco
+    setLoadingFile(true);
+    try {
+      const { data: arqs, error } = await supabase
+        .from('emissoes_arquivos')
+        .select('id, arquivo_url, arquivo_nome, condominio_id, mes_referencia, ano_referencia, categoria')
+        .eq('condominio_id', condoId).eq('mes_referencia', m.mes).eq('ano_referencia', ano);
+      if (error) throw error;
+      const lista = arqs || [];
+      if (!lista.length) { addToast(`Sem emissão registrada em ${m.mes_nome}.`, 'info'); return; }
+      const principal = lista.find(a => a.categoria !== 'concessionaria' && a.categoria !== 'relatorio_leitura') || lista[0];
+      await openArquivo(principal);
+    } catch (e) {
+      addToast('Erro ao abrir a emissão do mês.', 'error');
+    } finally {
+      setLoadingFile(false);
+    }
+  }
+
   async function handleNavigate(direction) {
     const nextIndex = currentIndex + direction;
     if (nextIndex < 0 || nextIndex >= arquivos.length) return;
@@ -416,7 +450,9 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                     </thead>
                     <tbody>
                       {mesesParaExibir.map(m => (
-                        <tr key={m.mes} className="border-t border-slate-800">
+                        <tr key={m.mes} onClick={() => !isSnapshot && abrirMesEmissao(m)}
+                          className={`border-t border-slate-800 transition-colors ${!isSnapshot ? 'cursor-pointer hover:bg-violet-50' : ''}`}
+                          title={!isSnapshot ? `Abrir a emissão de ${m.mes_nome}` : undefined}>
                           <td className="px-3 py-2 text-xs font-bold text-slate-400 uppercase">{m.mes_nome}</td>
                           {(planilha?.colunas || []).map(col => (
                             <td key={col} className="text-right px-3 py-2 text-xs text-slate-700 font-mono whitespace-nowrap">
@@ -475,28 +511,13 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                       </thead>
                       <tbody>
                         {cobrancas.map(c => (
-                          <tr key={c.id} className="border-t border-slate-800">
+                          <tr key={c.id} onClick={() => abrirCobranca(c)}
+                            className={`border-t border-slate-800 transition-colors ${c.attachments?.length ? 'cursor-pointer hover:bg-violet-50' : 'hover:bg-slate-50'}`}
+                            title={c.attachments?.length ? 'Clique para abrir o anexo' : 'Sem anexo'}>
                             <td className="px-3 py-2 text-xs text-slate-700">
                               <div className="flex items-center gap-2">
                                 {c.descricao}
-                                {c.attachments?.length > 0 && (
-                                   <button 
-                                     onClick={() => {
-                                       setLoadingFile(true);
-                                       setCurrentFile({
-                                         ...currentFile,
-                                         id: `att_${c.id}`,
-                                         nome: `Anexo: ${c.descricao}`,
-                                         url: c.attachments[0] // Assume que já é a Signed URL vinda da API de conferência
-                                       });
-                                       setLoadingFile(false);
-                                     }}
-                                     className="text-slate-500 hover:text-violet-400 transition-colors" 
-                                     title="Visualizar anexo aqui"
-                                   >
-                                     <FileText className="w-3 h-3" />
-                                   </button>
-                                 )}
+                                {c.attachments?.length > 0 && <FileText className="w-3 h-3 text-violet-400 shrink-0" />}
                               </div>
                             </td>
                             <td className="text-right px-3 py-2 text-xs text-slate-800 font-mono font-bold">{fmt(c.valor)}</td>
