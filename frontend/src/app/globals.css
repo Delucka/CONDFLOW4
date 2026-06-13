@@ -7,7 +7,7 @@
 
 @theme {
   /* Superfícies */
-  --color-surface-app:    #f5f6f8;  /* fundo geral */
+  --color-surface-app:    #f6f5f3;  /* fundo geral (neutro quente elevado) */
   --color-surface:        #ffffff;  /* cards/painéis */
   --color-surface-2:      #f8fafc;  /* hover de linha / sutil */
   --color-surface-sunken: #f1f5f9;  /* áreas rebaixadas */
@@ -22,14 +22,26 @@
   --color-border-default: #dfe4ea;
   --color-border-strong:  #cbd5e1;
 
-  /* Brand (identidade do logo — usar com moderação) */
-  --color-brand:          #6d28d9;
-  --color-brand-hover:    #5b21b6;
-  --color-brand-soft:     #f3effe;
+  /* Brand — azul escuro (navy) */
+  --color-brand:          #1e3a8a;
+  --color-brand-hover:    #172554;
+  --color-brand-soft:     #eef2fb;
 
-  /* Glow legado (mantido p/ logo gradient) */
-  --color-brand-accent:   #6d28d9;
-  --color-brand-glow:     #06b6d4;
+  /* Glow legado (logo gradient) */
+  --color-brand-accent:   #1e3a8a;
+  --color-brand-glow:     #2f6fed;
+
+  /* Acento: a rampa "violet" é remapeada p/ NAVY — recolore o app inteiro (tema claro) */
+  --color-violet-50:  #eef2fb;
+  --color-violet-100: #dbe4f5;
+  --color-violet-200: #c2d0ee;
+  --color-violet-300: #9db0e0;
+  --color-violet-400: #3a5bbf;
+  --color-violet-500: #1e40af;
+  --color-violet-600: #1e3a8a;
+  --color-violet-700: #172554;
+  --color-violet-800: #14204a;
+  --color-violet-900: #0f1a3c;
 }
 
 /* ─── Fundo claro neutro (Global) ─── */
@@ -81,7 +93,7 @@ input, select, textarea {
 input::placeholder, textarea::placeholder { color: var(--color-text-muted) !important; }
 input:focus, select:focus, textarea:focus {
   border-color: var(--color-brand) !important;
-  box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.12) !important;
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15) !important;
   outline: none;
 }
 
@@ -144,7 +156,14 @@ html.dark {
   --color-border-subtle:  #1f2b45;
   --color-border-default: #2a3a59;
   --color-border-strong:  #3a4d72;
-  --color-brand-soft:     #241b3f;
+  --color-brand-soft:     #15213f;
+
+  /* Acento no escuro: azul mais claro (salta no fundo escuro) */
+  --color-violet-300: #9fc0ff;
+  --color-violet-400: #7da2ff;
+  --color-violet-500: #5b8def;
+  --color-violet-600: #4f7cef;
+  --color-violet-700: #3f63cf;
 }
 
 /* Painéis token-driven */
@@ -172,7 +191,7 @@ html.dark {
 .dark .border-slate-300 { border-color: var(--color-border-strong) !important; }
 
 /* Fundos suaves de acento (claros → tingidos escuros) */
-.dark .bg-violet-50  { background-color: rgba(139,92,246,.14) !important; }
+.dark .bg-violet-50  { background-color: rgba(79,124,239,.16) !important; }
 .dark .bg-emerald-50 { background-color: rgba(16,185,129,.14) !important; }
 .dark .bg-amber-50   { background-color: rgba(245,158,11,.14) !important; }
 .dark .bg-rose-50    { background-color: rgba(244,63,94,.14) !important; }
