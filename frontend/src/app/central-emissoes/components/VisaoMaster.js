@@ -13,6 +13,14 @@ import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { isPendingForRole } from '@/lib/usePendingCount';
 import { siglaRole } from '@/lib/roles';
+
+// Cargos que aprovam em cada fluxo (p/ reconstruir os NÍVEIS dos pacotes antigos — sem nome)
+const FLUXO_ROLES = {
+  1: ['supervisora_contabilidade'],
+  2: ['gerente', 'supervisora_contabilidade'],
+  3: ['gerente', 'supervisora_contabilidade'],
+  4: ['gerente', 'supervisor_gerentes', 'supervisora_contabilidade'],
+};
 import { Inbox } from 'lucide-react';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -647,7 +655,20 @@ export default function VisaoMaster() {
                           })}
                         </div>
                       ) : pacote.aprovado_em ? (
-                        <p className="text-[10px] text-emerald-600 mt-0.5">✓ Aprovado{pacote.aprovado_por_nome ? ` por ${pacote.aprovado_por_nome}` : ''} · {new Date(pacote.aprovado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ')}</p>
+                        <div className="flex items-center gap-1 flex-wrap mt-1">
+                          <span className="text-[9px] text-slate-400 uppercase tracking-wider">Aprovações:</span>
+                          {(FLUXO_ROLES[Number(pacote.nivel_aprovacao) || 1] || ['supervisora_contabilidade']).map((role, i) => {
+                            const s = siglaRole(role);
+                            const quando = new Date(pacote.aprovado_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
+                            return (
+                              <span key={i} title={`${s.label} · aprovador não registrado (pacote anterior) · concluído em ${quando}`}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-50 text-slate-500 border border-slate-200 text-[9px] font-bold cursor-help">
+                                ✓ {s.sigla}
+                              </span>
+                            );
+                          })}
+                          <span className="text-[9px] text-slate-300 italic">histórico não detalhado</span>
+                        </div>
                       ) : null}
                       {pacote.correcao_em && (
                         <p className="text-[10px] text-amber-600 mt-0.5">⚠ Correção por {pacote.correcao_por_nome || '—'} · {new Date(pacote.correcao_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ')}</p>
