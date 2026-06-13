@@ -12,6 +12,7 @@ import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { isPendingForRole } from '@/lib/usePendingCount';
+import { siglaRole } from '@/lib/roles';
 import { Inbox } from 'lucide-react';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -162,7 +163,14 @@ export default function VisaoMaster() {
           arqMap[a.pacote_id].push(a);
         });
 
-        setPacotes(data.map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
+        const { data: aprs } = await supabase
+          .from('emissoes_pacotes_aprovacoes')
+          .select('pacote_id, acao, role, usuario_nome, usuario_email, criado_em')
+          .order('criado_em', { ascending: true });
+        const aprMap = {};
+        (aprs || []).forEach(a => { (aprMap[a.pacote_id] = aprMap[a.pacote_id] || []).push(a); });
+
+        setPacotes(data.map(p => ({ ...p, arquivos: arqMap[p.id] || [], aprovacoes: aprMap[p.id] || [] })));
 
         const { data: orphanData } = await supabase
           .from('emissoes_arquivos')
@@ -213,7 +221,13 @@ export default function VisaoMaster() {
 
     if (error) addToast('Erro ao processar aprovação: ' + error.message, 'error');
     else if (!data || data.length === 0) addToast('Aprovação bloqueada por RLS (0 linhas atualizadas).', 'error');
-    else { addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success'); fetchPacotes(); }
+    else {
+      await supabase.from('emissoes_pacotes_aprovacoes').insert({
+        pacote_id: pacote.id, acao: 'aprovacao', role: user?.role || null,
+        usuario_nome: user?.full_name || null, usuario_email: user?.email || null,
+      });
+      addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success'); fetchPacotes();
+    }
   }
 
   async function handleConcluirRapido(pacote) { setActivePacote(pacote); setShowConcluirModal(true); }
@@ -618,9 +632,23 @@ export default function VisaoMaster() {
                           <span className="ml-2 text-violet-500">• 🔒 planilha congelada</span>
                         )}
                       </p>
-                      {pacote.aprovado_em && (
-                        <p className="text-[10px] text-emerald-600 mt-0.5">✓ Aprovado{pacote.aprovado_por_nome ? ` por ${pacote.aprovado_por_nome}` : ''}{pacote.aprovado_por_role ? ` · ${pacote.aprovado_por_role}` : ''} · {new Date(pacote.aprovado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ')}</p>
-                      )}
+                      {pacote.aprovacoes?.length > 0 ? (
+                        <div className="flex items-center gap-1 flex-wrap mt-1">
+                          <span className="text-[9px] text-slate-400 uppercase tracking-wider">Aprovações:</span>
+                          {pacote.aprovacoes.filter(a => a.acao !== 'correcao').map((a, i) => {
+                            const s = siglaRole(a.role);
+                            const quando = new Date(a.criado_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', ' ');
+                            return (
+                              <span key={i} title={`${s.label} · ${a.usuario_nome || '—'}${a.usuario_email ? ' · ' + a.usuario_email : ''} · ${quando}`}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-bold cursor-help">
+                                ✓ {s.sigla}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : pacote.aprovado_em ? (
+                        <p className="text-[10px] text-emerald-600 mt-0.5">✓ Aprovado{pacote.aprovado_por_nome ? ` por ${pacote.aprovado_por_nome}` : ''} · {new Date(pacote.aprovado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ')}</p>
+                      ) : null}
                       {pacote.correcao_em && (
                         <p className="text-[10px] text-amber-600 mt-0.5">⚠ Correção por {pacote.correcao_por_nome || '—'} · {new Date(pacote.correcao_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ')}</p>
                       )}

@@ -120,6 +120,10 @@ export default function VisaoGerente({ profile }) {
       // RLS bloqueou o update silenciosamente (0 linhas afetadas)
       addToast('Aprovação bloqueada pelas regras de acesso. Avise o admin.', 'error');
     } else {
+      await supabase.from('emissoes_pacotes_aprovacoes').insert({
+        pacote_id: pacote.id, acao: 'aprovacao', role: user?.role || null,
+        usuario_nome: user?.full_name || null, usuario_email: user?.email || null,
+      });
       addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success');
       fetchPacotes();
     }

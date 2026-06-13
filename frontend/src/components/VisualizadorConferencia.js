@@ -129,6 +129,10 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         .eq('id', pacoteId)
         .select('id');
       if (error || !data || data.length === 0) throw new Error(error?.message || 'Sem permissão para aprovar');
+      await supabase.from('emissoes_pacotes_aprovacoes').insert({
+        pacote_id: pacoteId, acao: 'aprovacao', role: currentUser?.role || null,
+        usuario_nome: currentUser?.full_name || null, usuario_email: currentUser?.email || null,
+      });
       addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success');
       onAction?.(); onClose?.();
     } catch (e) { addToast(e.message, 'error'); }

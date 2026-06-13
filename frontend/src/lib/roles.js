@@ -11,6 +11,21 @@ export const ROLE_LABELS = {
   outros: 'Usuário',
 };
 
+// Sigla + cargo por extenso para a trilha de aprovação (ex.: SPC · Supervisor da Contabilidade)
+export const ROLE_SIGLA = {
+  master:                    { sigla: 'MST', label: 'Master' },
+  gerente:                   { sigla: 'GER', label: 'Gerente' },
+  assistente:                { sigla: 'AST', label: 'Assistente' },
+  supervisora:               { sigla: 'SUP', label: 'Supervisora' },
+  supervisora_contabilidade: { sigla: 'SPC', label: 'Supervisor da Contabilidade' },
+  supervisor_gerentes:       { sigla: 'SPG', label: 'Supervisor de Gerentes' },
+  departamento:              { sigla: 'DEP', label: 'Departamento' },
+  sindico:                   { sigla: 'SIN', label: 'Síndico' },
+};
+export function siglaRole(role) {
+  return ROLE_SIGLA[role] || { sigla: (role || '?').slice(0, 3).toUpperCase(), label: ROLE_LABELS[role] || role || 'Usuário' };
+}
+
 export const ROUTE_ACCESS = {
   '/dashboard':           ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
   '/condominios':         ['master','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
