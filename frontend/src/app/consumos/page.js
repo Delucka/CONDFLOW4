@@ -394,6 +394,8 @@ export default function ConsumosPage() {
   const [editFatura, setEditFatura] = useState(null);
   // Pré-seleciona condo+concessionaria+mes ao abrir Nova fatura via clique numa celula vazia
   const [preFatura, setPreFatura] = useState(null);
+  // Seletor quando há +1 conta do mesmo tipo no mesmo mês (mostra todas em vez de esconder)
+  const [multiModal, setMultiModal] = useState(null); // { nome, condo_id, conc, mes, faturas:[] }
   // Modal de leitura por unidade (tabela extraída do relatório)
   const [unidadesModal, setUnidadesModal] = useState(null); // { nome, empresa, mes, servico, loading, unidades, erro, arquivo_url }
 
@@ -443,7 +445,8 @@ export default function ConsumosPage() {
   const matrizMap = useMemo(() => {
     const m = {};
     todasFaturas.forEach(f => {
-      m[`${f.condominio_id}|${f.concessionaria}|${f.mes_referencia}`] = f;
+      const k = `${f.condominio_id}|${f.concessionaria}|${f.mes_referencia}`;
+      (m[k] = m[k] || []).push(f);   // ARRAY: várias contas do mesmo tipo no mês não se sobrescrevem
     });
     return m;
   }, [todasFaturas]);
@@ -630,7 +633,7 @@ export default function ConsumosPage() {
   const alertasList = useMemo(() => {
     const out = [];
     todasFaturas.forEach(f => {
-      const ant = matrizMap[`${f.condominio_id}|${f.concessionaria}|${f.mes_referencia - 1}`];
+      const ant = (matrizMap[`${f.condominio_id}|${f.concessionaria}|${f.mes_referencia - 1}`] || [])[0];
       if (f.valor != null && ant?.valor != null && Number(ant.valor) > 0) {
         const pct = (Number(f.valor) - Number(ant.valor)) / Number(ant.valor) * 100;
         if (Math.abs(pct) >= 50) out.push({ tipo: 'anomalia', condo_id: f.condominio_id, nome: f.condominios?.name, label: `${f.concessionaria} ${MESES[f.mes_referencia]}`, pct });
@@ -896,34 +899,44 @@ export default function ConsumosPage() {
                         : 'text-slate-400'
                       }`}>{conc}</td>
                       {Array.from({length:12}, (_,i)=>i+1).map(m => {
-                        const f = matrizMap[`${c.id}|${conc}|${m}`];
-                        const isAnexada = f?.status === 'anexada';
-                        const isRepetida = f?.marcada_repetida === true;
-                        // Calcula anomalia: variacao % vs mes anterior se ambos existirem
-                        const fAnt = matrizMap[`${c.id}|${conc}|${m - 1}`];
+                        const fs = matrizMap[`${c.id}|${conc}|${m}`] || [];
+                        const fsAnt = matrizMap[`${c.id}|${conc}|${m - 1}`] || [];
+                        const n = fs.length;
+                        const valorMes = fs.reduce((s, x) => s + (Number(x.valor) || 0), 0);
+                        const valorAnt = fsAnt.reduce((s, x) => s + (Number(x.valor) || 0), 0);
+                        const algumValor = fs.some(x => x.valor != null);
+                        const todasAnexadas = n > 0 && fs.every(x => x.status === 'anexada');
+                        const isRepetida = fs.some(x => x.marcada_repetida === true);
+                        // Anomalia: variação % da SOMA do mês vs SOMA do mês anterior
                         let variacaoPct = null;
-                        if (f && fAnt && f.valor != null && fAnt.valor != null && Number(fAnt.valor) > 0) {
-                          variacaoPct = (Number(f.valor) - Number(fAnt.valor)) / Number(fAnt.valor) * 100;
+                        if (n > 0 && fsAnt.length > 0 && algumValor && valorAnt > 0) {
+                          variacaoPct = (valorMes - valorAnt) / valorAnt * 100;
                         }
                         const anomaliaGrave = variacaoPct !== null && Math.abs(variacaoPct) >= 50;
                         // Tooltip rico
                         const tooltipParts = [`${conc} ${MESES[m]}/${anoSel}`];
-                        if (isAnexada) tooltipParts.push('✓ Anexada'); else if (f) tooltipParts.push('⏳ Pendente');
-                        if (f?.valor != null) tooltipParts.push(`R$ ${fmtBRL(f.valor)}`);
+                        if (n > 1) tooltipParts.push(`${n} contas`);
+                        if (n > 0) tooltipParts.push(todasAnexadas ? '✓ Anexada' : '⏳ Pendente');
+                        if (algumValor) tooltipParts.push(`R$ ${fmtBRL(valorMes)}${n > 1 ? ' (soma)' : ''}`);
                         if (variacaoPct !== null) tooltipParts.push(`Δ ${variacaoPct >= 0 ? '+' : ''}${variacaoPct.toFixed(1)}% vs ${MESES[m-1] || 'mês ant.'}`);
-                        if (isRepetida) tooltipParts.push(`🔴 REPETIDA SANCIONADA${f.motivo_repeticao ? ': ' + f.motivo_repeticao : ''}`);
+                        if (isRepetida) tooltipParts.push('🔴 REPETIDA SANCIONADA');
+                        if (n > 1) fs.forEach(x => tooltipParts.push(`• ${x.concessionaria}: R$ ${fmtBRL(x.valor)}${x.status === 'anexada' ? ' ✓' : ''}`));
                         return (
                           <td key={m} className="p-0.5 border-r border-slate-200">
-                            {f ? (
-                              <button onClick={() => { setEditFatura(f); setCondoSel(c.id); setShowNovaModal(true); }}
+                            {n > 0 ? (
+                              <button onClick={() => {
+                                  if (n === 1) { setEditFatura(fs[0]); setCondoSel(c.id); setShowNovaModal(true); }
+                                  else setMultiModal({ nome: c.name, condo_id: c.id, conc, mes: m, faturas: fs });
+                                }}
                                 className={`relative w-full h-full px-1 py-1.5 rounded text-[10px] font-bold transition-all ${
                                   isRepetida ? 'bg-rose-500/15 border border-rose-500/40 text-rose-300 hover:bg-rose-500/25'
                                   : anomaliaGrave ? 'bg-amber-500/20 border border-amber-500/50 text-amber-200 hover:bg-amber-500/30'
-                                  : isAnexada ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
+                                  : todasAnexadas ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
                                   : 'bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25'
                                 }`}
                                 title={tooltipParts.join(' · ')}>
-                                {f.valor != null ? `R$ ${fmtBRL(f.valor)}` : (isAnexada ? '✓' : '·')}
+                                {algumValor ? `R$ ${fmtBRL(valorMes)}` : (todasAnexadas ? '✓' : '·')}
+                                {n > 1 && (<span className="absolute -top-1 -left-1 bg-violet-600 text-white text-[8px] font-black min-w-[14px] h-[14px] px-0.5 rounded-full flex items-center justify-center leading-none border border-white">{n}</span>)}
                                 {isRepetida && (<span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full border border-slate-950" />)}
                                 {!isRepetida && anomaliaGrave && (<span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full border border-slate-950 animate-pulse" />)}
                               </button>
@@ -1061,6 +1074,38 @@ export default function ConsumosPage() {
       {/* Modal de leitura por unidade */}
       {unidadesModal && (
         <RelatorioUnidadesModal info={unidadesModal} onClose={() => setUnidadesModal(null)} />
+      )}
+
+      {/* Seletor quando há +1 conta do mesmo tipo no mesmo mês */}
+      {multiModal && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4" onClick={() => setMultiModal(null)}>
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">{multiModal.conc} · {MESES_LONG[multiModal.mes]}</h3>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest">{multiModal.nome} · {multiModal.faturas.length} contas</p>
+              </div>
+              <button onClick={() => setMultiModal(null)} className="text-slate-500 hover:text-slate-900"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-3 space-y-2 max-h-[60vh] overflow-y-auto">
+              {multiModal.faturas.map((f, i) => (
+                <button key={f.id} onClick={() => { setEditFatura(f); setCondoSel(multiModal.condo_id); setShowNovaModal(true); setMultiModal(null); }}
+                  className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{i + 1}. {f.concessionaria}{f.descricao ? ` · ${f.descricao}` : ''}</p>
+                    <p className="text-[10px] text-slate-500">{f.status === 'anexada' ? '✓ Anexada' : '⏳ Pendente'}{f.vencimento ? ` · venc ${fmtDate(f.vencimento)}` : ''}</p>
+                  </div>
+                  <span className="text-sm font-mono font-bold text-slate-900 shrink-0">R$ {fmtBRL(f.valor)}</span>
+                </button>
+              ))}
+            </div>
+            <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-between gap-3">
+              <span className="text-xs text-slate-500">Total: <b className="text-slate-800">R$ {fmtBRL(multiModal.faturas.reduce((s, x) => s + (Number(x.valor) || 0), 0))}</b></span>
+              <button onClick={() => { setCondoSel(multiModal.condo_id); setPreFatura({ concessionaria: multiModal.conc, mes_referencia: multiModal.mes, ano_referencia: anoSel }); setEditFatura(null); setShowNovaModal(true); setMultiModal(null); }}
+                className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-bold hover:bg-violet-700 shrink-0">+ Adicionar conta</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal escolher condo (pra criar fatura num condo que nao tem nenhuma ainda) */}
