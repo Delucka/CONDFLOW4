@@ -619,7 +619,7 @@ export default function VisaoMaster() {
                         )}
                       </p>
                       {pacote.aprovado_em && (
-                        <p className="text-[10px] text-emerald-600 mt-0.5">✓ Aprovado por {pacote.aprovado_por_nome || '—'}{pacote.aprovado_por_role ? ` · ${pacote.aprovado_por_role}` : ''} · {new Date(pacote.aprovado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ')}</p>
+                        <p className="text-[10px] text-emerald-600 mt-0.5">✓ Aprovado{pacote.aprovado_por_nome ? ` por ${pacote.aprovado_por_nome}` : ''}{pacote.aprovado_por_role ? ` · ${pacote.aprovado_por_role}` : ''} · {new Date(pacote.aprovado_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ')}</p>
                       )}
                       {pacote.correcao_em && (
                         <p className="text-[10px] text-amber-600 mt-0.5">⚠ Correção por {pacote.correcao_por_nome || '—'} · {new Date(pacote.correcao_em).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',' ')}</p>
