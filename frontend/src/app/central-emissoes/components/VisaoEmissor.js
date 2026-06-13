@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -78,6 +78,15 @@ export default function VisaoEmissor({ profile }) {
   const [sancionandoAnexo, setSancionandoAnexo] = useState(null); // File do documento de aprovação
   const [sancionando, setSancionando] = useState(false);
   const [pertencimentoInfo, setPertencimentoInfo] = useState(null); // { alerta, file, categoria } — bloqueio duro, sem sancionamento
+
+  // Cadastro de Seguro Proteção por código de condomínio { "0020": [{cod,tipo,valor}, ...] }
+  const [segurosMap, setSegurosMap] = useState({});
+  useEffect(() => {
+    fetch('/condominios_seguros.json', { cache: 'force-cache' })
+      .then(r => (r.ok ? r.json() : {}))
+      .then(setSegurosMap)
+      .catch(() => {});
+  }, []);
 
   // Referência do gerente (planilha do mês + cobranças extras) na tela de anexos
   const [confData, setConfData]       = useState(null);  // { planilha, cobrancas_extras }
@@ -1067,6 +1076,35 @@ export default function VisaoEmissor({ profile }) {
               </div>
             </div>
           </div>
+
+          {/* Seguro Proteção do condomínio (cadastro) */}
+          {(() => {
+            const ativoCond = condominios.find(c => c.id === activePacote.condominio_id);
+            const codigo = (ativoCond?.name || '').match(/\d{1,5}/)?.[0]?.padStart(4, '0');
+            const seguros = (codigo && segurosMap[codigo]) || [];
+            if (!seguros.length) return null;
+            return (
+              <div className="mb-6 rounded-2xl border border-violet-500/25 bg-violet-500/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <ShieldCheck className="w-4 h-4 text-violet-500" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-violet-700">Seguro Proteção</span>
+                  <span className="text-[10px] text-slate-400">· incluir na emissão</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {seguros.map((s, i) => (
+                    <span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs">
+                      <span className="font-bold text-slate-800">{s.tipo}</span>
+                      <span className="text-slate-300">·</span>
+                      <span className="text-slate-500">cód <span className="font-mono font-bold text-slate-700">{s.cod}</span></span>
+                      <span className="text-slate-300">·</span>
+                      <span className="font-mono font-black text-emerald-600">R$ {Number(s.valor).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                      <span className="text-[10px] text-slate-400">/unid.</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Lista de Arquivos do Pacote */}
           <div className="space-y-3 mb-6">
