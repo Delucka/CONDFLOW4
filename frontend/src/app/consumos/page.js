@@ -411,14 +411,20 @@ export default function ConsumosPage() {
   const todasFaturas = matrizData?.consumos || [];
 
   // Relatórios de leitura do ano (Prosper/Outra) — direto do Supabase, polling 30s
-  const [relatorios, setRelatorios] = useState([]);
+  const [relatoriosRaw, setRelatoriosRaw] = useState([]);
   const fetchRelatorios = useCallback(async () => {
     const { data } = await supabase
       .from('consumos_relatorios_leitura')
       .select('*, condominios(name)')
       .eq('ano_referencia', anoSel);
-    setRelatorios(data || []);
+    setRelatoriosRaw(data || []);
   }, [supabase, anoSel]);
+  // Gerente só vê seus condomínios: restringe relatórios à lista permitida (condosComFaturas já vem filtrada do backend)
+  const allowedCondoIds = useMemo(() => new Set(condosComFaturas.map(c => c.id)), [condosComFaturas]);
+  const relatorios = useMemo(
+    () => (role === 'gerente' ? relatoriosRaw.filter(r => allowedCondoIds.has(r.condominio_id)) : relatoriosRaw),
+    [relatoriosRaw, role, allowedCondoIds]
+  );
   useEffect(() => {
     fetchRelatorios();
     const t = setInterval(fetchRelatorios, 60000);

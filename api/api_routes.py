@@ -56,6 +56,14 @@ def get_gerente_id(db: Client, profile_id: str) -> Optional[str]:
         return res.data[0]["id"]
     return None
 
+def gerente_condo_ids(db: Client, profile_id: str):
+    """IDs dos condomínios sob a gerência do usuário (lista vazia se não for gerente / sem condos)."""
+    g_id = get_gerente_id(db, profile_id)
+    if not g_id:
+        return []
+    res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
+    return [c["id"] for c in (res.data or [])]
+
 # ═══ API ENDPOINTS ═══════════════════════════════════════════════════
 
 @router.get("/health")
@@ -1990,6 +1998,12 @@ def api_listar_consumos(
 ):
     """Lista faturas. Todos os roles autenticados podem ler."""
     q = db.table("consumos_faturas").select("*, condominios(name)").order("ano_referencia", desc=True).order("mes_referencia", desc=True)
+    # Gerente só enxerga faturas dos seus condomínios
+    if user.get("role") == "gerente":
+        ids = gerente_condo_ids(db, user["id"])
+        if not ids:
+            return {"consumos": []}
+        q = q.in_("condominio_id", ids)
     if condominio_id:
         q = q.eq("condominio_id", condominio_id)
     if ano:
@@ -2057,6 +2071,10 @@ def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Dep
                 "gerente_nome": gerentes_map.get(c.get("gerente_id")),
                 "concessionarias": sorted(list(cfg_map.get(c["id"], set()))),
             })
+        # Gerente só enxerga seus próprios condomínios
+        if user.get("role") == "gerente":
+            allowed = set(gerente_condo_ids(db, user["id"]))
+            out = [c for c in out if c["id"] in allowed]
         out.sort(key=lambda x: (x["codigo"], x["name"]))
         return {"condominios": out}
     except Exception as e:
