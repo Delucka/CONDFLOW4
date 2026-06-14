@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -55,6 +55,7 @@ export default function VisaoEmissor({ profile }) {
 
   // Carteiras expandidas
   const [expandedCarteiras, setExpandedCarteiras] = useState({});
+  const [buscaCarteira, setBuscaCarteira] = useState('');
 
   // Mapa de status dos processos por condomínio { condoId: { id, status } }
   const [processosMap, setProcessosMap] = useState({});
@@ -940,6 +941,24 @@ export default function VisaoEmissor({ profile }) {
     return groups;
   }, [condominios]);
 
+  // Busca (ignora acentos/caixa): casa por nome/código do condomínio OU nome do gerente
+  const carteirasFiltradas = useMemo(() => {
+    const norm = (s) => (s || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+    const q = norm(buscaCarteira).trim();
+    if (!q) return carteiras;
+    const out = {};
+    Object.entries(carteiras).forEach(([gerente, condos]) => {
+      if (norm(gerente).includes(q)) { out[gerente] = condos; return; }
+      const m = condos.filter(c => norm(c.name).includes(q));
+      if (m.length) out[gerente] = m;
+    });
+    return out;
+  }, [carteiras, buscaCarteira]);
+  const totalEncontrados = useMemo(
+    () => Object.values(carteirasFiltradas).reduce((s, arr) => s + arr.length, 0),
+    [carteirasFiltradas]
+  );
+
   // Mapa de pacotes por condomínio (mês/ano atual)
   const pacotesPorCondo = useMemo(() => {
     const map = {};
@@ -1384,8 +1403,36 @@ export default function VisaoEmissor({ profile }) {
           )}
         </div>
 
-        {Object.entries(carteiras).map(([gerente, condos]) => {
-          const isExpanded = expandedCarteiras[gerente] !== false; // default aberto
+        {/* Busca por condomínio (nome/código) ou carteira/gerente */}
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            value={buscaCarteira}
+            onChange={e => setBuscaCarteira(e.target.value)}
+            placeholder="Buscar condomínio (nome ou código) ou gerente…"
+            className="w-full bg-white border border-slate-200 rounded-xl pl-11 pr-10 py-3 text-sm text-slate-800 outline-none focus:border-violet-500 placeholder-slate-400 shadow-sm"
+          />
+          {buscaCarteira && (
+            <button type="button" onClick={() => setBuscaCarteira('')} title="Limpar busca"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        {buscaCarteira && (
+          <p className="text-[11px] text-slate-500 -mt-2 px-1">
+            {totalEncontrados} {totalEncontrados === 1 ? 'condomínio encontrado' : 'condomínios encontrados'} em {Object.keys(carteirasFiltradas).length} {Object.keys(carteirasFiltradas).length === 1 ? 'carteira' : 'carteiras'}
+          </p>
+        )}
+
+        {Object.keys(carteirasFiltradas).length === 0 && (
+          <div className="text-center py-10 text-slate-500 text-sm border border-dashed border-slate-200 rounded-2xl">
+            Nenhum condomínio ou carteira encontrado para “{buscaCarteira}”.
+          </div>
+        )}
+
+        {Object.entries(carteirasFiltradas).map(([gerente, condos]) => {
+          const isExpanded = buscaCarteira ? true : (expandedCarteiras[gerente] !== false); // busca força expandir
           return (
             <div key={gerente} className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
               <button
