@@ -666,8 +666,10 @@ export default function ConsumosPage() {
     return all.filter(x => x.em).sort((a, b) => new Date(b.em) - new Date(a.em)).slice(0, 10);
   }, [todasFaturas, relatorios]);
 
+  const mesAtual = anoSel === new Date().getFullYear() ? new Date().getMonth() + 1 : 0;
+
   return (
-    <div className="animate-fade-in w-full space-y-6 pb-20">
+    <div className="animate-fade-in w-full flex flex-col gap-6 pb-20">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-panel p-6 rounded-[2rem] border-slate-200 shadow-xl">
         <div className="flex items-center gap-4">
@@ -695,8 +697,8 @@ export default function ConsumosPage() {
         )}
       </div>
 
-      {/* ─── Dashboard: stats cards ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* ─── Dashboard: stats cards (abaixo da tabela) ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 order-last">
         <div className="glass-panel rounded-2xl border border-slate-200 p-4">
           <div className="flex items-center gap-2 mb-1">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -710,7 +712,7 @@ export default function ConsumosPage() {
             <AlertTriangle className="w-4 h-4 text-amber-400" />
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Anomalias</p>
           </div>
-          <p className="text-2xl font-black text-amber-300">{alertasList.filter(a => a.tipo === 'anomalia').length}</p>
+          <p className="text-2xl font-black text-amber-600">{alertasList.filter(a => a.tipo === 'anomalia').length}</p>
           <p className="text-[11px] text-slate-500">Δ ≥ 50% vs mês anterior</p>
         </div>
         <div className="glass-panel rounded-2xl border border-slate-200 p-4">
@@ -718,7 +720,7 @@ export default function ConsumosPage() {
             <RefreshCw className="w-4 h-4 text-rose-400" />
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Duplicatas</p>
           </div>
-          <p className="text-2xl font-black text-rose-300">{stats.duplicatas}</p>
+          <p className="text-2xl font-black text-rose-600">{stats.duplicatas}</p>
           <p className="text-[11px] text-slate-500">sancionadas</p>
         </div>
         <div className="glass-panel rounded-2xl border border-slate-200 p-4">
@@ -726,14 +728,14 @@ export default function ConsumosPage() {
             <Clock className="w-4 h-4 text-violet-400" />
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pendentes</p>
           </div>
-          <p className="text-2xl font-black text-violet-300">{stats.pendentes}</p>
+          <p className="text-2xl font-black text-violet-600">{stats.pendentes}</p>
           <p className="text-[11px] text-slate-500">aguardando anexar</p>
         </div>
       </div>
 
       {/* ─── Banner de alertas (só se houver) ─── */}
       {alertasList.length > 0 && (
-        <div className="glass-panel rounded-2xl border border-amber-500/20 bg-amber-500/[0.03] p-4">
+        <div className="glass-panel rounded-2xl border border-amber-500/20 bg-amber-500/[0.03] p-4 order-last">
           <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-2 flex items-center gap-2">
             <AlertTriangle className="w-3.5 h-3.5" /> Atenção · {alertasList.length} {alertasList.length === 1 ? 'item' : 'itens'}
           </p>
@@ -757,7 +759,7 @@ export default function ConsumosPage() {
 
       {/* ─── Feed das últimas anexações ─── */}
       {feed.length > 0 && (
-        <div className="glass-panel rounded-2xl border border-slate-200 p-4">
+        <div className="glass-panel rounded-2xl border border-slate-200 p-4 order-last">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-2">
             <FileText className="w-3.5 h-3.5 text-emerald-400" /> Últimas anexações
           </p>
@@ -787,9 +789,9 @@ export default function ConsumosPage() {
       <div className="flex gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-200 w-fit">
         {[
           { id: 'todas',  label: 'Todas',  color: 'text-slate-900' },
-          { id: 'SABESP', label: 'SABESP', color: 'text-violet-300',  active: 'bg-violet-500 text-slate-950' },
-          { id: 'COMGAS', label: 'COMGAS', color: 'text-amber-300', active: 'bg-amber-500 text-slate-950' },
-          { id: 'ENEL',   label: 'ENEL',   color: 'text-rose-300',  active: 'bg-rose-500 text-white' },
+          { id: 'SABESP', label: 'SABESP', color: 'text-violet-600',  active: 'bg-violet-500 text-white' },
+          { id: 'COMGAS', label: 'COMGAS', color: 'text-amber-600', active: 'bg-amber-500 text-slate-950' },
+          { id: 'ENEL',   label: 'ENEL',   color: 'text-rose-600',  active: 'bg-rose-500 text-white' },
         ].map(t => (
           <button key={t.id} onClick={() => setFiltroConc(t.id)}
             className={`px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
@@ -857,7 +859,7 @@ export default function ConsumosPage() {
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
             Faturas {anoSel} · {condosFiltrados.length} de {condosComFaturas.length} condomínios
           </p>
-          <p className="text-[10px] text-slate-500">Passe o mouse na célula para ver detalhes · Click pra editar</p>
+          <p className="text-[10px] text-slate-500">Mouse na célula = detalhes · clique = ver, editar ou adicionar contas</p>
         </div>
         <div ref={faturasScrollRef} className="overflow-auto max-h-[75vh]">
           {condosFiltrados.length === 0 ? (
@@ -871,21 +873,22 @@ export default function ConsumosPage() {
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[120px]">Gerente</th>
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[80px]">Conta</th>
                   {Array.from({length:12}, (_,i)=>i+1).map(m => (
-                    <th key={m} data-mes={m} className="text-center px-1 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[60px]">{MESES[m]}</th>
+                    <th key={m} data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">hoje</span> : null}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {condosFiltrados.flatMap(c => {
+                {condosFiltrados.flatMap((c, ci) => {
                   const concsAll = (c.concessionarias || []);
                   // Quando filtra por concessionaria, mostra somente as linhas dela
                   const concs = filtroConc === 'todas' ? concsAll : concsAll.filter(x => x === filtroConc);
                   if (concs.length === 0) return [];
+                  const zebra = ci % 2 === 1 ? 'bg-slate-50' : 'bg-white';
                   return concs.map((conc, idx) => (
-                    <tr key={`${c.id}-${conc}`} className="border-t border-slate-200 hover:bg-slate-100">
+                    <tr key={`${c.id}-${conc}`} className={`border-t border-slate-200 ${zebra} hover:bg-violet-500/5`}>
                       {idx === 0 ? (
                         <>
-                          <td rowSpan={concs.length} className="px-3 py-2 align-top font-bold text-slate-800 sticky left-0 bg-slate-50 backdrop-blur z-10 truncate max-w-[220px] border-r border-slate-200" title={c.name}>
+                          <td rowSpan={concs.length} className={`px-3 py-2 align-top font-bold text-slate-800 sticky left-0 ${zebra} z-10 truncate max-w-[220px] border-r border-slate-200`} title={c.name}>
                             {c.name}
                           </td>
                           <td rowSpan={concs.length} className="text-center px-2 py-2 align-top text-slate-400 font-mono border-r border-slate-200">{c.due_day ? `${c.due_day}${c.due_day_2 ? ' e ' + c.due_day_2 : ''}` : '—'}</td>
@@ -922,14 +925,14 @@ export default function ConsumosPage() {
                         if (isRepetida) tooltipParts.push('🔴 REPETIDA SANCIONADA');
                         if (n > 1) fs.forEach(x => tooltipParts.push(`• ${x.concessionaria}: R$ ${fmtBRL(x.valor)}${x.status === 'anexada' ? ' ✓' : ''}`));
                         return (
-                          <td key={m} className="p-0.5 border-r border-slate-200">
+                          <td key={m} className={`p-0.5 border-r border-slate-200 ${m === mesAtual ? 'bg-violet-500/5' : ''}`}>
                             {n > 0 ? (
                               <button onClick={() => setMultiModal({ nome: c.name, condo_id: c.id, conc, mes: m, faturas: fs })}
                                 className={`relative w-full h-full px-1 py-1.5 rounded text-[10px] font-bold transition-all ${
-                                  isRepetida ? 'bg-rose-500/15 border border-rose-500/40 text-rose-300 hover:bg-rose-500/25'
-                                  : anomaliaGrave ? 'bg-amber-500/20 border border-amber-500/50 text-amber-200 hover:bg-amber-500/30'
-                                  : todasAnexadas ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
-                                  : 'bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25'
+                                  isRepetida ? 'bg-rose-500/15 border border-rose-500/40 text-rose-700 hover:bg-rose-500/25'
+                                  : anomaliaGrave ? 'bg-amber-500/20 border border-amber-500/50 text-amber-700 hover:bg-amber-500/30'
+                                  : todasAnexadas ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/25'
+                                  : 'bg-amber-500/15 border border-amber-500/30 text-amber-700 hover:bg-amber-500/25'
                                 }`}
                                 title={tooltipParts.join(' · ')}>
                                 {algumValor ? `R$ ${fmtBRL(valorMes)}` : (todasAnexadas ? '✓' : '·')}
@@ -944,7 +947,7 @@ export default function ConsumosPage() {
                                   setEditFatura(null);
                                   setShowNovaModal(true);
                                 }}
-                                className="w-full h-full px-1 py-1.5 rounded text-[10px] text-slate-600 hover:text-violet-400 hover:bg-violet-500/5 transition-all border border-transparent hover:border-violet-500/20"
+                                className="w-full h-full px-1 py-1.5 rounded text-[12px] text-slate-300 hover:text-violet-500 hover:bg-violet-500/5 transition-all border border-transparent hover:border-violet-500/20"
                                 title={`Adicionar fatura ${conc} ${MESES[m]}/${anoSel}`}>
                                 +
                               </button>
@@ -977,18 +980,19 @@ export default function ConsumosPage() {
                   <th className="text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 sticky left-0 bg-slate-50 z-20 min-w-[220px]">Condomínio</th>
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[140px] border-r border-slate-200">Empresa · Serviço</th>
                   {Array.from({length:12}, (_,i)=>i+1).map(m => (
-                    <th key={m} data-mes={m} className="text-center px-1 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[64px]">{MESES[m]}</th>
+                    <th key={m} data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">hoje</span> : null}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {condosComRelatorios.flatMap(c =>
                   c.linhas.map((linha, idx) => {
+                    const zebra = condosComRelatorios.indexOf(c) % 2 === 1 ? 'bg-slate-50' : 'bg-white';
                     const [empresa, servico] = linha.split('||');
                     return (
-                      <tr key={`${c.id}-${linha}`} className="border-t border-slate-200 hover:bg-slate-100">
+                      <tr key={`${c.id}-${linha}`} className={`border-t border-slate-200 ${zebra} hover:bg-violet-500/5`}>
                         {idx === 0 && (
-                          <td rowSpan={c.linhas.length} className="px-3 py-2 align-top font-bold text-slate-800 sticky left-0 bg-slate-50 z-10 truncate max-w-[220px] border-r border-slate-200" title={c.name}>
+                          <td rowSpan={c.linhas.length} className={`px-3 py-2 align-top font-bold text-slate-800 sticky left-0 ${zebra} z-10 truncate max-w-[220px] border-r border-slate-200`} title={c.name}>
                             {c.name}
                           </td>
                         )}
@@ -1015,7 +1019,7 @@ export default function ConsumosPage() {
                             if (isRepetida) tip.push(`🔴 REPETIDA${r.motivo_repeticao ? ': ' + r.motivo_repeticao : ''}`);
                           }
                           return (
-                            <td key={m} className="p-0.5 border-r border-slate-200">
+                            <td key={m} className={`p-0.5 border-r border-slate-200 ${m === mesAtual ? 'bg-violet-500/5' : ''}`}>
                               {r ? (
                                 <button
                                   onClick={() => abrirUnidades({
