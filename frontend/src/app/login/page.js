@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { Building2, Loader2, KeyRound, Mail, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, KeyRound, Mail, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { PenguinMark } from '@/components/PenguinLogo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -61,12 +62,10 @@ export default function LoginPage() {
       <div className="glass-panel w-full max-w-md rounded-2xl p-8 animate-fade-up relative z-10">
         {/* Logo */}
         <div className="flex items-center justify-center mb-6">
-          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-violet-400 border border-slate-800 ">
-            <Building2 className="w-8 h-8" />
-          </div>
+          <PenguinMark size={72} />
         </div>
         <h2 className="text-3xl font-black text-center text-slate-900 mb-1 tracking-tight">
-          CONDO<span className="text-violet-400 drop-">FLOW</span>
+          Condo<span className="text-violet-400">Flow</span>
         </h2>
         <p className="text-slate-400 text-center mb-8 text-sm font-medium tracking-wide">
           SISTEMA DE GESTÃO E ARRECADAÇÕES

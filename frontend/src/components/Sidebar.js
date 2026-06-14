@@ -6,7 +6,8 @@ import { useState } from 'react';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
 import { usePendingCount } from '@/lib/usePendingCount';
 import ThemeToggle from './ThemeToggle';
-import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Zap, Receipt, FileUp, KeyRound, Droplet, Mail } from 'lucide-react';
+import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Receipt, FileUp, KeyRound, Droplet, Mail } from 'lucide-react';
+import { PenguinMark } from './PenguinLogo';
 
 const NAV_ITEMS = [
   { href: '/dashboard',           icon: LayoutDashboard, label: 'Painel Central' },
@@ -38,10 +39,8 @@ export default function Sidebar() {
       <div className="flex-1 flex flex-col py-4 glass-panel rounded-2xl overflow-hidden relative">
 
         <div className={`flex items-center gap-2.5 px-4 mb-6 mt-1 ${collapsed ? 'justify-center px-0' : ''}`}>
-          <div className="w-8 h-8 bg-violet-600 rounded-xl flex items-center justify-center text-white shrink-0">
-            <Zap className="w-4 h-4 fill-white" />
-          </div>
-          {!collapsed && <h1 className="text-lg font-black tracking-tight text-slate-900 italic">CONDO<span className="text-violet-600">FLOW</span></h1>}
+          <PenguinMark size={36} className="shrink-0" />
+          {!collapsed && <h1 className="text-lg font-black tracking-tight text-slate-900">Condo<span className="text-violet-600">Flow</span></h1>}
         </div>
 
         {profile && (
