@@ -17,7 +17,7 @@ export default function CondominiosPage() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', gerente_id: '', assistente: '', fluxo: 1 });
+  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', assistente: '', fluxo: 1 });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
   const [selectedGerente, setSelectedGerente] = useState(null);
   const supabase = createClient();
@@ -143,15 +143,16 @@ export default function CondominiosPage() {
   function openEdit(condo = null) {
     if (condo) {
       setFormData({ 
-        id: condo.id, 
-        name: condo.name, 
-        due_day: condo.due_day || '', 
-        gerente_id: condo.gerente_id || '', 
+        id: condo.id,
+        name: condo.name,
+        due_day: condo.due_day || '',
+        due_day_2: condo.due_day_2 || '',
+        gerente_id: condo.gerente_id || '',
         assistente: condo.assistente || '',
         fluxo: condo.fluxo || 1
       });
     } else {
-      setFormData({ id: '', name: '', due_day: '', gerente_id: '', assistente: '', fluxo: 1 });
+      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', assistente: '', fluxo: 1 });
     }
     setModalOpen(true);
   }
@@ -522,9 +523,13 @@ export default function CondominiosPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Dia de Vencimento</label>
-                  <input type="number" min="1" max="31" value={formData.due_day} onChange={e => setFormData({...formData, due_day: e.target.value})}
-                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 outline-none focus:border-violet-500 shadow-inner" />
+                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Dia de Vencimento <span className="text-slate-400 font-medium normal-case tracking-normal">(1º e 2º opcional)</span></label>
+                  <div className="flex gap-2">
+                    <input type="number" min="1" max="31" placeholder="1º" value={formData.due_day} onChange={e => setFormData({...formData, due_day: e.target.value})}
+                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 outline-none focus:border-violet-500 shadow-inner" />
+                    <input type="number" min="1" max="31" placeholder="2º" value={formData.due_day_2} onChange={e => setFormData({...formData, due_day_2: e.target.value})}
+                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 outline-none focus:border-violet-500 shadow-inner" />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Carteira / Assistente</label>
@@ -597,7 +602,7 @@ function CondoCard({ c, canEdit, onEdit, onQuickView }) {
               </div>
               <div className="flex items-center gap-3 text-slate-400">
                  <Calendar className="w-4 h-4 text-violet-500" />
-                 <span className="text-xs font-bold">Vencimento: Dia {c.due_day || '—'}</span>
+                 <span className="text-xs font-bold">Vencimento: Dia {c.due_day || '—'}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>
               </div>
               <div className="flex items-center gap-3 text-slate-400">
                  <ShieldCheck className="w-4 h-4 text-emerald-500" />

@@ -379,7 +379,7 @@ export default function DashboardPage() {
                               <p className="font-bold text-slate-800 group-hover:text-violet-400 transition-colors uppercase tracking-tight text-[11px]">{c.name}</p>
                               <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap">
                                 <span>{gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}</span>
-                                {c.due_day && <span className="text-slate-400">· venc. dia {c.due_day}</span>}
+                                {c.due_day && <span className="text-slate-400">· venc. dia {c.due_day}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>}
                               </p>
                             </div>
                           </div>

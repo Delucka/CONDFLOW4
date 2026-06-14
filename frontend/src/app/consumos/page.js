@@ -888,7 +888,7 @@ export default function ConsumosPage() {
                           <td rowSpan={concs.length} className="px-3 py-2 align-top font-bold text-slate-800 sticky left-0 bg-slate-50 backdrop-blur z-10 truncate max-w-[220px] border-r border-slate-200" title={c.name}>
                             {c.name}
                           </td>
-                          <td rowSpan={concs.length} className="text-center px-2 py-2 align-top text-slate-400 font-mono border-r border-slate-200">{c.due_day || '—'}</td>
+                          <td rowSpan={concs.length} className="text-center px-2 py-2 align-top text-slate-400 font-mono border-r border-slate-200">{c.due_day ? `${c.due_day}${c.due_day_2 ? ' e ' + c.due_day_2 : ''}` : '—'}</td>
                           <td rowSpan={concs.length} className="px-2 py-2 align-top text-slate-400 truncate max-w-[120px] border-r border-slate-200" title={c.gerente_nome || '—'}>{c.gerente_nome || '—'}</td>
                         </>
                       ) : null}

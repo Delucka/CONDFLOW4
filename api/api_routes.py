@@ -250,6 +250,7 @@ class CondoData(BaseModel):
     id: Optional[str] = None
     name: str
     due_day: str
+    due_day_2: Optional[str] = None
     gerente_id: str
     assistente: str
     fluxo: int = 1
@@ -260,7 +261,7 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
         if user["role"] != "master":
             raise HTTPException(403, "Apenas master")
         
-        payload = {"name": data.name, "due_day": data.due_day, "gerente_id": data.gerente_id, "assistente": data.assistente, "fluxo": data.fluxo}
+        payload = {"name": data.name, "due_day": data.due_day, "due_day_2": (data.due_day_2 or None), "gerente_id": data.gerente_id, "assistente": data.assistente, "fluxo": data.fluxo}
         
         if data.id:
             db.table("condominios").update(payload).eq("id", data.id).execute()
@@ -2029,7 +2030,7 @@ def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Dep
         condos_data = []
         for i in range(0, len(ids), 100):
             chunk = ids[i:i+100]
-            res = db.table("condominios").select("id, name, due_day, gerente_id").in_("id", chunk).execute()
+            res = db.table("condominios").select("id, name, due_day, due_day_2, gerente_id").in_("id", chunk).execute()
             condos_data.extend(res.data or [])
 
         gerente_ids = list({c.get("gerente_id") for c in condos_data if c.get("gerente_id")})
@@ -2051,6 +2052,7 @@ def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Dep
                 "name": nome,
                 "codigo": codigo,
                 "due_day": c.get("due_day"),
+                "due_day_2": c.get("due_day_2"),
                 "gerente_id": c.get("gerente_id"),
                 "gerente_nome": gerentes_map.get(c.get("gerente_id")),
                 "concessionarias": sorted(list(cfg_map.get(c["id"], set()))),

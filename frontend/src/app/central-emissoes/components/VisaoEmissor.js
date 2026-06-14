@@ -1421,7 +1421,7 @@ export default function VisaoEmissor({ profile }) {
                       }`}>
                         <div className="flex items-center gap-3 flex-wrap">
                           <span className="text-sm font-bold text-slate-700 truncate max-w-[280px]">{condo.name}</span>
-                          {condo.due_day && <span className="text-[10px] text-slate-400 font-medium">venc. dia {condo.due_day}</span>}
+                          {condo.due_day && <span className="text-[10px] text-slate-400 font-medium">venc. dia {condo.due_day}{condo.due_day_2 ? ` e ${condo.due_day_2}` : ''}</span>}
                           {temAltPrevista && (
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black uppercase tracking-widest animate-pulse"
                                   title={altsPrevistas.map(a => `${a.tipo} em ${new Date(a.data_evento + 'T00:00:00').toLocaleDateString('pt-BR')}${a.descricao ? ' — ' + a.descricao : ''}`).join('\n')}>

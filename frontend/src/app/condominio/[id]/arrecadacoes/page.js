@@ -447,7 +447,7 @@ export default function ArrecadacoesPage() {
                             Gerente: <span className="text-slate-900">{condo?.gerente_name}</span>
                         </span>
                         <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest flex items-center gap-1 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
-                            Vencimento: <span className="text-slate-900">DIA {condo?.due_day}</span>
+                            Vencimento: <span className="text-slate-900">DIA {condo?.due_day}{condo?.due_day_2 ? ` E ${condo.due_day_2}` : ''}</span>
                         </span>
                     </div>
                 </div>

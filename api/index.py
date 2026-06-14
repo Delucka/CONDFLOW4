@@ -222,7 +222,7 @@ def dashboard(request: Request, gerente_id: str = Query(None)):
     try:
         # Cache condominios (raramente mudam)
         def fetch_condos():
-            return db.table("condominios").select("id,name,due_day,gerente_id").order("name").execute().data or []
+            return db.table("condominios").select("id,name,due_day,due_day_2,gerente_id").order("name").execute().data or []
         all_condos = cached_query("condominios_list", fetch_condos)
         
         # Filtrar por gerente no Python (evita query extra)
@@ -685,6 +685,7 @@ async def salvar_condominio(request: Request):
     nome = body.get("nome")
     gid = body.get("gerente_id")
     due = body.get("due_day")
+    due2 = body.get("due_day_2")
     lg = body.get("limit_gerencia")
     le = body.get("limit_emissao")
     lx = body.get("limit_expedicao")
@@ -694,6 +695,7 @@ async def salvar_condominio(request: Request):
     data = {
         "name": nome,
         "due_day": int(due) if due else None,
+        "due_day_2": int(due2) if due2 else None,
         "gerente_id": gid if gid else None,
         "limit_gerencia": int(lg) if lg else None,
         "limit_emissao": int(le) if le else None,
