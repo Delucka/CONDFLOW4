@@ -2235,9 +2235,9 @@ def api_check_duplicata_completa(data: CheckDuplicataCompletaFatura, user: dict 
          .execute()
         if res.data:
             alertas.append({
-                "nivel": "bloqueio",
+                "nivel": "aviso",
                 "tipo": "fatura_ja_existe",
-                "mensagem": f"Ja existe fatura de {data.concessionaria} em {data.mes_referencia:02d}/{data.ano_referencia} para este condominio.",
+                "mensagem": f"Ja existe {len(res.data)} fatura(s) de {data.concessionaria} em {data.mes_referencia:02d}/{data.ano_referencia}. Se for outra instalacao/conta, pode anexar normalmente.",
                 "detalhes": res.data[0],
             })
     elif data.tipo == "relatorio" and data.empresa and data.tipo_servico:
@@ -2251,9 +2251,9 @@ def api_check_duplicata_completa(data: CheckDuplicataCompletaFatura, user: dict 
          .execute()
         if res.data:
             alertas.append({
-                "nivel": "bloqueio",
+                "nivel": "aviso",
                 "tipo": "relatorio_ja_existe",
-                "mensagem": f"Ja existe relatorio de {data.empresa} ({data.tipo_servico}) em {data.mes_referencia:02d}/{data.ano_referencia}.",
+                "mensagem": f"Ja existe {len(res.data)} relatorio(s) de {data.empresa} ({data.tipo_servico}) em {data.mes_referencia:02d}/{data.ano_referencia}. Se for outra leitura/conta, pode anexar normalmente.",
                 "detalhes": res.data[0],
             })
 
@@ -2539,7 +2539,7 @@ def api_criar_consumo(data: ConsumoCreateSchema, user: dict = Depends(get_curren
     except Exception as e:
         msg = str(e)
         if "uq_consumos_condo_periodo_conc" in msg or "duplicate key" in msg.lower():
-            raise HTTPException(400, "Ja existe fatura desta concessionaria nesse mes para este condominio")
+            raise HTTPException(400, "Este arquivo identico ja foi anexado para esta concessionaria neste mes. (Contas de instalacoes diferentes sao permitidas — verifique se nao e o mesmo PDF.)")
         raise HTTPException(400, msg)
 
 
