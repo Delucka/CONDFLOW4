@@ -924,10 +924,7 @@ export default function ConsumosPage() {
                         return (
                           <td key={m} className="p-0.5 border-r border-slate-200">
                             {n > 0 ? (
-                              <button onClick={() => {
-                                  if (n === 1) { setEditFatura(fs[0]); setCondoSel(c.id); setShowNovaModal(true); }
-                                  else setMultiModal({ nome: c.name, condo_id: c.id, conc, mes: m, faturas: fs });
-                                }}
+                              <button onClick={() => setMultiModal({ nome: c.name, condo_id: c.id, conc, mes: m, faturas: fs })}
                                 className={`relative w-full h-full px-1 py-1.5 rounded text-[10px] font-bold transition-all ${
                                   isRepetida ? 'bg-rose-500/15 border border-rose-500/40 text-rose-300 hover:bg-rose-500/25'
                                   : anomaliaGrave ? 'bg-amber-500/20 border border-amber-500/50 text-amber-200 hover:bg-amber-500/30'
@@ -1083,7 +1080,7 @@ export default function ConsumosPage() {
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-slate-900">{multiModal.conc} · {MESES_LONG[multiModal.mes]}</h3>
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest">{multiModal.nome} · {multiModal.faturas.length} contas</p>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest">{multiModal.nome} · {multiModal.faturas.length} {multiModal.faturas.length === 1 ? 'conta' : 'contas'}</p>
               </div>
               <button onClick={() => setMultiModal(null)} className="text-slate-500 hover:text-slate-900"><X className="w-5 h-5" /></button>
             </div>
