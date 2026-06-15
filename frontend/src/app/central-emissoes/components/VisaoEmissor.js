@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search } from 'lucide-react';
 import StatusBadge from './StatusBadge';
@@ -88,6 +88,32 @@ export default function VisaoEmissor({ profile }) {
       .then(setSegurosMap)
       .catch(() => {});
   }, []);
+
+  // Características do condomínio (texto livre, editável e auto-salvo na emissão)
+  const [caracteristicas, setCaracteristicas] = useState('');
+  const [caracSaving, setCaracSaving] = useState('idle'); // idle | saving | saved
+  const caracTimerRef = useRef(null);
+  useEffect(() => {
+    if (!activePacote?.condominio_id) { setCaracteristicas(''); setCaracSaving('idle'); return; }
+    const cond = condominios.find(c => c.id === activePacote.condominio_id);
+    setCaracteristicas(cond?.caracteristicas || '');
+    setCaracSaving('idle');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePacote?.id]);
+  const salvarCaracteristicas = (val) => {
+    setCaracteristicas(val);
+    setCaracSaving('saving');
+    if (caracTimerRef.current) clearTimeout(caracTimerRef.current);
+    caracTimerRef.current = setTimeout(async () => {
+      const cid = activePacote?.condominio_id;
+      if (!cid) return;
+      const { error } = await supabase.from('condominios').update({ caracteristicas: val }).eq('id', cid);
+      if (error) { setCaracSaving('idle'); addToast('Erro ao salvar características: ' + error.message, 'error'); return; }
+      setCondominios(prev => prev.map(c => (c.id === cid ? { ...c, caracteristicas: val } : c)));
+      setCaracSaving('saved');
+      setTimeout(() => setCaracSaving(s => (s === 'saved' ? 'idle' : s)), 1500);
+    }, 800);
+  };
 
   // Referência do gerente (planilha do mês + cobranças extras) na tela de anexos
   const [confData, setConfData]       = useState(null);  // { planilha, cobrancas_extras }
@@ -346,6 +372,12 @@ export default function VisaoEmissor({ profile }) {
       addToast(`Não é possível criar emissão para ${String(mes).padStart(2,'0')}/${ano} — mês já encerrado.`, 'error');
       return;
     } else {
+      // Só permite CRIAR pacote novo se a preparação estiver "pronto para emitir"
+      const prep = preparacaoMap[`${condoId}_${mes}_${ano}`];
+      if (prep?.etapa !== 'pronto_para_emitir') {
+        addToast('Só é possível abrir o pacote quando a preparação está "Pronto p/ emitir". Defina a etapa na lista por carteira.', 'warning');
+        return;
+      }
       const { data: novo, error } = await supabase
         .from('emissoes_pacotes')
         .insert({
@@ -1124,6 +1156,26 @@ export default function VisaoEmissor({ profile }) {
               </div>
             );
           })()}
+
+          {/* Características do condomínio — editável, auto-salva, sempre visível */}
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <StickyNote className="w-4 h-4 text-violet-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">Características do condomínio</span>
+              <span className="text-[10px] text-slate-400">· salvas automaticamente</span>
+              <span className="ml-auto text-[10px] font-bold">
+                {caracSaving === 'saving' ? <span className="text-amber-500">salvando…</span>
+                  : caracSaving === 'saved' ? <span className="text-emerald-600">✓ salvo</span> : null}
+              </span>
+            </div>
+            <textarea
+              value={caracteristicas}
+              onChange={e => salvarCaracteristicas(e.target.value)}
+              placeholder="Especificações deste condomínio: regras de rateio, salão de festas, observações de cobrança, instalações de água/energia, etc. Salva conforme você digita."
+              rows={4}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:border-violet-500 resize-y placeholder-slate-400 leading-relaxed"
+            />
+          </div>
 
           {/* Lista de Arquivos do Pacote */}
           <div className="space-y-3 mb-6">
