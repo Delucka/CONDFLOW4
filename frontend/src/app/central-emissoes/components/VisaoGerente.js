@@ -157,7 +157,12 @@ export default function VisaoGerente({ profile }) {
     if (error) {
       addToast('Falha ao solicitar correção.', 'error');
     } else {
-      addToast('Correção solicitada.', 'success');
+      // Marca o ciclo: aprovações anteriores deixam de valer (re-conferência do zero)
+      await supabase.from('emissoes_pacotes_aprovacoes').insert({
+        pacote_id: currentPacote.id, acao: 'correcao', role: user?.role || null,
+        usuario_nome: user?.full_name || null, usuario_email: user?.email || null,
+      });
+      addToast('Correção solicitada. As aprovações anteriores foram retiradas.', 'success');
       setShowModal(false);
       fetchPacotes();
     }

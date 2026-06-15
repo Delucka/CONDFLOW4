@@ -1,12 +1,12 @@
 'use client';
 import { siglaRole } from '@/lib/roles';
-import { FLUXO_ROLES, faltamAprovar } from '@/lib/aprovacaoFluxo';
+import { FLUXO_ROLES, faltamAprovar, aprovacoesValidas } from '@/lib/aprovacaoFluxo';
 
 // Trilha "quem aprovou e quando" + quem ainda falta — visível para TODOS os perfis.
 // pacote precisa de: aprovacoes[] (preferencial) e/ou aprovado_em + nivel_aprovacao (fallback).
 export default function TrilhaAprovacao({ pacote, className = '' }) {
   if (!pacote) return null;
-  const aprovacoes = (pacote.aprovacoes || []).filter(a => a.acao !== 'correcao');
+  const aprovacoes = aprovacoesValidas(pacote.aprovacoes);
   const temTrilha = aprovacoes.length > 0;
   const temDerivado = !temTrilha && !!pacote.aprovado_em;
 

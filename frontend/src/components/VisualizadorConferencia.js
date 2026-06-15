@@ -163,7 +163,12 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         })
         .eq('id', pacoteId);
       if (error) throw error;
-      addToast('Correção solicitada. Pacote retornado.', 'success');
+      // Marca o ciclo: aprovações anteriores deixam de valer (re-conferência do zero)
+      await supabase.from('emissoes_pacotes_aprovacoes').insert({
+        pacote_id: pacoteId, acao: 'correcao', role: currentUser?.role || null,
+        usuario_nome: currentUser?.full_name || null, usuario_email: currentUser?.email || null,
+      });
+      addToast('Correção solicitada. As aprovações anteriores foram retiradas.', 'success');
       onAction?.(); onClose?.();
     } catch (e) { addToast(e.message, 'error'); }
     finally { setExecutando(false); }

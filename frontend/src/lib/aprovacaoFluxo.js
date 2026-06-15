@@ -25,26 +25,41 @@ function satisfaz(roleSet, required) {
   return roleSet.has(required) || (required === 'supervisora_contabilidade' && roleSet.has('supervisora'));
 }
 
+// Considera só as aprovações do CICLO ATUAL — as que vieram DEPOIS da última
+// correção. Pedir correção "retira" as aprovações anteriores (re-conferência do zero).
+export function aprovacoesValidas(aprovacoes) {
+  const arr = aprovacoes || [];
+  let ultCorrecao = 0;
+  for (const a of arr) {
+    if (a.acao === 'correcao') {
+      const t = new Date(a.criado_em).getTime();
+      if (t > ultCorrecao) ultCorrecao = t;
+    }
+  }
+  return arr.filter(a => a.acao !== 'correcao' && new Date(a.criado_em).getTime() > ultCorrecao);
+}
+
 // Cargos que ainda faltam aprovar (a partir do pacote.aprovacoes já carregado)
 export function faltamAprovar(pacote) {
-  const ap = new Set((pacote?.aprovacoes || []).filter(a => a.acao !== 'correcao').map(a => a.role));
+  const ap = new Set(aprovacoesValidas(pacote?.aprovacoes).map(a => a.role));
   return aprovadoresDoNivel(pacote?.nivel_aprovacao).filter(r => !satisfaz(ap, r));
 }
 
 export function todosAprovaram(pacote) {
-  // Legado: pacotes aprovados antes da trilha existir (sem registro nominal)
+  // Legado: pacotes aprovados antes da trilha existir (sem nenhum registro)
   if ((pacote?.aprovacoes || []).length === 0 && pacote?.aprovado_em) return true;
   return faltamAprovar(pacote).length === 0;
 }
 
 // Próximo status após `userRole` aprovar — relê a trilha atual no banco (robusto a
-// divergências de status). Só vira 'aprovado' quando TODOS os cargos do nível assinaram.
+// divergências de status). Só vira 'aprovado' quando TODOS os cargos do nível assinaram
+// no ciclo atual (aprovações anteriores a uma correção não contam).
 export async function proximoStatusAprovacao(supabase, pacoteId, nivel, userRole) {
   const { data } = await supabase
     .from('emissoes_pacotes_aprovacoes')
-    .select('role, acao')
+    .select('role, acao, criado_em')
     .eq('pacote_id', pacoteId);
-  const ap = new Set((data || []).filter(a => a.acao !== 'correcao').map(a => a.role));
+  const ap = new Set(aprovacoesValidas(data).map(a => a.role));
   if (userRole) ap.add(userRole);
   const faltam = aprovadoresDoNivel(nivel).filter(r => !satisfaz(ap, r));
   if (faltam.length === 0) return 'aprovado';
