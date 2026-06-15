@@ -502,6 +502,93 @@ def api_get_arrecadacoes(condo_id: str, ano: int, user: dict = Depends(get_curre
     except Exception as e:
         raise HTTPException(500, str(e))
 
+
+# ─── Preencher consumos (água/gás/energia) na planilha a partir dos anexos da emissão ───
+def _norm_txt(s):
+    import unicodedata
+    return ''.join(c for c in unicodedata.normalize('NFD', (s or '')) if unicodedata.category(c) != 'Mn').upper()
+
+def _servico_rateio(nome):
+    n = _norm_txt(nome)
+    if 'AGUA' in n: return 'agua'
+    if 'GAS' in n: return 'gas'
+    if 'ENERGIA' in n or 'ELETRIC' in n or 'LUZ' in n or 'ENEL' in n: return 'energia'
+    return None
+
+def _consumos_do_pacote(db: Client, pacote_id: str):
+    """Valor por serviço a partir dos anexos do pacote: relatório de leitura tem
+    prioridade; se não houver, usa a conta da concessionária (SABESP/COMGÁS/ENEL)."""
+    arqs = db.table("emissoes_arquivos").select(
+        "categoria, subtipo, relatorio_tipo_servico, relatorio_valor_total, valor_fatura"
+    ).eq("pacote_id", pacote_id).execute().data or []
+    rel = {'agua': 0.0, 'gas': 0.0, 'energia': 0.0}
+    fat = {'agua': 0.0, 'gas': 0.0, 'energia': 0.0}
+    for a in arqs:
+        cat = a.get('categoria')
+        if cat == 'relatorio_leitura':
+            ts = (a.get('relatorio_tipo_servico') or '').lower()
+            v = float(a.get('relatorio_valor_total') or 0)
+            rel['gas' if 'gas' in ts or 'gás' in ts else 'agua'] += v
+        elif cat == 'concessionaria':
+            st = _norm_txt(a.get('subtipo'))
+            v = float(a.get('valor_fatura') or 0)
+            if 'SABESP' in st: fat['agua'] += v
+            elif 'COMGAS' in st: fat['gas'] += v
+            elif 'ENEL' in st or 'ELETROPAULO' in st or 'ENERGIA' in st: fat['energia'] += v
+    return {s: round(rel[s] if rel[s] > 0 else fat[s], 2) for s in ('agua', 'gas', 'energia')}
+
+@router.get("/condominio/{condo_id}/consumos-planilha")
+def api_consumos_planilha_preview(condo_id: str, pacote_id: str, mes: int, ano: int,
+                                  user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    if user.get("role") not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas master/emissor")
+    consumos = _consumos_do_pacote(db, pacote_id)
+    rateios = db.table("rateios_config").select("id, nome, ordem").eq("condominio_id", condo_id).order("ordem").execute().data or []
+    r_ids = [r["id"] for r in rateios]
+    atuais = {}
+    if r_ids:
+        vals = db.table("rateios_valores").select("rateio_id, valor").in_("rateio_id", r_ids).eq("month", int(mes)).eq("ano", int(ano)).execute().data or []
+        for v in vals:
+            atuais[v["rateio_id"]] = float(v.get("valor") or 0)
+    linhas = []
+    for r in rateios:
+        serv = _servico_rateio(r["nome"])
+        if not serv:
+            continue
+        novo = consumos.get(serv, 0)
+        if novo <= 0:
+            continue
+        linhas.append({
+            "rateio_id": r["id"], "nome": r["nome"], "servico": serv,
+            "atual": atuais.get(r["id"], 0), "novo": novo,
+        })
+    return {"linhas": linhas}
+
+class PreencherConsumosBody(BaseModel):
+    mes: int
+    ano: int
+    itens: list
+
+@router.post("/condominio/{condo_id}/consumos-planilha")
+def api_consumos_planilha_aplicar(condo_id: str, data: PreencherConsumosBody,
+                                  user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    if user.get("role") not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas master/emissor")
+    aplicados = 0
+    for it in (data.itens or []):
+        rid = it.get("rateio_id")
+        if not rid:
+            continue
+        valor = float(it.get("valor") or 0)
+        existing = db.table("rateios_valores").select("id").eq("rateio_id", rid).eq("month", int(data.mes)).eq("ano", int(data.ano)).maybeSingle().execute()
+        if existing.data:
+            db.table("rateios_valores").update({"valor": valor}).eq("id", existing.data["id"]).execute()
+        else:
+            db.table("rateios_valores").insert({"rateio_id": rid, "month": int(data.mes), "ano": int(data.ano), "valor": valor}).execute()
+        aplicados += 1
+    return {"ok": True, "aplicados": aplicados}
+
+
 @router.get("/condominio/{condo_id}/ultima-emissao")
 def api_ultima_emissao(condo_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:

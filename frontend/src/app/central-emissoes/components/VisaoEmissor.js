@@ -1,14 +1,14 @@
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search, Droplet } from 'lucide-react';
 import { safeStorageName } from '@/lib/storage';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
-import { apiPost } from '@/lib/api';
+import { apiPost, apiFetch } from '@/lib/api';
 import { ocrFileToText, parseFaturaOcr, decodeBoletoValor } from '@/lib/ocrClient';
 import ModalPreparacao from './ModalPreparacao';
 import { FileWarning } from 'lucide-react';
@@ -155,6 +155,52 @@ export default function VisaoEmissor({ profile }) {
       addToast('Erro ao salvar: ' + e.message, 'error');
     } finally {
       setSavingFaturaId(null);
+    }
+    oferecerPreenchimentoConsumos();
+  }
+
+  // ── Preencher consumos (água/gás/energia) na planilha a partir dos anexos ──
+  const [consumoPreview, setConsumoPreview] = useState(null); // { linhas:[{rateio_id,nome,servico,atual,novo,aplicar}], mes, ano }
+  const [aplicandoConsumo, setAplicandoConsumo] = useState(false);
+
+  async function recarregarConferencia() {
+    if (!activePacote?.condominio_id) return;
+    try {
+      const token = await getAccessToken();
+      const resp = await fetch(
+        `/api/condominio/${activePacote.condominio_id}/conferencia?mes=${activePacote.mes_referencia}&ano=${activePacote.ano_referencia}&retificacao=false`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (resp.ok) setConfData(await resp.json());
+    } catch { /* silencioso */ }
+  }
+
+  async function oferecerPreenchimentoConsumos() {
+    if (!activePacote?.condominio_id) return;
+    try {
+      const d = await apiFetch(`/api/condominio/${activePacote.condominio_id}/consumos-planilha?pacote_id=${activePacote.id}&mes=${activePacote.mes_referencia}&ano=${activePacote.ano_referencia}`);
+      const linhas = (d?.linhas || [])
+        .filter(l => Number(l.novo) > 0)
+        .map(l => ({ ...l, aplicar: Number(l.atual || 0) !== Number(l.novo) }));
+      if (!linhas.some(l => l.aplicar)) return; // nada a mudar
+      setConsumoPreview({ linhas, mes: activePacote.mes_referencia, ano: activePacote.ano_referencia });
+    } catch { /* não atrapalha o anexo */ }
+  }
+
+  async function aplicarConsumos() {
+    if (!consumoPreview) return;
+    const itens = consumoPreview.linhas.filter(l => l.aplicar).map(l => ({ rateio_id: l.rateio_id, valor: l.novo }));
+    if (!itens.length) { setConsumoPreview(null); return; }
+    setAplicandoConsumo(true);
+    try {
+      await apiPost(`/api/condominio/${activePacote.condominio_id}/consumos-planilha`, { mes: consumoPreview.mes, ano: consumoPreview.ano, itens });
+      addToast('Consumos preenchidos na planilha!', 'success');
+      setConsumoPreview(null);
+      await recarregarConferencia();
+    } catch (e) {
+      addToast('Erro ao preencher: ' + (e.message || ''), 'error');
+    } finally {
+      setAplicandoConsumo(false);
     }
   }
 
@@ -504,6 +550,9 @@ export default function VisaoEmissor({ profile }) {
       addToast(`${fileInput.name} adicionado!`, 'success');
       await fetchArquivosDoPacote(activePacote.id);
       fetchPacotes();
+
+      // Relatório de leitura já vem com valor → oferece preencher a planilha
+      if (categoria === 'relatorio_leitura') oferecerPreenchimentoConsumos();
 
       // Para concessionaria: ja deixa o form de dados aberto pra preencher
       if (categoria === 'concessionaria' && inserted?.id) {
@@ -2069,6 +2118,45 @@ export default function VisaoEmissor({ profile }) {
                 className="flex-[2] py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all"
               >
                 Confirmar Registro
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Prévia: preencher consumos na planilha a partir dos anexos ── */}
+      {consumoPreview && (
+        <div className="fixed inset-0 z-[230] flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-4" onClick={() => setConsumoPreview(null)}>
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center"><Droplet className="w-4 h-4 text-violet-500" /></div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Preencher consumos na planilha</h3>
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest">{String(consumoPreview.mes).padStart(2,'0')}/{consumoPreview.ano} · valores dos relatórios/contas anexados</p>
+              </div>
+            </div>
+            <div className="p-4 space-y-2 max-h-[55vh] overflow-y-auto">
+              {consumoPreview.linhas.map((l, i) => (
+                <label key={l.rateio_id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${l.aplicar ? 'border-violet-300 bg-violet-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                  <input type="checkbox" checked={l.aplicar}
+                    onChange={e => setConsumoPreview(p => ({ ...p, linhas: p.linhas.map((x, j) => j === i ? { ...x, aplicar: e.target.checked } : x) }))}
+                    className="w-4 h-4 accent-violet-600 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-800 truncate">{l.nome}</p>
+                    <p className="text-[11px] text-slate-500">
+                      atual <span className="font-mono">R$ {Number(l.atual||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                      <span className="mx-1 text-slate-400">→</span>
+                      <span className="font-mono font-bold text-emerald-600">R$ {Number(l.novo).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-end gap-2">
+              <button onClick={() => setConsumoPreview(null)} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100">Agora não</button>
+              <button onClick={aplicarConsumos} disabled={aplicandoConsumo || !consumoPreview.linhas.some(l => l.aplicar)}
+                className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black uppercase tracking-widest disabled:opacity-60 flex items-center gap-2">
+                {aplicandoConsumo && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Aplicar selecionados
               </button>
             </div>
           </div>
