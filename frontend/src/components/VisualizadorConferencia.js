@@ -5,6 +5,7 @@ import { apiFetcher } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
+import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
 import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen, Droplet, AlertTriangle, ClipboardList } from 'lucide-react';
 
 const MESES_LONG_VC = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -103,23 +104,17 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     const pacoteStatus = arquivo?.pacote_status;
     const pacoteNivel = arquivo?.pacote_nivel;
     if (!pacoteId) { addToast('Pacote não vinculado.', 'error'); return; }
-    const fluxos = {
-      1: { default: 'aprovado' },
-      2: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
-      3: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
-      4: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
-    };
-    const fluxoId = Number(pacoteNivel) || 1;
-    const nextStatus = fluxos[fluxoId]?.[pacoteStatus] ?? fluxos[fluxoId]?.default ?? 'aprovado';
     setExecutando(true);
     try {
+      // Só vira 'aprovado' quando TODOS os cargos do nível assinaram (via trilha)
+      const nextStatus = await proximoStatusAprovacao(supabase, pacoteId, pacoteNivel, currentUser?.role);
       const agora = new Date().toISOString();
-      const payload = {
-        status: nextStatus, atualizado_em: agora,
-        aprovado_por_nome: currentUser?.full_name || currentUser?.email || null,
-        aprovado_por_role: currentUser?.role || null,
-        aprovado_em: agora,
-      };
+      const payload = { status: nextStatus, atualizado_em: agora };
+      if (nextStatus === 'aprovado') {
+        payload.aprovado_por_nome = currentUser?.full_name || currentUser?.email || null;
+        payload.aprovado_por_role = currentUser?.role || null;
+        payload.aprovado_em = agora;
+      }
       if (observacaoAprovacao.trim()) {
         payload.observacao_aprovacao = observacaoAprovacao.trim();
       }

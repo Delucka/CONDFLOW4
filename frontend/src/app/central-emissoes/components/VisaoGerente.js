@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
+import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
@@ -106,22 +107,19 @@ export default function VisaoGerente({ profile }) {
   }, []);
 
   async function handleAprovar(pacote) {
-    const fluxos = {
-      1: { default: 'aprovado' },
-      2: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
-      3: { 'Aguardando Gerente': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
-      4: { 'Aguardando Gerente': 'Aguardando Chefe', 'Aguardando Chefe': 'Aguardando Supervisor', 'Aguardando Supervisor': 'aprovado' },
-    };
-
-    const fluxoId = Number(pacote.nivel_aprovacao) || 1;
-    const nextStatus = fluxos[fluxoId]?.[pacote.status] ?? fluxos[fluxoId]?.default ?? 'aprovado';
+    // Só vira 'aprovado' quando TODOS os cargos do nível assinaram (via trilha)
+    const nextStatus = await proximoStatusAprovacao(supabase, pacote.id, pacote.nivel_aprovacao, user?.role);
+    const agora = new Date().toISOString();
+    const payload = { status: nextStatus, atualizado_em: agora };
+    if (nextStatus === 'aprovado') {
+      payload.aprovado_por_nome = user?.full_name || user?.email || null;
+      payload.aprovado_por_role = user?.role || null;
+      payload.aprovado_em = agora;
+    }
 
     const { data, error } = await supabase
       .from('emissoes_pacotes')
-      .update({ status: nextStatus, atualizado_em: new Date().toISOString(),
-        aprovado_por_nome: user?.full_name || user?.email || null,
-        aprovado_por_role: user?.role || null,
-        aprovado_em: new Date().toISOString() })
+      .update(payload)
       .eq('id', pacote.id)
       .select('id, status');
 

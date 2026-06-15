@@ -1,22 +1,21 @@
 'use client';
 import { siglaRole } from '@/lib/roles';
+import { FLUXO_ROLES, faltamAprovar } from '@/lib/aprovacaoFluxo';
 
-// Reconstrói os níveis esperados quando não há trilha registrada (pacotes antigos)
-const FLUXO_ROLES = {
-  1: ['supervisora_contabilidade'],
-  2: ['gerente', 'supervisora_contabilidade'],
-  3: ['gerente', 'supervisora_contabilidade'],
-  4: ['gerente', 'supervisor_gerentes', 'supervisora_contabilidade'],
-};
-
-// Trilha "quem aprovou e quando" — visível para TODOS os perfis (igual ao master).
+// Trilha "quem aprovou e quando" + quem ainda falta — visível para TODOS os perfis.
 // pacote precisa de: aprovacoes[] (preferencial) e/ou aprovado_em + nivel_aprovacao (fallback).
 export default function TrilhaAprovacao({ pacote, className = '' }) {
   if (!pacote) return null;
   const aprovacoes = (pacote.aprovacoes || []).filter(a => a.acao !== 'correcao');
   const temTrilha = aprovacoes.length > 0;
   const temDerivado = !temTrilha && !!pacote.aprovado_em;
-  if (!temTrilha && !temDerivado && !pacote.correcao_em) return null;
+
+  const sl = (pacote.status || '').toLowerCase();
+  const finalizado = ['aprovado', 'registrado', 'expedida'].includes(sl) || !!pacote.aprovado_em;
+  const emAprovacao = !finalizado && (/aguardando|pendente/.test(sl) || temTrilha);
+  const faltam = emAprovacao ? faltamAprovar(pacote) : [];
+
+  if (!temTrilha && !temDerivado && !emAprovacao && !pacote.correcao_em) return null;
 
   return (
     <div className={className}>
@@ -27,9 +26,18 @@ export default function TrilhaAprovacao({ pacote, className = '' }) {
             const s = siglaRole(a.role);
             const quando = new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' ');
             return (
-              <span key={i} title={`${s.label} · ${a.usuario_nome || '—'}${a.usuario_email ? ' · ' + a.usuario_email : ''} · ${quando}`}
+              <span key={`a${i}`} title={`${s.label} · ${a.usuario_nome || '—'}${a.usuario_email ? ' · ' + a.usuario_email : ''} · ${quando}`}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-bold cursor-help">
                 ✓ {s.sigla}
+              </span>
+            );
+          })}
+          {faltam.map((role, i) => {
+            const s = siglaRole(role);
+            return (
+              <span key={`f${i}`} title={`Aguardando aprovação de ${s.label}`}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-50 text-slate-400 border border-dashed border-slate-300 text-[9px] font-bold cursor-help">
+                ⏳ {s.sigla}
               </span>
             );
           })}
@@ -48,6 +56,19 @@ export default function TrilhaAprovacao({ pacote, className = '' }) {
             );
           })}
           <span className="text-[9px] text-slate-300 italic">histórico não detalhado</span>
+        </div>
+      ) : emAprovacao ? (
+        <div className="flex items-center gap-1 flex-wrap mt-1">
+          <span className="text-[9px] text-slate-400 uppercase tracking-wider">Aguardando:</span>
+          {faltam.map((role, i) => {
+            const s = siglaRole(role);
+            return (
+              <span key={i} title={`Aguardando aprovação de ${s.label}`}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-50 text-slate-400 border border-dashed border-slate-300 text-[9px] font-bold cursor-help">
+                ⏳ {s.sigla}
+              </span>
+            );
+          })}
         </div>
       ) : null}
       {pacote.correcao_em && (
