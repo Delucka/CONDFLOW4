@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { isPendingForRole } from '@/lib/usePendingCount';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
 import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
+import { safeStorageName } from '@/lib/storage';
 import { Inbox } from 'lucide-react';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -243,7 +244,7 @@ export default function VisaoMaster() {
 
     if (ehRespostaCorrecao && respostaCorrecaoFile) {
       try {
-        const path = `respostas-correcao/${activePacote.id}/${Date.now()}_${respostaCorrecaoFile.name}`;
+        const path = `respostas-correcao/${activePacote.id}/${Date.now()}_${safeStorageName(respostaCorrecaoFile.name)}`;
         const { error: upErr } = await supabase.storage.from('emissoes').upload(path, respostaCorrecaoFile);
         if (upErr) throw upErr;
         payload.resposta_correcao_arquivo_url = path;

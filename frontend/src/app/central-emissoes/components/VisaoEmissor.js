@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search } from 'lucide-react';
+import { safeStorageName } from '@/lib/storage';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -471,7 +472,7 @@ export default function VisaoEmissor({ profile }) {
       const extensao = fileInput.name.split('.').pop().toLowerCase();
       const displayName = opts.nomeArquivo || fileInput.name;  // nome padronizado quando houver
       const randomId = Math.random().toString(36).substring(7);
-      const filePath = `${activePacote.condominio_id}/${ano}/${mes}/${categoria}/${randomId}_${displayName}`;
+      const filePath = `${activePacote.condominio_id}/${ano}/${mes}/${categoria}/${randomId}_${safeStorageName(displayName)}`;
       const { error: uploadError } = await supabase.storage.from('emissoes').upload(filePath, fileInput);
       if (uploadError) throw uploadError;
 
@@ -525,7 +526,7 @@ export default function VisaoEmissor({ profile }) {
     const extensao = file.name.split('.').pop().toLowerCase();
     const randomId = Math.random().toString(36).substring(7);
     const displayName = `Aprovacao_repeticao_${file.name}`;
-    const filePath = `${activePacote.condominio_id}/${ano}/${mes}/outros/${randomId}_${displayName}`;
+    const filePath = `${activePacote.condominio_id}/${ano}/${mes}/outros/${randomId}_${safeStorageName(displayName)}`;
     const { error: upErr } = await supabase.storage.from('emissoes').upload(filePath, file);
     if (upErr) throw upErr;
     await supabase.from('emissoes_arquivos').insert({

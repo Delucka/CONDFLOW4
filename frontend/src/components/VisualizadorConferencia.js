@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
 import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
+import { safeStorageName } from '@/lib/storage';
 import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen, Droplet, AlertTriangle, ClipboardList } from 'lucide-react';
 
 const MESES_LONG_VC = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -144,7 +145,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       let correcaoUrl = null;
       let correcaoNome = null;
       if (correcaoFile) {
-        const path = `correcoes/${pacoteId}/${Date.now()}_${correcaoFile.name}`;
+        const path = `correcoes/${pacoteId}/${Date.now()}_${safeStorageName(correcaoFile.name)}`;
         const { error: upErr } = await supabase.storage.from('emissoes').upload(path, correcaoFile);
         if (upErr) throw upErr;
         correcaoUrl = path;

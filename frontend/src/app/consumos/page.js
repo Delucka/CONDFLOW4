@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import { apiFetcher, apiPost, apiFetch } from '@/lib/api';
+import { safeStorageName } from '@/lib/storage';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { createClient } from '@/utils/supabase/client';
@@ -87,7 +88,7 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
   async function uploadArquivo() {
     if (!file) return { arquivo_url: fatura?.arquivo_url || null, arquivo_nome: fatura?.arquivo_nome || null, arquivo_hash: fatura?.arquivo_hash || null };
     const hash = await sha256OfFile(file);
-    const path = `consumos/${condoId}/${form.ano_referencia}/${String(form.mes_referencia).padStart(2,'0')}/${Date.now()}_${file.name}`;
+    const path = `consumos/${condoId}/${form.ano_referencia}/${String(form.mes_referencia).padStart(2,'0')}/${Date.now()}_${safeStorageName(file.name)}`;
     const { error } = await supabase.storage.from('emissoes').upload(path, file);
     if (error) throw error;
     return { arquivo_url: path, arquivo_nome: file.name, arquivo_hash: hash };
@@ -567,6 +568,7 @@ export default function ConsumosPage() {
   async function abrirUnidades(item) {
     // Abre sempre o modal: mostra a tabela por unidade SE existir, e o PDF anexado de qualquer forma.
     setUnidadesModal({
+      id: item.id || null,
       nome: item.nome, empresa: item.empresa, mes: item.mes, servico: item.servico,
       arquivo_url: item.arquivo_url || null, loading: !!item.origem, unidades: null, erro: null,
     });
@@ -587,6 +589,20 @@ export default function ConsumosPage() {
         erro: (unidades || item.arquivo_url) ? null : 'Sem tabela de unidades neste relatório.' });
     } catch (e) {
       setUnidadesModal(prev => prev && { ...prev, loading: false, erro: e.message || 'Erro ao carregar' });
+    }
+  }
+
+  async function handleExcluirRelatorio(id) {
+    if (!id) return;
+    if (!confirm('Excluir este relatório de leitura?\n\nRemove o relatório de /Consumos e o anexo correspondente na Central de Emissões. Não pode ser desfeito.')) return;
+    try {
+      await apiFetch(`/api/consumos/${id}`, { method: 'DELETE' });
+      addToast('Relatório excluído.', 'success');
+      setUnidadesModal(null);
+      fetchRelatorios();
+      mutateMatriz?.();
+    } catch (e) {
+      addToast(e.message || 'Erro ao excluir relatório', 'error');
     }
   }
 
@@ -1029,6 +1045,7 @@ export default function ConsumosPage() {
                               {r ? (
                                 <button
                                   onClick={() => abrirUnidades({
+                                    id: r.id,
                                     nome: c.name, empresa, mes: m, servico,
                                     origem: r.origem_emissao_arquivo_id,
                                     arquivo_url: r.arquivo_url,
@@ -1080,7 +1097,8 @@ export default function ConsumosPage() {
 
       {/* Modal de leitura por unidade */}
       {unidadesModal && (
-        <RelatorioUnidadesModal info={unidadesModal} onClose={() => setUnidadesModal(null)} />
+        <RelatorioUnidadesModal info={unidadesModal} onClose={() => setUnidadesModal(null)}
+          podeExcluir={['master','departamento'].includes(role)} onDeleted={handleExcluirRelatorio} />
       )}
 
       {/* Seletor quando há +1 conta do mesmo tipo no mesmo mês */}
@@ -1148,7 +1166,7 @@ export default function ConsumosPage() {
 }
 
 // ─── Modal: leitura por unidade (extraída do relatório) ─────────────
-function RelatorioUnidadesModal({ info, onClose }) {
+function RelatorioUnidadesModal({ info, onClose, podeExcluir, onDeleted }) {
   const { nome, empresa, mes, servico, loading, unidades, erro, arquivo_url } = info;
   const lista = unidades || [];
   const supabase = useMemo(() => createClient(), []);
@@ -1192,6 +1210,12 @@ function RelatorioUnidadesModal({ info, onClose }) {
               <button onClick={abrirPdf} disabled={abrindoPdf}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-bold hover:bg-violet-700 disabled:opacity-60 transition-all">
                 {abrindoPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />} Abrir PDF
+              </button>
+            )}
+            {podeExcluir && info.id && (
+              <button onClick={() => onDeleted?.(info.id)} title="Excluir relatório"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-600 border border-rose-300 text-xs font-bold hover:bg-rose-500/20 transition-all">
+                <Trash2 className="w-3.5 h-3.5" /> Excluir
               </button>
             )}
             <button onClick={onClose} className="text-slate-500 hover:text-slate-900"><X className="w-5 h-5" /></button>

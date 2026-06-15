@@ -2676,18 +2676,37 @@ def api_deletar_consumo(consumo_id: str, user: dict = Depends(get_current_user),
 
     arquivo_url = None
     origem_id = None
+    tabela = None
+
+    # Detecta se o id é de uma FATURA ou de um RELATÓRIO de leitura
     try:
         c = db.table("consumos_faturas").select(
             "arquivo_url, origem_emissao_arquivo_id"
         ).eq("id", consumo_id).maybeSingle().execute()
         if c.data:
+            tabela = "consumos_faturas"
             arquivo_url = c.data.get("arquivo_url")
             origem_id = c.data.get("origem_emissao_arquivo_id")
     except Exception:
         pass
 
-    # 1) Remove a fatura sincronizada
-    db.table("consumos_faturas").delete().eq("id", consumo_id).execute()
+    if not tabela:
+        try:
+            r = db.table("consumos_relatorios_leitura").select(
+                "arquivo_url, origem_emissao_arquivo_id"
+            ).eq("id", consumo_id).maybeSingle().execute()
+            if r.data:
+                tabela = "consumos_relatorios_leitura"
+                arquivo_url = r.data.get("arquivo_url")
+                origem_id = r.data.get("origem_emissao_arquivo_id")
+        except Exception:
+            pass
+
+    if not tabela:
+        raise HTTPException(404, "Consumo não encontrado (fatura ou relatório)")
+
+    # 1) Remove a fatura/relatório
+    db.table(tabela).delete().eq("id", consumo_id).execute()
 
     # 2) Remove o anexo de origem na Central (o trigger AFTER DELETE limpa o resto)
     if origem_id:
