@@ -212,3 +212,11 @@ html.dark {
 .dark .text-amber-300,   .dark .text-amber-200   { color:#fcd34d !important; }
 .dark .text-rose-300,    .dark .text-rose-200    { color:#fda4af !important; }
 .dark .text-violet-300,  .dark .text-violet-200  { color:#9fc0ff !important; }
+
+/* Tom 400 também era fraco no claro (muito usado em chips/badges e ícones de status) */
+.text-emerald-400 { color:#047857 !important; }
+.text-amber-400   { color:#b45309 !important; }
+.text-rose-400    { color:#be123c !important; }
+.dark .text-emerald-400 { color:#34d399 !important; }
+.dark .text-amber-400   { color:#fbbf24 !important; }
+.dark .text-rose-400    { color:#fb7185 !important; }

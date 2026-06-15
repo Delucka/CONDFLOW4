@@ -598,7 +598,7 @@ export default function CobrancasExtrasPage() {
           <div className="glass-panel p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5">
             <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Valor estimado</p>
             <p className="text-xl font-black text-amber-300 mt-1 truncate">R$ {stats.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            <p className="text-[10px] text-amber-500/70 mt-0.5">parcelas restantes</p>
+            <p className="text-[10px] text-amber-600 mt-0.5">parcelas restantes</p>
           </div>
         </div>
       )}
