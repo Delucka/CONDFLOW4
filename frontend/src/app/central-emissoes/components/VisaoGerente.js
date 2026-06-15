@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
+import TrilhaAprovacao from '@/components/TrilhaAprovacao';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
@@ -69,10 +70,20 @@ export default function VisaoGerente({ profile }) {
           arqMap[a.pacote_id].push(a);
         });
 
+        // Trilha de aprovação (quem aprovou e quando) — visível para todos
+        const { data: aprovacoes } = await supabase
+          .from('emissoes_pacotes_aprovacoes')
+          .select('pacote_id, acao, role, usuario_nome, usuario_email, criado_em')
+          .in('pacote_id', pacoteIds)
+          .order('criado_em', { ascending: true });
+        const aprMap = {};
+        (aprovacoes || []).forEach(a => { (aprMap[a.pacote_id] = aprMap[a.pacote_id] || []).push(a); });
+
         setPacotes(pacotesData.map(p => ({
           ...p,
           condominios: p.condominios || { name: p.condo_name },
           arquivos: arqMap[p.id] || [],
+          aprovacoes: aprMap[p.id] || [],
         })));
       } else {
         setPacotes([]);
@@ -322,6 +333,7 @@ export default function VisaoGerente({ profile }) {
                         {String(pacote.mes_referencia).padStart(2, '0')}/{pacote.ano_referencia}
                         {' • '}{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}
                       </p>
+                      <TrilhaAprovacao pacote={pacote} />
                     </div>
                   </div>
 
