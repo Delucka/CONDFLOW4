@@ -568,7 +568,7 @@ export default function ConsumosPage() {
   async function abrirUnidades(item) {
     // Abre sempre o modal: mostra a tabela por unidade SE existir, e o PDF anexado de qualquer forma.
     setUnidadesModal({
-      id: item.id || null,
+      id: item.raw_id || item.id || null,
       nome: item.nome, empresa: item.empresa, mes: item.mes, servico: item.servico,
       arquivo_url: item.arquivo_url || null, loading: !!item.origem, unidades: null, erro: null,
     });
@@ -680,7 +680,7 @@ export default function ConsumosPage() {
         valor: f.valor, mes: f.mes_referencia, em: f.anexada_em, kind: 'fatura',
       })),
       ...relatorios.filter(r => r.status === 'anexada').map(r => ({
-        id: 'r' + r.id, nome: r.condominios?.name, empresa: r.empresa_leitura,
+        id: 'r' + r.id, raw_id: r.id, nome: r.condominios?.name, empresa: r.empresa_leitura,
         valor: r.valor_total, mes: r.mes_referencia, em: r.anexada_em, kind: 'relatorio',
         servico: r.tipo_servico, origem: r.origem_emissao_arquivo_id,
       })),
