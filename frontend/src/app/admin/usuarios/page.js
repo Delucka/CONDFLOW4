@@ -55,8 +55,8 @@ async function apiFetch(url, opts = {}) {
 }
 
 // ─── Modal Criar Usuário ───────────────────────────────────────────────
-function ModalCriarUsuario({ onClose, onCreated }) {
-  const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'gerente' });
+function ModalCriarUsuario({ onClose, onCreated, gerentes = [] }) {
+  const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'gerente', gerente_id: '' });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
@@ -124,6 +124,18 @@ function ModalCriarUsuario({ onClose, onCreated }) {
           {form.role === 'gerente' && (
             <div className="bg-violet-500/10 border border-violet-500/20 rounded-lg p-3 text-xs text-violet-300">
               <strong>Dica:</strong> Após criar, clique em <strong>&quot;Gerenciar Carteira&quot;</strong> no card do gerente para vincular os condomínios.
+            </div>
+          )}
+
+          {form.role === 'assistente' && (
+            <div>
+              <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Gerente responsável</label>
+              <select required value={form.gerente_id} onChange={e => setForm({ ...form, gerente_id: e.target.value })}
+                className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500">
+                <option value="">Selecione o gerente…</option>
+                {gerentes.map(g => <option key={g.id} value={g.id}>{g.full_name}</option>)}
+              </select>
+              <p className="text-[10px] text-slate-400 mt-1">O assistente verá somente a carteira deste gerente.</p>
             </div>
           )}
 
@@ -389,15 +401,18 @@ function ModalCarteira({ usuario, onClose, onUpdated }) {
 }
 
 // ─── Card Usuário ──────────────────────────────────────────────────────
-function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted }) {
+function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = [], onVincularGerente }) {
   const isMaster = u.role === 'master';
   const isGerente = u.role === 'gerente';
+  const isAssistente = u.role === 'assistente';
   const style = roleStyle[u.role] || roleStyle.gerente;
   const condos = u.condominios || [];
   const [expanded, setExpanded] = useState(false);
   const { addToast } = useToast();
   const [notifEmail, setNotifEmail] = useState(u.notificacao_email || '');
   const [savingNotif, setSavingNotif] = useState(false);
+  const [gerenteSel, setGerenteSel] = useState(u.gerente_responsavel_id || '');
+  const [savingGer, setSavingGer] = useState(false);
 
   async function salvarNotif() {
     setSavingNotif(true);
@@ -461,6 +476,27 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted }) {
         </div>
         <p className="text-[10px] text-slate-400 mt-1">Vazio = usa o e-mail de login. Os avisos por e-mail vão pra cá.</p>
       </div>
+
+      {isAssistente && (
+        <div className="border-t border-slate-200 pt-3">
+          <label className="text-[10px] text-slate-500 uppercase font-bold tracking-wider flex items-center gap-1.5 mb-1.5">
+            <Users className="w-3 h-3" /> Gerente responsável
+          </label>
+          <div className="flex gap-2">
+            <select value={gerenteSel} onChange={e => setGerenteSel(e.target.value)} aria-label="Gerente responsável"
+              className="flex-1 min-w-0 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-violet-500">
+              <option value="">— Sem gerente —</option>
+              {gerentes.map(g => <option key={g.id} value={g.id}>{g.full_name}</option>)}
+            </select>
+            <button type="button" disabled={savingGer}
+              onClick={async () => { setSavingGer(true); try { await onVincularGerente?.(u.id, gerenteSel); } finally { setSavingGer(false); } }}
+              className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[10px] font-bold uppercase hover:bg-violet-500 disabled:opacity-50 shrink-0">
+              {savingGer ? '...' : 'Salvar'}
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">O assistente vê somente a carteira deste gerente.</p>
+        </div>
+      )}
 
       {isGerente && (
         <div className="border-t border-slate-200 pt-3">
@@ -530,6 +566,19 @@ export default function UsuariosPage() {
     setModalResetSenha(u);
   }
 
+  async function handleVincularGerente(assistenteId, gerenteId) {
+    try {
+      await apiFetch('/api/usuarios/vincular-gerente', {
+        method: 'POST',
+        body: JSON.stringify({ assistente_id: assistenteId, gerente_id: gerenteId || null }),
+      });
+      addToast('Gerente vinculado ao assistente.', 'success');
+      carregar();
+    } catch (err) {
+      addToast(err.message || 'Erro ao vincular', 'error');
+    }
+  }
+
   async function handleDelete(u) {
     if (!confirm(`Tem certeza que deseja EXCLUIR permanentemente o usuário ${u.full_name}?\nEsta ação não pode ser desfeita.`)) return;
     
@@ -590,7 +639,7 @@ export default function UsuariosPage() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {gerentes.map(u => (
-                  <UserCard key={u.id} u={u} currentUserId={user?.id} onSync={handleSync} onCarteira={setModalCarteira} onDeleted={handleDelete} />
+                  <UserCard key={u.id} u={u} currentUserId={user?.id} onSync={handleSync} onCarteira={setModalCarteira} onDeleted={handleDelete} gerentes={gerentes} onVincularGerente={handleVincularGerente} />
                 ))}
               </div>
             </div>
@@ -603,7 +652,7 @@ export default function UsuariosPage() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {outros.map(u => (
-                  <UserCard key={u.id} u={u} currentUserId={user?.id} onSync={handleSync} onCarteira={setModalCarteira} onDeleted={handleDelete} />
+                  <UserCard key={u.id} u={u} currentUserId={user?.id} onSync={handleSync} onCarteira={setModalCarteira} onDeleted={handleDelete} gerentes={gerentes} onVincularGerente={handleVincularGerente} />
                 ))}
               </div>
             </div>
@@ -618,7 +667,7 @@ export default function UsuariosPage() {
         </>
       )}
 
-      {modalCriar && <ModalCriarUsuario onClose={() => setModalCriar(false)} onCreated={carregar} />}
+      {modalCriar && <ModalCriarUsuario onClose={() => setModalCriar(false)} onCreated={carregar} gerentes={gerentes} />}
       {modalCarteira && (
         <ModalCarteira usuario={modalCarteira} onClose={() => setModalCarteira(null)} onUpdated={carregar} />
       )}

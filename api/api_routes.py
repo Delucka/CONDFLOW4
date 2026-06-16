@@ -64,6 +64,25 @@ def gerente_condo_ids(db: Client, profile_id: str):
     res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
     return [c["id"] for c in (res.data or [])]
 
+def carteira_gerente_id(db: Client, user: dict):
+    """gerentes.id da carteira do usuário — gerente: a sua; assistente: a do gerente vinculado."""
+    role = user.get("role")
+    if role == "gerente":
+        return get_gerente_id(db, user["id"])
+    if role == "assistente":
+        prof = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybeSingle().execute()
+        gpid = (prof.data or {}).get("gerente_id")
+        return get_gerente_id(db, gpid) if gpid else None
+    return None
+
+def carteira_condo_ids(db: Client, user: dict):
+    """IDs dos condomínios da carteira do usuário (gerente ou assistente vinculado)."""
+    g_id = carteira_gerente_id(db, user)
+    if not g_id:
+        return []
+    res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
+    return [c["id"] for c in (res.data or [])]
+
 # ═══ API ENDPOINTS ═══════════════════════════════════════════════════
 
 @router.get("/health")
@@ -82,12 +101,9 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         query = db.table("condominios").select("*, processos(*)")
         
         # Filtros baseados na role
-        if user["role"] == "gerente":
-            g_id = get_gerente_id(db, user["id"])
-            if g_id:
-                query = query.eq("gerente_id", g_id)
-            else:
-                query = query.eq("gerente_id", "00000000-0000-0000-0000-000000000000")
+        if user["role"] in ("gerente", "assistente"):
+            g_id = carteira_gerente_id(db, user)
+            query = query.eq("gerente_id", g_id or "00000000-0000-0000-0000-000000000000")
         elif gerente_id and user["role"] in DASHBOARD_FILTER_GERENTE:
             query = query.eq("gerente_id", gerente_id)
             
@@ -220,12 +236,9 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
         # Puxa os condomínios (sem join complexo para evitar travamentos)
         query = db.table("condominios").select("*").order("name")
         
-        if user["role"] == "gerente":
-            g_id = get_gerente_id(db, user["id"])
-            if g_id:
-                query = query.eq("gerente_id", g_id)
-            else:
-                query = query.eq("gerente_id", "00000000-0000-0000-0000-000000000000")
+        if user["role"] in ("gerente", "assistente"):
+            g_id = carteira_gerente_id(db, user)
+            query = query.eq("gerente_id", g_id or "00000000-0000-0000-0000-000000000000")
                 
         condos = query.execute().data or []
         
@@ -772,6 +785,7 @@ class CreateUserSchema(BaseModel):
     password: str
     full_name: str
     role: str
+    gerente_id: Optional[str] = None  # profile do gerente responsável (quando role=assistente)
 
 @router.post("/usuarios")
 def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
@@ -820,13 +834,16 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
             raise Exception("Não foi possível gerar ou recuperar o ID do usuário.")
 
         # 2. Criar ou Atualizar no Profiles (senha temporária — forçar troca no 1º acesso)
-        db.table("profiles").upsert({
+        profile_payload = {
             "id": uid,
             "email": data.email,
             "full_name": data.full_name,
             "role": data.role,
             "must_change_password": True,
-        }).execute()
+        }
+        if data.role == 'assistente':
+            profile_payload["gerente_id"] = data.gerente_id or None
+        db.table("profiles").upsert(profile_payload).execute()
 
         # 3. Se for gerente: tentar vincular a um gerente-fantasma existente
         # (importado do Ahreas com nome igual mas sem profile_id ainda).
@@ -848,6 +865,17 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
     except Exception as e:
         print(f"CRITICAL ERROR CREATE_USER: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
+class VincularGerenteSchema(BaseModel):
+    assistente_id: str            # profile do assistente
+    gerente_id: Optional[str] = None  # profile do gerente (None = desvincular)
+
+@router.post("/usuarios/vincular-gerente")
+def api_vincular_gerente(data: VincularGerenteSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    if user["role"] != "master":
+        raise HTTPException(403, "Apenas administradores")
+    db.table("profiles").update({"gerente_id": data.gerente_id or None}).eq("id", data.assistente_id).execute()
+    return {"success": True}
 
 class SyncUserSchema(BaseModel):
     email: str
@@ -1072,7 +1100,8 @@ def api_usuarios_completo(user: dict = Depends(get_current_user), db: Client = D
         g = gerentes_map.get(p["id"])
         result.append({
             **p,
-            "gerente_id": g["id"] if g else None,
+            "gerente_id": g["id"] if g else None,                 # gerentes.id (carteira própria, se for gerente)
+            "gerente_responsavel_id": p.get("gerente_id"),        # profile do gerente responsável (se for assistente)
             "condominios": g["condominios"] if g else []
         })
     
@@ -2085,9 +2114,9 @@ def api_listar_consumos(
 ):
     """Lista faturas. Todos os roles autenticados podem ler."""
     q = db.table("consumos_faturas").select("*, condominios(name)").order("ano_referencia", desc=True).order("mes_referencia", desc=True)
-    # Gerente só enxerga faturas dos seus condomínios
-    if user.get("role") == "gerente":
-        ids = gerente_condo_ids(db, user["id"])
+    # Gerente/assistente só enxergam faturas da sua carteira
+    if user.get("role") in ("gerente", "assistente"):
+        ids = carteira_condo_ids(db, user)
         if not ids:
             return {"consumos": []}
         q = q.in_("condominio_id", ids)
@@ -2158,9 +2187,9 @@ def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Dep
                 "gerente_nome": gerentes_map.get(c.get("gerente_id")),
                 "concessionarias": sorted(list(cfg_map.get(c["id"], set()))),
             })
-        # Gerente só enxerga seus próprios condomínios
-        if user.get("role") == "gerente":
-            allowed = set(gerente_condo_ids(db, user["id"]))
+        # Gerente/assistente só enxergam a carteira (própria ou do gerente vinculado)
+        if user.get("role") in ("gerente", "assistente"):
+            allowed = set(carteira_condo_ids(db, user))
             out = [c for c in out if c["id"] in allowed]
         out.sort(key=lambda x: (x["codigo"], x["name"]))
         return {"condominios": out}

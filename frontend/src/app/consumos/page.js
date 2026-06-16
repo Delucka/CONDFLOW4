@@ -423,7 +423,7 @@ export default function ConsumosPage() {
   // Gerente só vê seus condomínios: restringe relatórios à lista permitida (condosComFaturas já vem filtrada do backend)
   const allowedCondoIds = useMemo(() => new Set(condosComFaturas.map(c => c.id)), [condosComFaturas]);
   const relatorios = useMemo(
-    () => (role === 'gerente' ? relatoriosRaw.filter(r => allowedCondoIds.has(r.condominio_id)) : relatoriosRaw),
+    () => (['gerente', 'assistente'].includes(role) ? relatoriosRaw.filter(r => allowedCondoIds.has(r.condominio_id)) : relatoriosRaw),
     [relatoriosRaw, role, allowedCondoIds]
   );
   useEffect(() => {
