@@ -71,7 +71,7 @@ def carteira_gerente_id(db: Client, user: dict):
         return get_gerente_id(db, user["id"])
     if role == "assistente":
         try:
-            prof = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybeSingle().execute()
+            prof = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybe_single().execute()
             gpid = (prof.data or {}).get("gerente_id")
         except Exception:
             gpid = None  # coluna ainda não existe (migration 0057 não rodada)
@@ -176,7 +176,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         # DEBUG temporário (remover depois) — diagnóstico do filtro de carteira
         _dbg = {"role": user.get("role"), "uid": user.get("id")}
         try:
-            _p = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybeSingle().execute()
+            _p = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybe_single().execute()
             _dbg["profile_gerente_id"] = (_p.data or {}).get("gerente_id")
         except Exception as _e:
             _dbg["profile_err"] = str(_e)[:160]
@@ -609,7 +609,7 @@ def api_consumos_planilha_aplicar(condo_id: str, data: PreencherConsumosBody,
         if not rid:
             continue
         valor = float(it.get("valor") or 0)
-        existing = db.table("rateios_valores").select("id").eq("rateio_id", rid).eq("month", int(data.mes)).eq("ano", int(data.ano)).maybeSingle().execute()
+        existing = db.table("rateios_valores").select("id").eq("rateio_id", rid).eq("month", int(data.mes)).eq("ano", int(data.ano)).maybe_single().execute()
         if existing.data:
             db.table("rateios_valores").update({"valor": valor}).eq("id", existing.data["id"]).execute()
         else:
@@ -2300,7 +2300,7 @@ def checar_pertencimento(db: Client, condominio_id: str, cliente: Optional[str])
         return None  # sem nome confiável na conta -> não dá pra validar
 
     try:
-        sel = db.table("condominios").select("id, name").eq("id", condominio_id).maybeSingle().execute()
+        sel = db.table("condominios").select("id, name").eq("id", condominio_id).maybe_single().execute()
         condo_sel = sel.data or {}
     except Exception:
         return None
@@ -2424,7 +2424,7 @@ def api_check_duplicata_completa(data: CheckDuplicataCompletaFatura, user: dict 
          .eq("ano_referencia", ano_ant) \
          .eq("mes_referencia", mes_ant) \
          .eq("concessionaria", data.concessionaria.upper()) \
-         .maybeSingle().execute()
+         .maybe_single().execute()
         prev = res.data
         if prev:
             iguais = 0
@@ -2475,7 +2475,7 @@ def api_check_duplicata_completa(data: CheckDuplicataCompletaFatura, user: dict 
          .eq("mes_referencia", mes_ant) \
          .eq("empresa_leitura", data.empresa.upper()) \
          .eq("tipo_servico", data.tipo_servico.lower()) \
-         .maybeSingle().execute()
+         .maybe_single().execute()
         prev = res.data
         if prev:
             iguais = 0
@@ -2600,7 +2600,7 @@ async def api_extrair_pdf(
     passwords = []
     if condominio_id:
         try:
-            cres = db.table("condominios").select("cnpj").eq("id", condominio_id).maybeSingle().execute()
+            cres = db.table("condominios").select("cnpj").eq("id", condominio_id).maybe_single().execute()
             passwords = cnpj_to_passwords((cres.data or {}).get("cnpj"))
         except Exception as e:
             print(f"[extrair-pdf] falha ao buscar cnpj do condo: {e}")
@@ -2740,7 +2740,7 @@ def api_duplicar_consumo(consumo_id: str, user: dict = Depends(get_current_user)
     if not _is_assistente_or_emissor_or_master(role):
         raise HTTPException(403, "Sem permissao")
 
-    orig = db.table("consumos_faturas").select("*").eq("id", consumo_id).maybeSingle().execute()
+    orig = db.table("consumos_faturas").select("*").eq("id", consumo_id).maybe_single().execute()
     if not orig.data:
         raise HTTPException(404, "Fatura nao encontrada")
     o = orig.data
@@ -2814,7 +2814,7 @@ def api_deletar_consumo(consumo_id: str, user: dict = Depends(get_current_user),
     try:
         c = db.table("consumos_faturas").select(
             "arquivo_url, origem_emissao_arquivo_id"
-        ).eq("id", consumo_id).maybeSingle().execute()
+        ).eq("id", consumo_id).maybe_single().execute()
         if c.data:
             tabela = "consumos_faturas"
             arquivo_url = c.data.get("arquivo_url")
@@ -2826,7 +2826,7 @@ def api_deletar_consumo(consumo_id: str, user: dict = Depends(get_current_user),
         try:
             r = db.table("consumos_relatorios_leitura").select(
                 "arquivo_url, origem_emissao_arquivo_id"
-            ).eq("id", consumo_id).maybeSingle().execute()
+            ).eq("id", consumo_id).maybe_single().execute()
             if r.data:
                 tabela = "consumos_relatorios_leitura"
                 arquivo_url = r.data.get("arquivo_url")
