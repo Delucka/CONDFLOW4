@@ -253,6 +253,24 @@ export default function DashboardPage() {
     }
   };
 
+  // Hooks SEMPRE antes de qualquer return condicional (Regras dos Hooks)
+  const condos = data?.condos || [];
+  const condosOrdenados = useMemo(() => {
+    const codeOf = (n) => { const m = String(n || '').match(/^\s*0*(\d+)/); return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER; };
+    return [...condos].sort((a, b) => ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name));
+  }, [condos, ordemAsc]);
+  const pendingProcesses = useMemo(() => {
+    if (!data?.processos) return [];
+    const out = [];
+    for (const condoId of Object.keys(data.processos)) {
+      const proc = data.processos[condoId];
+      if (["Enviado", "Em aprovação"].includes(proc.status)) {
+        out.push({ ...proc, condo: condos.find(c => c.id === condoId) });
+      }
+    }
+    return out;
+  }, [data?.processos, condos]);
+
   if (error && !data) {   // só bloqueia se NÃO houver nenhum dado (com cache, mostra os dados e revalida em silêncio)
     return (
       <div className="flex flex-col items-center justify-center p-20 text-center glass-panel rounded-3xl">
@@ -265,29 +283,10 @@ export default function DashboardPage() {
   }
 
   const stats    = data?.stats    || { total: 0, em_edicao: 0, pendentes: 0, aprovados: 0 };
-  const condos   = data?.condos   || [];
   const gerentes = data?.gerentes || [];
   const gerenteNomePorId = {};
   gerentes.forEach(g => { gerenteNomePorId[g.id] = g.profiles?.full_name || g.nome || null; });
-
-  // Ordena por número do condomínio (prefixo do nome, ex: "411 - ...") asc/desc
-  const condosOrdenados = useMemo(() => {
-    const codeOf = (n) => { const m = String(n || '').match(/^\s*0*(\d+)/); return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER; };
-    return [...condos].sort((a, b) => ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name));
-  }, [condos, ordemAsc]);
   const processos = data?.processos || {};
-
-  const pendingProcesses = useMemo(() => {
-    if (!data?.processos) return [];
-    const out = [];
-    for (const condoId of Object.keys(data.processos)) {
-      const proc = data.processos[condoId];
-      if (["Enviado", "Em aprovação"].includes(proc.status)) {
-        out.push({ ...proc, condo: condos.find(c => c.id === condoId) });
-      }
-    }
-    return out;
-  }, [data?.processos, condos]);
 
   return (
     <div className="animate-fade-in w-full h-full relative space-y-4 pb-12">
