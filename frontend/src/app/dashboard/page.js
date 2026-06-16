@@ -291,12 +291,6 @@ export default function DashboardPage() {
   return (
     <div className="animate-fade-in w-full h-full relative space-y-4 pb-12">
 
-      {data?._debug && (
-        <div className="text-[11px] font-mono bg-amber-100 text-amber-900 border border-amber-300 rounded-lg p-2 break-all">
-          DEBUG: {JSON.stringify(data._debug)}
-        </div>
-      )}
-
       {/* ── TOPO: Tabela Situação Semestral + Fila de Conferência ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 

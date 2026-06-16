@@ -173,18 +173,6 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         except Exception as e:
             print(f"[dashboard] pipeline_config falhou (segue sem): {e}")
 
-        # DEBUG temporário (remover depois) — diagnóstico do filtro de carteira
-        _dbg = {"role": user.get("role"), "uid": user.get("id")}
-        try:
-            _p = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybe_single().execute()
-            _dbg["profile_gerente_id"] = (_p.data or {}).get("gerente_id")
-        except Exception as _e:
-            _dbg["profile_err"] = str(_e)[:160]
-        try:
-            _dbg["carteira_gerente_id"] = carteira_gerente_id(db, user)
-        except Exception as _e:
-            _dbg["carteira_err"] = str(_e)[:160]
-
         return {
             "year": year,
             "semester": sem,
@@ -197,7 +185,6 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             "emissao_mes": int(mes) if mes else None,
             "emissao_ano": emis_ano,
             "pipeline_config": pipeline_config,
-            "_debug": _dbg,
         }
     except Exception as e:
         print(f"ERROR /dashboard: {e}")
