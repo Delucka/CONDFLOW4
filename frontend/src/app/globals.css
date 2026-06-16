@@ -280,3 +280,22 @@ html.dark {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   DENSIDADE MOBILE — paddings/arredondamentos grandes (feitos p/ desktop)
+   apertavam a tela no celular. Reduz só nas classes "base" (sem prefixo
+   responsivo) em telas pequenas. Não afeta md:/lg:/sm: variants.
+   ============================================================ */
+@media (max-width: 639.98px) {
+  .p-8 { padding: 1.1rem !important; }
+  .p-7 { padding: 1.1rem !important; }
+  .p-6 { padding: 1rem !important; }
+  .px-8 { padding-left: 1.1rem !important; padding-right: 1.1rem !important; }
+  .px-6 { padding-left: 1rem !important; padding-right: 1rem !important; }
+  .py-8 { padding-top: 1.1rem !important; padding-bottom: 1.1rem !important; }
+  .p-24 { padding: 2.5rem 1rem !important; }
+  .py-20 { padding-top: 2.5rem !important; padding-bottom: 2.5rem !important; }
+  .rounded-\[2rem\] { border-radius: 1.25rem !important; }
+  .gap-8 { gap: 1rem !important; }
+  .gap-6 { gap: 1rem !important; }
+}
