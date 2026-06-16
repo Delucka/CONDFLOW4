@@ -12,6 +12,13 @@ export const metadata = {
   description: "Gestão moderna de arrecadações, cobranças e aprovações de condomínios",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#1e3a8a",
+};
+
 const themeScript = `(function(){try{if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`;
 
 export default function RootLayout({ children }) {

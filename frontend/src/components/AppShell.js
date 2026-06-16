@@ -1,15 +1,19 @@
 'use client';
 import { useAuth } from '@/lib/auth';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
 import NotificationsBell from './NotificationsBell';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Menu } from 'lucide-react';
 
 export default function AppShell({ children }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Fecha o menu mobile ao trocar de rota
+  useEffect(() => { setDrawerOpen(false); }, [pathname]);
 
   useEffect(() => {
     if (!loading && !user && pathname !== '/' && pathname !== '/login' && pathname !== '/reset-password') {
@@ -58,17 +62,29 @@ export default function AppShell({ children }) {
   const pageTitle = TITLES[pathname] || defaultTitle || 'CondoFlow Premium';
 
   return (
-    <div className="h-screen flex p-3 md:p-4 gap-4 overflow-hidden selection:bg-violet-200 font-sans">
+    <div className="h-screen flex p-2 sm:p-3 md:p-4 gap-4 overflow-hidden selection:bg-violet-200 font-sans">
 
-      {/* Sidebar Persistente (Nunca é reconstruída ao navegar) */}
-      <Sidebar />
+      {/* Pular para o conteúdo (aparece ao focar via teclado) */}
+      <a href="#scroll-main" className="skip-link sr-only focus:not-sr-only">Pular para o conteúdo</a>
+
+      {/* Sidebar Persistente (coluna no desktop, drawer no mobile) */}
+      <Sidebar mobileOpen={drawerOpen} onCloseMobile={() => setDrawerOpen(false)} />
 
       <main className="flex-1 flex flex-col min-w-0 min-h-0 glass-panel rounded-2xl overflow-hidden relative">
 
         {/* Header Fixo */}
-        <header className="h-[56px] px-5 flex flex-wrap items-center justify-between shrink-0 border-b border-slate-200 z-20 relative">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-black text-slate-900 tracking-tight">{pageTitle}</h2>
+        <header className="h-[56px] px-3 sm:px-5 flex flex-wrap items-center justify-between shrink-0 border-b border-slate-200 z-20 relative">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Abrir menu"
+              aria-expanded={drawerOpen}
+              aria-controls="app-sidebar"
+              className="lg:hidden tap -ml-1 mr-1 inline-flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+              <Menu className="w-5 h-5" aria-hidden="true" />
+            </button>
+            <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-tight truncate">{pageTitle}</h2>
           </div>
 
           <div className="flex items-center gap-3">

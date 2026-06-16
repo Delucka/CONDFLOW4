@@ -167,10 +167,13 @@ export default function NotificationsBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button ref={btnRef} onClick={toggle} className="relative p-1.5 rounded-lg hover:bg-slate-100 transition-all group" title="Notificações">
-        <Bell className="w-4 h-4 text-slate-400 group-hover:text-slate-700" />
+      <button ref={btnRef} onClick={toggle} type="button"
+        aria-label={naoLidas > 0 ? `Notificações, ${naoLidas} não lidas` : 'Notificações'}
+        aria-haspopup="true" aria-expanded={open}
+        className="tap relative inline-flex items-center justify-center rounded-lg hover:bg-slate-100 transition-all group">
+        <Bell className="w-4 h-4 text-slate-400 group-hover:text-slate-700" aria-hidden="true" />
         {naoLidas > 0 && (
-          <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black min-w-[15px] h-[15px] px-1 rounded-full flex items-center justify-center leading-none">
+          <span className="absolute top-0.5 right-0.5 bg-rose-500 text-white text-[9px] font-black min-w-[15px] h-[15px] px-1 rounded-full flex items-center justify-center leading-none" aria-hidden="true">
             {naoLidas > 9 ? '9+' : naoLidas}
           </span>
         )}
