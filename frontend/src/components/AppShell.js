@@ -73,21 +73,21 @@ export default function AppShell({ children }) {
       <main className="flex-1 flex flex-col min-w-0 min-h-0 glass-panel rounded-2xl overflow-hidden relative">
 
         {/* Header Fixo */}
-        <header className="h-[56px] px-3 sm:px-5 flex flex-wrap items-center justify-between shrink-0 border-b border-slate-200 z-20 relative">
-          <div className="flex items-center gap-2 min-w-0">
+        <header className="h-[56px] px-3 sm:px-5 flex items-center justify-between gap-2 shrink-0 border-b border-slate-200 z-20 relative">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Abrir menu"
               aria-expanded={drawerOpen}
               aria-controls="app-sidebar"
-              className="lg:hidden tap -ml-1 mr-1 inline-flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+              className="lg:hidden tap shrink-0 -ml-1 inline-flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
               <Menu className="w-5 h-5" aria-hidden="true" />
             </button>
             <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-tight truncate">{pageTitle}</h2>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <NotificationsBell />
             <div className="hidden sm:flex items-center gap-2">
               <div className="text-right">
