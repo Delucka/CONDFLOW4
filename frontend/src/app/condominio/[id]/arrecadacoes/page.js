@@ -616,10 +616,11 @@ export default function ArrecadacoesPage() {
                             <td className="p-3 border-r border-slate-200 sticky left-[200px] z-20 bg-white backdrop-blur-sm group-hover:bg-slate-100 transition-colors shadow-2xl">
                                 <div className="flex justify-between items-start gap-2">
                                     <div className="flex-1">
-                                        <input 
+                                        <input
                                             value={r.nome}
                                             onChange={e => handleRateioChange(r.id, 'nome', e.target.value)}
-                                            className="w-full bg-transparent border-none p-0 text-xs font-black uppercase text-slate-800 placeholder:text-slate-600 focus:ring-0"
+                                            disabled={!canEdit}
+                                            className="w-full bg-transparent border-none p-0 text-xs font-black uppercase text-slate-800 placeholder:text-slate-600 focus:ring-0 disabled:cursor-default"
                                             placeholder="Ex: Fundo de Obras"
                                         />
                                         <div className="text-[9px] font-bold text-slate-500 truncate mt-1 max-w-[150px]">{r.conta_nome || 'Conta não vinculada'}</div>
@@ -682,9 +683,11 @@ export default function ArrecadacoesPage() {
 
                             {/* ACÕES */}
                             <td className="p-2 text-center bg-slate-100">
-                                <button onClick={() => handleDelete(r.id)} className="text-rose-500/60 hover:text-rose-400 p-1.5 hover:bg-rose-400/10 rounded-lg transition-all" title="Excluir rateio">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
+                                {canEdit && (
+                                  <button onClick={() => handleDelete(r.id)} className="text-rose-500/60 hover:text-rose-400 p-1.5 hover:bg-rose-400/10 rounded-lg transition-all" title="Excluir rateio">
+                                      <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
                             </td>
                         </tr>
                     ))}

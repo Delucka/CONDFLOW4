@@ -427,38 +427,25 @@ export default function CobrancasExtrasPage() {
   const podeExecutar = role === 'master' || role === 'departamento';
   const podeSolicitar = role === 'master' || role === 'gerente';
 
-  // Carrega condomínios filtrados por carteira (gerente/assistente)
+  // Carrega condomínios da carteira — usa /api/condominios (já filtra carteira p/ gerente E assistente)
   useEffect(() => {
     if (!profile?.id) return;
     (async () => {
       setLoadingCondos(true);
       try {
-        if (role === 'gerente') {
-          const { data: g } = await supabase.from('gerentes').select('id').eq('profile_id', profile.id).maybeSingle();
-          if (!g?.id) { setCondominios([]); setLoadingCondos(false); return; }
-          const { data } = await supabase.from('condominios').select('id, name').eq('gerente_id', g.id).order('name');
-          setCondominios(data || []);
-          if (data?.length) setCondoSel(data[0].id);
-        } else if (role === 'assistente') {
-          // assistente: gerentes onde a coluna 'assistente' (texto) bate com o full_name do profile
-          const { data: gers } = await supabase.from('gerentes').select('id, assistente').not('assistente', 'is', null);
-          const fullName = (profile.full_name || '').trim().toLowerCase();
-          const gIds = (gers || []).filter(g => (g.assistente || '').trim().toLowerCase() === fullName).map(g => g.id);
-          if (gIds.length === 0) { setCondominios([]); setLoadingCondos(false); return; }
-          const { data } = await supabase.from('condominios').select('id, name').in('gerente_id', gIds).order('name');
-          setCondominios(data || []);
-          if (data?.length) setCondoSel(data[0].id);
-        } else {
-          // master / supervisores / departamento: veem todos
-          const { data } = await supabase.from('condominios').select('id, name').order('name');
-          setCondominios(data || []);
-          if (data?.length) setCondoSel(data[0].id);
-        }
+        const res = await apiFetch('/api/condominios');
+        const data = (res?.condos || [])
+          .map(c => ({ id: c.id, name: c.name }))
+          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        setCondominios(data);
+        if (data.length) setCondoSel(data[0].id);
+      } catch {
+        setCondominios([]);
       } finally {
         setLoadingCondos(false);
       }
     })();
-  }, [supabase, profile?.id, profile?.full_name, role]);
+  }, [profile?.id, role]);
 
   // Carrega cobranças e cancelamentos pendentes
   const carregar = useCallback(async () => {
