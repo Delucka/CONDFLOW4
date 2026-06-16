@@ -70,8 +70,11 @@ def carteira_gerente_id(db: Client, user: dict):
     if role == "gerente":
         return get_gerente_id(db, user["id"])
     if role == "assistente":
-        prof = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybeSingle().execute()
-        gpid = (prof.data or {}).get("gerente_id")
+        try:
+            prof = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybeSingle().execute()
+            gpid = (prof.data or {}).get("gerente_id")
+        except Exception:
+            gpid = None  # coluna ainda não existe (migration 0057 não rodada)
         return get_gerente_id(db, gpid) if gpid else None
     return None
 
