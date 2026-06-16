@@ -895,7 +895,7 @@ export default function ConsumosPage() {
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[120px]">Gerente</th>
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[80px]">Conta</th>
                   {Array.from({length:12}, (_,i)=>i+1).map(m => (
-                    <th key={m} data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">hoje</span> : null}</th>
+                    <th key={m} scope="col" data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">hoje</span> : null}</th>
                   ))}
                 </tr>
               </thead>
@@ -1002,7 +1002,7 @@ export default function ConsumosPage() {
                   <th className="text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 sticky left-0 bg-slate-50 z-20 min-w-[220px]">Condomínio</th>
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[140px] border-r border-slate-200">Empresa · Serviço</th>
                   {Array.from({length:12}, (_,i)=>i+1).map(m => (
-                    <th key={m} data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">hoje</span> : null}</th>
+                    <th key={m} scope="col" data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">hoje</span> : null}</th>
                   ))}
                 </tr>
               </thead>
