@@ -305,14 +305,14 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full sm:w-auto">
               {/* Mês da emissão */}
-              <div className="flex items-center gap-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Emissão de:</label>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter shrink-0">Emissão de:</label>
                 <select
                   value={mesEmissao}
                   onChange={(e) => setMesEmissao(Number(e.target.value))}
-                  className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer"
+                  className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer flex-1 min-w-0 max-w-full sm:flex-none"
                 >
                   {MESES.slice(1).map((m, i) => (
                     <option key={i + 1} value={i + 1}>{m}/{ANO_ATUAL}</option>
@@ -321,12 +321,12 @@ export default function DashboardPage() {
               </div>
               {/* Filtro por gerente (oculto pro próprio gerente) */}
               {user?.role !== 'gerente' && (
-                <div className="flex items-center gap-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Gerente:</label>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter shrink-0">Gerente:</label>
                   <select
                     value={filtroGerente}
                     onChange={(e) => setFiltroGerente(e.target.value)}
-                    className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer"
+                    className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer flex-1 min-w-0 max-w-full sm:flex-none"
                   >
                     <option value="">TODOS</option>
                     {gerentes.map((g) => (
