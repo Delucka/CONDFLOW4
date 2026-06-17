@@ -1514,6 +1514,11 @@ def api_lancar_cobranca_extra(
     """Lança cobrança extra (simples ou parcelada). Não permite retroativo."""
     require_role(user, ROLES_LANCA_COBRANCA)
 
+    # Gerente/assistente só lançam para condomínios da própria carteira
+    if user["role"] in ("gerente", "assistente"):
+        if data.condominio_id not in carteira_condo_ids(db, user):
+            raise HTTPException(403, "Este condomínio não está na sua carteira.")
+
     mes_atual, ano_atual = _mes_atual()
 
     # Valida que não é retroativo
@@ -1681,6 +1686,10 @@ def api_listar_cobrancas(
     db: Client = Depends(get_db)
 ):
     """Lista cobranças extras de um condomínio, opcionalmente filtradas por mês/ano."""
+    # Gerente/assistente só enxergam cobranças de condomínios da própria carteira
+    if user["role"] in ("gerente", "assistente"):
+        if condominio_id not in carteira_condo_ids(db, user):
+            raise HTTPException(403, "Este condomínio não está na sua carteira.")
     try:
         query = db.table("cobrancas_extras").select("*") \
             .eq("condominio_id", condominio_id) \

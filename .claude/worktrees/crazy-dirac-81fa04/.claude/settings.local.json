@@ -48,7 +48,21 @@
       "Bash(curl -s -A \"Mozilla/5.0\" -L \"https://frontend-theta-liard-32.vercel.app/\")",
       "Bash(python -c \"import pdfplumber; print\\('pdfplumber OK'\\)\")",
       "Bash(python -)",
-      "Bash(curl -s -X POST https://condominios-gamma.vercel.app/api/notificacoes/email-hook -H 'Content-Type: application/json' -H 'x-notif-secret: cfnotif_c991d44b7b10c9947407b18f68c186c5' -d '{\"to\":\"denner.dlucka@gmail.com\",\"subject\":\"🔔 Teste CondoFlow\",\"html\":\"<div style=\\\\\"font-family:Arial\\\\\"><h2>Funcionou!</h2><p>Se você recebeu este e-mail, as notificações por e-mail do CondoFlow estão ativas. ✅</p></div>\"}' -w '\\\\n--- HTTP %{http_code} ---\\\\n')"
+      "Bash(curl -s -X POST https://condominios-gamma.vercel.app/api/notificacoes/email-hook -H 'Content-Type: application/json' -H 'x-notif-secret: cfnotif_c991d44b7b10c9947407b18f68c186c5' -d '{\"to\":\"denner.dlucka@gmail.com\",\"subject\":\"🔔 Teste CondoFlow\",\"html\":\"<div style=\\\\\"font-family:Arial\\\\\"><h2>Funcionou!</h2><p>Se você recebeu este e-mail, as notificações por e-mail do CondoFlow estão ativas. ✅</p></div>\"}' -w '\\\\n--- HTTP %{http_code} ---\\\\n')",
+      "Bash(node -e ' *)",
+      "Bash(npm ls *)",
+      "Bash(npm i *)",
+      "Bash(node -e \"const x=require\\('C:/tmp/node_modules/xlsx'\\); console.log\\('xlsx version', x.version\\);\")",
+      "Bash(curl -s \"https://condominios-gamma.vercel.app/tools/gerador_rateio_correio.html\")",
+      "Bash(curl -s \"https://condominios-gamma.vercel.app/tools/gerador_rateio_correio.html?v=$\\(date +%s\\)\")",
+      "Bash(curl -s \"https://condominios-eoalq07ns-deluckas-projects.vercel.app/tools/gerador_rateio_correio.html\")",
+      "Bash(curl -sI \"https://condominios-gamma.vercel.app/tools/gerador_rateio_correio.html\")",
+      "Bash(ls \"/c/Program Files/Tesseract-OCR/tesseract.exe\" \"/c/Program Files \\(x86\\)/Tesseract-OCR/tesseract.exe\" 2>/dev/null; which tesseract 2>/dev/null; echo \"exit: procurado\")",
+      "Bash(curl -s -o /dev/null -w \"http=%{http_code} total=%{time_total}s\\\\n\" \"https://condominios-gamma.vercel.app/api/dashboard\")",
+      "Bash(grep -nA12 \"def get_db\\\\|def get_current_user\\\\|def get_gerente_id\" api/api_routes.py)",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget",
+      "WebSearch"
     ]
   }
 }
