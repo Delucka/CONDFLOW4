@@ -169,6 +169,10 @@ class SabespExtractor:
                 r'VENCIMENTO[:\s\*]+(\d{1,2}/\d{1,2}/\d{2,4})',
             ])),
             'valor': parse_brl(find_first(text, [
+                # Canhoto de pagamento (layout "tipo 2"): "<fornecimento> <emissão> <vencimento> <total>"
+                r'\d{9,}\s+\d{1,2}/\d{1,2}/\d{2,4}\s+\d{1,2}/\d{1,2}/\d{2,4}\s+(\d{1,3}(?:\.\d{3})*,\d{2})',
+                # "TOTAL (R$) 16.418,32" / "TOTAL (RS) ..." (exige centavos com vírgula)
+                r'TOTAL\s*\(?\s*(?:R\$|RS)\s*\)?[:\s]*(\d{1,3}(?:\.\d{3})*,\d{2})',
                 r'TOTAL[:\s\*]+R\$\s*\*+([\d\.\,]+)',  # R$ ***********11.108,90
                 r'TOTAL[:\s]+R\$\s*([\d\.\,]+)',
             ])),
