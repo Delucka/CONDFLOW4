@@ -343,6 +343,78 @@ def cnpj_to_passwords(cnpj: Optional[str]) -> list:
     return out
 
 
+_MES_MAP = {
+    'JAN': '01', 'FEV': '02', 'MAR': '03', 'ABR': '04', 'MAI': '05', 'JUN': '06',
+    'JUL': '07', 'AGO': '08', 'SET': '09', 'OUT': '10', 'NOV': '11', 'DEZ': '12',
+    'JANEIRO': '01', 'FEVEREIRO': '02', 'MARCO': '03', 'MARÇO': '03', 'ABRIL': '04',
+    'MAIO': '05', 'JUNHO': '06', 'JULHO': '07', 'AGOSTO': '08', 'SETEMBRO': '09',
+    'OUTUBRO': '10', 'NOVEMBRO': '11', 'DEZEMBRO': '12',
+}
+
+
+def _iso_date(raw: str) -> Optional[str]:
+    """'12/05/2026' / '12.05.2026' -> '2026-05-12' (valida ano 2000-2100)."""
+    parts = re.split(r"[/.\-]", str(raw))
+    if len(parts) != 3:
+        return None
+    d, m, y = parts
+    try:
+        if 2000 <= int(y) <= 2100:
+            return f"{int(y):04d}-{m.zfill(2)}-{d.zfill(2)}"
+    except ValueError:
+        pass
+    return None
+
+
+def parse_fatura_fallback(text: str) -> dict:
+    """
+    Regex tolerante (porte do _parse_fields do processador de e-mails): extrai
+    valor / vencimento / referência de forma robusta. Usado SÓ para preencher
+    campos que o extractor por concessionária não conseguiu (layout fora do padrão
+    ou texto ruidoso de OCR). Nunca sobrescreve um valor já extraído.
+    """
+    out = {'valor': None, 'vencimento': None, 'referencia': None}
+    if not text:
+        return out
+
+    # ── Valor ──
+    for p in [
+        r"(?:TOTAL\s+A\s+PAGAR|VALOR\s+TOTAL|VALOR\s+A\s+PAGAR|TOTAL\s+DA\s+FATURA)[:\s]*R?\$?\s*([\d.,]+)",
+        r"R\$\s*([\d.]{1,12},\d{2})",
+    ]:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            v = parse_brl(m.group(1))
+            if v is not None and v > 1.0:  # filtra ruído (ex.: ano "2026")
+                out['valor'] = v
+                break
+
+    # ── Vencimento ──
+    for p in [
+        r"VENCIMENTO[:\s]*(\d{2}[/.\-]\d{2}[/.\-]\d{4})",
+        r"PAGAR\s+AT[EÉ][:\s]*(\d{2}[/.\-]\d{2}[/.\-]\d{4})",
+        r"(\d{2}[/.\-]\d{2}[/.\-]\d{4})",  # último recurso
+    ]:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            iso = _iso_date(m.group(1))
+            if iso:
+                out['vencimento'] = iso
+                break
+
+    # ── Referência (mês/ano) ──
+    mes_names = '|'.join(_MES_MAP.keys())
+    rm = re.search(rf"({mes_names})[\s/\-]+(\d{{4}})", text, re.IGNORECASE)
+    if rm:
+        out['referencia'] = f"{rm.group(1).capitalize()}/{rm.group(2)}"
+    else:
+        nm = re.search(r"\b(\d{2})/(\d{4})\b", text)
+        if nm:
+            out['referencia'] = f"{nm.group(1)}/{nm.group(2)}"
+
+    return out
+
+
 def extract_pdf(file_bytes: bytes, passwords: Optional[list] = None) -> dict:
     """
     Ponto de entrada. Aceita bytes do PDF, retorna dict com:
@@ -410,6 +482,17 @@ def extract_pdf(file_bytes: bytes, passwords: Optional[list] = None) -> dict:
         }
 
     data = ExtractorCls.extract(text)
+
+    # Fallback tolerante: preenche valor/vencimento/referência que o extractor
+    # específico não pegou (nunca sobrescreve um campo já extraído).
+    if tipo == 'fatura':
+        fb = parse_fatura_fallback(text)
+        if data.get('valor') is None and fb.get('valor') is not None:
+            data['valor'] = fb['valor']
+        if data.get('vencimento') is None and fb.get('vencimento') is not None:
+            data['vencimento'] = fb['vencimento']
+        if fb.get('referencia') and not data.get('referencia'):
+            data['referencia'] = fb['referencia']
 
     # Confiança = % de campos escalares não-None entre os esperados
     expected_fields = list(data.keys())

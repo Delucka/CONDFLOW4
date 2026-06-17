@@ -137,8 +137,20 @@ export async function decodeBoletoValor(file) {
 
 function dataBR(s) {
   const m = String(s).match(/(\d{2})[\/.\-](\d{2})[\/.\-](\d{4})/);
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+  if (!m) return null;
+  const y = parseInt(m[3], 10);
+  if (y < 2000 || y > 2100) return null;   // valida ano — descarta ruído de OCR
+  return `${m[3]}-${m[2]}-${m[1]}`;
 }
+
+// mês -> número (p/ referência), tolerante a acento/abreviação
+const _MESES = {
+  JAN: '01', FEV: '02', MAR: '03', ABR: '04', MAI: '05', JUN: '06',
+  JUL: '07', AGO: '08', SET: '09', OUT: '10', NOV: '11', DEZ: '12',
+  JANEIRO: '01', FEVEREIRO: '02', MARCO: '03', 'MARÇO': '03', ABRIL: '04',
+  MAIO: '05', JUNHO: '06', JULHO: '07', AGOSTO: '08', SETEMBRO: '09',
+  OUTUBRO: '10', NOVEMBRO: '11', DEZEMBRO: '12',
+};
 function brl(s) {
   let v = String(s).replace(/[^\d.,]/g, '');
   if (v.indexOf(',') >= 0) v = v.replace(/\./g, '').replace(',', '.');
@@ -151,25 +163,38 @@ export function parseFaturaOcr(text) {
   const t = text || '';
   const up = t.toUpperCase();
   let subtipo = null;
-  if (up.includes('SABESP')) subtipo = 'SABESP';
+  if (up.includes('SABESP') || up.includes('SANEAMENTO BASICO') || up.includes('SANEAMENTO BÁSICO')) subtipo = 'SABESP';
   else if (up.includes('COMGAS') || up.includes('COMGÁS') || up.includes('COMPANHIA DE G')) subtipo = 'COMGAS';
   else if (up.includes('ENEL') || up.includes('ELETROPAULO')) subtipo = 'ENEL';
   else if (up.includes('PROSPER')) subtipo = 'Prosper';
 
-  // Vencimento: data logo após "VENCIMENTO"
+  // Vencimento: "VENCIMENTO" ou "PAGAR ATÉ"; senão a 1ª data válida do documento
   let vencimento = null;
-  const mv = t.match(/VENC[I1]?MENTO[^\d]{0,25}(\d{2}[\/.\-]\d{2}[\/.\-]\d{4})/i);
-  if (mv) vencimento = dataBR(mv[1]);
-  if (!vencimento) { const any = t.match(/\b(\d{2}[\/.\-]\d{2}[\/.\-]\d{4})\b/); if (any) vencimento = dataBR(any[1]); }
+  const vencRes = [
+    /VENC[I1]?MENTO[^\d]{0,25}(\d{2}[\/.\-]\d{2}[\/.\-]\d{4})/i,
+    /PAG[A4]R\s+AT[EÉ][^\d]{0,25}(\d{2}[\/.\-]\d{2}[\/.\-]\d{4})/i,
+  ];
+  for (const re of vencRes) { const m = t.match(re); if (m) { vencimento = dataBR(m[1]); if (vencimento) break; } }
+  if (!vencimento) {
+    const re = /(\d{2}[\/.\-]\d{2}[\/.\-]\d{4})/g; let m;
+    while ((m = re.exec(t))) { const iso = dataBR(m[1]); if (iso) { vencimento = iso; break; } }
+  }
 
-  // Valor: perto de "TOTAL A PAGAR"/"VALOR"; senão o maior valor monetário do documento
+  // Valor: perto de "TOTAL A PAGAR"/"VALOR"; senão o maior valor monetário plausível (> R$ 1)
   let valor = null;
   const mvl = t.match(/(?:TOTAL\s*A\s*PAGAR|VALOR\s*(?:A\s*PAGAR|TOTAL|DO\s*D[ÉE]BITO|COBRADO)|TOTAL\s*DA\s*FATURA)[^\dR$]{0,20}R?\$?\s*([\d.]{1,12},\d{2})/i);
   if (mvl) valor = brl(mvl[1]);
   if (valor == null) {
-    const todos = (t.match(/\d{1,3}(?:\.\d{3})*,\d{2}/g) || []).map(brl).filter(v => v != null && v < 10000000);
+    const todos = (t.match(/\d{1,3}(?:\.\d{3})*,\d{2}/g) || []).map(brl).filter(v => v != null && v > 1 && v < 10000000);
     if (todos.length) valor = Math.max(...todos);
   }
 
-  return { subtipo, vencimento, valor };
+  // Referência (mês/ano) — ajuda a casar o período do consumo
+  let referencia = null;
+  const mesNames = Object.keys(_MESES).join('|');
+  const rm = up.match(new RegExp(`(${mesNames})[\\s/\\-]+(\\d{4})`));
+  if (rm) referencia = `${rm[1]}/${rm[2]}`;
+  else { const nm = t.match(/\b(\d{2})\/(\d{4})\b/); if (nm) referencia = `${nm[1]}/${nm[2]}`; }
+
+  return { subtipo, vencimento, valor, referencia };
 }
