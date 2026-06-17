@@ -28,6 +28,17 @@ export default function AppShell({ children }) {
     }
   }, [user?.must_change_password, loading, router, pathname]);
 
+  // Keep-alive: mantém a função serverless (gru1) quente durante toda a sessão.
+  // Sem isso ela "esfria" entre recargas e o próximo acesso paga o cold-start (~2-3s).
+  // /api/health é leve (sem auth/DB), então o custo é desprezível.
+  useEffect(() => {
+    if (loading || !user?.id) return;
+    const ping = () => { fetch('/api/health', { cache: 'no-store' }).catch(() => {}); };
+    ping();
+    const id = setInterval(ping, 240000); // a cada 4 min
+    return () => clearInterval(id);
+  }, [loading, user?.id]);
+
   // Rotas públicas/standalone (sem sidebar): landing, login e redefinição de senha
   if (pathname === '/' || pathname === '/login' || pathname === '/reset-password') return children;
 

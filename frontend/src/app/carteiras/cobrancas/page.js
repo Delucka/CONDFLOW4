@@ -452,13 +452,12 @@ export default function CobrancasExtrasPage() {
     if (!condoSel) return;
     setLoading(true);
     try {
-      const res = await apiFetch(`/api/cobrancas-extras/${condoSel}`);
+      const [res, res2] = await Promise.all([
+        apiFetch(`/api/cobrancas-extras/${condoSel}`),
+        podeExecutar ? apiFetch('/api/cobrancas-extras/cancelamentos-pendentes') : Promise.resolve(null),
+      ]);
       setCobrancas(res.cobrancas || []);
-
-      if (podeExecutar) {
-        const res2 = await apiFetch('/api/cobrancas-extras/cancelamentos-pendentes');
-        setCancelamentos(res2.pendentes || []);
-      }
+      if (res2) setCancelamentos(res2.pendentes || []);
     } catch (err) {
       addToast(err.message, 'error');
     } finally {

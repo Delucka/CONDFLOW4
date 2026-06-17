@@ -48,6 +48,11 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         "role": profile.get("role", "gerente"),
         "full_name": profile.get("full_name", ""),
         "must_change_password": bool(profile.get("must_change_password", False)),
+        # gerente_id do PROFILE (vínculo assistente→gerente, migration 0057).
+        # Já vem no SELECT * acima — evita re-consultar profiles em carteira_gerente_id.
+        "gerente_id": profile.get("gerente_id"),
+        # sinaliza que o profile já foi carregado (mesmo que gerente_id seja None)
+        "_profile_loaded": True,
     }
 
 def get_gerente_id(db: Client, profile_id: str) -> Optional[str]:
@@ -70,11 +75,15 @@ def carteira_gerente_id(db: Client, user: dict):
     if role == "gerente":
         return get_gerente_id(db, user["id"])
     if role == "assistente":
-        try:
-            prof = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybe_single().execute()
-            gpid = (prof.data or {}).get("gerente_id")
-        except Exception:
-            gpid = None  # coluna ainda não existe (migration 0057 não rodada)
+        # Reusa o gerente_id já carregado em get_current_user (evita 2ª consulta a profiles)
+        if user.get("_profile_loaded"):
+            gpid = user.get("gerente_id")
+        else:
+            try:
+                prof = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybe_single().execute()
+                gpid = (prof.data or {}).get("gerente_id")
+            except Exception:
+                gpid = None  # coluna ainda não existe (migration 0057 não rodada)
         return get_gerente_id(db, gpid) if gpid else None
     return None
 
