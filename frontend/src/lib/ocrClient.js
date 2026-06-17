@@ -91,6 +91,26 @@ function parseBarcodeValor(digits) {
   const v = parseInt(slice, 10);
   return (!isNaN(v) && v > 0) ? v / 100 : null;
 }
+
+// Linha digitável de arrecadação impressa (48 díg em 4 grupos de 12 = 11+DV).
+// Reconstrói os 44 díg do código de barras -> valor EXATO. Backup grátis pra
+// quando o zxing não lê as barras (scan ruim) mas o OCR leu os números.
+function valorFromDigitavel(text) {
+  if (!text) return null;
+  const norm = String(text).replace(/[.\-]/g, ' ');
+  let digs = null;
+  const m = norm.match(/(\d{11,12})\s+(\d{11,12})\s+(\d{11,12})\s+(\d{11,12})/);
+  if (m) {
+    const b = [m[1], m[2], m[3], m[4]];
+    digs = b.every(x => x.length === 12) ? b.map(x => x.slice(0, 11)).join('') : b.join('');
+  }
+  if (!digs) {
+    const run = (norm.replace(/\s/g, '').match(/\d{44,48}/g) || [])[0];
+    if (run) digs = run.length >= 48 ? [0, 1, 2, 3].map(i => run.substr(i * 12, 11)).join('') : run.slice(0, 44);
+  }
+  if (!digs || digs.length !== 44) return null;
+  return parseBarcodeValor(digs);
+}
 // Renderiza o PDF/imagem e lê o código de barras (ITF) -> valor exato. null se não achar.
 export async function decodeBoletoValor(file) {
   try {
@@ -180,9 +200,9 @@ export function parseFaturaOcr(text) {
     while ((m = re.exec(t))) { const iso = dataBR(m[1]); if (iso) { vencimento = iso; break; } }
   }
 
-  // Valor: perto de "TOTAL A PAGAR"/"VALOR"; senão o maior valor monetário plausível (> R$ 1)
-  let valor = null;
-  const mvl = t.match(/(?:TOTAL\s*A\s*PAGAR|VALOR\s*(?:A\s*PAGAR|TOTAL|DO\s*D[ÉE]BITO|COBRADO)|TOTAL\s*DA\s*FATURA)[^\dR$]{0,20}R?\$?\s*([\d.]{1,12},\d{2})/i);
+  // Valor: 1º a linha digitável (exata); senão rótulo "TOTAL A PAGAR"/"VALOR"; senão o maior plausível
+  let valor = valorFromDigitavel(t);
+  const mvl = (valor == null) ? t.match(/(?:TOTAL\s*A\s*PAGAR|VALOR\s*(?:A\s*PAGAR|TOTAL|DO\s*D[ÉE]BITO|COBRADO)|TOTAL\s*DA\s*FATURA)[^\dR$]{0,20}R?\$?\s*([\d.]{1,12},\d{2})/i) : null;
   if (mvl) valor = brl(mvl[1]);
   if (valor == null) {
     const todos = (t.match(/\d{1,3}(?:\.\d{3})*,\d{2}/g) || []).map(brl).filter(v => v != null && v > 1 && v < 10000000);
