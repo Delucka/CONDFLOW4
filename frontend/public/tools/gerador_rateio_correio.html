@@ -126,7 +126,7 @@
   .dfields .seg-wrap{display:flex;flex-direction:column;gap:5px}
   @media (max-width:560px){.dfields{grid-template-columns:1fr 1fr}}
 
-  .uhead,.urow{display:grid;grid-template-columns:26px 1fr 116px 92px 32px;gap:8px;align-items:center}
+  .uhead,.urow{display:grid;grid-template-columns:26px 84px 1fr 116px 92px 32px;gap:8px;align-items:center}
   .uhead{padding:0 4px 6px;font-size:.72rem;font-weight:700;color:var(--muted);letter-spacing:.02em;text-transform:uppercase}
   .uhead .right{text-align:right}
   .rows{display:flex;flex-direction:column;gap:7px}
@@ -138,9 +138,9 @@
   .udel:hover{background:var(--danger-soft);color:var(--danger);border-color:#e7cbc6}
   @media (max-width:560px){
     .uhead{display:none}
-    .urow{grid-template-columns:22px 1fr 32px;grid-template-areas:"idx uni del" "idx tipo val";row-gap:6px}
+    .urow{grid-template-columns:22px 64px 1fr 32px;grid-template-areas:"idx bloco uni del" "idx tipo tipo val";row-gap:6px}
     .urow .idx{grid-area:idx;align-self:start;margin-top:9px}
-    .urow .uni{grid-area:uni}.urow .utipo{grid-area:tipo}
+    .urow .ubloco{grid-area:bloco}.urow .uni{grid-area:uni}.urow .utipo{grid-area:tipo}
     .urow .uval{grid-area:val;align-self:center}.urow .udel{grid-area:del;align-self:start}
   }
   .add-unit{margin-top:11px}
@@ -596,7 +596,7 @@
       '<div class="field"><label>Bloco</label><input type="text" class="f-bloco mono-in" maxlength="4" value="0"></div>'+
       '<div class="seg-wrap"><label>Tipo deste documento</label><div class="seg seg-tipo" data-tipo="'+defaultTipo+'"><button type="button" data-tipo="simples">Simples</button><button type="button" data-tipo="ar">A.R</button></div></div>'+
     '</div>'+
-    '<div class="uhead"><div></div><div>Unidade</div><div>Tipo</div><div class="right">Valor</div><div></div></div>'+
+    '<div class="uhead"><div></div><div>Bloco</div><div>Unidade</div><div>Tipo</div><div class="right">Valor</div><div></div></div>'+
     '<div class="rows"></div>'+
     '<button type="button" class="btn btn-soft btn-sm add-unit"><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg> Adicionar unidade</button>'+
     '<div class="dsummary"><div><span class="s-big s-count">0</span> <span class="s-lbl">unidades</span></div><div><span class="s-lbl">total</span> <span class="s-total">R$ 0,00</span></div><div class="s-break"></div></div>'+
@@ -608,17 +608,21 @@
   function setupBody(card){
     const body=card.querySelector(".doc-body"); body.innerHTML=bodyTemplate();
     body.querySelector(".seg-tipo").addEventListener("click",e=>{ const b=e.target.closest("button[data-tipo]"); if(!b) return; const seg=b.parentElement; seg.dataset.tipo=b.dataset.tipo; seg.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false")); recompute(card); });
-    ['.f-cond','.f-bloco'].forEach(s=>body.querySelector(s).addEventListener("input",()=>recompute(card)));
+    body.querySelector(".f-cond").addEventListener("input",()=>recompute(card));
+    // Bloco do quadro = "define em todas": ao editar, propaga pra todas as linhas (cada linha ainda pode sobrescrever depois)
+    body.querySelector(".f-bloco").addEventListener("input",function(){ const v=this.value.replace(/[^0-9A-Za-z]/g,"").slice(0,4); $$(".urow .ubloco",body).forEach(b=>{ b.value=v; }); recompute(card); });
     body.querySelector(".rows").addEventListener("input",()=>recompute(card));
     body.querySelector(".rows").addEventListener("change",()=>recompute(card));
     body.querySelector(".rows").addEventListener("click",e=>{ const d=e.target.closest(".udel"); if(!d) return; d.closest(".urow").remove(); recompute(card); });
-    body.querySelector(".add-unit").addEventListener("click",()=>{ addUnit(card,"","padrao"); const last=body.querySelector(".urow:last-child .uni"); if(last) last.focus(); recompute(card); });
+    body.querySelector(".add-unit").addEventListener("click",()=>{ addUnit(card,"","padrao",body.querySelector(".f-bloco").value); const last=body.querySelector(".urow:last-child .uni"); if(last) last.focus(); recompute(card); });
     body.querySelector(".dl").addEventListener("click",()=>downloadCard(card));
     const seg=body.querySelector(".seg-tipo"); seg.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.tipo===seg.dataset.tipo?"true":"false"));
   }
-  function addUnit(card, uni, tipo){
+  function addUnit(card, uni, tipo, bloco){
     const rows=card.querySelector(".rows"); const row=document.createElement("div"); row.className="urow";
+    const bval=(bloco==null?"":String(bloco)).replace(/[^0-9A-Za-z]/g,"").slice(0,4);
     row.innerHTML='<div class="idx"></div>'+
+      '<input class="ubloco mono-in" type="text" maxlength="4" value="'+bval+'" placeholder="bloco" title="Bloco: número, letra ou misto (ex.: A791, 12B, LOJA). Vazio = usa o bloco do quadro.">'+
       '<input class="uni mono-in" type="text" inputmode="numeric" maxlength="6" value="'+(uni||"").replace(/"/g,"")+'" placeholder="000000">'+
       '<select class="utipo"><option value="padrao">Padrão</option><option value="simples">Simples</option><option value="ar">A.R</option></select>'+
       '<div class="uval">—</div>'+
@@ -634,7 +638,7 @@
     const us=(data&&Array.isArray(data.unidades))?data.unidades:[];
     let bloco="0"; if(us.length){ const b=(us[0].bloco||"").toString().replace(/[^0-9A-Za-z]/g,""); if(b) bloco=b; }
     body.querySelector(".f-bloco").value=bloco;
-    if(us.length) us.forEach(u=>addUnit(card,(u.unidade||"").toString().replace(/[^0-9A-Za-z]/g,""),"padrao")); else addUnit(card,"","padrao");
+    if(us.length) us.forEach(u=>addUnit(card,(u.unidade||"").toString().replace(/[^0-9A-Za-z]/g,""),"padrao",(u.bloco||"").toString().replace(/[^0-9A-Za-z]/g,""))); else addUnit(card,"","padrao",bloco);
     const nome=(data&&data.condominio_nome)||""; if(nome) card.querySelector(".fmeta").textContent=nome;
     recompute(card);
   }
@@ -666,7 +670,8 @@
       const r=rate(t), cents=Math.round(r*100), vc=row.querySelector(".uval");
       if(uniRaw.trim()===""){ vc.textContent="—"; row.classList.add("invalid"); skip++; return; }
       row.classList.remove("invalid"); vc.textContent=brl(r); total+=r; if(t==="ar") nA++; else nS++;
-      lines.push({cond:fCond(cond),bloco:fBloco(bloco),uni:fUni(uniRaw),cents,compl:fCompl(compl)});
+      const rb=row.querySelector(".ubloco"); const blocoUse=(rb && rb.value.trim()!=="")?rb.value:bloco;
+      lines.push({cond:fCond(cond),bloco:fBloco(blocoUse),uni:fUni(uniRaw),cents,compl:fCompl(compl)});
     });
     body.querySelector(".s-count").textContent=lines.length;
     body.querySelector(".s-total").textContent=brl(total);
