@@ -211,7 +211,7 @@
         <input type="text" id="complGlobal" maxlength="15" value="" placeholder="ex.: CORREIO JUN/2026" style="width:220px"></div>
       <div class="field"><label>PDF/imagem escaneado <span class="hint">(OCR)</span></label>
         <label style="display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:600;color:var(--ink-soft);cursor:pointer;padding:8px 0;white-space:nowrap">
-          <input type="checkbox" id="optUnir" checked style="width:auto;margin:0;accent-color:var(--accent)"> Unir num quadro (bloco à mão)
+          <input type="checkbox" id="optUnir" checked style="width:auto;margin:0;accent-color:var(--accent)"> Unir num quadro (bloco automático)
         </label></div>
       <details class="tariffs"><summary><span class="chev">▸</span> Tarifas</summary>
         <div class="tariff-row">
@@ -576,6 +576,35 @@
     return out;
   }
 
+  /* ---------- OCR cru por COLUNA, SEM cadastro: bloco+unidade por posição, 1 quadro ----------
+     Lê o bloco automaticamente pela coluna (à esquerda da unidade, mesma faixa de Y), mas NÃO
+     encaixa no cadastro — assim não fabrica unidade/bloco quando o código do condomínio sai
+     errado no scan (0↔3↔8). Bloco mal-lido o usuário corrige na própria linha. */
+  function parseRowsRaw(pages){
+    let curCond=null, curNome="", achou=false, esp=0; const unidades=[];
+    function blocoClean2(t){ let b=String(t||"").replace(/[^0-9A-Za-z]/g,""); if(/^[oOdDqQ]$/.test(b)) b="0"; else if(/^[il|]$/.test(b)) b="1"; return b; }
+    for(const words of pages){
+      if(!words||!words.length) continue;
+      const txt=words.map(w=>w.text).join(" ").replace(/\s+/g," ");
+      const mc=txt.match(/Cond[o0]m\S{0,4}nio\s*[:.\-]?\s*(\d{3,5})\s*[-–]?\s*([0-9A-Za-zÀ-ÿ .&]{0,40})/i);
+      if(mc){ curCond=mc[1]; if(mc[2]&&mc[2].replace(/[^A-Za-zÀ-ÿ]/g,"").length>2) curNome=mc[2].replace(/CNPJ.*/i,"").trim(); }
+      if(/\(\s*geral\s*\)/i.test(txt)) continue;                  // folha de assinatura -> ignora
+      for(const w of words){
+        const u=ocrUnidade(w.text); if(!u) continue;
+        const dd=u.replace(/[A-Za-z]$/,""); if(!/^0\d{2,5}$/.test(dd)) continue;
+        const ux=colCenter(w), uy=w.y;
+        let bl=null, bd=1e9;                                      // bloco = token curto mais próximo à esquerda, mesmo Y
+        for(const o of words){ const x=colCenter(o); if(x<ux-5 && Math.abs(o.y-uy)<22 && /^[*]?[0-9A-Za-z]{1,4}$/.test(o.text)){ const d=ux-x; if(d<bd){ bd=d; bl=o.text; } } }
+        unidades.push({bloco:blocoClean2(bl), unidade:u}); achou=true;
+      }
+      const mq=txt.match(/listad\w*\s*:?\s*([0-9OoIlSZBzeagq|]{1,4})/i);
+      if(mq){ const n=parseInt(normToDigits(mq[1])||"0",10); if(n>0) esp+=n; }
+    }
+    if(!achou) return null;
+    return [{condominio_codigo:curCond||"", condominio_nome:curNome, bloco:"", unidades:unidades,
+             esperado:(esp>0&&esp>=unidades.length?esp:unidades.length), fora:0, temCadastro:false}];
+  }
+
   /* ---------- cards ---------- */
   function makeCard(name, meta){
     docSeq++;
@@ -784,12 +813,14 @@
           });
           let dss;
           if($("#optUnir") && $("#optUnir").checked){
-            // "Unir num quadro": leitura CRUA (parseText, SEM encaixe no cadastro). Encaixar contra um
-            // código de condomínio lido errado (0↔3↔8) é o que fabricava unidade/bloco que não existe.
-            const parsed=parseText(text);
-            dss=[{condominio_codigo:parsed.condominio_codigo, condominio_nome:parsed.condominio_nome,
-                  bloco:"", esperado:parsed.esperado, fora:0, temCadastro:false,
-                  unidades:(parsed.unidades||[]).map(u=>({bloco:"", unidade:u.unidade}))}];
+            // "Unir num quadro": lê bloco+unidade por POSIÇÃO de coluna (bloco automático), num quadro só,
+            // SEM encaixe no cadastro — encaixar contra um código de condomínio lido errado (0↔3↔8) é o
+            // que fabricava unidade/bloco que não existe. Bloco mal-lido o usuário corrige na linha.
+            dss = parseRowsRaw(pages);
+            if(!dss || !dss.length){ const parsed=parseText(text);
+              dss=[{condominio_codigo:parsed.condominio_codigo, condominio_nome:parsed.condominio_nome,
+                    bloco:"", esperado:parsed.esperado, fora:0, temCadastro:false,
+                    unidades:(parsed.unidades||[]).map(u=>({bloco:"", unidade:u.unidade}))}]; }
           } else {
             dss = cadIndex ? parseOcrWords(pages) : null;        // OCR por COLUNA (lê o bloco -> resolve multi-bloco)
             if(!dss || !dss.length){ const parsed=parseText(text); dss = cadIndex ? snapOCRDatasets(parsed) : [parsed]; }
