@@ -91,16 +91,21 @@ export default function CondominiosPage() {
   };
 
   const [gerenteFilter, setGerenteFilter] = useState('');  // '' = todos
+  const [condoFilter, setCondoFilter]     = useState('');  // '' = todos (da seleção) · senão 1 condomínio
+  const [mesEdicao, setMesEdicao]         = useState(() => { const m = new Date(); return m.getMonth() === 11 ? 1 : m.getMonth() + 2; }); // default M+1
 
   const handleForceAll = async (status) => {
     setForcingAll(true);
     try {
       const sem = new Date().getMonth() < 6 ? 1 : 2;
       const payload = { status, ano: pipelineAno, semestre: sem };
-      if (gerenteFilter) payload.gerente_id = gerenteFilter;
+      if (condoFilter) payload.condominio_id = condoFilter;
+      else if (gerenteFilter) payload.gerente_id = gerenteFilter;
       const res = await apiPost('/api/pipeline/force-all', payload);
-      const alvo = gerenteFilter
-        ? gerentes.find(g => g.id === gerenteFilter)?.full_name || 'gerente'
+      const alvo = condoFilter
+        ? (condos.find(c => c.id === condoFilter)?.name || 'condomínio')
+        : gerenteFilter
+        ? (gerentes.find(g => g.id === gerenteFilter)?.full_name || 'gerente')
         : 'todos';
       addToast(`"${status}" aplicado a ${res.updated} condomínios (${alvo})!`, 'success');
     } catch (err) {
@@ -119,10 +124,11 @@ export default function CondominiosPage() {
   const handleAbrirEdicaoMensal = async () => {
     setForcingAll(true);
     try {
-      const payload = { mes: mesAlvoEdicao, ano: anoAlvoEdicao };
-      if (gerenteFilter) payload.gerente_id = gerenteFilter;
+      const payload = { mes: mesEdicao, ano: pipelineAno };
+      if (condoFilter) payload.condominio_id = condoFilter;
+      else if (gerenteFilter) payload.gerente_id = gerenteFilter;
       const res = await apiPost('/api/edicoes-mensais/abrir', payload);
-      addToast(`Edição de ${_MESES[mesAlvoEdicao]}/${anoAlvoEdicao} aberta · ${res.criados} novos + ${res.reabertos} reabertos`, 'success');
+      addToast(`${_MESES[mesEdicao]}/${pipelineAno} aberto · ${res.criados} novos + ${res.reabertos} reabertos`, 'success');
     } catch (err) {
       addToast('Erro: ' + err.message, 'error');
     } finally {
@@ -333,16 +339,28 @@ export default function CondominiosPage() {
             <p className="text-[10px] text-slate-600 italic">Sem período programado — gerentes editam conforme status individual</p>
           )}
 
-          {/* Seletor de gerente */}
+          {/* Aplicar para: todos · por gerente · 1-a-1 por condomínio */}
           <div className="space-y-2">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Aplicar para</p>
-            <select value={gerenteFilter} onChange={e => setGerenteFilter(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all">
-              <option value="">Todos os Gerentes</option>
-              {gerentes.map(g => (
-                <option key={g.id} value={g.id}>{g.full_name}</option>
-              ))}
-            </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <select value={gerenteFilter} onChange={e => { setGerenteFilter(e.target.value); setCondoFilter(''); }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all">
+                <option value="">Todos os Gerentes</option>
+                {gerentes.map(g => (<option key={g.id} value={g.id}>{g.full_name}</option>))}
+              </select>
+              <select value={condoFilter} onChange={e => setCondoFilter(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all">
+                <option value="">{gerenteFilter ? 'Todos da carteira' : 'Todos os condomínios'}</option>
+                {(gerenteFilter ? condos.filter(c => c.gerente_id === gerenteFilter) : condos).map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <p className="text-[10px] text-slate-500 italic">
+              {condoFilter ? <>Aplicando só a <b className="text-slate-700">{condos.find(c => c.id === condoFilter)?.name}</b>.</>
+                : gerenteFilter ? <>Carteira de <b className="text-slate-700">{gerentes.find(g => g.id === gerenteFilter)?.full_name}</b>.</>
+                : 'Aplicando a todos os condomínios.'}
+            </p>
           </div>
 
           {/* Ações globais */}
@@ -359,17 +377,23 @@ export default function CondominiosPage() {
             </button>
           </div>
 
-          {/* Ciclo mensal — abre edicoes_mensais para o mes seguinte */}
+          {/* Ciclo mensal — abre/REABRE edicoes_mensais de QUALQUER mês (resolve "não reabre") */}
           <div className="mt-3 p-3 rounded-xl bg-violet-500/5 border border-violet-500/20">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-[10px] font-black text-violet-300 uppercase tracking-widest">Ciclo mensal</p>
-                <p className="text-xs text-slate-700 mt-0.5">Próximo período: <span className="font-black text-slate-900">{_MESES[mesAlvoEdicao]}/{anoAlvoEdicao}</span></p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div>
+                  <p className="text-[10px] font-black text-violet-300 uppercase tracking-widest">Ciclo mensal · {pipelineAno}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Abra ou <b>reabra</b> o mês p/ os gerentes editarem</p>
+                </div>
+                <select value={mesEdicao} onChange={e => setMesEdicao(Number(e.target.value))}
+                  className="bg-white border border-violet-200 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-800 outline-none focus:border-violet-500/50">
+                  {_MESES.slice(1).map((nome, i) => (<option key={i + 1} value={i + 1}>{nome}</option>))}
+                </select>
               </div>
               <button onClick={handleAbrirEdicaoMensal} disabled={forcingAll}
                 className="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-violet-500 hover:bg-violet-400 text-white disabled:opacity-50 flex items-center gap-2">
                 {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unlock className="w-3.5 h-3.5" />}
-                Abrir mês p/ gerentes
+                Abrir / Reabrir mês
               </button>
             </div>
           </div>

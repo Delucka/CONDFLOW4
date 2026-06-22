@@ -734,6 +734,7 @@ class PipelineForceAllSchema(BaseModel):
     ano: int = None
     semestre: int = None
     gerente_id: str = None
+    condominio_id: str = None   # 1-a-1: aplica só a este condomínio
 
 @router.post("/pipeline/force-all")
 def api_pipeline_force_all(data: PipelineForceAllSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
@@ -746,9 +747,11 @@ def api_pipeline_force_all(data: PipelineForceAllSchema, user: dict = Depends(ge
         ano = data.ano or now.year
         sem = data.semestre or (1 if now.month <= 6 else 2)
 
-        # Buscar condomínios (todos ou filtrado por gerente)
+        # Buscar condomínios (todos, por gerente, ou 1-a-1 por condomínio)
         query = db.table("condominios").select("id")
-        if data.gerente_id:
+        if data.condominio_id:
+            query = query.eq("id", data.condominio_id)
+        elif data.gerente_id:
             query = query.eq("gerente_id", data.gerente_id)
         condos_res = query.execute()
         condos = condos_res.data or []
@@ -1888,6 +1891,7 @@ class AbrirEdicaoSchema(BaseModel):
     mes: Optional[int] = None
     ano: Optional[int] = None
     gerente_id: Optional[str] = None  # se nulo, abre pra todos
+    condominio_id: Optional[str] = None  # 1-a-1: abre/reabre só este condomínio
 
 
 @router.post("/edicoes-mensais/abrir")
@@ -1901,7 +1905,9 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
         raise HTTPException(400, "mes invalido")
 
     cond_q = db.table("condominios").select("id, gerente_id")
-    if data.gerente_id:
+    if data.condominio_id:
+        cond_q = cond_q.eq("id", data.condominio_id)
+    elif data.gerente_id:
         cond_q = cond_q.eq("gerente_id", data.gerente_id)
     cond_res = cond_q.execute()
     condos = cond_res.data or []
