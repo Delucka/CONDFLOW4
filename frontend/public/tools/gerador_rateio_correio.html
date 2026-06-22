@@ -581,8 +581,27 @@
      encaixa no cadastro — assim não fabrica unidade/bloco quando o código do condomínio sai
      errado no scan (0↔3↔8). Bloco mal-lido o usuário corrige na própria linha. */
   function parseRowsRaw(pages){
-    let curCond=null, curNome="", achou=false, esp=0; const unidades=[];
-    function blocoClean2(t){ let b=String(t||"").replace(/[^0-9A-Za-z]/g,""); if(/^[oOdDqQ]$/.test(b)) b="0"; else if(/^[il|]$/.test(b)) b="1"; return b; }
+    let curCond=null, curNome="", esp=0; const unidades=[];
+    // Bloco: "palavra" (LOJA) fica; "letra+dígitos" (A835 lido AB35) corrige a letra-confusão do MEIO (B->8 etc.)
+    function blocoClean2(t){
+      let b=String(t||"").replace(/[^0-9A-Za-z]/g,"");
+      if(!b) return "";
+      if(b.length===1){ if(/[oOdDqQ]/.test(b)) return "0"; if(/[il|]/.test(b)) return "1"; return b.toUpperCase(); }
+      if(!/\d/.test(b)) return b.toUpperCase();                  // bloco palavra (LOJA, GARAGEM) -> não mexe
+      return (b[0] + b.slice(1).split("").map(c=>/[0-9]/.test(c)?c:(NMAP[c]!=null?NMAP[c]:c)).join("")).toUpperCase();
+    }
+    // Unidade: aceita CONJ##, numérico zero-padded (corrige I/l/|->1, O/o->0 no fim) e dígito+letra real (011A)
+    function lerUnidade(tok){
+      let s=String(tok).replace(/[^0-9A-Za-z|]/g,"");
+      if(!s) return null;
+      if(/^C[O0]NJ/i.test(s)){ const dg=normToDigits(s.replace(/^C[O0]NJ/i,"")); return dg?("CONJ"+dg):null; }
+      s=s.replace(/[Il|]$/,"1").replace(/[Oo]$/,"0");            // confusão de dígito no fim (00008I -> 000081)
+      let letter="";
+      if(/[A-HJ-NP-Za-hj-np-z]$/.test(s) && s.length>1 && !/^[A-Za-z]+$/.test(s)){ letter=s.slice(-1).toUpperCase(); s=s.slice(0,-1); }
+      const d=normToDigits(s);
+      if(!d || d.length<4 || d.length>6) return null;
+      return d+letter;
+    }
     for(const words of pages){
       if(!words||!words.length) continue;
       const txt=words.map(w=>w.text).join(" ").replace(/\s+/g," ");
@@ -590,17 +609,19 @@
       if(mc){ curCond=mc[1]; if(mc[2]&&mc[2].replace(/[^A-Za-zÀ-ÿ]/g,"").length>2) curNome=mc[2].replace(/CNPJ.*/i,"").trim(); }
       if(/\(\s*geral\s*\)/i.test(txt)) continue;                  // folha de assinatura -> ignora
       for(const w of words){
-        const u=ocrUnidade(w.text); if(!u) continue;
-        const dd=u.replace(/[A-Za-z]$/,""); if(!/^0\d{2,5}$/.test(dd)) continue;
+        const u=lerUnidade(w.text); if(!u) continue;
+        const dnum=u.replace(/[A-Za-z]/g,"");
+        if(dnum && dnum===curCond) continue;                     // ignora o CÓDIGO do condomínio vazado como unidade
+        if(/^\d+$/.test(u) && !/^0/.test(u)) continue;           // unidade numérica do Correios começa com 0
         const ux=colCenter(w), uy=w.y;
         let bl=null, bd=1e9;                                      // bloco = token curto mais próximo à esquerda, mesmo Y
         for(const o of words){ const x=colCenter(o); if(x<ux-5 && Math.abs(o.y-uy)<22 && /^[*]?[0-9A-Za-z]{1,4}$/.test(o.text)){ const d=ux-x; if(d<bd){ bd=d; bl=o.text; } } }
-        unidades.push({bloco:blocoClean2(bl), unidade:u}); achou=true;
+        unidades.push({bloco:blocoClean2(bl), unidade:u});
       }
       const mq=txt.match(/listad\w*\s*:?\s*([0-9OoIlSZBzeagq|]{1,4})/i);
       if(mq){ const n=parseInt(normToDigits(mq[1])||"0",10); if(n>0) esp+=n; }
     }
-    if(!achou) return null;
+    if(!unidades.length) return null;
     return [{condominio_codigo:curCond||"", condominio_nome:curNome, bloco:"", unidades:unidades,
              esperado:(esp>0&&esp>=unidades.length?esp:unidades.length), fora:0, temCadastro:false}];
   }
