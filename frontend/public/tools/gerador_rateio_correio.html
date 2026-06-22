@@ -209,6 +209,10 @@
       </div>
       <div class="field"><label>Complemento do histórico <span class="hint">(opcional)</span></label>
         <input type="text" id="complGlobal" maxlength="15" value="" placeholder="ex.: CORREIO JUN/2026" style="width:220px"></div>
+      <div class="field"><label>PDF/imagem escaneado <span class="hint">(OCR)</span></label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:600;color:var(--ink-soft);cursor:pointer;padding:8px 0;white-space:nowrap">
+          <input type="checkbox" id="optUnir" checked style="width:auto;margin:0;accent-color:var(--accent)"> Unir num quadro (bloco à mão)
+        </label></div>
       <details class="tariffs"><summary><span class="chev">▸</span> Tarifas</summary>
         <div class="tariff-row">
           <div class="field"><label for="rSimples">Simples</label><div class="money"><span class="cur">R$</span><input type="text" id="rSimples" class="mono-in" inputmode="decimal" value="3,85"></div></div>
@@ -778,8 +782,18 @@
             badge(card,"reading", n>1 ? ("Lendo… pág "+p+"/"+n) : "Lendo…");
             setRead(card, n>1 ? ("Reconhecendo… página "+p+" de "+n) : "Reconhecendo o texto…");
           });
-          let dss = cadIndex ? parseOcrWords(pages) : null;      // 1º: OCR por COLUNA (lê o bloco -> resolve multi-bloco)
-          if(!dss || !dss.length){ const parsed=parseText(text); dss = cadIndex ? snapOCRDatasets(parsed) : [parsed]; }  // reserva: texto + encaixe
+          let dss;
+          if($("#optUnir") && $("#optUnir").checked){
+            // "Unir num quadro": leitura CRUA (parseText, SEM encaixe no cadastro). Encaixar contra um
+            // código de condomínio lido errado (0↔3↔8) é o que fabricava unidade/bloco que não existe.
+            const parsed=parseText(text);
+            dss=[{condominio_codigo:parsed.condominio_codigo, condominio_nome:parsed.condominio_nome,
+                  bloco:"", esperado:parsed.esperado, fora:0, temCadastro:false,
+                  unidades:(parsed.unidades||[]).map(u=>({bloco:"", unidade:u.unidade}))}];
+          } else {
+            dss = cadIndex ? parseOcrWords(pages) : null;        // OCR por COLUNA (lê o bloco -> resolve multi-bloco)
+            if(!dss || !dss.length){ const parsed=parseText(text); dss = cadIndex ? snapOCRDatasets(parsed) : [parsed]; }
+          }
           // 1º dataset reaproveita o card já criado (com título/condomínio)
           if(dss[0].condominio_codigo){ const fn=card.querySelector(".fname"); if(fn) fn.textContent = dss[0].condominio_codigo + (dss[0].bloco&&dss[0].bloco!=="0"?(" · Bloco "+dss[0].bloco):""); }
           populate(card, dss[0]);
