@@ -143,6 +143,10 @@ export default function CondominiosPage() {
   const condos = condosData?.condos || [];
   const gerentes = (usersData?.usuarios || []).filter(u => u.role === 'gerente');
 
+  // condos[].gerente_id é gerentes.id; o dropdown usa o id do PROFILE — então casamos pela carteira por NOME
+  const selGerenteNome = gerentes.find(g => g.id === gerenteFilter)?.full_name || null;
+  const condosDaSelecao = gerenteFilter ? condos.filter(c => (c.gerente_name || '') === selGerenteNome) : condos;
+
   const canEdit = user?.role === 'master';
   const filtered = condos.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -351,7 +355,7 @@ export default function CondominiosPage() {
               <select value={condoFilter} onChange={e => setCondoFilter(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all">
                 <option value="">{gerenteFilter ? 'Todos da carteira' : 'Todos os condomínios'}</option>
-                {(gerenteFilter ? condos.filter(c => c.gerente_id === gerenteFilter) : condos).map(c => (
+                {condosDaSelecao.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>

@@ -752,7 +752,9 @@ def api_pipeline_force_all(data: PipelineForceAllSchema, user: dict = Depends(ge
         if data.condominio_id:
             query = query.eq("id", data.condominio_id)
         elif data.gerente_id:
-            query = query.eq("gerente_id", data.gerente_id)
+            # O front manda o id do PROFILE; condominios.gerente_id é gerentes.id -> resolve
+            g_real = get_gerente_id(db, data.gerente_id) or data.gerente_id
+            query = query.eq("gerente_id", g_real)
         condos_res = query.execute()
         condos = condos_res.data or []
 
@@ -1908,7 +1910,9 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
     if data.condominio_id:
         cond_q = cond_q.eq("id", data.condominio_id)
     elif data.gerente_id:
-        cond_q = cond_q.eq("gerente_id", data.gerente_id)
+        # O front manda o id do PROFILE; condominios.gerente_id é gerentes.id -> resolve
+        g_real = get_gerente_id(db, data.gerente_id) or data.gerente_id
+        cond_q = cond_q.eq("gerente_id", g_real)
     cond_res = cond_q.execute()
     condos = cond_res.data or []
 
