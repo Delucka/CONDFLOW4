@@ -126,6 +126,7 @@ export default function ArrecadacoesPage() {
   // Edicoes mensais ativas neste condominio (em_edicao / edicao_finalizada / reabertura_solicitada)
   const [edicoesCondo, setEdicoesCondo] = useState([]);
   const [edicaoLoading, setEdicaoLoading] = useState(false);
+  const [pacotesDatas, setPacotesDatas] = useState([]);   // p/ preencher as assinaturas (registro/expedição)
 
   async function fetchEdicoes() {
     try {
@@ -138,6 +139,32 @@ export default function ArrecadacoesPage() {
     fetchEdicoes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condoId, selectedYear]);
+
+  // Datas do pacote (lacrada_em = registro; status 'expedida' = expedição) p/ as assinaturas
+  useEffect(() => {
+    if (!condoId || !selectedYear) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('emissoes_pacotes')
+          .select('mes_referencia, status, lacrada, lacrada_em, atualizado_em')
+          .eq('condominio_id', condoId).eq('ano_referencia', selectedYear);
+        setPacotesDatas(data || []);
+      } catch {}
+    })();
+  }, [condoId, selectedYear, supabase]);
+
+  // Assinaturas automáticas: gerente liberou · emissão registrada · expedição (eventos mais recentes do ano)
+  const assinaturas = useMemo(() => {
+    const ult = arr => (arr.filter(Boolean).sort().slice(-1)[0]) || null;
+    const liberadoEm = ult(edicoesCondo.map(e => e.liberado_em));
+    const registradoEm = ult(pacotesDatas
+      .filter(p => p.lacrada || ['registrado', 'expedida'].includes((p.status || '').toLowerCase()))
+      .map(p => p.lacrada_em));
+    const expedidoEm = ult(pacotesDatas
+      .filter(p => (p.status || '').toLowerCase() === 'expedida')
+      .map(p => p.atualizado_em || p.lacrada_em));
+    return { liberadoEm, registradoEm, expedidoEm };
+  }, [edicoesCondo, pacotesDatas]);
 
   async function liberarEdicaoMensal(edicao) {
     setEdicaoLoading(true);
@@ -754,6 +781,11 @@ export default function ArrecadacoesPage() {
                     </div>
                     <div className="text-lg font-black text-slate-900 uppercase tracking-tighter">{condo?.gerente_name}</div>
                     <div className="text-[8px] font-black text-slate-600 mt-1 uppercase tracking-widest italic">Responsável Direto</div>
+                    {assinaturas.liberadoEm && (
+                      <div className="text-[9px] font-bold text-emerald-600 mt-1.5">
+                        ✓ Liberado em {new Date(assinaturas.liberadoEm).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).replace(',', ' às')}
+                      </div>
+                    )}
                 </div>
 
                 <div className="text-center group">
@@ -762,7 +794,9 @@ export default function ArrecadacoesPage() {
                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Validação Administrativa</span>
                         </div>
                     </div>
-                    <div className="text-xs font-black text-slate-500 uppercase tracking-widest italic mt-2">Visto em ___/___/___</div>
+                    <div className={`text-xs font-black uppercase tracking-widest italic mt-2 ${assinaturas.registradoEm ? 'text-slate-800' : 'text-slate-500'}`}>
+                      Visto em {assinaturas.registradoEm ? new Date(assinaturas.registradoEm).toLocaleDateString('pt-BR') : '___/___/___'}
+                    </div>
                 </div>
 
                 <div className="text-center group">
@@ -772,9 +806,15 @@ export default function ArrecadacoesPage() {
                         </div>
                     </div>
                     <div className="flex justify-center gap-2">
-                        <div className="w-10 h-10 glass-panel border-slate-200 rounded-lg flex items-center justify-center text-slate-500 font-black text-xs">/</div>
-                        <div className="w-10 h-10 glass-panel border-slate-200 rounded-lg flex items-center justify-center text-slate-500 font-black text-xs">/</div>
-                        <div className="w-16 h-10 glass-panel border-slate-200 rounded-lg flex items-center justify-center text-slate-500 font-black text-xs">{selectedYear}</div>
+                        {(() => {
+                          const exp = assinaturas.expedidoEm ? new Date(assinaturas.expedidoEm) : null;
+                          const cls = `glass-panel rounded-lg flex items-center justify-center font-black text-xs ${exp ? 'text-slate-900 border-emerald-300 bg-emerald-50' : 'text-slate-500 border-slate-200'}`;
+                          return (<>
+                            <div className={`w-10 h-10 ${cls}`}>{exp ? String(exp.getDate()).padStart(2,'0') : '/'}</div>
+                            <div className={`w-10 h-10 ${cls}`}>{exp ? String(exp.getMonth()+1).padStart(2,'0') : '/'}</div>
+                            <div className={`w-16 h-10 ${cls}`}>{exp ? exp.getFullYear() : selectedYear}</div>
+                          </>);
+                        })()}
                     </div>
                 </div>
             </div>
