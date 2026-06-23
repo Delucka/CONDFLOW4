@@ -107,10 +107,15 @@ input:focus, select:focus, textarea:focus {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+@keyframes wiggle { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
 
 .animate-fade-in { animation: fadeIn 0.4s ease-out; }
 .animate-fade-up { animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
 .animate-slide-right { animation: slideRight 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-float { animation: floatY 4s ease-in-out infinite; }
+.animate-wiggle { animation: wiggle 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .animate-float, .animate-wiggle { animation: none; } }
 
 /* ─── Scrollbar do painel de conferência (clara, sempre visível) ─── */
 .conf-scroll {
