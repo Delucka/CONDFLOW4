@@ -142,8 +142,11 @@ export default function ArrecadacoesPage() {
   async function liberarEdicaoMensal(edicao) {
     setEdicaoLoading(true);
     try {
+      // Salva as alterações da planilha ANTES de finalizar (senão o gerente perderia o que editou)
+      const ok = await handleSave(true);
+      if (!ok) { addToast('Não consegui salvar as alterações — corrija e tente de novo.', 'error'); return; }
       await apiPost(`/api/edicoes-mensais/${edicao.id}/liberar`, {});
-      addToast(`Liberado: ${edicao.condominios?.name || 'mês'} - ${String(edicao.mes_referencia).padStart(2,'0')}/${edicao.ano_referencia}`, 'success');
+      addToast(`Salvo e liberado: ${edicao.condominios?.name || 'mês'} - ${String(edicao.mes_referencia).padStart(2,'0')}/${edicao.ano_referencia}`, 'success');
       await fetchEdicoes();
     } catch (e) {
       addToast(e.message || 'Erro ao liberar', 'error');
@@ -286,11 +289,11 @@ export default function ArrecadacoesPage() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (silent = false) => {
     try {
       setSaving(true);
-      
-      const configUpdates = rateios.map(r => 
+
+      const configUpdates = rateios.map(r =>
         supabase.from('rateios_config').update({
           nome: r.nome,
           conta_contabil: r.conta_contabil,
@@ -345,9 +348,11 @@ export default function ArrecadacoesPage() {
         if (procErr) throw procErr;
       }
 
-      addToast('Planilha salva com sucesso!', 'success');
+      if (!silent) addToast('Planilha salva com sucesso!', 'success');
+      return true;
     } catch (err) {
       addToast('Erro ao salvar algumas informações', 'error');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -788,20 +793,23 @@ export default function ArrecadacoesPage() {
                     
                     {canEdit && (
                         <>
-                            <button 
-                                onClick={handleSave}
+                            <button
+                                onClick={() => handleSave()}
                                 disabled={saving}
                                 className="px-8 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-black text-slate-900 rounded-xl uppercase tracking-widest transition-all shadow-xl flex items-center gap-2"
                             >
                                 <Save className="w-4 h-4 text-violet-400" /> {saving ? 'SALVANDO...' : 'SALVAR RASCUNHO'}
                             </button>
 
-                            <button 
-                                onClick={() => setShowConfirmSend(true)}
-                                className="px-10 py-3 bg-violet-500 hover:bg-violet-400 text-slate-950 text-xs font-black rounded-xl uppercase tracking-widest transition-all  shadow-violet-500/20 flex items-center gap-2 active:scale-95"
-                            >
-                                <Send className="w-4 h-4" /> ENVIAR CONFERÊNCIA
-                            </button>
+                            {/* "Enviar Conferência" é o fluxo semestral antigo — no ciclo mensal quem finaliza é "Liberar este mês" (que já salva) */}
+                            {edicoesCondo.length === 0 && (
+                              <button
+                                  onClick={() => setShowConfirmSend(true)}
+                                  className="px-10 py-3 bg-violet-500 hover:bg-violet-400 text-slate-950 text-xs font-black rounded-xl uppercase tracking-widest transition-all  shadow-violet-500/20 flex items-center gap-2 active:scale-95"
+                              >
+                                  <Send className="w-4 h-4" /> ENVIAR CONFERÊNCIA
+                              </button>
+                            )}
                         </>
                     )}
                 </div>
