@@ -1113,21 +1113,48 @@ export default function VisaoEmissor({ profile }) {
                   <FileText className="w-3.5 h-3.5" /> Planilha de rateios
                 </p>
                 {(() => {
-                  const mesObj = (confData?.planilha?.meses || []).find(m => m.mes === activePacote.mes_referencia);
+                  const mesAtual = activePacote.mes_referencia;
+                  const todosMeses = confData?.planilha?.meses || [];
+                  const mesObj = todosMeses.find(m => m.mes === mesAtual);
                   const colunas = (confData?.planilha?.colunas || []).filter(c => c !== 'Condomínio');
                   const valores = mesObj?.valores || {};
+                  // Mês anterior (mesmo ano) para grifar verbas que mudaram de valor
+                  const mesAntObj = mesAtual > 1 ? todosMeses.find(m => m.mes === mesAtual - 1) : null;
+                  const valoresAnt = mesAntObj?.valores || null;
+                  const temMesAnterior = valoresAnt && Object.values(valoresAnt).some(v => Number(v) > 0);
+                  const fmt = n => Number(n || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+                  const mudouCol = col => temMesAnterior && Math.abs(Number(valores[col]||0) - Number(valoresAnt[col]||0)) > 0.005;
+                  const nomeMesAnt = ['','janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][mesAtual - 1] || 'mês anterior';
                   if (!colunas.length) return <p className="text-xs text-slate-400 py-2">{confLoading ? 'Carregando…' : 'Sem planilha para este mês.'}</p>;
+                  const nMudou = colunas.filter(mudouCol).length;
                   return (
                     <div className="space-y-1">
-                      {colunas.map(col => (
-                        <div key={col} className="flex items-center justify-between text-xs py-1 border-b border-slate-100 last:border-0">
-                          <span className="text-slate-600 truncate pr-2">{col}</span>
-                          <span className="font-mono font-bold text-slate-800 shrink-0">R$ {Number(valores[col] || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
-                        </div>
-                      ))}
+                      {nMudou > 0 && (
+                        <p className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mb-1.5 flex items-center gap-1.5">
+                          <span className="text-amber-500 text-sm leading-none">⚠</span>
+                          {nMudou} {nMudou > 1 ? 'verbas mudaram' : 'verba mudou'} de valor vs {nomeMesAnt} — destacadas em amarelo.
+                        </p>
+                      )}
+                      {colunas.map(col => {
+                        const atual = Number(valores[col] || 0);
+                        const ant = valoresAnt ? Number(valoresAnt[col] || 0) : null;
+                        const mudou = mudouCol(col);
+                        return (
+                          <div key={col} className={`flex items-center justify-between text-xs py-1 last:border-0 ${mudou ? 'bg-amber-50 -mx-1 px-1.5 py-1.5 rounded-md border border-amber-200' : 'border-b border-slate-100'}`}>
+                            <span className={`truncate pr-2 ${mudou ? 'text-amber-900 font-bold' : 'text-slate-600'}`}>
+                              {col}
+                              {mudou && <span className="ml-1.5 text-[8px] font-black uppercase tracking-wider text-white bg-amber-500 px-1 py-0.5 rounded align-middle">alterado</span>}
+                            </span>
+                            <span className="shrink-0 text-right whitespace-nowrap">
+                              {mudou && <span className="font-mono text-[10px] text-amber-400 line-through mr-1.5" title={`${nomeMesAnt}`}>{fmt(ant)}</span>}
+                              <span className={`font-mono font-bold ${mudou ? 'text-amber-700' : 'text-slate-800'}`}>R$ {fmt(atual)}</span>
+                            </span>
+                          </div>
+                        );
+                      })}
                       <div className="flex items-center justify-between text-xs pt-2 mt-1">
                         <span className="font-black uppercase tracking-widest text-[10px] text-slate-500">Total do mês</span>
-                        <span className="font-mono font-black text-emerald-600">R$ {Number(mesObj?.total || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                        <span className="font-mono font-black text-emerald-600">R$ {fmt(mesObj?.total)}</span>
                       </div>
                     </div>
                   );
