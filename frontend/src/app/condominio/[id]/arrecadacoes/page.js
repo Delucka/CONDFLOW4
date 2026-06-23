@@ -161,6 +161,15 @@ export default function ArrecadacoesPage() {
     return map;
   }, [edicoesCondo]);
 
+  // Meses que o MASTER abriu/reabriu no painel (edicoes_mensais = em_edicao).
+  // Essa decisão explícita VENCE as travas automáticas "soft" (prazo do dia 16 e
+  // 'pronto p/ emitir') — mas NÃO vence a trava "hard" de pacote já emitido (use retificação).
+  const mesesReabertos = useMemo(() => {
+    const s = new Set();
+    edicoesCondo.forEach(e => { if (e.status === 'em_edicao') s.add(e.mes_referencia); });
+    return s;
+  }, [edicoesCondo]);
+
   // Lock por mês — passado, etapa 'pronto p/ emitir' ou pacote registrado
   const { isLocked, reasonFor } = useLockedMonths(condoId, selectedYear);
 
@@ -643,9 +652,13 @@ export default function ArrecadacoesPage() {
                             {months.map(m => {
                                 const val = rateiosVals[r.id]?.[m] || '0.00';
                                 const edicaoFinalizadaMes = !!edicoesLockedMeses[m];
-                                const mesTravado = isLocked(m) || edicaoFinalizadaMes;
+                                const lockReason = reasonFor(m);
+                                const hardLock = lockReason === 'emitido';        // pacote registrado -> só retificação
+                                const reaberto = mesesReabertos.has(m);           // master abriu/reabriu este mês no painel
+                                const softLock = isLocked(m) && !hardLock && !reaberto;  // prazo/preparação cedem à reabertura
+                                const mesTravado = hardLock || edicaoFinalizadaMes || softLock;
                                 const cellDisabled = !canEdit || mesTravado;
-                                const reason = edicaoFinalizadaMes ? 'Edição finalizada (liberada). Solicite reabertura para alterar.' : reasonFor(m);
+                                const reason = edicaoFinalizadaMes ? 'Edição finalizada (liberada). Solicite reabertura para alterar.' : lockReason;
                                 const isPlanilhaSpecial = val === 'PLANILHA';
                                 const isZero = !isPlanilhaSpecial && parseValorNumerico(val) === 0;
                                 // Sempre mostra formatado em BRL (mascara em tempo real no onChange)
