@@ -155,6 +155,11 @@ function ModalLancar({ condominioId, condominioNome, onClose, onSaved }) {
       addToast('Alguma parcela cai em mês bloqueado. Escolha outro mês inicial.', 'error');
       return;
     }
+    const valorNum = parseFloat(String(form.valor_total).replace(',', '.'));
+    if (!valorNum || isNaN(valorNum)) {
+      addToast('Informe um valor (use - para crédito/abatimento).', 'error');
+      return;
+    }
     setLoading(true);
     try {
       let fileUrl = null;
@@ -174,7 +179,7 @@ function ModalLancar({ condominioId, condominioNome, onClose, onSaved }) {
         body: JSON.stringify({
           condominio_id: condominioId,
           descricao: form.descricao,
-          valor_total: parseFloat(form.valor_total.replace(',', '.')),
+          valor_total: valorNum,
           mes_inicio: form.mes_inicio,
           ano_inicio: form.ano_inicio,
           parcelas: form.parcelas,
@@ -235,18 +240,18 @@ function ModalLancar({ condominioId, condominioNome, onClose, onSaved }) {
             <div>
               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Valor Total (R$)</label>
               <input required value={form.valor_total}
-                onChange={e => setForm({ ...form, valor_total: e.target.value })}
-                placeholder="0,00"
+                onChange={e => setForm({ ...form, valor_total: e.target.value.replace(/[^0-9.,-]/g, '') })}
+                inputMode="text"
+                placeholder="0,00 ou -50,00"
                 className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500 placeholder-slate-400 font-mono" />
+              <p className="text-[10px] text-slate-400 mt-0.5">Use <span className="font-mono font-bold">-</span> para crédito/abatimento (valor negativo).</p>
             </div>
             <div>
               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Parcelas</label>
-              <select value={form.parcelas} onChange={e => setForm({ ...form, parcelas: Number(e.target.value) })}
-                className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500">
-                {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
-                  <option key={n} value={n}>{n === 1 ? 'À vista (1x)' : `${n}x`}</option>
-                ))}
-              </select>
+              <input type="number" min="1" max="600" step="1" value={form.parcelas}
+                onChange={e => setForm({ ...form, parcelas: Math.min(600, Math.max(1, Math.floor(Number(e.target.value) || 1))) })}
+                className="w-full bg-slate-100 border border-slate-700 rounded-lg p-3 text-sm text-slate-800 mt-1 outline-none focus:ring-1 focus:ring-amber-500 font-mono" />
+              <p className="text-[10px] text-slate-400 mt-0.5">1 = à vista · até 600x</p>
             </div>
           </div>
 

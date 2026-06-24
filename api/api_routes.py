@@ -1540,11 +1540,11 @@ def api_lancar_cobranca_extra(
        (data.ano_inicio == ano_atual and data.mes_inicio < mes_atual):
         raise HTTPException(400, "Não é permitido lançar cobranças retroativas.")
 
-    if data.parcelas < 1 or data.parcelas > 24:
-        raise HTTPException(400, "Número de parcelas deve ser entre 1 e 24.")
+    if data.parcelas < 1 or data.parcelas > 600:
+        raise HTTPException(400, "Número de parcelas deve ser entre 1 e 600.")
 
-    if data.valor_total <= 0:
-        raise HTTPException(400, "Valor deve ser maior que zero.")
+    if data.valor_total == 0:
+        raise HTTPException(400, "Valor não pode ser zero (use negativo para crédito/abatimento).")
 
     if not (data.unidades and data.unidades.strip()):
         raise HTTPException(400, "Informe a(s) unidade(s) do condomínio.")
@@ -1567,10 +1567,13 @@ def api_lancar_cobranca_extra(
             if data.parcelas > 1:
                 desc = f"{data.descricao} ({i+1}/{data.parcelas})"
 
+            # Última parcela absorve o arredondamento -> a soma das parcelas fecha o total exato
+            amount = round(data.valor_total - valor_parcela * (data.parcelas - 1), 2) if i == data.parcelas - 1 else valor_parcela
+
             registros.append({
                 "condominio_id": data.condominio_id,
                 "description": desc,
-                "amount": valor_parcela,
+                "amount": amount,
                 "mes": mes,
                 "ano": ano,
                 "parcela_atual": i + 1,
