@@ -56,7 +56,7 @@ async function apiFetch(url, opts = {}) {
 
 // ─── Modal Criar Usuário ───────────────────────────────────────────────
 function ModalCriarUsuario({ onClose, onCreated, gerentes = [] }) {
-  const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'gerente', gerente_id: '' });
+  const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'gerente', gerente_id: '', enviar_email: false });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
@@ -65,8 +65,12 @@ function ModalCriarUsuario({ onClose, onCreated, gerentes = [] }) {
     e.preventDefault();
     setLoading(true);
     try {
-      await apiFetch('/api/usuarios', { method: 'POST', body: JSON.stringify(form) });
-      addToast('Usuário criado com sucesso!', 'success');
+      const res = await apiFetch('/api/usuarios', { method: 'POST', body: JSON.stringify(form) });
+      if (form.enviar_email) {
+        addToast(res?.email_enviado ? 'Conta criada e e-mail de acesso enviado!' : 'Conta criada, mas o e-mail de acesso falhou (confira o endereço).', res?.email_enviado ? 'success' : 'warning');
+      } else {
+        addToast('Conta criada. Sem e-mail — envie o acesso quando quiser em "Resetar senha".', 'success');
+      }
       onCreated();
       onClose();
     } catch (err) {
@@ -139,10 +143,19 @@ function ModalCriarUsuario({ onClose, onCreated, gerentes = [] }) {
             </div>
           )}
 
+          <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg bg-violet-500/5 border border-violet-500/20 hover:border-violet-500/40 transition-colors">
+            <input type="checkbox" checked={form.enviar_email} onChange={e => setForm({ ...form, enviar_email: e.target.checked })}
+              className="w-4 h-4 mt-0.5 accent-violet-600 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-slate-800">Enviar e-mail de acesso agora</p>
+              <p className="text-[11px] text-slate-500">Manda o login + senha temporária para o e-mail do usuário. Desmarcado: não envia — você manda quando quiser em &quot;Resetar senha&quot;.</p>
+            </div>
+          </label>
+
           <div className="pt-2">
             <button disabled={loading} type="submit"
               className="w-full py-3 bg-violet-600 text-white font-bold rounded-lg hover:bg-violet-500 transition-colors flex justify-center items-center gap-2 disabled:opacity-50">
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><PlusCircle className="w-4 h-4" /> Criar Conta</>}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><PlusCircle className="w-4 h-4" /> {form.enviar_email ? 'Criar e enviar acesso' : 'Criar Conta'}</>}
             </button>
           </div>
         </form>
@@ -158,6 +171,7 @@ function ModalResetSenha({ usuario, onClose }) {
   const [force, setForce] = useState(true);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [enviarEmail, setEnviarEmail] = useState(false);
   const { addToast } = useToast();
 
   async function handleSubmit(e) {
@@ -165,11 +179,15 @@ function ModalResetSenha({ usuario, onClose }) {
     if (pwd.length < 6) { addToast('Senha deve ter no mínimo 6 caracteres', 'error'); return; }
     setLoading(true);
     try {
-      await apiFetch(`/api/usuarios/${usuario.id}/reset-password`, {
+      const res = await apiFetch(`/api/usuarios/${usuario.id}/reset-password`, {
         method: 'POST',
-        body: JSON.stringify({ new_password: pwd, force_change: force }),
+        body: JSON.stringify({ new_password: pwd, force_change: force, enviar_email: enviarEmail }),
       });
-      addToast(`Senha de ${usuario.full_name} atualizada!`, 'success');
+      if (enviarEmail) {
+        addToast(res?.email_enviado ? `Senha atualizada e e-mail de acesso enviado para ${usuario.email}.` : 'Senha atualizada, mas o e-mail de acesso falhou (confira o endereço).', res?.email_enviado ? 'success' : 'warning');
+      } else {
+        addToast(`Senha de ${usuario.full_name} atualizada!`, 'success');
+      }
       onClose();
     } catch (err) {
       addToast(err.message, 'error');
@@ -229,12 +247,21 @@ function ModalResetSenha({ usuario, onClose }) {
             <p className="text-[10px] text-slate-500 mt-2">Envie esta senha de forma segura ao usuário.</p>
           </div>
 
-          <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl border border-slate-800 hover:border-violet-500/30 transition-colors">
+          <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl border border-slate-200 hover:border-violet-500/30 transition-colors">
             <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)}
-              className="mt-0.5 accent-cyan-500" />
+              className="mt-0.5 accent-violet-600" />
             <div>
               <p className="text-xs font-bold text-slate-800">Exigir nova troca no próximo login</p>
               <p className="text-[10px] text-slate-500 mt-0.5">Recomendado: o usuário cria uma senha pessoal ao acessar.</p>
+            </div>
+          </label>
+
+          <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl border border-slate-200 hover:border-violet-500/30 transition-colors">
+            <input type="checkbox" checked={enviarEmail} onChange={(e) => setEnviarEmail(e.target.checked)}
+              className="mt-0.5 accent-violet-600" />
+            <div>
+              <p className="text-xs font-bold text-slate-800">Enviar por e-mail para o usuário</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Manda o login + esta senha para {usuario.email}. Você decide na hora.</p>
             </div>
           </label>
 

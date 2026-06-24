@@ -232,6 +232,32 @@ def _enviar_email_smtp(to: str, subject: str, html: str) -> bool:
         return False
 
 
+def _enviar_email_acesso(db, email: str, full_name: str, password: str) -> bool:
+    """Monta (template do pinguim) e envia o e-mail de acesso (login + senha) ao usuário."""
+    try:
+        primeiro = (full_name or "").strip().split(" ")[0]
+        titulo = f"Bem-vindo(a), {primeiro}!" if primeiro else "Bem-vindo(a) ao CondoFlow!"
+        pill = (
+            "display:inline-block;font-family:ui-monospace,Menlo,Consolas,monospace;"
+            "font-size:16px;font-weight:bold;background:#eef3fb;color:#142a63;"
+            "padding:7px 14px;border-radius:8px;border:1px solid #d7e2f5;margin:4px 0 14px;"
+        )
+        corpo = (
+            "Sua conta no CondoFlow foi criada. Use os dados abaixo para entrar:<br><br>"
+            "<strong style=\"color:#0f1a3c;\">E-mail</strong><br>"
+            f'<span style="{pill}">{email}</span><br>'
+            "<strong style=\"color:#0f1a3c;\">Senha tempor&aacute;ria</strong><br>"
+            f'<span style="{pill}">{password}</span>'
+            "<br>No primeiro acesso, o sistema vai pedir para voc&ecirc; criar uma nova senha."
+        )
+        html = db.rpc("email_template", {"p_titulo": titulo, "p_mensagem": corpo, "p_link": "/login"}).execute().data
+        if isinstance(html, str) and html:
+            return _enviar_email_smtp(email, "Bem-vindo ao CondoFlow — seus dados de acesso", html)
+    except Exception as e:
+        print(f"[enviar_acesso] falha: {e}")
+    return False
+
+
 class EmailHookSchema(BaseModel):
     to: str
     subject: str
@@ -861,6 +887,7 @@ class CreateUserSchema(BaseModel):
     full_name: str
     role: str
     gerente_id: Optional[str] = None  # profile do gerente responsável (quando role=assistente)
+    enviar_email: bool = False        # se True, envia o e-mail de acesso AGORA (não é automático)
 
 @router.post("/usuarios")
 def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
@@ -935,33 +962,10 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
                     on_conflict="profile_id"
                 ).execute()
 
-        # 4. E-mail de boas-vindas com os dados de acesso (best-effort — não quebra a criação)
+        # 4. E-mail de acesso — só se o admin pediu (NÃO é automático)
         email_enviado = False
-        try:
-            primeiro = (data.full_name or "").strip().split(" ")[0]
-            titulo = f"Bem-vindo(a), {primeiro}!" if primeiro else "Bem-vindo(a) ao CondoFlow!"
-            pill = (
-                "display:inline-block;font-family:ui-monospace,Menlo,Consolas,monospace;"
-                "font-size:16px;font-weight:bold;background:#eef3fb;color:#142a63;"
-                "padding:7px 14px;border-radius:8px;border:1px solid #d7e2f5;margin:4px 0 14px;"
-            )
-            corpo = (
-                "Sua conta no CondoFlow foi criada. Use os dados abaixo para entrar:<br><br>"
-                "<strong style=\"color:#0f1a3c;\">E-mail</strong><br>"
-                f'<span style="{pill}">{data.email}</span><br>'
-                "<strong style=\"color:#0f1a3c;\">Senha tempor&aacute;ria</strong><br>"
-                f'<span style="{pill}">{data.password}</span>'
-                "<br>No primeiro acesso, o sistema vai pedir para voc&ecirc; criar uma nova senha."
-            )
-            html = db.rpc("email_template", {
-                "p_titulo": titulo, "p_mensagem": corpo, "p_link": "/login",
-            }).execute().data
-            if isinstance(html, str) and html:
-                email_enviado = _enviar_email_smtp(
-                    data.email, "Bem-vindo ao CondoFlow — seus dados de acesso", html
-                )
-        except Exception as mail_e:
-            print(f"[criar_usuario] falha ao enviar e-mail de boas-vindas: {mail_e}")
+        if data.enviar_email:
+            email_enviado = _enviar_email_acesso(db, data.email, data.full_name, data.password)
 
         return {"success": True, "uid": uid, "email_enviado": email_enviado}
 
@@ -1049,6 +1053,7 @@ def api_sync_usuario(data: SyncUserSchema, user: dict = Depends(get_current_user
 class AdminResetPasswordSchema(BaseModel):
     new_password: str
     force_change: bool = True   # se True, marca must_change_password=true
+    enviar_email: bool = False  # se True, envia os dados de acesso por e-mail ao usuário
 
 @router.post("/usuarios/{profile_id}/reset-password")
 def api_admin_reset_password(profile_id: str, data: AdminResetPasswordSchema,
@@ -1072,7 +1077,14 @@ def api_admin_reset_password(profile_id: str, data: AdminResetPasswordSchema,
             "password_changed_at": __import__('datetime').datetime.utcnow().isoformat() if not data.force_change else None,
         }).eq("id", profile_id).execute()
 
-        return {"success": True}
+        # 3. Opcional: envia os dados de acesso por e-mail (o admin decide na hora)
+        email_enviado = False
+        if data.enviar_email:
+            prof = db.table("profiles").select("email, full_name").eq("id", profile_id).maybe_single().execute().data
+            if prof and prof.get("email"):
+                email_enviado = _enviar_email_acesso(db, prof["email"], prof.get("full_name") or "", data.new_password)
+
+        return {"success": True, "email_enviado": email_enviado}
     except Exception as e:
         print(f"[reset-password] erro: {e}")
         raise HTTPException(400, str(e))

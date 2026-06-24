@@ -494,7 +494,7 @@ export default function FilaOcorrencias() {
             onClick={() => setAbaAtiva(tab.id)}
             className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 flex items-center gap-2 ${
               abaAtiva === tab.id
-                ? 'border-violet-500 text-white bg-violet-500/5'
+                ? 'border-violet-600 text-violet-700 bg-violet-500/5'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
