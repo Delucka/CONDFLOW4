@@ -595,6 +595,10 @@
       let s=String(tok).replace(/[^0-9A-Za-z|]/g,"");
       if(!s) return null;
       if(/^C[O0]NJ/i.test(s)){ const dg=normToDigits(s.replace(/^C[O0]NJ/i,"")); return dg?("CONJ"+dg):null; }
+      // Unidade "torre": 2-4 letras + 2-4 dígitos REAIS (+ letra final) — ex.: EUR401, HOP221, NIA051, DIA121.
+      // Exige dígitos reais (não letras-confusão) p/ não pegar palavras tipo "Paulo".
+      { const mt=s.match(/^([A-Za-z]{2,4})([0-9]{2,4})([A-HJ-NP-Za-hj-np-z]?)$/);
+        if(mt) return mt[1].toUpperCase()+mt[2]+(mt[3]?mt[3].toUpperCase():""); }
       s=s.replace(/[Il|]$/,"1").replace(/[Oo]$/,"0");            // confusão de dígito no fim (00008I -> 000081)
       let letter="";
       if(/[A-HJ-NP-Za-hj-np-z]$/.test(s) && s.length>1 && !/^[A-Za-z]+$/.test(s)){ letter=s.slice(-1).toUpperCase(); s=s.slice(0,-1); }
@@ -608,12 +612,23 @@
       const mc=txt.match(/Cond[o0]m\S{0,4}nio\s*[:.\-]?\s*(\d{3,5})\s*[-–]?\s*([0-9A-Za-zÀ-ÿ .&]{0,40})/i);
       if(mc){ curCond=mc[1]; if(mc[2]&&mc[2].replace(/[^A-Za-zÀ-ÿ]/g,"").length>2) curNome=mc[2].replace(/CNPJ.*/i,"").trim(); }
       if(/\(\s*geral\s*\)/i.test(txt)) continue;                  // folha de assinatura -> ignora
+      const cands=[];
       for(const w of words){
         const u=lerUnidade(w.text); if(!u) continue;
         const dnum=u.replace(/[A-Za-z]/g,"");
         if(dnum && dnum===curCond) continue;                     // ignora o CÓDIGO do condomínio vazado como unidade
         if(/^\d+$/.test(u) && !/^0/.test(u)) continue;           // unidade numérica do Correios começa com 0
-        const ux=colCenter(w), uy=w.y;
+        cands.push({w, u, alpha:/^[A-Za-z]/.test(u)});           // alpha = unidade "torre" (EUR401...)
+      }
+      // unidades alfanuméricas ficam na COLUNA da esquerda; descarta token "torre" que está no endereço (ex.: "XM338", "SP258")
+      const towerXs=cands.filter(c=>c.alpha).map(c=>colCenter(c.w));
+      if(towerXs.length){
+        const xs=words.map(colCenter); const pw=(Math.max(...xs)-Math.min(...xs))||1;
+        const band=Math.min(...towerXs)+pw*0.10;
+        for(let k=cands.length-1;k>=0;k--){ if(cands[k].alpha && colCenter(cands[k].w)>band) cands.splice(k,1); }
+      }
+      for(const c of cands){
+        const w=c.w, u=c.u, ux=colCenter(w), uy=w.y;
         let bl=null, bd=1e9;                                      // bloco = token curto mais próximo à esquerda, mesmo Y
         for(const o of words){ const x=colCenter(o); if(x<ux-5 && Math.abs(o.y-uy)<22 && /^[*]?[0-9A-Za-z]{1,4}$/.test(o.text)){ const d=ux-x; if(d<bd){ bd=d; bl=o.text; } } }
         unidades.push({bloco:blocoClean2(bl), unidade:u});
