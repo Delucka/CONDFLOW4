@@ -2,13 +2,20 @@
 
 import { useAuth } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
-import VisaoEmissor from './components/VisaoEmissor';
-import VisaoGerente from './components/VisaoGerente';
-import VisaoMaster from './components/VisaoMaster';
-import RegistroEmissoes from './components/RegistroEmissoes';
+import dynamic from 'next/dynamic';
 import { Archive } from 'lucide-react';
 
 import { useState } from 'react';
+
+// Carrega só a view ativa (cada papel usa uma) — bundle inicial menor, navegação mais rápida.
+const ViewLoader = () => (
+  <div className="flex h-[400px] items-center justify-center">
+    <Loader2 className="w-10 h-10 text-violet-500 animate-spin" />
+  </div>
+);
+const VisaoEmissor = dynamic(() => import('./components/VisaoEmissor'), { loading: ViewLoader, ssr: false });
+const VisaoMaster = dynamic(() => import('./components/VisaoMaster'), { loading: ViewLoader, ssr: false });
+const RegistroEmissoes = dynamic(() => import('./components/RegistroEmissoes'), { loading: ViewLoader, ssr: false });
 
 export default function CentralEmissoesPage() {
   const { profile, loading } = useAuth();

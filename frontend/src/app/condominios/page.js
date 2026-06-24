@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { apiFetcher, apiPost } from '@/lib/api';
@@ -7,8 +7,11 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
 import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, AlertTriangle } from 'lucide-react';
-import VisualizadorConferencia from '@/components/VisualizadorConferencia';
+import dynamic from 'next/dynamic';
 import { createClient } from '@/utils/supabase/client';
+
+// Modal pesado: carrega sob demanda (fora do bundle inicial da página).
+const VisualizadorConferencia = dynamic(() => import('@/components/VisualizadorConferencia'), { ssr: false });
 
 export default function CondominiosPage() {
   const { user } = useAuth();
@@ -604,7 +607,7 @@ export default function CondominiosPage() {
 }
 
 // Componente Card para evitar repetição
-function CondoCard({ c, canEdit, onEdit, onQuickView }) {
+function CondoCardBase({ c, canEdit, onEdit, onQuickView }) {
   return (
     <div className="glass-panel p-6 rounded-[2rem] border-slate-200 hover:border-violet-500/30 transition-all group shadow-xl flex flex-col justify-between h-full">
         <div>
@@ -647,3 +650,7 @@ function CondoCard({ c, canEdit, onEdit, onQuickView }) {
     </div>
   );
 }
+
+// Memoizado: o pai re-renderiza a cada segundo (countdown) e a cada tecla na busca;
+// sem isso, os ~300 cards re-renderizavam junto. Só re-renderiza se mudar o condo ou a permissão.
+const CondoCard = memo(CondoCardBase, (prev, next) => prev.c === next.c && prev.canEdit === next.canEdit);
