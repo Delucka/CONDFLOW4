@@ -4,9 +4,10 @@ import { createClient } from '@/utils/supabase/client';
 import {
   CheckCircle, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle,
   User, ShieldCheck, Send, X, FileCheck, Building, Edit, ChevronLeft, ChevronRight,
-  Lock, Send as SendIcon, Rocket, Upload, AlertTriangle,
+  Lock, Send as SendIcon, Rocket, Upload, AlertTriangle, BellRing,
 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
+import { apiPost } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
@@ -26,6 +27,7 @@ export default function VisaoMaster() {
   const [arquivoAberto, setArquivoAberto] = useState(null);
 
   const [pacotes, setPacotes] = useState([]);
+  const [notificandoId, setNotificandoId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -203,6 +205,19 @@ export default function VisaoMaster() {
   }
 
   // ── Ações ─────────────────────────────────────────────────────────────────
+  async function handleRenotificar(pacote) {
+    setNotificandoId(pacote.id);
+    try {
+      const r = await apiPost(`/api/emissoes/${pacote.id}/notificar`, {});
+      if (r?.ok) addToast(`Lembrete enviado para ${r.notificados} ${r.notificados === 1 ? 'pessoa' : 'pessoas'} (sino + e-mail).`, 'success');
+      else addToast(r?.motivo || 'Nada para notificar neste status.', 'warning');
+    } catch (e) {
+      addToast('Erro ao re-notificar: ' + (e?.message || e), 'error');
+    } finally {
+      setNotificandoId(null);
+    }
+  }
+
   async function handleAprovar(pacote) {
     // Só vira 'aprovado' quando TODOS os cargos do nível assinaram (via trilha)
     const nextStatus = await proximoStatusAprovacao(supabase, pacote.id, pacote.nivel_aprovacao, user?.role);
@@ -669,6 +684,15 @@ export default function VisaoMaster() {
                       {(statusLower === 'rascunho' || statusLower === 'solicitar_correcao') && (
                         <button onClick={() => handleConcluirRapido(pacote)} className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 transition-all" title="Enviar para Aprovação">
                           <SendIcon className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {/* Notificar novamente quem precisa aprovar */}
+                      {statusLower !== 'registrado' && statusLower !== 'aprovado' && statusLower !== 'rascunho' && statusLower !== 'solicitar_correcao' && (
+                        <button onClick={() => handleRenotificar(pacote)} disabled={notificandoId === pacote.id}
+                          className="p-2 rounded-lg bg-violet-600/15 text-violet-500 hover:bg-violet-600/30 border border-violet-500/30 transition-all disabled:opacity-50"
+                          title="Notificar novamente quem precisa aprovar (sino + e-mail)">
+                          {notificandoId === pacote.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <BellRing className="w-4 h-4" />}
                         </button>
                       )}
 

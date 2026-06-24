@@ -242,6 +242,55 @@ def api_email_hook(data: EmailHookSchema, request: Request):
         raise HTTPException(500, "falha no envio de e-mail")
 
 
+@router.post("/emissoes/{pacote_id}/notificar")
+def api_renotificar_emissao(pacote_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Re-notifica (sino + e-mail) quem precisa AGIR num pacote de emissão pendente.
+    Insere uma notificação 'lembrete' p/ os alvos do status atual -> dispara o e-mail."""
+    if user["role"] not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas master/departamento pode re-notificar.")
+
+    pac = db.table("emissoes_pacotes").select("id, status, mes_referencia, ano_referencia, condominio_id") \
+        .eq("id", pacote_id).maybe_single().execute().data
+    if not pac:
+        raise HTTPException(404, "Pacote não encontrado.")
+
+    s = (pac.get("status") or "").lower()
+    condo = db.table("condominios").select("name, gerente_id").eq("id", pac["condominio_id"]).maybe_single().execute().data or {}
+    condo_nome = condo.get("name") or "Condomínio"
+    periodo = f"{int(pac.get('mes_referencia') or 0):02d}/{pac.get('ano_referencia')}"
+    titulo = "Lembrete: emissão aguardando aprovação"
+    mensagem = f"{condo_nome} · {periodo} — ainda aguarda a sua aprovação."
+    link = "/aprovacoes"
+
+    alvos = set()
+    if ("gerente" in s and "sup" not in s and "chefe" not in s) or s == "pendente":
+        gid = condo.get("gerente_id")
+        if gid:
+            g = db.table("gerentes").select("profile_id").eq("id", gid).maybe_single().execute().data
+            if g and g.get("profile_id"):
+                alvos.add(g["profile_id"])
+    elif ("chefe" in s) or ("sup_gerentes" in s) or ("sup. gerentes" in s) or ("supervisor_gerentes" in s):
+        for p in (db.table("profiles").select("id").eq("role", "supervisor_gerentes").execute().data or []):
+            alvos.add(p["id"])
+    elif "contabil" in s:
+        for p in (db.table("profiles").select("id").eq("role", "supervisora_contabilidade").execute().data or []):
+            alvos.add(p["id"])
+    elif ("supervisor" in s) or ("sup" in s):
+        for p in (db.table("profiles").select("id").in_("role", ["supervisora", "supervisora_contabilidade", "supervisor_gerentes"]).execute().data or []):
+            alvos.add(p["id"])
+
+    if not alvos:
+        return {"ok": False, "notificados": 0, "motivo": "Este pacote não está aguardando aprovação."}
+
+    for uid in alvos:
+        db.table("notificacoes").insert({
+            "user_id": uid, "tipo": "emissao_lembrete",
+            "titulo": titulo, "mensagem": mensagem, "link": link,
+        }).execute()
+
+    return {"ok": True, "notificados": len(alvos)}
+
+
 @router.get("/condominios")
 def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:
