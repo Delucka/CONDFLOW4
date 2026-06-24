@@ -940,12 +940,18 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
         try:
             primeiro = (data.full_name or "").strip().split(" ")[0]
             titulo = f"Bem-vindo(a), {primeiro}!" if primeiro else "Bem-vindo(a) ao CondoFlow!"
+            pill = (
+                "display:inline-block;font-family:ui-monospace,Menlo,Consolas,monospace;"
+                "font-size:16px;font-weight:bold;background:#eef3fb;color:#142a63;"
+                "padding:7px 14px;border-radius:8px;border:1px solid #d7e2f5;margin:4px 0 14px;"
+            )
             corpo = (
                 "Sua conta no CondoFlow foi criada. Use os dados abaixo para entrar:<br><br>"
-                f"<strong>E-mail:</strong> {data.email}<br>"
-                "<strong>Senha tempor&aacute;ria:</strong> "
-                f'<span style="font-family:monospace;background:#eef3fb;color:#142a63;padding:2px 8px;border-radius:6px;font-weight:bold;">{data.password}</span>'
-                "<br><br>No primeiro acesso, o sistema vai pedir para voc&ecirc; criar uma nova senha."
+                "<strong style=\"color:#0f1a3c;\">E-mail</strong><br>"
+                f'<span style="{pill}">{data.email}</span><br>'
+                "<strong style=\"color:#0f1a3c;\">Senha tempor&aacute;ria</strong><br>"
+                f'<span style="{pill}">{data.password}</span>'
+                "<br>No primeiro acesso, o sistema vai pedir para voc&ecirc; criar uma nova senha."
             )
             html = db.rpc("email_template", {
                 "p_titulo": titulo, "p_mensagem": corpo, "p_link": "/login",

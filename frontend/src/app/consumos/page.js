@@ -362,6 +362,22 @@ function FaturaCard({ fatura, onEdit, onDuplicar, onAnexar, onDelete, onAbrir, p
 }
 
 // ─── Página Principal ──────────────────────────────────────────────
+// Skeleton da matriz enquanto carrega (evita o flash de "Nada encontrado" no boot)
+function MatrizSkeleton({ rows = 8 }) {
+  return (
+    <div className="p-4 space-y-2.5 animate-pulse" aria-busy="true" aria-label="Carregando faturas">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className="h-7 rounded-lg bg-slate-200/70 flex-1 min-w-[200px] max-w-[260px]" />
+          {Array.from({ length: 12 }).map((_, m) => (
+            <div key={m} className="h-7 w-[64px] rounded-lg bg-slate-100 shrink-0" style={{ opacity: 1 - m * 0.05 }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ConsumosPage() {
   const { profile } = useAuth();
   const { addToast } = useToast();
@@ -371,7 +387,7 @@ export default function ConsumosPage() {
   const podeAdicionar = ['master', 'departamento', 'assistente'].includes(role);
 
   // Lista de condos (cadastrados em condominios_concessionarias OU com fatura)
-  const { data: condosData, mutate: mutateCondos } = useSWR('/api/consumos/condominios-com-faturas', apiFetcher);
+  const { data: condosData, mutate: mutateCondos, isLoading: loadingCondos } = useSWR('/api/consumos/condominios-com-faturas', apiFetcher);
   const condosComFaturas = condosData?.condominios || [];
 
   // Para master/emissor: lista completa de condos pra escolher "novo condo"
@@ -884,8 +900,31 @@ export default function ConsumosPage() {
           <p className="text-[10px] text-slate-500">Mouse na célula = detalhes · clique = ver, editar ou adicionar contas</p>
         </div>
         <div ref={faturasScrollRef} className="overflow-auto max-h-[75vh]">
-          {condosFiltrados.length === 0 ? (
-            <p className="text-xs text-slate-500 px-4 py-12 text-center">Nada encontrado com esses filtros.</p>
+          {loadingCondos && condosComFaturas.length === 0 ? (
+            <MatrizSkeleton />
+          ) : condosComFaturas.length === 0 ? (
+            <div className="px-4 py-16 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center mx-auto mb-4">
+                <Droplet className="w-7 h-7 text-violet-400" />
+              </div>
+              <p className="text-sm font-bold text-slate-700">Nenhuma fatura ainda</p>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">Adicione um condomínio e lance a primeira fatura de água, gás ou energia.</p>
+              {podeAdicionar && (
+                <button onClick={() => setShowAddCondoModal(true)}
+                  className="mt-4 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold inline-flex items-center gap-2 shadow-lg shadow-violet-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50">
+                  <Building2 className="w-4 h-4" /> Adicionar condomínio
+                </button>
+              )}
+            </div>
+          ) : condosFiltrados.length === 0 ? (
+            <div className="px-4 py-16 text-center">
+              <Search className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-bold text-slate-700">Nada encontrado com esses filtros</p>
+              <button onClick={() => { setSearch(''); setFiltroConc('todas'); setFiltroGerente('todos'); }}
+                className="mt-3 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40">
+                <X className="w-3.5 h-3.5" /> Limpar filtros
+              </button>
+            </div>
           ) : (
             <table className="w-full text-xs border-collapse">
               <thead className="sticky top-0 bg-slate-50 backdrop-blur z-10">
