@@ -590,10 +590,18 @@ export default function FilaOcorrencias() {
         ) : itensFiltrados.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-20 text-center">
             <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4 border border-emerald-500/20">
-              <CheckCircle className="w-8 h-8 text-emerald-400" />
+              <CheckCircle className="w-8 h-8 text-emerald-500" />
             </div>
             <h4 className="text-slate-900 font-black text-lg uppercase tracking-tight">Tudo limpo!</h4>
-            <p className="text-xs text-slate-500 max-w-[200px] mt-2">Nenhuma ocorrência ou solicitação pendente no momento.</p>
+            <p className="text-xs text-slate-500 max-w-[260px] mt-2">
+              {abaAtiva === 'solicitacao'
+                ? 'Nenhuma alteração pendente. Aparece aqui automaticamente quando alguém solicita correção numa emissão.'
+                : 'Nenhuma ocorrência registrada no momento.'}
+            </p>
+            <button onClick={() => setShowModal(true)}
+              className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-500 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40">
+              <Plus className="w-4 h-4" /> Registrar {abaAtiva === 'solicitacao' ? 'solicitação' : 'ocorrência'}
+            </button>
           </div>
         ) : (
           <div className="divide-y divide-slate-200">
