@@ -1200,17 +1200,29 @@ function RelatorioUnidadesModal({ info, onClose, podeExcluir, onDeleted }) {
   const lista = unidades || [];
   const supabase = useMemo(() => createClient(), []);
   const [abrindoPdf, setAbrindoPdf] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);   // URL assinada p/ a prévia embutida do PDF
   async function abrirPdf() {
     if (!arquivo_url) return;
     setAbrindoPdf(true);
     try {
-      const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arquivo_url, 300);
-      if (error || !data?.signedUrl) throw error || new Error('URL não gerada');
-      window.open(data.signedUrl, '_blank', 'noopener');
+      const url = previewUrl || (await supabase.storage.from('emissoes').createSignedUrl(arquivo_url, 300)).data?.signedUrl;
+      if (!url) throw new Error('URL não gerada');
+      window.open(url, '_blank', 'noopener');
     } catch (e) {
       alert('Não consegui abrir o PDF do relatório: ' + (e?.message || 'erro'));
     } finally { setAbrindoPdf(false); }
   }
+
+  // Gera a URL assinada ao abrir o modal, pra mostrar a prévia do PDF embutida
+  useEffect(() => {
+    let alive = true;
+    if (!arquivo_url) { setPreviewUrl(null); return; }
+    (async () => {
+      const { data } = await supabase.storage.from('emissoes').createSignedUrl(arquivo_url, 600);
+      if (alive) setPreviewUrl(data?.signedUrl || null);
+    })();
+    return () => { alive = false; };
+  }, [arquivo_url, supabase]);
 
   // Estatísticas + detecção de unidade anômala (m³ > 2× mediana)
   const consumos = lista.map(u => Number(u.m3_total) || 0).filter(v => v > 0).sort((a, b) => a - b);
@@ -1264,20 +1276,30 @@ function RelatorioUnidadesModal({ info, onClose, podeExcluir, onDeleted }) {
           {loading ? (
             <p className="text-sm text-slate-400 text-center py-12 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando leituras...</p>
           ) : (erro || lista.length === 0) ? (
-            <div className="flex flex-col items-center gap-4 py-12 text-center">
-              <p className={`text-sm flex items-center justify-center gap-2 ${erro ? 'text-amber-600' : 'text-slate-500'}`}>
-                {erro && <AlertTriangle className="w-4 h-4" />}
-                {erro || 'Este relatório não tem tabela de unidades extraída.'}
-              </p>
-              {arquivo_url ? (
-                <button onClick={abrirPdf} disabled={abrindoPdf}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 disabled:opacity-60 transition-all">
-                  {abrindoPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Abrir PDF do relatório
-                </button>
-              ) : (
+            arquivo_url ? (
+              <div className="flex flex-col gap-3">
+                <p className={`text-xs flex items-center gap-2 ${erro ? 'text-amber-600' : 'text-slate-500'}`}>
+                  {erro ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <FileText className="w-4 h-4 shrink-0 text-violet-500" />}
+                  {erro || 'Sem tabela de unidades extraída — prévia do relatório abaixo.'}
+                </p>
+                {previewUrl ? (
+                  <iframe src={previewUrl} title="Prévia do relatório"
+                    className="w-full h-[60vh] rounded-xl border border-slate-200 bg-slate-50" />
+                ) : (
+                  <div className="h-[60vh] flex items-center justify-center text-slate-400 gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" /> <span className="text-sm">Carregando prévia…</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4 py-12 text-center">
+                <p className={`text-sm flex items-center justify-center gap-2 ${erro ? 'text-amber-600' : 'text-slate-500'}`}>
+                  {erro && <AlertTriangle className="w-4 h-4" />}
+                  {erro || 'Este relatório não tem tabela de unidades extraída.'}
+                </p>
                 <p className="text-xs text-slate-400">Nenhum PDF anexado a este relatório.</p>
-              )}
-            </div>
+              </div>
+            )
           ) : (
             <table className="w-full text-xs border-collapse">
               <thead className="sticky top-0 bg-white">
