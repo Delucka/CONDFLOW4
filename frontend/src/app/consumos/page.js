@@ -716,7 +716,7 @@ export default function ConsumosPage() {
           </div>
           <div>
             <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Consumos</h2>
-            <p className="text-xs text-slate-400 mt-1">Faturas de SABESP, COMGAS, ENEL e outras concessionárias · por condomínio e mês</p>
+            <p className="text-xs text-slate-500 mt-1">Faturas de SABESP, COMGAS, ENEL e outras concessionárias · por condomínio e mês</p>
           </div>
         </div>
         {podeAdicionar && (
@@ -737,38 +737,24 @@ export default function ConsumosPage() {
 
       {/* ─── Dashboard: stats cards (abaixo da tabela) ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 order-last">
-        <div className="glass-panel rounded-2xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Processadas</p>
+        {[
+          { lbl: 'Processadas', val: stats.processadas,                                    sub: `R$ ${fmtBRL(stats.totalValor)} no ano`, Icon: CheckCircle2,  num: 'text-slate-900', bar: 'bg-emerald-400/70', chip: 'bg-emerald-500/10', icon: 'text-emerald-500', bd: 'hover:border-emerald-500/40' },
+          { lbl: 'Anomalias',   val: alertasList.filter(a => a.tipo === 'anomalia').length, sub: 'Δ ≥ 50% vs mês anterior',              Icon: AlertTriangle, num: 'text-amber-600',  bar: 'bg-amber-400/70',   chip: 'bg-amber-500/10',   icon: 'text-amber-500',   bd: 'hover:border-amber-500/40' },
+          { lbl: 'Duplicatas',  val: stats.duplicatas,                                      sub: 'sancionadas',                          Icon: RefreshCw,     num: 'text-rose-600',   bar: 'bg-rose-400/70',    chip: 'bg-rose-500/10',    icon: 'text-rose-500',    bd: 'hover:border-rose-500/40' },
+          { lbl: 'Pendentes',   val: stats.pendentes,                                       sub: 'aguardando anexar',                    Icon: Clock,         num: 'text-violet-600', bar: 'bg-violet-400/70',  chip: 'bg-violet-500/10',  icon: 'text-violet-500',  bd: 'hover:border-violet-500/40' },
+        ].map(({ lbl, val, sub, Icon, num, bar, chip, icon, bd }) => (
+          <div key={lbl} className={`group glass-panel rounded-2xl border border-slate-200 p-4 relative overflow-hidden transition-all hover:shadow-md ${bd}`}>
+            <span className={`absolute left-0 top-0 bottom-0 w-1 ${bar}`} />
+            <div className="flex items-center justify-between mb-2 pl-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{lbl}</p>
+              <span className={`w-7 h-7 rounded-lg ${chip} flex items-center justify-center transition-transform group-hover:scale-110`}>
+                <Icon className={`w-4 h-4 ${icon}`} />
+              </span>
+            </div>
+            <p className={`text-3xl font-black tabular-nums pl-1 ${num}`}>{val}</p>
+            <p className="text-[11px] text-slate-500 pl-1 mt-0.5">{sub}</p>
           </div>
-          <p className="text-2xl font-black text-slate-900">{stats.processadas}</p>
-          <p className="text-[11px] text-slate-500">R$ {fmtBRL(stats.totalValor)} no ano</p>
-        </div>
-        <div className="glass-panel rounded-2xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Anomalias</p>
-          </div>
-          <p className="text-2xl font-black text-amber-600">{alertasList.filter(a => a.tipo === 'anomalia').length}</p>
-          <p className="text-[11px] text-slate-500">Δ ≥ 50% vs mês anterior</p>
-        </div>
-        <div className="glass-panel rounded-2xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <RefreshCw className="w-4 h-4 text-rose-400" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Duplicatas</p>
-          </div>
-          <p className="text-2xl font-black text-rose-600">{stats.duplicatas}</p>
-          <p className="text-[11px] text-slate-500">sancionadas</p>
-        </div>
-        <div className="glass-panel rounded-2xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Clock className="w-4 h-4 text-violet-400" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pendentes</p>
-          </div>
-          <p className="text-2xl font-black text-violet-600">{stats.pendentes}</p>
-          <p className="text-[11px] text-slate-500">aguardando anexar</p>
-        </div>
+        ))}
       </div>
 
       {/* ─── Banner de alertas (só se houver) ─── */}
@@ -863,7 +849,7 @@ export default function ConsumosPage() {
           <option value="gerente">Ordenar: Gerente</option>
         </select>
         <select value={anoSel} onChange={e => setAnoSel(Number(e.target.value))}
-          className="bg-white border border-violet-500/30 rounded-xl px-3 py-2 text-sm text-violet-300 font-bold outline-none">
+          className="bg-violet-500/5 border border-violet-500/30 rounded-xl px-3 py-2 text-sm text-violet-700 font-bold outline-none focus:border-violet-500/60 focus-visible:ring-2 focus-visible:ring-violet-500/30">
           {[anoSel-1, anoSel, anoSel+1].map(a => <option key={a} value={a}>{a}</option>)}
         </select>
       </div>
@@ -893,11 +879,13 @@ export default function ConsumosPage() {
       <div className="flex flex-col xl:flex-row gap-4 items-start">
       {/* Matriz mensal — Faturas */}
       <div className="glass-panel rounded-2xl border border-slate-200 overflow-hidden flex-1 min-w-0 w-full">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            Faturas {anoSel} · {condosFiltrados.length} de {condosComFaturas.length} condomínios
+        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
+          <p className="text-xs font-black text-slate-600 uppercase tracking-widest flex items-center gap-2 min-w-0">
+            <span className="w-6 h-6 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0"><FileText className="w-3.5 h-3.5 text-violet-500" /></span>
+            <span className="shrink-0">Faturas {anoSel}</span>
+            <span className="text-slate-400 font-bold normal-case tracking-normal truncate">· {condosFiltrados.length} de {condosComFaturas.length} condomínios</span>
           </p>
-          <p className="text-[10px] text-slate-500">Mouse na célula = detalhes · clique = ver, editar ou adicionar contas</p>
+          <p className="text-[10px] text-slate-500 hidden md:block shrink-0">Passe o mouse = detalhes · clique = ver/editar/adicionar</p>
         </div>
         <div ref={faturasScrollRef} className="overflow-auto max-h-[75vh]">
           {loadingCondos && condosComFaturas.length === 0 ? (
@@ -1008,7 +996,7 @@ export default function ConsumosPage() {
                                   setEditFatura(null);
                                   setShowNovaModal(true);
                                 }}
-                                className="w-full h-full px-1 py-1.5 rounded text-[12px] text-slate-300 hover:text-violet-500 hover:bg-violet-500/5 transition-all border border-transparent hover:border-violet-500/20"
+                                className="w-full h-full px-1 py-1.5 rounded text-[13px] text-slate-300 hover:text-violet-600 hover:bg-violet-500/10 transition-all border border-transparent hover:border-violet-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
                                 title={`Adicionar fatura ${conc} ${MESES[m]}/${anoSel}`}>
                                 +
                               </button>
@@ -1028,11 +1016,13 @@ export default function ConsumosPage() {
       {/* ─── Matriz de Relatórios de Leitura Individualizada (Prosper/Outra) ─── */}
       {condosComRelatorios.length > 0 && (
         <div className="glass-panel rounded-2xl border border-slate-200 overflow-hidden flex-1 min-w-0 w-full">
-          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <Droplet className="w-3.5 h-3.5 text-violet-500" /> Relatórios de leitura · {anoSel} · {condosComRelatorios.length} {condosComRelatorios.length === 1 ? 'condomínio' : 'condomínios'}
+          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
+            <p className="text-xs font-black text-slate-600 uppercase tracking-widest flex items-center gap-2 min-w-0">
+              <span className="w-6 h-6 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0"><Droplet className="w-3.5 h-3.5 text-violet-500" /></span>
+              <span className="shrink-0">Relatórios de leitura {anoSel}</span>
+              <span className="text-slate-400 font-bold normal-case tracking-normal truncate">· {condosComRelatorios.length} {condosComRelatorios.length === 1 ? 'condomínio' : 'condomínios'}</span>
             </p>
-            <p className="text-[10px] text-slate-500">Consumo em m³ · clique pra ver leitura por unidade</p>
+            <p className="text-[10px] text-slate-500 hidden md:block shrink-0">Consumo em m³ · clique = leitura por unidade</p>
           </div>
           <div ref={relatoriosScrollRef} className="overflow-auto max-h-[60vh]">
             <table className="w-full text-xs border-collapse">
