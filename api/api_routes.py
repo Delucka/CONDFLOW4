@@ -200,6 +200,38 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         raise HTTPException(500, str(e))
 
 
+def _enviar_email_smtp(to: str, subject: str, html: str) -> bool:
+    """Envia um e-mail HTML via SMTP (Gmail). Best-effort: retorna True/False, não levanta."""
+    import os, smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    smtp_user = os.getenv("SMTP_USER") or os.getenv("GMAIL_USER")
+    smtp_pass = os.getenv("SMTP_PASS") or os.getenv("GMAIL_APP_PASSWORD")
+    if not smtp_user or not smtp_pass:
+        print("[email] SMTP não configurado (defina GMAIL_USER e GMAIL_APP_PASSWORD)")
+        return False
+
+    host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    port = int(os.getenv("SMTP_PORT", "465"))
+    from_name = os.getenv("EMAIL_FROM_NAME", "CondoFlow")
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{from_name} <{smtp_user}>"
+    msg["To"] = to
+    msg.attach(MIMEText(html, "html", "utf-8"))
+
+    try:
+        with smtplib.SMTP_SSL(host, port, timeout=15) as s:
+            s.login(smtp_user, smtp_pass)
+            s.sendmail(smtp_user, [to], msg.as_string())
+        return True
+    except Exception as e:
+        print(f"[email] erro ao enviar para {to}: {e}")
+        return False
+
+
 class EmailHookSchema(BaseModel):
     to: str
     subject: str
@@ -209,37 +241,14 @@ class EmailHookSchema(BaseModel):
 def api_email_hook(data: EmailHookSchema, request: Request):
     """Envia e-mail via SMTP (Gmail). Chamado pelo banco (pg_net) com o segredo no header.
     NÃO usa get_current_user — é protegido pelo header x-notif-secret."""
-    import os, smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-
+    import os
     secret = os.getenv("NOTIF_EMAIL_SECRET")
     if not secret or request.headers.get("x-notif-secret") != secret:
         raise HTTPException(401, "unauthorized")
 
-    smtp_user = os.getenv("SMTP_USER") or os.getenv("GMAIL_USER")
-    smtp_pass = os.getenv("SMTP_PASS") or os.getenv("GMAIL_APP_PASSWORD")
-    if not smtp_user or not smtp_pass:
-        return {"ok": False, "reason": "SMTP não configurado (defina GMAIL_USER e GMAIL_APP_PASSWORD)"}
-
-    host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    port = int(os.getenv("SMTP_PORT", "465"))
-    from_name = os.getenv("EMAIL_FROM_NAME", "CondoFlow")
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = data.subject
-    msg["From"] = f"{from_name} <{smtp_user}>"
-    msg["To"] = data.to
-    msg.attach(MIMEText(data.html, "html", "utf-8"))
-
-    try:
-        with smtplib.SMTP_SSL(host, port, timeout=15) as s:
-            s.login(smtp_user, smtp_pass)
-            s.sendmail(smtp_user, [data.to], msg.as_string())
-        return {"ok": True}
-    except Exception as e:
-        print(f"[email-hook] erro ao enviar para {data.to}: {e}")
+    if not _enviar_email_smtp(data.to, data.subject, data.html):
         raise HTTPException(500, "falha no envio de e-mail")
+    return {"ok": True}
 
 
 @router.post("/emissoes/{pacote_id}/notificar")
@@ -926,8 +935,30 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
                     on_conflict="profile_id"
                 ).execute()
 
-        return {"success": True, "uid": uid}
-        
+        # 4. E-mail de boas-vindas com os dados de acesso (best-effort — não quebra a criação)
+        email_enviado = False
+        try:
+            primeiro = (data.full_name or "").strip().split(" ")[0]
+            titulo = f"Bem-vindo(a), {primeiro}!" if primeiro else "Bem-vindo(a) ao CondoFlow!"
+            corpo = (
+                "Sua conta no CondoFlow foi criada. Use os dados abaixo para entrar:<br><br>"
+                f"<strong>E-mail:</strong> {data.email}<br>"
+                "<strong>Senha tempor&aacute;ria:</strong> "
+                f'<span style="font-family:monospace;background:#eef3fb;color:#142a63;padding:2px 8px;border-radius:6px;font-weight:bold;">{data.password}</span>'
+                "<br><br>No primeiro acesso, o sistema vai pedir para voc&ecirc; criar uma nova senha."
+            )
+            html = db.rpc("email_template", {
+                "p_titulo": titulo, "p_mensagem": corpo, "p_link": "/login",
+            }).execute().data
+            if isinstance(html, str) and html:
+                email_enviado = _enviar_email_smtp(
+                    data.email, "Bem-vindo ao CondoFlow — seus dados de acesso", html
+                )
+        except Exception as mail_e:
+            print(f"[criar_usuario] falha ao enviar e-mail de boas-vindas: {mail_e}")
+
+        return {"success": True, "uid": uid, "email_enviado": email_enviado}
+
     except Exception as e:
         print(f"CRITICAL ERROR CREATE_USER: {e}")
         raise HTTPException(status_code=400, detail=str(e))

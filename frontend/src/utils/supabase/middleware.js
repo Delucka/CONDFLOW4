@@ -55,7 +55,7 @@ export async function updateSession(request) {
     !path.startsWith('/login')
   ) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    url.pathname = '/'   // sem sessão (inclui logout) → landing page, não /login
     return NextResponse.redirect(url)
   }
 

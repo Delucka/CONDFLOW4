@@ -17,7 +17,7 @@ export default function AppShell({ children }) {
 
   useEffect(() => {
     if (!loading && !user && pathname !== '/' && pathname !== '/login' && pathname !== '/reset-password') {
-      router.push('/login');
+      router.push('/');   // sem sessão (inclui logout) → landing page, não /login
     }
   }, [user, loading, router, pathname]);
 
