@@ -2039,6 +2039,23 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
                     "reabertura_aprovada": None,
                 }).eq("id", row["id"]).execute()
                 reabertos += 1
+                # Auditoria: registra a reabertura na Fila de Conferência (best-effort)
+                try:
+                    pac = db.table("emissoes_pacotes").select("id") \
+                        .eq("condominio_id", c["id"]).eq("mes_referencia", mes).eq("ano_referencia", ano) \
+                        .limit(1).execute().data
+                    db.table("emissoes_ocorrencias").insert({
+                        "pacote_id": pac[0]["id"] if pac else None,
+                        "condominio_id": c["id"],
+                        "tipo": "solicitacao",
+                        "status": "aberta",
+                        "descricao": f"Mês reaberto para edição (ref. {mes:02d}/{ano}).",
+                        "origem": "reabertura",
+                        "criado_por": user["id"],
+                        "criado_por_role": user.get("role") or "master",
+                    }).execute()
+                except Exception as _e:
+                    print(f"[abrir_edicao] falha ao registrar reabertura: {_e}")
         else:
             db.table("edicoes_mensais").insert({
                 "condominio_id": c["id"],
