@@ -282,6 +282,7 @@ ROLES_SEGVIA_ABRE = ("master", "departamento", "gerente", "assistente")
 class SegundaViaCreate(BaseModel):
     condominio_id: str
     unidade: str
+    bloco: Optional[str] = None
     ref_mes: Optional[int] = None
     ref_ano: Optional[int] = None
     vencimento: Optional[str] = None        # ISO date
@@ -315,6 +316,7 @@ def api_criar_segunda_via(data: SegundaViaCreate, user: dict = Depends(get_curre
 
     ins = db.table("segundas_vias").insert({
         "condominio_id": data.condominio_id, "unidade": data.unidade.strip(),
+        "bloco": (data.bloco or "").strip() or None,
         "ref_mes": data.ref_mes, "ref_ano": data.ref_ano, "vencimento": venc,
         "modalidade": data.modalidade,
         "email_destinatario": (data.email_destinatario or "").strip() or None,
@@ -414,7 +416,12 @@ def api_emitir_segunda_via(sv_id: str, data: SegundaViaEmitir, user: dict = Depe
                 except Exception as e:
                     print(f"[segunda_via] download boleto: {e}")
             cc = [sv.get("criado_por_email")] if sv.get("criado_por_email") else []
-            assunto = f"Boleto atualizado - {ref}" if ref else f"Boleto atualizado — {cnome}"
+            bloco_txt = (sv.get("bloco") or "").strip()
+            assunto = (
+                f"{cnome} - Unid. {sv.get('unidade') or ''}"
+                + (f" Bl. {bloco_txt}" if bloco_txt else "")
+                + (f" - Boleto {ref}" if ref else " - Boleto")
+            )
             if isinstance(html, str) and html:
                 email_enviado = _enviar_email_smtp(dest, assunto, html, cc=cc, anexos=anexos)
             db.table("segundas_vias").update({"email_enviado": email_enviado}).eq("id", sv_id).execute()

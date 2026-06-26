@@ -43,7 +43,7 @@ export default function SegundasViasPage() {
   const solicitacoes = listData?.solicitacoes || [];
 
   const anoAtual = new Date().getFullYear();
-  const vazio = { condominio_id: '', unidade: '', ref_mes: new Date().getMonth() + 1, ref_ano: anoAtual,
+  const vazio = { condominio_id: '', unidade: '', bloco: '', ref_mes: new Date().getMonth() + 1, ref_ano: anoAtual,
                   vencimento: '', modalidade: 'com_multa', email_destinatario: '', observacoes: '' };
   const [form, setForm] = useState(vazio);
   const [anexoFile, setAnexoFile] = useState(null);
@@ -77,7 +77,7 @@ export default function SegundasViasPage() {
       let anexo = {};
       if (anexoFile) { const up = await uploadBucket(anexoFile, 'segundas-vias/autorizacoes'); anexo = { anexo_url: up.url, anexo_nome: up.nome }; }
       await apiPost('/api/segundas-vias', {
-        condominio_id: form.condominio_id, unidade: form.unidade.trim(),
+        condominio_id: form.condominio_id, unidade: form.unidade.trim(), bloco: form.bloco.trim() || null,
         ref_mes: form.ref_mes ? Number(form.ref_mes) : null, ref_ano: form.ref_ano ? Number(form.ref_ano) : null,
         vencimento: form.vencimento || null, modalidade: form.modalidade,
         email_destinatario: form.email_destinatario.trim() || null, observacoes: form.observacoes.trim() || null,
@@ -140,7 +140,7 @@ export default function SegundasViasPage() {
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2"><Plus className="w-4 h-4 text-violet-500" /> Nova solicitação</p>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          <div className="md:col-span-6">
+          <div className="md:col-span-5">
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Condomínio</label>
             <select required value={form.condominio_id} onChange={e => setForm({ ...form, condominio_id: e.target.value })}
               className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500/60">
@@ -148,9 +148,14 @@ export default function SegundasViasPage() {
               {condos.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div className="md:col-span-3">
+          <div className="md:col-span-2">
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Unidade</label>
             <input required value={form.unidade} onChange={e => setForm({ ...form, unidade: e.target.value })} placeholder="Ex: 71"
+              className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500/60" />
+          </div>
+          <div className="md:col-span-2">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bloco</label>
+            <input value={form.bloco} onChange={e => setForm({ ...form, bloco: e.target.value })} placeholder="Ex: A"
               className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500/60" />
           </div>
           <div className="md:col-span-3">
@@ -243,7 +248,7 @@ export default function SegundasViasPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-slate-900">{sv.condominios?.name || '—'}</span>
-                        <span className="text-[11px] text-slate-500">· unid. <b className="text-slate-700">{sv.unidade}</b></span>
+                        <span className="text-[11px] text-slate-500">· unid. <b className="text-slate-700">{sv.unidade}</b>{sv.bloco ? <> · bloco <b className="text-slate-700">{sv.bloco}</b></> : null}</span>
                         <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${st.cls} flex items-center gap-1`}><st.Icon className="w-3 h-3" /> {st.label}</span>
                         <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-700">{MODAL_LABEL[sv.modalidade] || sv.modalidade}</span>
                       </div>
