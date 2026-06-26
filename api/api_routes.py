@@ -384,6 +384,8 @@ def api_emitir_segunda_via(sv_id: str, data: SegundaViaEmitir, user: dict = Depe
             h = (datetime.datetime.utcnow().hour - 3) % 24      # saudação por horário (BRT)
             saud = "bom dia" if 5 <= h < 12 else ("boa tarde" if 12 <= h < 18 else "boa noite")
             pp = "https://www.propstarter.com.br"
+            url_and = "https://play.google.com/store/apps/details?id=br.com.winker"
+            url_ios = "https://apps.apple.com/br/app/winker/id1121080703"
             corpo = (
                 f"Prezado(a), {saud}!<br><br>"
                 "Conforme solicitação, segue em anexo o boleto referente ao seu condomínio.<br><br>"
@@ -391,7 +393,7 @@ def api_emitir_segunda_via(sv_id: str, data: SegundaViaEmitir, user: dict = Depe
                 f"&bull; <strong>Pelo site:</strong> Acesse <a href=\"{pp}\" style=\"color:#1e3a8a;\">www.propstarter.com.br</a>, "
                 "faça login e clique no menu &quot;Acesso Rápido&quot; / &quot;2ª Via de Pagamento&quot;.<br><br>"
                 f"&bull; <strong>Pelo aplicativo:</strong> Baixe o app <strong>Prop Starter</strong> "
-                f"(<a href=\"{pp}\" style=\"color:#1e3a8a;\">Android</a> ou <a href=\"{pp}\" style=\"color:#1e3a8a;\">iOS</a>) "
+                f"(<a href=\"{url_and}\" style=\"color:#1e3a8a;\">PROPSTARTER Android</a> ou <a href=\"{url_ios}\" style=\"color:#1e3a8a;\">PROPSTARTER iOS</a>) "
                 "no seu celular ou tablet para acessar a segunda via e conferir documentos como balancetes, convenção e especificações do condomínio.<br><br>"
                 "<strong style=\"color:#c0392b;\">IMPORTANTE</strong><br><br>"
                 "O boleto original pode ser pago em até 30 (trinta) dias após o vencimento. O Banco Itaú, em atendimento à "
