@@ -301,6 +301,8 @@ def api_criar_segunda_via(data: SegundaViaCreate, user: dict = Depends(get_curre
         raise HTTPException(400, "Modalidade inválida.")
     if not (data.unidade and data.unidade.strip()):
         raise HTTPException(400, "Informe a unidade.")
+    if not (data.observacoes and data.observacoes.strip()):
+        raise HTTPException(400, "Descreva a solicitação nas observações.")
     if data.modalidade == "sem_multa" and not (data.anexo_url and data.anexo_url.strip()):
         raise HTTPException(400, "Sem multa exige anexar a autorização do síndico/gerente.")
 

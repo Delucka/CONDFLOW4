@@ -69,6 +69,7 @@ export default function SegundasViasPage() {
     e.preventDefault();
     if (!form.condominio_id) return addToast('Escolha o condomínio.', 'error');
     if (!form.unidade.trim()) return addToast('Informe a unidade.', 'error');
+    if (!form.observacoes.trim()) return addToast('Descreva a solicitação nas observações.', 'error');
     if (form.modalidade === 'sem_multa' && !anexoFile) return addToast('Sem multa exige anexar a autorização do síndico/gerente.', 'error');
     if (anexoFile) { const v = validarArquivo(anexoFile); if (!v.ok) return addToast(v.erro, 'error'); }
     setSaving(true);
@@ -203,8 +204,8 @@ export default function SegundasViasPage() {
         </div>
 
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Observações</label>
-          <textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} rows={2}
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Observações <span className="text-rose-600">(obrigatório)</span></label>
+          <textarea required value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} rows={2}
             placeholder="Ex: emitir a 2ª via da cota de junho/26 com multa e vencimento 30/06."
             className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500/60 resize-none" />
         </div>
