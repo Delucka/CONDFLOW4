@@ -488,7 +488,8 @@ def api_auditoria(
     date_from: str = None,
     date_to: str = None,
     search: str = None,
-    limit: int = 60,
+    etapa: str = None,
+    limit: int = 80,
     offset: int = 0,
     user: dict = Depends(get_current_user),
     db: Client = Depends(get_db)
@@ -497,53 +498,209 @@ def api_auditoria(
         if user["role"] not in VIEW_AUDITORIA and user["role"] != 'gerente':
             raise HTTPException(403, "Acesso negado")
 
-        query = db.table("aprovacoes").select(
-            "id, action, comment, created_at, "
-            "approver:approver_id(full_name), "
-            "processo:processo_id(id, year, semester, condominio_id, status, "
-            "condominios(id, name, gerente_id, gerentes:gerente_id(profiles!gerentes_profile_id_fkey(full_name))))"
-        ).order("created_at", desc=True)
+        CAP = 300  # por fonte
+        dt_to = (date_to + "T23:59:59") if date_to else None
+        eventos = []
+        ids_perfil = set()  # ids a resolver nome depois (aberto_por / criado_por)
 
-        if date_from:
-            query = query.gte("created_at", date_from)
-        if date_to:
-            query = query.lte("created_at", date_to + "T23:59:59")
+        def _per(mes, ano):
+            try:
+                return (f"{int(mes):02d}/{ano}" if mes else (str(ano) if ano else ""))
+            except Exception:
+                return ""
 
-        query = query.range(offset, offset + limit - 1)
-        result = query.execute()
-        logs = result.data or []
+        # 1) Arrecadação — aprovacoes
+        try:
+            q = db.table("aprovacoes").select(
+                "id, action, comment, created_at, approver:approver_id(full_name, role), "
+                "processo:processo_id(year, semester, condominio_id, condominios(name, gerente_id))"
+            ).order("created_at", desc=True).limit(CAP)
+            if date_from: q = q.gte("created_at", date_from)
+            if dt_to: q = q.lte("created_at", dt_to)
+            for r in (q.execute().data or []):
+                proc = r.get("processo") or {}
+                cond = proc.get("condominios") or {}
+                ap = r.get("approver") or {}
+                eventos.append({
+                    "id": f"arr:{r['id']}", "quando": r.get("created_at"), "etapa": "Arrecadação",
+                    "acao": r.get("action") or "—", "ator": ap.get("full_name"), "ator_role": ap.get("role"),
+                    "condominio_id": proc.get("condominio_id"), "condominio_nome": cond.get("name"),
+                    "gerente_id": cond.get("gerente_id"), "motivo": r.get("comment"),
+                    "ref": f"{proc.get('year')}/{proc.get('semester')}" if proc.get("year") else "",
+                })
+        except Exception as e:
+            print(f"[auditoria] aprovacoes: {e}")
 
-        # Filtros client-side (FK aninhada)
+        # 2) Emissão · aprovação — emissoes_pacotes_aprovacoes
+        try:
+            q = db.table("emissoes_pacotes_aprovacoes").select(
+                "id, acao, role, usuario_nome, criado_em, "
+                "pacote:pacote_id(mes_referencia, ano_referencia, condominio_id, condominios(name, gerente_id))"
+            ).order("criado_em", desc=True).limit(CAP)
+            if date_from: q = q.gte("criado_em", date_from)
+            if dt_to: q = q.lte("criado_em", dt_to)
+            for r in (q.execute().data or []):
+                pac = r.get("pacote") or {}
+                cond = pac.get("condominios") or {}
+                eventos.append({
+                    "id": f"pacapr:{r['id']}", "quando": r.get("criado_em"), "etapa": "Emissão · aprovação",
+                    "acao": ("Solicitou correção" if r.get("acao") == "correcao" else "Aprovou"),
+                    "ator": r.get("usuario_nome"), "ator_role": r.get("role"),
+                    "condominio_id": pac.get("condominio_id"), "condominio_nome": cond.get("name"),
+                    "gerente_id": cond.get("gerente_id"), "motivo": None,
+                    "ref": _per(pac.get("mes_referencia"), pac.get("ano_referencia")),
+                })
+        except Exception as e:
+            print(f"[auditoria] pacotes_aprovacoes: {e}")
+
+        # 3) Arquivos postados — emissoes_arquivos
+        try:
+            q = db.table("emissoes_arquivos").select(
+                "id, arquivo_nome, arquivo_url, tipo, mes_referencia, ano_referencia, criado_em, "
+                "condominio_id, condominios(name, gerente_id), uploaded:uploaded_by(full_name, role)"
+            ).order("criado_em", desc=True).limit(CAP)
+            if date_from: q = q.gte("criado_em", date_from)
+            if dt_to: q = q.lte("criado_em", dt_to)
+            for r in (q.execute().data or []):
+                cond = r.get("condominios") or {}
+                up = r.get("uploaded") or {}
+                eventos.append({
+                    "id": f"arq:{r['id']}", "quando": r.get("criado_em"), "etapa": "Arquivo",
+                    "acao": f"Postou arquivo · {r.get('tipo') or 'arquivo'}",
+                    "ator": up.get("full_name"), "ator_role": up.get("role"),
+                    "condominio_id": r.get("condominio_id"), "condominio_nome": cond.get("name"),
+                    "gerente_id": cond.get("gerente_id"), "motivo": None,
+                    "ref": _per(r.get("mes_referencia"), r.get("ano_referencia")),
+                    "arquivo_nome": r.get("arquivo_nome"), "arquivo_url": r.get("arquivo_url"),
+                })
+        except Exception as e:
+            print(f"[auditoria] arquivos: {e}")
+
+        # 4) Edição mensal — edicoes_mensais (abertura/reabertura)
+        try:
+            q = db.table("edicoes_mensais").select(
+                "id, status, mes_referencia, ano_referencia, aberto_por, aberto_em, "
+                "condominio_id, condominios(name, gerente_id)"
+            ).order("aberto_em", desc=True).limit(CAP)
+            if date_from: q = q.gte("aberto_em", date_from)
+            if dt_to: q = q.lte("aberto_em", dt_to)
+            for r in (q.execute().data or []):
+                cond = r.get("condominios") or {}
+                if r.get("aberto_por"): ids_perfil.add(r["aberto_por"])
+                eventos.append({
+                    "id": f"edm:{r['id']}", "quando": r.get("aberto_em"), "etapa": "Edição mensal",
+                    "acao": "Abriu/atualizou edição do mês", "ator_id": r.get("aberto_por"),
+                    "ator": None, "ator_role": None,
+                    "condominio_id": r.get("condominio_id"), "condominio_nome": cond.get("name"),
+                    "gerente_id": cond.get("gerente_id"), "motivo": f"status: {r.get('status')}",
+                    "ref": _per(r.get("mes_referencia"), r.get("ano_referencia")),
+                })
+        except Exception as e:
+            print(f"[auditoria] edicoes_mensais: {e}")
+
+        # 5) Conferência — emissoes_ocorrencias
+        try:
+            q = db.table("emissoes_ocorrencias").select(
+                "id, tipo, origem, status, descricao, criado_em, criado_por, criado_por_role, "
+                "condominio_id, condominios(name, gerente_id)"
+            ).order("criado_em", desc=True).limit(CAP)
+            if date_from: q = q.gte("criado_em", date_from)
+            if dt_to: q = q.lte("criado_em", dt_to)
+            for r in (q.execute().data or []):
+                cond = r.get("condominios") or {}
+                if r.get("criado_por"): ids_perfil.add(r["criado_por"])
+                org = r.get("origem")
+                if org == "reabertura": acao = "Mês reaberto"
+                elif org == "correcao": acao = "Correção solicitada"
+                elif r.get("tipo") == "ocorrencia": acao = "Registrou ocorrência"
+                else: acao = "Registrou solicitação"
+                eventos.append({
+                    "id": f"ocr:{r['id']}", "quando": r.get("criado_em"), "etapa": "Conferência",
+                    "acao": acao, "ator_id": r.get("criado_por"), "ator": None,
+                    "ator_role": r.get("criado_por_role"),
+                    "condominio_id": r.get("condominio_id"), "condominio_nome": cond.get("name"),
+                    "gerente_id": cond.get("gerente_id"), "motivo": r.get("descricao"),
+                    "ref": "", "status": r.get("status"),
+                })
+        except Exception as e:
+            print(f"[auditoria] ocorrencias: {e}")
+
+        # Resolve nomes (aberto_por / criado_por -> profiles)
+        if ids_perfil:
+            try:
+                profs = db.table("profiles").select("id, full_name, role").in_("id", list(ids_perfil)).execute().data or []
+                nmap = {p["id"]: p for p in profs}
+                for ev in eventos:
+                    pid = ev.get("ator_id")
+                    if pid and not ev.get("ator") and pid in nmap:
+                        ev["ator"] = nmap[pid].get("full_name")
+                        if not ev.get("ator_role"): ev["ator_role"] = nmap[pid].get("role")
+            except Exception as e:
+                print(f"[auditoria] resolve nomes: {e}")
+
+        # Filtros
+        if etapa:
+            eventos = [e for e in eventos if (e.get("etapa") or "").lower().startswith(etapa.lower())]
         if condo_id:
-            logs = [l for l in logs if (l.get("processo") or {}).get("condominio_id") == condo_id]
+            eventos = [e for e in eventos if e.get("condominio_id") == condo_id]
         if gerente_id:
-            logs = [l for l in logs if (((l.get("processo") or {}).get("condominios") or {}).get("gerente_id")) == gerente_id]
+            eventos = [e for e in eventos if e.get("gerente_id") == gerente_id]
         if search:
             s = search.lower()
-            logs = [l for l in logs if
-                s in (l.get("action") or "").lower() or
-                s in (l.get("comment") or "").lower() or
-                s in ((l.get("approver") or {}).get("full_name") or "").lower() or
-                s in (((l.get("processo") or {}).get("condominios") or {}).get("name") or "").lower()
-            ]
+            eventos = [e for e in eventos if
+                s in (e.get("acao") or "").lower() or s in (e.get("ator") or "").lower() or
+                s in (e.get("condominio_nome") or "").lower() or s in (e.get("motivo") or "").lower() or
+                s in (e.get("arquivo_nome") or "").lower()]
 
-        # Contagens para stats
-        total_res = db.table("aprovacoes").select("id", count="exact", head=True).execute()
+        eventos.sort(key=lambda e: e.get("quando") or "", reverse=True)
+        total = len(eventos)
+        page = eventos[offset: offset + limit]
 
         import datetime
         hoje = datetime.date.today().isoformat()
-        hoje_res = db.table("aprovacoes").select("id", count="exact", head=True).gte("created_at", hoje).execute()
+        hoje_count = sum(1 for e in eventos if (e.get("quando") or "")[:10] == hoje)
 
-        return {
-            "logs": logs,
-            "total": total_res.count or 0,
-            "hoje": hoje_res.count or 0,
-        }
+        return {"logs": page, "total": total, "hoje": hoje_count}
     except HTTPException:
         raise
     except Exception as e:
         print(f"CRITICAL ERROR /auditoria: {e}")
         return {"logs": [], "total": 0, "hoje": 0, "error": str(e)}
+
+
+@router.get("/auditoria/erros")
+def api_auditoria_erros(
+    date_from: str = None,
+    date_to: str = None,
+    search: str = None,
+    limit: int = 80,
+    offset: int = 0,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Aba 'Erros' da auditoria: quebras de código (exceções 500) capturadas no backend."""
+    try:
+        if user["role"] not in VIEW_AUDITORIA:
+            raise HTTPException(403, "Acesso negado")
+        q = db.table("audit_erros").select("*", count="exact").order("criado_em", desc=True)
+        if date_from:
+            q = q.gte("criado_em", date_from)
+        if date_to:
+            q = q.lte("criado_em", date_to + "T23:59:59")
+        if search:
+            q = q.or_(f"mensagem.ilike.%{search}%,rota.ilike.%{search}%")
+        res = q.range(offset, offset + limit - 1).execute()
+        rows = res.data or []
+        import datetime
+        hoje = datetime.date.today().isoformat()
+        hoje_res = db.table("audit_erros").select("id", count="exact", head=True).gte("criado_em", hoje).execute()
+        return {"erros": rows, "total": res.count or len(rows), "hoje": hoje_res.count or 0}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[auditoria/erros] {e}")
+        return {"erros": [], "total": 0, "hoje": 0, "error": str(e)}
+
 
 class RateioUpdate(BaseModel):
     ano: int

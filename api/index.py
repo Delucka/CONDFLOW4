@@ -76,6 +76,37 @@ def get_auth_client() -> Client:
         _auth_client = create_client(SB_URL, SB_ANON)
     return _auth_client
 
+# ═══ Log de erros / quebras (monitor da Auditoria) ════════════════════
+import traceback as _tb
+
+def log_erro(rota=None, metodo=None, status_code=500, mensagem=None, detalhe=None, user_id=None, user_nome=None):
+    """Grava uma quebra na tabela audit_erros (best-effort; nunca levanta)."""
+    try:
+        get_db().table("audit_erros").insert({
+            "rota": rota, "metodo": metodo, "status_code": status_code,
+            "mensagem": (mensagem or "")[:500], "detalhe": (detalhe or "")[:4000],
+            "user_id": user_id, "user_nome": user_nome,
+        }).execute()
+    except Exception as _e:
+        print(f"[log_erro] falhou: {_e}")
+
+@app.exception_handler(Exception)
+async def _unhandled_exc_handler(request: Request, exc: Exception):
+    """Captura exceções NÃO tratadas (500 reais = quebras de código) e registra na auditoria."""
+    from fastapi.responses import JSONResponse
+    u = None
+    try:
+        u = request.session.get("user")
+    except Exception:
+        pass
+    log_erro(
+        rota=str(request.url.path), metodo=request.method, status_code=500,
+        mensagem=f"{type(exc).__name__}: {exc}", detalhe=_tb.format_exc(),
+        user_id=(u or {}).get("id"), user_nome=(u or {}).get("full_name"),
+    )
+    print(f"[UNHANDLED] {request.method} {request.url.path}: {exc}")
+    return JSONResponse(status_code=500, content={"detail": "Erro interno do servidor."})
+
 # ═══ Helpers ══════════════════════════════════════════════════════════
 def cur_user(req: Request) -> Optional[dict]:
     return req.session.get("user")

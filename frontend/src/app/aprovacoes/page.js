@@ -10,8 +10,17 @@ import {
   MessageSquare, Building2, Loader2, Send,
   History, Inbox, Eye, ShieldCheck, Filter,
   FileText, Lock, Unlock, Globe, User, Calendar,
-  ChevronDown, X, RefreshCw, FileUp, ArrowRight
+  ChevronDown, X, RefreshCw, FileUp, ArrowRight, ExternalLink, AlertTriangle
 } from 'lucide-react';
+
+// Cor por etapa na linha do tempo da auditoria
+const ETAPA_STYLE = {
+  'Arrecadação':         { dot: 'bg-violet-500', text: 'text-violet-700', chip: 'bg-violet-500/10' },
+  'Emissão · aprovação': { dot: 'bg-emerald-500', text: 'text-emerald-700', chip: 'bg-emerald-500/10' },
+  'Arquivo':             { dot: 'bg-sky-500', text: 'text-sky-700', chip: 'bg-sky-500/10' },
+  'Edição mensal':       { dot: 'bg-amber-500', text: 'text-amber-700', chip: 'bg-amber-500/10' },
+  'Conferência':         { dot: 'bg-rose-500', text: 'text-rose-700', chip: 'bg-rose-500/10' },
+};
 import { usePendingCount } from '@/lib/usePendingCount';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { createClient } from '@/utils/supabase/client';
@@ -72,6 +81,8 @@ export default function AprovacoesPage() {
   // Filtros da auditoria
   const [search, setSearch]       = useState('');
   const [filtroDate, setFiltroDate] = useState({ from: '', to: '' });
+  const [auditView, setAuditView] = useState('atividade'); // 'atividade' | 'erros'
+  const [filtroEtapa, setFiltroEtapa] = useState('');
   const [showFiltros, setShowFiltros] = useState(false);
 
   // ── Fila de aprovações (processos legados, mantido para retro) ──
@@ -150,32 +161,36 @@ export default function AprovacoesPage() {
   const anoAlvo = mesAtual.getMonth() === 11 ? mesAtual.getFullYear() + 1 : mesAtual.getFullYear();
   const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-  // ── Auditoria ──
+  // ── Auditoria: atividade (todas as etapas) ──
   const auditParams = new URLSearchParams();
   if (filtroDate.from) auditParams.set('date_from', filtroDate.from);
   if (filtroDate.to)   auditParams.set('date_to',   filtroDate.to);
-  auditParams.set('limit', '100');
+  if (search.trim())   auditParams.set('search', search.trim());
+  if (filtroEtapa)     auditParams.set('etapa', filtroEtapa);
+  auditParams.set('limit', '150');
 
   const { data: auditData, isLoading: auditLoading, mutate: mutateA } =
-    useSWR(aba === 'auditoria' ? `/api/auditoria?${auditParams}` : null, apiFetcher, {
-      refreshInterval: 60000
+    useSWR(aba === 'auditoria' && auditView === 'atividade' ? `/api/auditoria?${auditParams}` : null, apiFetcher, {
+      refreshInterval: 60000, keepPreviousData: true,
     });
+  const logs      = auditData?.logs  || [];
+  const totalLogs = auditData?.total || 0;
+  const hojeCount = auditData?.hoje  || 0;
 
-  const logsRaw   = auditData?.logs   || [];
-  const totalLogs = auditData?.total  || 0;
-  const hojeCount = auditData?.hoje   || 0;
+  // ── Auditoria: erros / quebras de código ──
+  const errosParams = new URLSearchParams();
+  if (filtroDate.from) errosParams.set('date_from', filtroDate.from);
+  if (filtroDate.to)   errosParams.set('date_to',   filtroDate.to);
+  if (search.trim())   errosParams.set('search', search.trim());
+  errosParams.set('limit', '150');
 
-  // Filtro client-side por busca de texto
-  const logs = useMemo(() => {
-    if (!search.trim()) return logsRaw;
-    const s = search.toLowerCase();
-    return logsRaw.filter(l =>
-      (l.action || '').toLowerCase().includes(s) ||
-      (l.comment || '').toLowerCase().includes(s) ||
-      (l.approver?.full_name || '').toLowerCase().includes(s) ||
-      (l.processo?.condominios?.name || '').toLowerCase().includes(s)
-    );
-  }, [logsRaw, search]);
+  const { data: errosData, isLoading: errosLoading, mutate: mutateErr } =
+    useSWR(aba === 'auditoria' && auditView === 'erros' ? `/api/auditoria/erros?${errosParams}` : null, apiFetcher, {
+      refreshInterval: 60000, keepPreviousData: true,
+    });
+  const errosList  = errosData?.erros || [];
+  const errosTotal = errosData?.total || 0;
+  const errosHoje  = errosData?.hoje  || 0;
 
   const pendentes = filaData?.pendentes || [];
 
@@ -237,8 +252,17 @@ export default function AprovacoesPage() {
     } catch { addToast('Erro ao abrir prévia.', 'error'); }
   };
 
-  const limparFiltros = () => { setSearch(''); setFiltroDate({ from: '', to: '' }); };
-  const temFiltro = search || filtroDate.from || filtroDate.to;
+  const abrirArquivoAudit = async (path) => {
+    if (!path) return;
+    try {
+      const { data } = await supabase.storage.from('emissoes').createSignedUrl(path, 300);
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
+      else addToast('Não consegui abrir o arquivo.', 'error');
+    } catch { addToast('Não consegui abrir o arquivo.', 'error'); }
+  };
+
+  const limparFiltros = () => { setSearch(''); setFiltroDate({ from: '', to: '' }); setFiltroEtapa(''); };
+  const temFiltro = search || filtroDate.from || filtroDate.to || filtroEtapa;
 
   return (
     <div className="animate-fade-in space-y-6 pb-20">
@@ -556,18 +580,28 @@ export default function AprovacoesPage() {
       {aba === 'auditoria' && (
         <div className="space-y-4">
 
+          {/* Sub-abas: Atividade x Erros */}
+          <div className="flex items-center gap-2">
+            <button onClick={() => setAuditView('atividade')}
+              className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${auditView === 'atividade' ? 'bg-violet-600 text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
+              Atividade
+            </button>
+            <button onClick={() => setAuditView('erros')}
+              className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${auditView === 'erros' ? 'bg-rose-600 text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
+              <AlertTriangle className="w-3.5 h-3.5" /> Erros
+              {errosHoje > 0 && <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${auditView === 'erros' ? 'bg-white/20' : 'bg-rose-500 text-white'}`}>{errosHoje} hoje</span>}
+            </button>
+          </div>
+
           {/* Barra de filtros */}
           <div className="glass-panel p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex flex-wrap gap-3 items-center">
-              {/* Busca */}
               <div className="flex-1 min-w-[200px] relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar por condomínio, usuário, ação..."
+                  placeholder={auditView === 'erros' ? 'Buscar por mensagem ou rota...' : 'Buscar por condomínio, usuário, ação, motivo...'}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
               </div>
-
-              {/* Datas */}
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-slate-500 font-black uppercase">De</span>
                 <input type="date" value={filtroDate.from} onChange={e => setFiltroDate(p => ({...p, from: e.target.value}))}
@@ -576,86 +610,109 @@ export default function AprovacoesPage() {
                 <input type="date" value={filtroDate.to} onChange={e => setFiltroDate(p => ({...p, to: e.target.value}))}
                   className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
               </div>
-
-              {/* Limpar */}
               {temFiltro && (
                 <button onClick={limparFiltros}
-                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-black uppercase hover:bg-rose-500/20 transition-all">
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 text-[10px] font-black uppercase hover:bg-rose-500/20 transition-all">
                   <X className="w-3.5 h-3.5" /> Limpar
                 </button>
               )}
-              <button onClick={() => mutateA()}
+              <button onClick={() => (auditView === 'erros' ? mutateErr() : mutateA())}
                 className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 hover:text-slate-900 transition-all" title="Atualizar">
-                <RefreshCw className={`w-4 h-4 ${auditLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${(auditView === 'erros' ? errosLoading : auditLoading) ? 'animate-spin' : ''}`} />
               </button>
-
               <span className="text-[10px] text-slate-600 font-bold ml-auto">
-                {logs.length} registro{logs.length !== 1 ? 's' : ''}{temFiltro ? ' (filtrado)' : ''}
+                {auditView === 'erros' ? `${errosTotal} erro${errosTotal !== 1 ? 's' : ''}` : `${totalLogs} evento${totalLogs !== 1 ? 's' : ''}`}{temFiltro ? ' (filtrado)' : ''}
               </span>
             </div>
-          </div>
 
-          {/* Timeline */}
-          {auditLoading ? (
-            <div className="p-24 text-center glass-panel rounded-[2rem]">
-              <div className="w-10 h-10 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Carregando histórico...</p>
-            </div>
-          ) : logs.length === 0 ? (
-            <div className="text-center py-20 glass-panel rounded-[2rem] border border-slate-200">
-              <Inbox className="w-12 h-12 text-slate-800 mx-auto mb-4" />
-              <p className="text-slate-500 font-bold">Nenhum registro encontrado</p>
-              {temFiltro && <button onClick={limparFiltros} className="mt-3 text-[11px] text-violet-400 hover:text-slate-900">Limpar filtros</button>}
-            </div>
-          ) : (
-            <div className="glass-panel rounded-[2rem] border border-slate-200 overflow-hidden">
-              {/* Cabeçalho da tabela */}
-              <div className="grid grid-cols-[16px_2fr_2fr_1fr_1fr] gap-4 px-6 py-3 border-b border-slate-200 bg-slate-50">
-                {['', 'Ação', 'Condomínio', 'Usuário', 'Data/Hora'].map((h, i) => (
-                  <span key={i} className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{h}</span>
+            {auditView === 'atividade' && (
+              <div className="flex flex-wrap gap-1.5">
+                {['', 'Arrecadação', 'Emissão', 'Arquivo', 'Edição', 'Conferência'].map(et => (
+                  <button key={et || 'todas'} onClick={() => setFiltroEtapa(et)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${filtroEtapa === et ? 'bg-violet-600 text-white' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
+                    {et || 'Todas'}
+                  </button>
                 ))}
               </div>
+            )}
+          </div>
 
-              {/* Linhas */}
-              <div className="divide-y divide-slate-200">
-                {logs.map((log) => {
-                  const style = getActionStyle(log.action);
-                  const condo = log.processo?.condominios?.name;
-                  const gerente = log.processo?.condominios?.gerentes?.profiles?.full_name;
-                  const quem = log.approver?.full_name || '—';
-                  const quando = log.created_at ? new Date(log.created_at).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+          {/* Conteúdo */}
+          {(auditView === 'erros' ? errosLoading : auditLoading) && (auditView === 'erros' ? errosList.length === 0 : logs.length === 0) ? (
+            <div className="p-24 text-center glass-panel rounded-[2rem]">
+              <div className="w-10 h-10 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Carregando...</p>
+            </div>
+          ) : auditView === 'erros' ? (
+            errosList.length === 0 ? (
+              <div className="text-center py-20 glass-panel rounded-[2rem] border border-slate-200">
+                <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
+                <p className="text-slate-700 font-bold">Nenhuma quebra registrada</p>
+                <p className="text-xs text-slate-500 mt-1">Falhas do backend (erros 500) aparecem aqui automaticamente.</p>
+              </div>
+            ) : (
+              <div className="glass-panel rounded-[2rem] border border-slate-200 overflow-hidden divide-y divide-slate-200">
+                {errosList.map(er => {
+                  const quando = er.criado_em ? new Date(er.criado_em).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
                   return (
-                    <div key={log.id} className="grid grid-cols-[16px_2fr_2fr_1fr_1fr] gap-4 px-6 py-3.5 hover:bg-slate-100 transition-colors items-center group">
-                      {/* Dot */}
-                      <div className={`w-2 h-2 rounded-full ${style.bg} shadow-sm`} />
-                      {/* Ação */}
-                      <div>
-                        <p className={`text-[11px] font-black uppercase tracking-wide ${style.color}`}>{log.action}</p>
-                        {log.comment && (
-                          <p className="text-[10px] text-slate-500 italic mt-0.5 truncate max-w-xs">&ldquo;{log.comment}&rdquo;</p>
+                    <div key={er.id} className="px-5 py-3.5 hover:bg-rose-500/5 transition-colors flex items-start gap-3">
+                      <AlertTriangle className="w-4 h-4 text-rose-500 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-bold text-rose-700 break-words">{er.mensagem || 'Erro'}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-mono break-all">{er.metodo} {er.rota}{er.status_code ? ` · ${er.status_code}` : ''}</p>
+                        {er.detalhe && (
+                          <details className="mt-1">
+                            <summary className="text-[10px] text-slate-400 cursor-pointer hover:text-slate-700">ver detalhe</summary>
+                            <pre className="text-[9px] text-slate-500 whitespace-pre-wrap mt-1 max-h-48 overflow-auto bg-slate-50 rounded-lg p-2 border border-slate-200">{er.detalhe}</pre>
+                          </details>
                         )}
                       </div>
-                      {/* Condomínio */}
-                      <div>
-                        <p className="text-[11px] font-bold text-slate-700 truncate">{condo || '—'}</p>
-                        {gerente && <p className="text-[10px] text-slate-600 truncate">{gerente}</p>}
-                      </div>
-                      {/* Usuário */}
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-5 h-5 rounded-full bg-violet-500/20 flex items-center justify-center shrink-0">
-                          <User className="w-3 h-3 text-violet-400" />
-                        </div>
-                        <span className="text-[11px] text-slate-400 truncate">{quem}</span>
-                      </div>
-                      {/* Data */}
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3 h-3 text-slate-600 shrink-0" />
-                        <span className="text-[10px] text-slate-500 tabular-nums">{quando}</span>
+                      <div className="text-right shrink-0 w-[130px]">
+                        <p className="text-[10px] text-slate-500 truncate">{er.user_nome || '—'}</p>
+                        <p className="text-[10px] text-slate-400 tabular-nums mt-0.5">{quando}</p>
                       </div>
                     </div>
                   );
                 })}
               </div>
+            )
+          ) : logs.length === 0 ? (
+            <div className="text-center py-20 glass-panel rounded-[2rem] border border-slate-200">
+              <Inbox className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+              <p className="text-slate-700 font-bold">Nenhum evento encontrado</p>
+              {temFiltro && <button onClick={limparFiltros} className="mt-3 text-[11px] text-violet-700 hover:text-slate-900 font-bold">Limpar filtros</button>}
+            </div>
+          ) : (
+            <div className="glass-panel rounded-[2rem] border border-slate-200 overflow-hidden divide-y divide-slate-200">
+              {logs.map((ev) => {
+                const st = ETAPA_STYLE[ev.etapa] || { dot: 'bg-slate-400', text: 'text-slate-700', chip: 'bg-slate-500/10' };
+                const quando = ev.quando ? new Date(ev.quando).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+                return (
+                  <div key={ev.id} className="px-5 py-3.5 hover:bg-slate-100 transition-colors flex items-start gap-3">
+                    <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${st.dot}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${st.chip} ${st.text}`}>{ev.etapa}</span>
+                        <span className="text-[12px] font-bold text-slate-800">{ev.acao}</span>
+                        {ev.ref && <span className="text-[10px] text-slate-500">· {ev.ref}</span>}
+                        {ev.status && <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{ev.status}</span>}
+                      </div>
+                      {ev.motivo && <p className="text-[11px] text-slate-500 italic mt-0.5 line-clamp-2">&ldquo;{ev.motivo}&rdquo;</p>}
+                      {ev.arquivo_nome && (
+                        <button onClick={() => abrirArquivoAudit(ev.arquivo_url)}
+                          className="mt-1 inline-flex items-center gap-1.5 text-[10px] font-bold text-violet-700 hover:text-violet-900">
+                          <FileText className="w-3 h-3" /> {ev.arquivo_nome} <ExternalLink className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0 w-[150px]">
+                      <p className="text-[11px] font-bold text-slate-700 truncate">{ev.condominio_nome || '—'}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{ev.ator || '—'}{ev.ator_role ? ` · ${ev.ator_role}` : ''}</p>
+                      <p className="text-[10px] text-slate-400 tabular-nums mt-0.5">{quando}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
