@@ -200,11 +200,13 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         raise HTTPException(500, str(e))
 
 
-def _enviar_email_smtp(to: str, subject: str, html: str) -> bool:
-    """Envia um e-mail HTML via SMTP (Gmail). Best-effort: retorna True/False, não levanta."""
+def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -> bool:
+    """Envia e-mail HTML via SMTP (Gmail). cc=lista de e-mails; anexos=lista de (nome, bytes, mime).
+    Best-effort: retorna True/False, não levanta."""
     import os, smtplib
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
+    from email.mime.application import MIMEApplication
 
     smtp_user = os.getenv("SMTP_USER") or os.getenv("GMAIL_USER")
     smtp_pass = os.getenv("SMTP_PASS") or os.getenv("GMAIL_APP_PASSWORD")
@@ -215,17 +217,31 @@ def _enviar_email_smtp(to: str, subject: str, html: str) -> bool:
     host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     port = int(os.getenv("SMTP_PORT", "465"))
     from_name = os.getenv("EMAIL_FROM_NAME", "CondoFlow")
+    cc = [c for c in (cc or []) if c]
 
-    msg = MIMEMultipart("alternative")
+    msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
     msg["From"] = f"{from_name} <{smtp_user}>"
     msg["To"] = to
-    msg.attach(MIMEText(html, "html", "utf-8"))
+    if cc:
+        msg["Cc"] = ", ".join(cc)
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(html, "html", "utf-8"))
+    msg.attach(alt)
+    for item in (anexos or []):
+        try:
+            fn, data, mime = item
+            sub = mime.split("/", 1)[1] if (mime and "/" in mime) else "octet-stream"
+            part = MIMEApplication(data, _subtype=sub)
+            part.add_header("Content-Disposition", "attachment", filename=fn)
+            msg.attach(part)
+        except Exception as _e:
+            print(f"[email] anexo falhou: {_e}")
 
     try:
-        with smtplib.SMTP_SSL(host, port, timeout=15) as s:
+        with smtplib.SMTP_SSL(host, port, timeout=20) as s:
             s.login(smtp_user, smtp_pass)
-            s.sendmail(smtp_user, [to], msg.as_string())
+            s.sendmail(smtp_user, [to] + cc, msg.as_string())
         return True
     except Exception as e:
         print(f"[email] erro ao enviar para {to}: {e}")
@@ -256,6 +272,154 @@ def _enviar_email_acesso(db, email: str, full_name: str, password: str) -> bool:
     except Exception as e:
         print(f"[enviar_acesso] falha: {e}")
     return False
+
+
+# ═══ Segundas Vias (fila de pedidos de boleto 2ª via) ════════════════
+_MODALIDADE_LABEL = {"com_multa": "Com multa", "sem_multa": "Sem multa", "quinto_andar": "Quinto Andar (venc. +5 dias)"}
+ROLES_SEGVIA_ATENDE = ("master", "departamento")
+ROLES_SEGVIA_ABRE = ("master", "departamento", "gerente", "assistente")
+
+class SegundaViaCreate(BaseModel):
+    condominio_id: str
+    unidade: str
+    ref_mes: Optional[int] = None
+    ref_ano: Optional[int] = None
+    vencimento: Optional[str] = None        # ISO date
+    modalidade: str = "com_multa"
+    email_destinatario: Optional[str] = None
+    observacoes: Optional[str] = None
+    anexo_url: Optional[str] = None
+    anexo_nome: Optional[str] = None
+
+@router.post("/segundas-vias")
+def api_criar_segunda_via(data: SegundaViaCreate, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    if user["role"] not in ROLES_SEGVIA_ABRE:
+        raise HTTPException(403, "Sem permissão para abrir solicitação.")
+    if user["role"] in ("gerente", "assistente") and data.condominio_id not in carteira_condo_ids(db, user):
+        raise HTTPException(403, "Este condomínio não está na sua carteira.")
+    if data.modalidade not in ("com_multa", "sem_multa", "quinto_andar"):
+        raise HTTPException(400, "Modalidade inválida.")
+    if not (data.unidade and data.unidade.strip()):
+        raise HTTPException(400, "Informe a unidade.")
+    if data.modalidade == "sem_multa" and not (data.anexo_url and data.anexo_url.strip()):
+        raise HTTPException(400, "Sem multa exige anexar a autorização do síndico/gerente.")
+
+    venc = data.vencimento
+    if data.modalidade == "quinto_andar":
+        import datetime
+        minv = (datetime.date.today() + datetime.timedelta(days=5)).isoformat()
+        if not venc or venc < minv:
+            venc = minv
+
+    ins = db.table("segundas_vias").insert({
+        "condominio_id": data.condominio_id, "unidade": data.unidade.strip(),
+        "ref_mes": data.ref_mes, "ref_ano": data.ref_ano, "vencimento": venc,
+        "modalidade": data.modalidade,
+        "email_destinatario": (data.email_destinatario or "").strip() or None,
+        "observacoes": data.observacoes, "anexo_url": data.anexo_url, "anexo_nome": data.anexo_nome,
+        "criado_por": user["id"], "criado_por_nome": user.get("full_name"), "criado_por_email": user.get("email"),
+    }).execute().data
+    sv = ins[0] if ins else {}
+
+    # Notifica o time (departamento + master) — sino + e-mail
+    try:
+        condo = db.table("condominios").select("name").eq("id", data.condominio_id).maybe_single().execute().data or {}
+        cnome = condo.get("name") or "Condomínio"
+        for p in (db.table("profiles").select("id").in_("role", list(ROLES_SEGVIA_ATENDE)).execute().data or []):
+            db.table("notificacoes").insert({
+                "user_id": p["id"], "tipo": "segunda_via",
+                "titulo": "Nova solicitação de 2ª via",
+                "mensagem": f"{cnome} · unidade {data.unidade} · {_MODALIDADE_LABEL.get(data.modalidade, data.modalidade)}.",
+                "link": "/carteiras/segundas-vias",
+            }).execute()
+    except Exception as e:
+        print(f"[segunda_via] notif: {e}")
+
+    return {"ok": True, "id": sv.get("id"), "vencimento": venc}
+
+
+@router.get("/segundas-vias")
+def api_listar_segundas_vias(status: str = None, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    if user["role"] not in ROLES_SEGVIA_ABRE:
+        raise HTTPException(403, "Sem permissão.")
+    q = db.table("segundas_vias").select("*, condominios(name)").order("criado_em", desc=True).limit(300)
+    if status:
+        q = q.eq("status", status)
+    rows = q.execute().data or []
+    if user["role"] in ("gerente", "assistente"):
+        ids = set(carteira_condo_ids(db, user))
+        rows = [r for r in rows if r.get("condominio_id") in ids]
+    return {"solicitacoes": rows}
+
+
+class SegundaViaEmitir(BaseModel):
+    boleto_url: Optional[str] = None
+    boleto_nome: Optional[str] = None
+    enviar_email: bool = True
+
+@router.post("/segundas-vias/{sv_id}/emitir")
+def api_emitir_segunda_via(sv_id: str, data: SegundaViaEmitir, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    if user["role"] not in ROLES_SEGVIA_ATENDE:
+        raise HTTPException(403, "Apenas o time de 2ª via pode emitir.")
+    sv = db.table("segundas_vias").select("*, condominios(name)").eq("id", sv_id).maybe_single().execute().data
+    if not sv:
+        raise HTTPException(404, "Solicitação não encontrada.")
+
+    import datetime
+    boleto_url = data.boleto_url or sv.get("boleto_url")
+    boleto_nome = data.boleto_nome or sv.get("boleto_nome")
+    db.table("segundas_vias").update({
+        "status": "emitido", "boleto_url": boleto_url, "boleto_nome": boleto_nome,
+        "atendido_por": user["id"], "atendido_em": datetime.datetime.utcnow().isoformat(),
+    }).eq("id", sv_id).execute()
+
+    email_enviado = False
+    dest = (sv.get("email_destinatario") or "").strip()
+    if data.enviar_email and dest:
+        try:
+            cnome = (sv.get("condominios") or {}).get("name") or "seu condomínio"
+            venc_br = ""
+            if sv.get("vencimento"):
+                try:
+                    venc_br = datetime.date.fromisoformat(sv["vencimento"]).strftime("%d/%m/%Y")
+                except Exception:
+                    venc_br = sv["vencimento"]
+            ref = f"{int(sv['ref_mes']):02d}/{sv['ref_ano']}" if (sv.get("ref_mes") and sv.get("ref_ano")) else ""
+            corpo = (
+                f"Olá! Segue em anexo a 2ª via do boleto da unidade <strong>{sv.get('unidade')}</strong>"
+                f"{(' · ref. ' + ref) if ref else ''} do <strong>{cnome}</strong>.<br><br>"
+                + (f"<strong>Vencimento:</strong> {venc_br}<br><br>" if venc_br else "")
+                + "Observação: o boleto pode levar até <strong>1 hora</strong> para registrar no banco após a emissão. "
+                "Se não conseguir pagar de imediato, aguarde alguns instantes.<br><br>"
+                "Qualquer dúvida, é só responder este e-mail."
+            )
+            html = db.rpc("email_template", {"p_titulo": "2ª via do seu boleto", "p_mensagem": corpo, "p_link": ""}).execute().data
+            anexos = []
+            if boleto_url:
+                try:
+                    pdf = db.storage.from_("emissoes").download(boleto_url)
+                    anexos.append((boleto_nome or "boleto.pdf", pdf, "application/pdf"))
+                except Exception as e:
+                    print(f"[segunda_via] download boleto: {e}")
+            cc = [sv.get("criado_por_email")] if sv.get("criado_por_email") else []
+            if isinstance(html, str) and html:
+                email_enviado = _enviar_email_smtp(dest, f"2ª via do boleto — {cnome}", html, cc=cc, anexos=anexos)
+            db.table("segundas_vias").update({"email_enviado": email_enviado}).eq("id", sv_id).execute()
+        except Exception as e:
+            print(f"[segunda_via] emitir/email: {e}")
+
+    return {"ok": True, "email_enviado": email_enviado}
+
+
+@router.post("/segundas-vias/{sv_id}/cancelar")
+def api_cancelar_segunda_via(sv_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    sv = db.table("segundas_vias").select("criado_por").eq("id", sv_id).maybe_single().execute().data
+    if not sv:
+        raise HTTPException(404, "Não encontrada.")
+    if user["role"] not in ROLES_SEGVIA_ATENDE and sv.get("criado_por") != user["id"]:
+        raise HTTPException(403, "Sem permissão.")
+    db.table("segundas_vias").update({"status": "cancelado"}).eq("id", sv_id).execute()
+    return {"ok": True}
 
 
 class EmailHookSchema(BaseModel):

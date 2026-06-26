@@ -62,6 +62,7 @@ export default function AppShell({ children }) {
     '/dashboard': 'Dashboard Central',
     '/condominios': 'Gestão de Condomínios',
     '/carteiras': 'Pastas e Carteiras',
+    '/carteiras/segundas-vias': 'Segundas Vias',
     '/aprovacoes': 'Aprovações & Auditoria',
     '/correios': 'Correios — Gerador de Rateio',
     '/admin/usuarios': 'Usuários do Sistema'

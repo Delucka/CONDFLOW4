@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
 import { usePendingCount } from '@/lib/usePendingCount';
 import ThemeToggle from './ThemeToggle';
-import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Receipt, FileUp, KeyRound, Droplet, Mail, X } from 'lucide-react';
+import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Receipt, FileUp, KeyRound, Droplet, Mail, X, FileText } from 'lucide-react';
 import { PenguinMark } from './PenguinLogo';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: '/dashboard',           icon: LayoutDashboard, label: 'Painel Central' },
   { href: '/condominios',         icon: Building,        label: 'Planilha Anual' },
   { href: '/carteiras/cobrancas', icon: Receipt,         label: 'Lançar Cobranças' },
+  { href: '/carteiras/segundas-vias', icon: FileText,    label: 'Segundas Vias' },
   { href: '/consumos',            icon: Droplet,         label: 'Consumos' },
   { href: '/aprovacoes',          icon: FileCheck2,      label: 'Aprovações & Auditoria', showBadge: true },
   { href: '/central-emissoes',    icon: FileUp,          label: 'Central de Emissões', showBadge: true },

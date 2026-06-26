@@ -30,6 +30,7 @@ export const ROUTE_ACCESS = {
   '/dashboard':           ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
   '/condominios':         ['master','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
   '/carteiras/cobrancas': ['master','gerente','assistente'],
+  '/carteiras/segundas-vias': ['master','gerente','assistente','departamento'],
   '/aprovacoes':          ['master','gerente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
   '/central-emissoes':    ['master','departamento'],
   '/correios':            ['master','departamento'],
