@@ -6,6 +6,7 @@ import { safeStorageName } from '@/lib/storage';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { createClient } from '@/utils/supabase/client';
+import { validarArquivo } from '@/lib/uploadGuard';
 import {
   Droplet, Building2, Plus, Upload, Loader2, X, FileText, Trash2,
   CheckCircle2, Clock, AlertTriangle, Copy, Pencil, Search, ExternalLink, RefreshCw,
@@ -72,6 +73,8 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
   async function handleFileChange(e) {
     const f = e.target.files?.[0];
     if (!f) return;
+    const v = validarArquivo(f);
+    if (!v.ok) { addToast(v.erro, 'error'); e.target.value = ''; return; }
     setFile(f);
     setChecking(true);
     try {
