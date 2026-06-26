@@ -380,22 +380,30 @@ def api_emitir_segunda_via(sv_id: str, data: SegundaViaEmitir, user: dict = Depe
     if data.enviar_email and dest:
         try:
             cnome = (sv.get("condominios") or {}).get("name") or "seu condomínio"
-            venc_br = ""
-            if sv.get("vencimento"):
-                try:
-                    venc_br = datetime.date.fromisoformat(sv["vencimento"]).strftime("%d/%m/%Y")
-                except Exception:
-                    venc_br = sv["vencimento"]
             ref = f"{int(sv['ref_mes']):02d}/{sv['ref_ano']}" if (sv.get("ref_mes") and sv.get("ref_ano")) else ""
+            h = (datetime.datetime.utcnow().hour - 3) % 24      # saudação por horário (BRT)
+            saud = "bom dia" if 5 <= h < 12 else ("boa tarde" if 12 <= h < 18 else "boa noite")
+            pp = "https://www.propstarter.com.br"
             corpo = (
-                f"Olá! Segue em anexo a 2ª via do boleto da unidade <strong>{sv.get('unidade')}</strong>"
-                f"{(' · ref. ' + ref) if ref else ''} do <strong>{cnome}</strong>.<br><br>"
-                + (f"<strong>Vencimento:</strong> {venc_br}<br><br>" if venc_br else "")
-                + "Observação: o boleto pode levar até <strong>1 hora</strong> para registrar no banco após a emissão. "
-                "Se não conseguir pagar de imediato, aguarde alguns instantes.<br><br>"
-                "Qualquer dúvida, é só responder este e-mail."
+                f"Prezado(a), {saud}!<br><br>"
+                "Conforme solicitação, segue em anexo o boleto referente ao seu condomínio.<br><br>"
+                "Se o boleto vencer e estiver dentro do prazo de 30 dias, você pode atualizá-lo de duas formas:<br><br>"
+                f"&bull; <strong>Pelo site:</strong> Acesse <a href=\"{pp}\" style=\"color:#1e3a8a;\">www.propstarter.com.br</a>, "
+                "faça login e clique no menu &quot;Acesso Rápido&quot; / &quot;2ª Via de Pagamento&quot;.<br><br>"
+                f"&bull; <strong>Pelo aplicativo:</strong> Baixe o app <strong>Prop Starter</strong> "
+                f"(<a href=\"{pp}\" style=\"color:#1e3a8a;\">Android</a> ou <a href=\"{pp}\" style=\"color:#1e3a8a;\">iOS</a>) "
+                "no seu celular ou tablet para acessar a segunda via e conferir documentos como balancetes, convenção e especificações do condomínio.<br><br>"
+                "<strong style=\"color:#c0392b;\">IMPORTANTE</strong><br><br>"
+                "O boleto original pode ser pago em até 30 (trinta) dias após o vencimento. O Banco Itaú, em atendimento à "
+                "Normativa nº 2.119 da Receita Federal e à Circular nº 3.978 do Banco Central, não acatará o registro de boletos "
+                "bancários cujo CPF/CNPJ do pagador esteja em situação diferente de ATIVO/REGULAR. "
+                "<strong>Nossos boletos são emitidos exclusivamente pelo Banco Itaú S.A. ou pelo Banco Bradesco S.A. "
+                "Confira sempre o local de pagamento e verifique se o beneficiário consta como o próprio Condomínio ou a Prop Starter "
+                "no momento do pagamento.</strong><br><br>"
+                "Atenciosamente,"
             )
-            html = db.rpc("email_template", {"p_titulo": "2ª via do seu boleto", "p_mensagem": corpo, "p_link": ""}).execute().data
+            titulo = f"Boleto atualizado · {ref}" if ref else "Boleto atualizado"
+            html = db.rpc("email_template", {"p_titulo": titulo, "p_mensagem": corpo, "p_link": ""}).execute().data
             anexos = []
             if boleto_url:
                 try:
@@ -404,8 +412,9 @@ def api_emitir_segunda_via(sv_id: str, data: SegundaViaEmitir, user: dict = Depe
                 except Exception as e:
                     print(f"[segunda_via] download boleto: {e}")
             cc = [sv.get("criado_por_email")] if sv.get("criado_por_email") else []
+            assunto = f"Boleto atualizado - {ref}" if ref else f"Boleto atualizado — {cnome}"
             if isinstance(html, str) and html:
-                email_enviado = _enviar_email_smtp(dest, f"2ª via do boleto — {cnome}", html, cc=cc, anexos=anexos)
+                email_enviado = _enviar_email_smtp(dest, assunto, html, cc=cc, anexos=anexos)
             db.table("segundas_vias").update({"email_enviado": email_enviado}).eq("id", sv_id).execute()
         except Exception as e:
             print(f"[segunda_via] emitir/email: {e}")
