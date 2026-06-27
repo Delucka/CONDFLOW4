@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import { apiFetcher } from '@/lib/api';
+import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
@@ -186,9 +187,8 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       const path = a.arquivo_url || a.path;
       let url = a.url;
       if (!url && path) {
-        const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(path, 300);
-        if (error) throw error;
-        url = data.signedUrl;
+        url = await getArquivoUrlSeguro(path);
+        if (!url) throw new Error('Sem acesso ao arquivo.');
       }
       setCurrentFile({
         id: a.id,
@@ -269,14 +269,14 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     const nextDoc = docList[nextIndex];
     
     try {
-      const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(nextDoc.arquivo_url, 300);
-      if (error) throw error;
+      const nurl = await getArquivoUrlSeguro(nextDoc.arquivo_url);
+      if (!nurl) throw new Error('Sem acesso ao arquivo.');
 
       setCurrentFile({
         ...currentFile,
         id: nextDoc.id,
         nome: nextDoc.arquivo_nome,
-        url: data.signedUrl
+        url: nurl
       });
     } catch (e) {
       addToast('Erro ao carregar próximo arquivo', 'error');
@@ -373,9 +373,8 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           {arquivo.correcao_arquivo_url && (
             <button
               onClick={async () => {
-                const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arquivo.correcao_arquivo_url, 300);
-                if (error) return addToast('Erro ao abrir anexo', 'error');
-                window.open(data.signedUrl, '_blank');
+                const ok = await abrirArquivoSeguro(arquivo.correcao_arquivo_url);
+                if (!ok) addToast('Erro ao abrir anexo', 'error');
               }}
               className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 text-[10px] font-bold uppercase tracking-widest">
               <FileText className="w-3 h-3" />
@@ -405,9 +404,8 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           {arquivo.resposta_correcao_arquivo_url && (
             <button
               onClick={async () => {
-                const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arquivo.resposta_correcao_arquivo_url, 300);
-                if (error) return addToast('Erro ao abrir anexo', 'error');
-                window.open(data.signedUrl, '_blank');
+                const ok = await abrirArquivoSeguro(arquivo.resposta_correcao_arquivo_url);
+                if (!ok) addToast('Erro ao abrir anexo', 'error');
               }}
               className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 text-[10px] font-bold uppercase tracking-widest">
               <FileText className="w-3 h-3" />

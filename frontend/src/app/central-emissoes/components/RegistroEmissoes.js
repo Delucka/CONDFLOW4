@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth';
+import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { Archive, Search, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, FileText, AlertTriangle, Loader2, Building, Download, Trash2 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -160,13 +161,13 @@ export default function RegistroEmissoes({ profile }) {
   }
 
   async function openFileUrl(arq, pacote) {
-    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arq.arquivo_url, 300);
-    if (error || !data?.signedUrl) return addToast('Erro ao abrir arquivo', 'error');
+    const url = await getArquivoUrlSeguro(arq.arquivo_url);
+    if (!url) return addToast('Erro ao abrir arquivo', 'error');
     setShowArqModal(false);
     setArquivoAberto({
       id: arq.id,
       nome: arq.arquivo_nome,
-      url: data.signedUrl,
+      url: url,
       processo_id: pacote?.processo_id || null,
       pacote_id: pacote?.id || null,
       pacote_status: pacote?.status || null,
@@ -193,9 +194,9 @@ export default function RegistroEmissoes({ profile }) {
     try {
       const zip = new JSZip();
       for (const arq of (pacote.arquivos || [])) {
-        const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arq.arquivo_url, 300);
-        if (error || !data?.signedUrl) continue;
-        const resp = await fetch(data.signedUrl);
+        const url = await getArquivoUrlSeguro(arq.arquivo_url);
+        if (!url) continue;
+        const resp = await fetch(url);
         const blob = await resp.blob();
         zip.file(arq.arquivo_nome, blob);
       }

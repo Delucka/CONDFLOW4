@@ -24,6 +24,7 @@ const ETAPA_STYLE = {
 import { usePendingCount } from '@/lib/usePendingCount';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { createClient } from '@/utils/supabase/client';
+import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import StatusBadge from '@/components/StatusBadge';
 import Link from 'next/link';
 // Componentes de pacotes/registro (migrados da Central de Emissoes para Aprovacoes)
@@ -225,8 +226,7 @@ export default function AprovacoesPage() {
         } else {
           allFiles = [fileData];
         }
-        const { data: urlData } = await supabase.storage.from('emissoes').createSignedUrl(fileData.arquivo_url, 300);
-        signedUrl = urlData?.signedUrl;
+        signedUrl = await getArquivoUrlSeguro(fileData.arquivo_url);
       }
       setArquivoConferencia({
         id: fileData?.id || null,
@@ -255,10 +255,9 @@ export default function AprovacoesPage() {
   const abrirArquivoAudit = async (path) => {
     if (!path) return;
     try {
-      const { data } = await supabase.storage.from('emissoes').createSignedUrl(path, 300);
-      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
-      else addToast('Não consegui abrir o arquivo.', 'error');
-    } catch { addToast('Não consegui abrir o arquivo.', 'error'); }
+      const ok = await abrirArquivoSeguro(path);
+      if (!ok) addToast('Não consegui abrir o arquivo.', 'error');
+    } catch (e) { addToast(e?.message || 'Não consegui abrir o arquivo.', 'error'); }
   };
 
   const limparFiltros = () => { setSearch(''); setFiltroDate({ from: '', to: '' }); setFiltroEtapa(''); };

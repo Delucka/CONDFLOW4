@@ -9,6 +9,7 @@ import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { apiPost, apiFetch } from '@/lib/api';
+import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { ocrFileToText, parseFaturaOcr, decodeBoletoValor } from '@/lib/ocrClient';
 import ModalPreparacao from './ModalPreparacao';
 import { FileWarning } from 'lucide-react';
@@ -975,13 +976,13 @@ export default function VisaoEmissor({ profile }) {
   }
 
   async function openFileUrl(arq) {
-    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arq.arquivo_url, 300);
-    if (error) return addToast('Erro ao gerar link.', 'error');
-    if (data?.signedUrl) {
+    const url = await getArquivoUrlSeguro(arq.arquivo_url);
+    if (!url) return addToast('Erro ao gerar link.', 'error');
+    if (url) {
       setArquivoAberto({
         id: arq.id,
         nome: arq.arquivo_nome,
-        url: data.signedUrl,
+        url: url,
         processo_id: activePacote?.processo_id || null,
         pacote_id: activePacote?.id || null,
         pacote_status: activePacote?.status || null,
@@ -1458,9 +1459,8 @@ export default function VisaoEmissor({ profile }) {
               {activePacote.correcao_arquivo_url && (
                 <button
                   onClick={async () => {
-                    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(activePacote.correcao_arquivo_url, 300);
-                    if (error) return addToast('Erro ao abrir anexo', 'error');
-                    window.open(data.signedUrl, '_blank');
+                    const ok = await abrirArquivoSeguro(activePacote.correcao_arquivo_url);
+                    if (!ok) addToast('Erro ao abrir anexo', 'error');
                   }}
                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 text-[11px] font-bold">
                   📎 {activePacote.correcao_arquivo_nome || 'Ver anexo da correção'}

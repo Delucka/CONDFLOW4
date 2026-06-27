@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { createClient } from '@/utils/supabase/client';
 import { validarArquivo } from '@/lib/uploadGuard';
+import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import {
   Droplet, Building2, Plus, Upload, Loader2, X, FileText, Trash2,
   CheckCircle2, Clock, AlertTriangle, Copy, Pencil, Search, ExternalLink, RefreshCw,
@@ -236,9 +237,8 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
             {isEdicao && fatura?.arquivo_url && (
               <button type="button"
                 onClick={async () => {
-                  const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(fatura.arquivo_url, 300);
-                  if (error) return addToast('Erro ao abrir PDF', 'error');
-                  window.open(data.signedUrl, '_blank');
+                  const ok = await abrirArquivoSeguro(fatura.arquivo_url);
+                  if (!ok) addToast('Erro ao abrir PDF', 'error');
                 }}
                 className="mt-1 mb-2 w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/30 text-violet-700 text-xs font-bold hover:bg-violet-500/20 transition-colors">
                 <FileText className="w-4 h-4" /> Abrir PDF atual ({fatura.arquivo_nome || 'arquivo'})
@@ -572,9 +572,8 @@ export default function ConsumosPage() {
   }
   async function handleAbrir(fatura) {
     if (!fatura.arquivo_url) return;
-    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(fatura.arquivo_url, 300);
-    if (error) return addToast('Erro ao abrir arquivo', 'error');
-    window.open(data.signedUrl, '_blank');
+    const ok = await abrirArquivoSeguro(fatura.arquivo_url);
+    if (!ok) addToast('Erro ao abrir arquivo', 'error');
   }
   function handleSaved() {
     mutateFaturas?.();
@@ -1208,7 +1207,7 @@ function RelatorioUnidadesModal({ info, onClose, podeExcluir, onDeleted }) {
     if (!arquivo_url) return;
     setAbrindoPdf(true);
     try {
-      const url = previewUrl || (await supabase.storage.from('emissoes').createSignedUrl(arquivo_url, 300)).data?.signedUrl;
+      const url = previewUrl || (await getArquivoUrlSeguro(arquivo_url));
       if (!url) throw new Error('URL não gerada');
       window.open(url, '_blank', 'noopener');
     } catch (e) {
@@ -1221,8 +1220,8 @@ function RelatorioUnidadesModal({ info, onClose, podeExcluir, onDeleted }) {
     let alive = true;
     if (!arquivo_url) { setPreviewUrl(null); return; }
     (async () => {
-      const { data } = await supabase.storage.from('emissoes').createSignedUrl(arquivo_url, 600);
-      if (alive) setPreviewUrl(data?.signedUrl || null);
+      const url = await getArquivoUrlSeguro(arquivo_url);
+      if (alive) setPreviewUrl(url);
     })();
     return () => { alive = false; };
   }, [arquivo_url, supabase]);

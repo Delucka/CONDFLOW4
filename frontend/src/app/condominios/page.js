@@ -12,6 +12,7 @@ import { createClient } from '@/utils/supabase/client';
 
 // Modal pesado: carrega sob demanda (fora do bundle inicial da página).
 const VisualizadorConferencia = dynamic(() => import('@/components/VisualizadorConferencia'), { ssr: false });
+import { getArquivoUrlSeguro } from '@/lib/arquivo';
 
 export default function CondominiosPage() {
   const { user } = useAuth();
@@ -215,10 +216,7 @@ export default function CondominiosPage() {
           allFiles = [fileData];
         }
 
-        const { data: urlData } = await supabase.storage
-          .from('emissoes')
-          .createSignedUrl(fileData.arquivo_url, 300);
-        signedUrl = urlData?.signedUrl;
+        signedUrl = await getArquivoUrlSeguro(fileData.arquivo_url);
       }
 
       setArquivoConferencia({

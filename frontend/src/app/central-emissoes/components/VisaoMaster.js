@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { apiPost } from '@/lib/api';
+import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
@@ -486,13 +487,13 @@ export default function VisaoMaster() {
   };
 
   async function openFileUrl(arq, pacote) {
-    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(arq.arquivo_url, 300);
-    if (error) return addToast('Erro ao abrir arquivo.', 'error');
-    if (data?.signedUrl) {
+    const url = await getArquivoUrlSeguro(arq.arquivo_url);
+    if (!url) return addToast('Erro ao abrir arquivo.', 'error');
+    if (url) {
       setArquivoAberto({
         id: arq.id,
         nome: arq.arquivo_nome,
-        url: data.signedUrl,
+        url: url,
         processo_id: pacote.processo_id || null,
         pacote_id: pacote.id,
         pacote_status: pacote.status,

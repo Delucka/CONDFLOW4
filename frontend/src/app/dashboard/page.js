@@ -5,6 +5,7 @@ import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
   AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2,
@@ -209,8 +210,7 @@ export default function DashboardPage() {
         } else {
           allFiles = [fileData];
         }
-        const { data: urlData } = await supabase.storage.from('emissoes').createSignedUrl(fileData.arquivo_url, 300);
-        signedUrl = urlData?.signedUrl;
+        signedUrl = await getArquivoUrlSeguro(fileData.arquivo_url);
       }
       setArquivoConferencia({
         id: fileData?.id || null,

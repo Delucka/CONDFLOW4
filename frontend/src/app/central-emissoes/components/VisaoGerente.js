@@ -8,6 +8,7 @@ import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
+import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 
 export default function VisaoGerente({ profile }) {
   const supabase = createClient();
@@ -169,13 +170,13 @@ export default function VisaoGerente({ profile }) {
   }
 
   async function openFileUrl(doc, pacote) {
-    const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(doc.arquivo_url, 300);
-    if (error) return addToast('Erro ao gerar link.', 'error');
-    if (data?.signedUrl) {
+    const url = await getArquivoUrlSeguro(doc.arquivo_url);
+    if (!url) return addToast('Erro ao gerar link.', 'error');
+    if (url) {
       setArquivoAberto({
         id: doc.id,
         nome: doc.arquivo_nome,
-        url: data.signedUrl,
+        url: url,
         processo_id: pacote.processo_id || null,
         pacote_id: pacote.id,
         pacote_status: pacote.status,
@@ -391,9 +392,8 @@ export default function VisaoGerente({ profile }) {
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
-                          const { data, error } = await supabase.storage.from('emissoes').createSignedUrl(pacote.correcao_arquivo_url, 300);
-                          if (error) return addToast('Erro ao abrir anexo', 'error');
-                          window.open(data.signedUrl, '_blank');
+                          const ok = await abrirArquivoSeguro(pacote.correcao_arquivo_url);
+                          if (!ok) addToast('Erro ao abrir anexo', 'error');
                         }}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-[11px] font-bold">
                         📎 {pacote.correcao_arquivo_nome || 'Ver anexo da correção'}
