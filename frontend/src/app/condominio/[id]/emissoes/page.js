@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { 
+import { getArquivoUrlSeguro } from '@/lib/arquivo';
+import {
   FileText, Download, Trash2, Calendar, FileUp, 
   Building2, PlusCircle, ShieldAlert, Loader2
 } from 'lucide-react';
@@ -131,12 +132,12 @@ export default function CondominioEmissoesPage() {
 
   const handleDownload = async (emissao) => {
       try {
-          const { data, error } = await supabase.storage
-            .from('emissoes')
-            .download(emissao.storage_path);
-          
-          if (error) throw error;
-          
+          const link = await getArquivoUrlSeguro(emissao.storage_path);
+          if (!link) throw new Error('Sem acesso ao arquivo.');
+          const resp = await fetch(link);
+          if (!resp.ok) throw new Error('Falha ao baixar.');
+          const data = await resp.blob();
+
           const url = URL.createObjectURL(data);
           const a = document.createElement('a');
           a.href = url;

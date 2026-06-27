@@ -466,7 +466,7 @@ def _arquivo_condo_id(db, path: str):
     """Resolve o condomínio dono do arquivo pelos registros do banco (p/ checar permissão)."""
     for tbl, col in [("emissoes_arquivos", "arquivo_url"), ("segundas_vias", "boleto_url"),
                      ("segundas_vias", "anexo_url"), ("consumos_faturas", "arquivo_url"),
-                     ("consumos_relatorios_leitura", "arquivo_url")]:
+                     ("consumos_relatorios_leitura", "arquivo_url"), ("emissoes", "storage_path")]:
         try:
             r = db.table(tbl).select("condominio_id").eq(col, path).limit(1).execute().data
             if r:
