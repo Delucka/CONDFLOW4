@@ -588,8 +588,53 @@ def api_integracao_boleto(data: IntegracaoBoletoSchema, request: Request,
 
 
 # ─── Chatbot guiado de 2ª via (o "cérebro" mora aqui; o n8n é só o cano do WhatsApp) ───
+def _norm_cpf(s):
+    return "".join(ch for ch in (s or "") if ch.isdigit())
+
+def _mascara_email(e):
+    try:
+        u, d = e.split("@", 1)
+        um = (u[:2] + "***") if len(u) > 2 else (u[0] + "***")
+        return f"{um}@{d}"
+    except Exception:
+        return "***"
+
+def _cond_unidade_rows(db, condominio_id, unidade, bloco):
+    """Linhas do cadastro de condôminos da unidade (filtra bloco se informado)."""
+    try:
+        rows = db.table("condominos").select("*").eq("condominio_id", condominio_id) \
+            .ilike("unidade", (unidade or "").strip()).eq("ativo", True).execute().data or []
+    except Exception as e:
+        print(f"[cond_unidade] {e}")
+        return []
+    bl = (bloco or "").strip().upper()
+    if bl:
+        rows = [r for r in rows if (r.get("bloco") or "").strip().upper() == bl]
+    return rows
+
+def _verificar_condomino(db, condominio_id, unidade, bloco, cpf):
+    """CPF é o responsável pelo pagamento da unidade? Retorna o registro ou None."""
+    cpfd = _norm_cpf(cpf)
+    if not (cpfd and condominio_id and unidade):
+        return None
+    for r in _cond_unidade_rows(db, condominio_id, unidade, bloco):
+        if _norm_cpf(r.get("cpf")) == cpfd and r.get("responsavel_pagamento"):
+            return r
+    return None
+
+def _contatos_unidade(db, condominio_id, unidade, bloco):
+    """E-mails cadastrados da unidade (p/ escolher o destino), sem duplicar."""
+    out, seen = [], set()
+    for r in _cond_unidade_rows(db, condominio_id, unidade, bloco):
+        email = (r.get("email") or "").strip()
+        if email and email.lower() not in seen:
+            seen.add(email.lower())
+            out.append({"nome": r.get("nome"), "tipo": r.get("tipo"), "email": email})
+    return out
+
+
 def _wa_step(db, msg, nome, etapa, dados):
-    """Máquina de estados do fluxo guiado. Retorna (reply, nova_etapa, dados, done)."""
+    """Máquina de estados do fluxo guiado (com verificação por CPF). Retorna (reply, etapa, dados, done)."""
     import re
     low = (msg or "").lower().strip()
 
@@ -612,6 +657,38 @@ def _wa_step(db, msg, nome, etapa, dados):
 
     if etapa == "bloco":
         dados["bloco"] = None if low in ("não", "nao", "n", "sem", "-") else msg
+        return ("Por segurança, preciso confirmar quem você é. Qual o seu *CPF*? (só os números)", "cpf", dados, False)
+
+    if etapa == "cpf":
+        cond = _verificar_condomino(db, dados.get("condominio_id"), dados.get("unidade"), dados.get("bloco"), msg)
+        if not cond:
+            return ("❌ Não consegui confirmar: esse CPF não consta como *responsável pelo pagamento* dessa unidade.\n\n"
+                    "Se você é o responsável, fale com a administração para atualizar seu cadastro. (Responda *menu* pra recomeçar.)",
+                    "cpf", dados, False)
+        dados["cpf"] = _norm_cpf(msg)
+        dados["condomino_nome"] = cond.get("nome")
+        contatos = _contatos_unidade(db, dados.get("condominio_id"), dados.get("unidade"), dados.get("bloco"))
+        dados["contatos"] = contatos
+        nm = cond.get("nome") or ""
+        if len(contatos) == 0:
+            dados["email_destinatario"] = None
+            return (f"✅ Identidade confirmada{(', ' + nm) if nm else ''}. Mas não há *e-mail cadastrado* nessa unidade — "
+                    "vou registrar o pedido e a administração entra em contato pra enviar com segurança.\n\n"
+                    "De qual *mês/ano* é o boleto? (ex.: 06/2026)", "ref", dados, False)
+        if len(contatos) == 1:
+            dados["email_destinatario"] = contatos[0]["email"]
+            return (f"✅ Confirmado{(', ' + nm) if nm else ''}. Vou enviar pro e-mail cadastrado: *{_mascara_email(contatos[0]['email'])}*.\n\n"
+                    "De qual *mês/ano* é o boleto? (ex.: 06/2026)", "ref", dados, False)
+        linhas = "\n".join(f"*{i+1})* {_mascara_email(c['email'])}  ({c.get('tipo') or 'contato'})" for i, c in enumerate(contatos))
+        return (f"✅ Confirmado{(', ' + nm) if nm else ''}.\n\nPra qual e-mail *cadastrado* enviamos?\n{linhas}\n\nResponda o número.",
+                "escolher_email", dados, False)
+
+    if etapa == "escolher_email":
+        contatos = dados.get("contatos") or []
+        m = re.match(r"^\s*(\d+)\s*$", msg)
+        if not m or not (1 <= int(m.group(1)) <= len(contatos)):
+            return (f"Responda o *número* do e-mail (1 a {len(contatos)}).", "escolher_email", dados, False)
+        dados["email_destinatario"] = contatos[int(m.group(1)) - 1]["email"]
         return ("De qual *mês/ano* é o boleto? (ex.: 06/2026)", "ref", dados, False)
 
     if etapa == "ref":
@@ -632,22 +709,17 @@ def _wa_step(db, msg, nome, etapa, dados):
             return ("Responda *1* (com multa), *2* (sem multa) ou *3* (Quinto Andar).", "modalidade", dados, False)
         dados["modalidade"] = mod
         extra = "\n\n⚠️ *Sem multa* precisa de autorização do síndico — nossa equipe vai confirmar." if mod == "sem_multa" else ""
-        return (f"Pra qual *e-mail* enviamos o boleto?{extra}", "email", dados, False)
-
-    if etapa == "email":
-        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", msg):
-            return ("Esse e-mail não parece válido. Manda de novo, por favor.", "email", dados, False)
-        dados["email_destinatario"] = msg
-        return ("Alguma *observação*? (vencimento desejado etc.) — ou responda *não*.", "obs", dados, False)
+        return (f"Alguma *observação*? (vencimento desejado etc.) — ou responda *não*.{extra}", "obs", dados, False)
 
     if etapa == "obs":
         dados["observacoes"] = None if low in ("não", "nao", "n", "-") else msg
+        dest = dados.get("email_destinatario")
         resumo = ("Confere? 👇\n\n"
                   f"*Condomínio:* {dados.get('condominio_nome')}\n"
                   f"*Unidade:* {dados.get('unidade')}" + (f"   *Bloco:* {dados['bloco']}" if dados.get('bloco') else "") + "\n"
                   f"*Referência:* {int(dados['ref_mes']):02d}/{dados['ref_ano']}\n"
                   f"*Modalidade:* {_MODALIDADE_LABEL.get(dados.get('modalidade'), '')}\n"
-                  f"*E-mail:* {dados.get('email_destinatario')}\n"
+                  f"*E-mail:* {(_mascara_email(dest) if dest else 'a definir pela administração')}\n"
                   + (f"*Obs:* {dados['observacoes']}\n" if dados.get('observacoes') else "")
                   + "\nResponda *sim* pra confirmar ou *não* pra recomeçar.")
         return (resumo, "confirma", dados, False)
@@ -659,11 +731,12 @@ def _wa_step(db, msg, nome, etapa, dados):
             if dados.get("modalidade") == "quinto_andar":
                 import datetime
                 venc = (datetime.date.today() + datetime.timedelta(days=5)).isoformat()
+            solic = f"{nome or ''} (CPF {dados.get('cpf', '')[-4:].rjust(4, '*')})".strip()
             sv = _criar_sv_integracao(db, condo, dados.get("unidade"), dados.get("bloco"),
                                       dados.get("ref_mes"), dados.get("ref_ano"), dados.get("modalidade"),
-                                      venc, dados.get("email_destinatario"), dados.get("observacoes"), nome or "WhatsApp")
+                                      venc, dados.get("email_destinatario"), dados.get("observacoes"), solic)
             proto = (sv.get("id") or "")[:8]
-            return (f"✅ Pedido registrado! Protocolo *#{proto}*.\nNossa equipe vai emitir o boleto e enviar pro e-mail informado. Obrigado! 🐧",
+            return (f"✅ Pedido registrado! Protocolo *#{proto}*.\nNossa equipe vai emitir o boleto e enviar pro e-mail cadastrado. Obrigado! 🐧",
                     "feito", {}, True)
         if low in ("não", "nao", "n", "cancelar"):
             return ("Sem problema — vamos recomeçar.\n\nQual o *condomínio*? (código ou nome)", "condominio", {}, False)
