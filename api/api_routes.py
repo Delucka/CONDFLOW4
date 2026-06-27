@@ -321,6 +321,7 @@ def api_criar_segunda_via(data: SegundaViaCreate, user: dict = Depends(get_curre
         "modalidade": data.modalidade,
         "email_destinatario": (data.email_destinatario or "").strip() or None,
         "observacoes": data.observacoes, "anexo_url": data.anexo_url, "anexo_nome": data.anexo_nome,
+        "origem": "site",
         "criado_por": user["id"], "criado_por_nome": user.get("full_name"), "criado_por_email": user.get("email"),
     }).execute().data
     sv = ins[0] if ins else {}
@@ -356,30 +357,25 @@ def api_listar_segundas_vias(status: str = None, user: dict = Depends(get_curren
     return {"solicitacoes": rows}
 
 
-class SegundaViaEmitir(BaseModel):
-    boleto_url: Optional[str] = None
-    boleto_nome: Optional[str] = None
-    enviar_email: bool = True
-
-@router.post("/segundas-vias/{sv_id}/emitir")
-def api_emitir_segunda_via(sv_id: str, data: SegundaViaEmitir, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
-    if user["role"] not in ROLES_SEGVIA_ATENDE:
-        raise HTTPException(403, "Apenas o time de 2ª via pode emitir.")
-    sv = db.table("segundas_vias").select("*, condominios(name)").eq("id", sv_id).maybe_single().execute().data
-    if not sv:
-        raise HTTPException(404, "Solicitação não encontrada.")
-
+def _emitir_segunda_via(db, sv, boleto_url=None, boleto_nome=None, enviar_email=True, atendido_por=None):
+    """Marca a 2ª via como emitida, anexa o boleto e (se enviar_email) dispara o e-mail
+    padrão do boleto + CC do solicitante. Retorna email_enviado. Reutilizado pelo endpoint
+    manual e pela integração (n8n/Ahreas)."""
     import datetime
-    boleto_url = data.boleto_url or sv.get("boleto_url")
-    boleto_nome = data.boleto_nome or sv.get("boleto_nome")
-    db.table("segundas_vias").update({
+    sv_id = sv["id"]
+    boleto_url = boleto_url or sv.get("boleto_url")
+    boleto_nome = boleto_nome or sv.get("boleto_nome")
+    upd = {
         "status": "emitido", "boleto_url": boleto_url, "boleto_nome": boleto_nome,
-        "atendido_por": user["id"], "atendido_em": datetime.datetime.utcnow().isoformat(),
-    }).eq("id", sv_id).execute()
+        "atendido_em": datetime.datetime.utcnow().isoformat(),
+    }
+    if atendido_por:
+        upd["atendido_por"] = atendido_por
+    db.table("segundas_vias").update(upd).eq("id", sv_id).execute()
 
     email_enviado = False
     dest = (sv.get("email_destinatario") or "").strip()
-    if data.enviar_email and dest:
+    if enviar_email and dest:
         try:
             cnome = (sv.get("condominios") or {}).get("name") or "seu condomínio"
             ref = f"{int(sv['ref_mes']):02d}/{sv['ref_ano']}" if (sv.get("ref_mes") and sv.get("ref_ano")) else ""
@@ -427,7 +423,22 @@ def api_emitir_segunda_via(sv_id: str, data: SegundaViaEmitir, user: dict = Depe
             db.table("segundas_vias").update({"email_enviado": email_enviado}).eq("id", sv_id).execute()
         except Exception as e:
             print(f"[segunda_via] emitir/email: {e}")
+    return email_enviado
 
+
+class SegundaViaEmitir(BaseModel):
+    boleto_url: Optional[str] = None
+    boleto_nome: Optional[str] = None
+    enviar_email: bool = True
+
+@router.post("/segundas-vias/{sv_id}/emitir")
+def api_emitir_segunda_via(sv_id: str, data: SegundaViaEmitir, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    if user["role"] not in ROLES_SEGVIA_ATENDE:
+        raise HTTPException(403, "Apenas o time de 2ª via pode emitir.")
+    sv = db.table("segundas_vias").select("*, condominios(name)").eq("id", sv_id).maybe_single().execute().data
+    if not sv:
+        raise HTTPException(404, "Solicitação não encontrada.")
+    email_enviado = _emitir_segunda_via(db, sv, data.boleto_url, data.boleto_nome, data.enviar_email, atendido_por=user["id"])
     return {"ok": True, "email_enviado": email_enviado}
 
 
@@ -440,6 +451,133 @@ def api_cancelar_segunda_via(sv_id: str, user: dict = Depends(get_current_user),
         raise HTTPException(403, "Sem permissão.")
     db.table("segundas_vias").update({"status": "cancelado"}).eq("id", sv_id).execute()
     return {"ok": True}
+
+
+# ═══ Integração externa (n8n / WhatsApp / Ahreas) — protegida por API-key ═══════════
+def require_api_key(request: Request):
+    """Auth de máquina: header x-api-key == env INTEGRACAO_API_KEY. (espelha o email-hook)"""
+    import os
+    key = os.getenv("INTEGRACAO_API_KEY")
+    if not key or request.headers.get("x-api-key") != key:
+        raise HTTPException(401, "API key inválida.")
+    return True
+
+def _resolve_condominio(db, termo):
+    """Acha o condomínio por código (prefixo do name, ex '403') ou por nome (ilike)."""
+    t = (termo or "").strip()
+    if not t:
+        return None
+    digs = "".join(ch for ch in t if ch.isdigit())
+    if digs:
+        for cand in {digs, digs.lstrip("0"), digs.zfill(3), digs.zfill(4)}:
+            for padrao in (f"{cand} -%", f"{cand} %", f"{cand}-%"):
+                r = db.table("condominios").select("id, name").ilike("name", padrao).limit(1).execute().data
+                if r:
+                    return r[0]
+    r = db.table("condominios").select("id, name").ilike("name", f"%{t}%").limit(1).execute().data
+    return r[0] if r else None
+
+class IntegracaoSegundaViaSchema(BaseModel):
+    condominio: str                      # código (ex '403') ou nome
+    unidade: str
+    bloco: Optional[str] = None
+    ref_mes: Optional[int] = None
+    ref_ano: Optional[int] = None
+    modalidade: str = "com_multa"
+    email_destinatario: Optional[str] = None
+    observacoes: Optional[str] = None
+    solicitante: Optional[str] = None    # quem pediu (WhatsApp)
+    vencimento: Optional[str] = None
+    ahreas_ref: Optional[str] = None
+
+@router.post("/integracao/segundas-vias")
+def api_integracao_criar_segunda_via(data: IntegracaoSegundaViaSchema, request: Request,
+                                     _: bool = Depends(require_api_key), db: Client = Depends(get_db)):
+    """n8n cria um pedido de 2ª via (vindo do WhatsApp). Cai na fila como pendente."""
+    condo = _resolve_condominio(db, data.condominio)
+    if not condo:
+        raise HTTPException(404, f"Condomínio não encontrado: {data.condominio}")
+    if data.modalidade not in ("com_multa", "sem_multa", "quinto_andar"):
+        raise HTTPException(400, "Modalidade inválida.")
+    if not (data.unidade and data.unidade.strip()):
+        raise HTTPException(400, "Informe a unidade.")
+    venc = data.vencimento
+    if data.modalidade == "quinto_andar":
+        import datetime
+        minv = (datetime.date.today() + datetime.timedelta(days=5)).isoformat()
+        if not venc or venc < minv:
+            venc = minv
+    # CC: e-mail do gerente do condomínio (se houver) — o solicitante do WhatsApp não tem login
+    cc_email = None
+    try:
+        gid = (condo.get("id") and (db.table("condominios").select("gerente_id").eq("id", condo["id"]).maybe_single().execute().data or {}).get("gerente_id"))
+        if gid:
+            g = db.table("gerentes").select("profile_id").eq("id", gid).maybe_single().execute().data
+            if g and g.get("profile_id"):
+                p = db.table("profiles").select("email").eq("id", g["profile_id"]).maybe_single().execute().data
+                cc_email = (p or {}).get("email")
+    except Exception:
+        pass
+    ins = db.table("segundas_vias").insert({
+        "condominio_id": condo["id"], "unidade": data.unidade.strip(),
+        "bloco": (data.bloco or "").strip() or None,
+        "ref_mes": data.ref_mes, "ref_ano": data.ref_ano, "vencimento": venc,
+        "modalidade": data.modalidade,
+        "email_destinatario": (data.email_destinatario or "").strip() or None,
+        "observacoes": data.observacoes, "origem": "whatsapp",
+        "ahreas_ref": (data.ahreas_ref or "").strip() or None,
+        "criado_por_nome": (data.solicitante or "WhatsApp"), "criado_por_email": cc_email,
+    }).execute().data
+    sv = ins[0] if ins else {}
+    try:
+        cnome = condo.get("name") or "Condomínio"
+        for p in (db.table("profiles").select("id").in_("role", list(ROLES_SEGVIA_ATENDE)).execute().data or []):
+            db.table("notificacoes").insert({
+                "user_id": p["id"], "tipo": "segunda_via",
+                "titulo": "Nova 2ª via (WhatsApp)",
+                "mensagem": f"{cnome} · unidade {data.unidade} · {_MODALIDADE_LABEL.get(data.modalidade, data.modalidade)}.",
+                "link": "/carteiras/segundas-vias",
+            }).execute()
+    except Exception as e:
+        print(f"[integracao segunda_via] notif: {e}")
+    return {"ok": True, "id": sv.get("id"), "condominio": condo.get("name")}
+
+class IntegracaoBoletoSchema(BaseModel):
+    id: Optional[str] = None             # id do pedido na nossa fila
+    ahreas_ref: Optional[str] = None     # ou casa pelo ref do Ahreas
+    boleto_url: Optional[str] = None     # caminho já no bucket
+    boleto_base64: Optional[str] = None  # ou o PDF em base64
+    boleto_nome: Optional[str] = None
+
+@router.post("/integracao/segundas-vias/boleto")
+def api_integracao_boleto(data: IntegracaoBoletoSchema, request: Request,
+                          _: bool = Depends(require_api_key), db: Client = Depends(get_db)):
+    """Boleto pronto (do Ahreas, via n8n): anexa ao pedido e ENVIA o e-mail automaticamente."""
+    sv = None
+    if data.id:
+        sv = db.table("segundas_vias").select("*, condominios(name)").eq("id", data.id).maybe_single().execute().data
+    elif data.ahreas_ref:
+        r = db.table("segundas_vias").select("*, condominios(name)").eq("ahreas_ref", data.ahreas_ref).limit(1).execute().data
+        sv = r[0] if r else None
+    if not sv:
+        raise HTTPException(404, "Pedido de 2ª via não encontrado (use id ou ahreas_ref).")
+
+    boleto_url = data.boleto_url
+    boleto_nome = data.boleto_nome or "boleto.pdf"
+    if data.boleto_base64:
+        import base64, time as _t
+        try:
+            pdf = base64.b64decode(data.boleto_base64)
+            path = f"segundas-vias/boletos/{sv['condominio_id']}/{int(_t.time())}_{boleto_nome}"
+            db.storage.from_("emissoes").upload(path, pdf, {"content-type": "application/pdf"})
+            boleto_url = path
+        except Exception as e:
+            raise HTTPException(400, f"Falha ao gravar o boleto: {e}")
+    if not boleto_url:
+        raise HTTPException(400, "Envie boleto_base64 ou boleto_url.")
+
+    email_enviado = _emitir_segunda_via(db, sv, boleto_url=boleto_url, boleto_nome=boleto_nome, enviar_email=True)
+    return {"ok": True, "id": sv["id"], "email_enviado": email_enviado}
 
 
 # ═══ Acesso seguro a arquivos (via nosso backend; esconde o Supabase + trava por arquivo) ══
