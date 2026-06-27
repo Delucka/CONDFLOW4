@@ -477,6 +477,43 @@ def _resolve_condominio(db, termo):
     r = db.table("condominios").select("id, name").ilike("name", f"%{t}%").limit(1).execute().data
     return r[0] if r else None
 
+def _criar_sv_integracao(db, condo, unidade, bloco, ref_mes, ref_ano, modalidade, venc, email, obs, solicitante, ahreas_ref=None):
+    """Insere o pedido de 2ª via (origem externa) + notifica o time. Retorna a linha."""
+    cc_email = None
+    try:
+        gid = (db.table("condominios").select("gerente_id").eq("id", condo["id"]).maybe_single().execute().data or {}).get("gerente_id")
+        if gid:
+            g = db.table("gerentes").select("profile_id").eq("id", gid).maybe_single().execute().data
+            if g and g.get("profile_id"):
+                p = db.table("profiles").select("email").eq("id", g["profile_id"]).maybe_single().execute().data
+                cc_email = (p or {}).get("email")
+    except Exception:
+        pass
+    ins = db.table("segundas_vias").insert({
+        "condominio_id": condo["id"], "unidade": (unidade or "").strip(),
+        "bloco": (bloco or "").strip() or None,
+        "ref_mes": ref_mes, "ref_ano": ref_ano, "vencimento": venc,
+        "modalidade": modalidade,
+        "email_destinatario": (email or "").strip() or None,
+        "observacoes": obs, "origem": "whatsapp",
+        "ahreas_ref": (ahreas_ref or "").strip() or None,
+        "criado_por_nome": (solicitante or "WhatsApp"), "criado_por_email": cc_email,
+    }).execute().data
+    sv = ins[0] if ins else {}
+    try:
+        cnome = condo.get("name") or "Condomínio"
+        for p in (db.table("profiles").select("id").in_("role", list(ROLES_SEGVIA_ATENDE)).execute().data or []):
+            db.table("notificacoes").insert({
+                "user_id": p["id"], "tipo": "segunda_via",
+                "titulo": "Nova 2ª via (WhatsApp)",
+                "mensagem": f"{cnome} · unidade {unidade} · {_MODALIDADE_LABEL.get(modalidade, modalidade)}.",
+                "link": "/carteiras/segundas-vias",
+            }).execute()
+    except Exception as e:
+        print(f"[integracao sv] notif: {e}")
+    return sv
+
+
 class IntegracaoSegundaViaSchema(BaseModel):
     condominio: str                      # código (ex '403') ou nome
     unidade: str
@@ -507,39 +544,9 @@ def api_integracao_criar_segunda_via(data: IntegracaoSegundaViaSchema, request: 
         minv = (datetime.date.today() + datetime.timedelta(days=5)).isoformat()
         if not venc or venc < minv:
             venc = minv
-    # CC: e-mail do gerente do condomínio (se houver) — o solicitante do WhatsApp não tem login
-    cc_email = None
-    try:
-        gid = (condo.get("id") and (db.table("condominios").select("gerente_id").eq("id", condo["id"]).maybe_single().execute().data or {}).get("gerente_id"))
-        if gid:
-            g = db.table("gerentes").select("profile_id").eq("id", gid).maybe_single().execute().data
-            if g and g.get("profile_id"):
-                p = db.table("profiles").select("email").eq("id", g["profile_id"]).maybe_single().execute().data
-                cc_email = (p or {}).get("email")
-    except Exception:
-        pass
-    ins = db.table("segundas_vias").insert({
-        "condominio_id": condo["id"], "unidade": data.unidade.strip(),
-        "bloco": (data.bloco or "").strip() or None,
-        "ref_mes": data.ref_mes, "ref_ano": data.ref_ano, "vencimento": venc,
-        "modalidade": data.modalidade,
-        "email_destinatario": (data.email_destinatario or "").strip() or None,
-        "observacoes": data.observacoes, "origem": "whatsapp",
-        "ahreas_ref": (data.ahreas_ref or "").strip() or None,
-        "criado_por_nome": (data.solicitante or "WhatsApp"), "criado_por_email": cc_email,
-    }).execute().data
-    sv = ins[0] if ins else {}
-    try:
-        cnome = condo.get("name") or "Condomínio"
-        for p in (db.table("profiles").select("id").in_("role", list(ROLES_SEGVIA_ATENDE)).execute().data or []):
-            db.table("notificacoes").insert({
-                "user_id": p["id"], "tipo": "segunda_via",
-                "titulo": "Nova 2ª via (WhatsApp)",
-                "mensagem": f"{cnome} · unidade {data.unidade} · {_MODALIDADE_LABEL.get(data.modalidade, data.modalidade)}.",
-                "link": "/carteiras/segundas-vias",
-            }).execute()
-    except Exception as e:
-        print(f"[integracao segunda_via] notif: {e}")
+    sv = _criar_sv_integracao(db, condo, data.unidade, data.bloco, data.ref_mes, data.ref_ano,
+                              data.modalidade, venc, data.email_destinatario, data.observacoes,
+                              data.solicitante, data.ahreas_ref)
     return {"ok": True, "id": sv.get("id"), "condominio": condo.get("name")}
 
 class IntegracaoBoletoSchema(BaseModel):
@@ -578,6 +585,119 @@ def api_integracao_boleto(data: IntegracaoBoletoSchema, request: Request,
 
     email_enviado = _emitir_segunda_via(db, sv, boleto_url=boleto_url, boleto_nome=boleto_nome, enviar_email=True)
     return {"ok": True, "id": sv["id"], "email_enviado": email_enviado}
+
+
+# ─── Chatbot guiado de 2ª via (o "cérebro" mora aqui; o n8n é só o cano do WhatsApp) ───
+def _wa_step(db, msg, nome, etapa, dados):
+    """Máquina de estados do fluxo guiado. Retorna (reply, nova_etapa, dados, done)."""
+    import re
+    low = (msg or "").lower().strip()
+
+    if etapa == "inicio":
+        return ("Olá! 🐧 Sou o assistente da *Prop Starter*. Vou te ajudar a solicitar a *2ª via de um boleto*.\n\n"
+                "Qual o *condomínio*? (código ou nome — ex.: 403 ou ITAPOLIS)", "condominio", dados, False)
+
+    if etapa == "condominio":
+        condo = _resolve_condominio(db, msg)
+        if not condo:
+            return ("Não encontrei esse condomínio 🤔. Manda de novo o *código* (ex.: 403) ou o nome.", "condominio", dados, False)
+        dados["condominio_id"] = condo["id"]; dados["condominio_nome"] = condo.get("name")
+        return (f"✅ {condo.get('name')}.\n\nQual a *unidade/apartamento*? (ex.: 71)", "unidade", dados, False)
+
+    if etapa == "unidade":
+        if not msg:
+            return ("Me diz a *unidade* (ex.: 71).", "unidade", dados, False)
+        dados["unidade"] = msg
+        return ("Tem *bloco*? Qual? (ex.: A) — se não tiver, responda *não*.", "bloco", dados, False)
+
+    if etapa == "bloco":
+        dados["bloco"] = None if low in ("não", "nao", "n", "sem", "-") else msg
+        return ("De qual *mês/ano* é o boleto? (ex.: 06/2026)", "ref", dados, False)
+
+    if etapa == "ref":
+        m = re.match(r"^\s*(\d{1,2})\s*[/\-.]\s*(\d{2,4})\s*$", msg)
+        if not m:
+            return ("Formato inválido. Manda como *MM/AAAA* (ex.: 06/2026).", "ref", dados, False)
+        mes = int(m.group(1)); ano = int(m.group(2)); ano = ano + 2000 if ano < 100 else ano
+        if mes < 1 or mes > 12:
+            return ("Mês inválido. Ex.: 06/2026.", "ref", dados, False)
+        dados["ref_mes"] = mes; dados["ref_ano"] = ano
+        return ("O boleto é:\n*1)* Com multa\n*2)* Sem multa\n*3)* Quinto Andar\n\nResponda 1, 2 ou 3.", "modalidade", dados, False)
+
+    if etapa == "modalidade":
+        mp = {"1": "com_multa", "2": "sem_multa", "3": "quinto_andar",
+              "com multa": "com_multa", "sem multa": "sem_multa", "quinto andar": "quinto_andar"}
+        mod = mp.get(low)
+        if not mod:
+            return ("Responda *1* (com multa), *2* (sem multa) ou *3* (Quinto Andar).", "modalidade", dados, False)
+        dados["modalidade"] = mod
+        extra = "\n\n⚠️ *Sem multa* precisa de autorização do síndico — nossa equipe vai confirmar." if mod == "sem_multa" else ""
+        return (f"Pra qual *e-mail* enviamos o boleto?{extra}", "email", dados, False)
+
+    if etapa == "email":
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", msg):
+            return ("Esse e-mail não parece válido. Manda de novo, por favor.", "email", dados, False)
+        dados["email_destinatario"] = msg
+        return ("Alguma *observação*? (vencimento desejado etc.) — ou responda *não*.", "obs", dados, False)
+
+    if etapa == "obs":
+        dados["observacoes"] = None if low in ("não", "nao", "n", "-") else msg
+        resumo = ("Confere? 👇\n\n"
+                  f"*Condomínio:* {dados.get('condominio_nome')}\n"
+                  f"*Unidade:* {dados.get('unidade')}" + (f"   *Bloco:* {dados['bloco']}" if dados.get('bloco') else "") + "\n"
+                  f"*Referência:* {int(dados['ref_mes']):02d}/{dados['ref_ano']}\n"
+                  f"*Modalidade:* {_MODALIDADE_LABEL.get(dados.get('modalidade'), '')}\n"
+                  f"*E-mail:* {dados.get('email_destinatario')}\n"
+                  + (f"*Obs:* {dados['observacoes']}\n" if dados.get('observacoes') else "")
+                  + "\nResponda *sim* pra confirmar ou *não* pra recomeçar.")
+        return (resumo, "confirma", dados, False)
+
+    if etapa == "confirma":
+        if low in ("sim", "s", "confirmar", "ok", "isso", "pode"):
+            condo = {"id": dados.get("condominio_id"), "name": dados.get("condominio_nome")}
+            venc = None
+            if dados.get("modalidade") == "quinto_andar":
+                import datetime
+                venc = (datetime.date.today() + datetime.timedelta(days=5)).isoformat()
+            sv = _criar_sv_integracao(db, condo, dados.get("unidade"), dados.get("bloco"),
+                                      dados.get("ref_mes"), dados.get("ref_ano"), dados.get("modalidade"),
+                                      venc, dados.get("email_destinatario"), dados.get("observacoes"), nome or "WhatsApp")
+            proto = (sv.get("id") or "")[:8]
+            return (f"✅ Pedido registrado! Protocolo *#{proto}*.\nNossa equipe vai emitir o boleto e enviar pro e-mail informado. Obrigado! 🐧",
+                    "feito", {}, True)
+        if low in ("não", "nao", "n", "cancelar"):
+            return ("Sem problema — vamos recomeçar.\n\nQual o *condomínio*? (código ou nome)", "condominio", {}, False)
+        return ("Responda *sim* pra confirmar ou *não* pra recomeçar.", "confirma", dados, False)
+
+    return ("Vamos começar. Qual o *condomínio*? (código ou nome)", "condominio", {}, False)
+
+class WaMsgSchema(BaseModel):
+    phone: str
+    nome: Optional[str] = None
+    mensagem: str
+
+@router.post("/integracao/wa")
+def api_integracao_wa(data: WaMsgSchema, request: Request, _: bool = Depends(require_api_key), db: Client = Depends(get_db)):
+    """Recebe uma mensagem do WhatsApp (via n8n), avança o fluxo guiado e devolve a resposta."""
+    import datetime
+    phone = (data.phone or "").strip()
+    if not phone:
+        raise HTTPException(400, "phone obrigatório")
+    msg = (data.mensagem or "").strip()
+    conv = db.table("wa_conversas").select("*").eq("phone", phone).maybe_single().execute().data
+    etapa = (conv or {}).get("etapa") or "inicio"
+    dados = (conv or {}).get("dados") or {}
+    if msg.lower() in ("cancelar", "menu", "recomecar", "recomeçar", "sair", "oi", "olá", "ola", "inicio", "início"):
+        etapa, dados = "inicio", {}
+    reply, etapa, dados, done = _wa_step(db, msg, data.nome, etapa, dados)
+    if done:
+        db.table("wa_conversas").delete().eq("phone", phone).execute()
+    else:
+        db.table("wa_conversas").upsert({
+            "phone": phone, "etapa": etapa, "dados": dados,
+            "atualizado_em": datetime.datetime.utcnow().isoformat(),
+        }).execute()
+    return {"reply": reply, "etapa": etapa, "done": done}
 
 
 # ═══ Acesso seguro a arquivos (via nosso backend; esconde o Supabase + trava por arquivo) ══
