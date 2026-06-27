@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { validarArquivo } from '@/lib/uploadGuard';
+import { abrirArquivoSeguro } from '@/lib/arquivo';
 import { safeStorageName } from '@/lib/storage';
 import {
   FileText, Plus, Loader2, Building2, Send, Paperclip, X, CheckCircle2,
@@ -93,10 +94,9 @@ export default function SegundasViasPage() {
   async function abrirArquivo(path) {
     if (!path) return;
     try {
-      const { data } = await supabase.storage.from('emissoes').createSignedUrl(path, 300);
-      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
-      else addToast('Não consegui abrir o arquivo.', 'error');
-    } catch { addToast('Não consegui abrir o arquivo.', 'error'); }
+      const ok = await abrirArquivoSeguro(path);
+      if (!ok) addToast('Não consegui abrir o arquivo.', 'error');
+    } catch (e) { addToast(e?.message || 'Não consegui abrir o arquivo.', 'error'); }
   }
 
   const [emitindoId, setEmitindoId] = useState(null);

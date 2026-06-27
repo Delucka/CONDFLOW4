@@ -442,6 +442,79 @@ def api_cancelar_segunda_via(sv_id: str, user: dict = Depends(get_current_user),
     return {"ok": True}
 
 
+# ═══ Acesso seguro a arquivos (via nosso backend; esconde o Supabase + trava por arquivo) ══
+def _sign_arquivo_token(path: str, ttl: int = 120) -> str:
+    import os, hmac, hashlib, base64, time
+    exp = int(time.time()) + ttl
+    payload = f"{path}|{exp}"
+    sig = hmac.new(os.getenv("SECRET_KEY", "dev-key").encode(), payload.encode(), hashlib.sha256).hexdigest()[:32]
+    return base64.urlsafe_b64encode(f"{payload}|{sig}".encode()).decode().rstrip("=")
+
+def _verify_arquivo_token(token: str):
+    import os, hmac, hashlib, base64, time
+    try:
+        raw = base64.urlsafe_b64decode(token + "=" * (-len(token) % 4)).decode()
+        path, exp, sig = raw.rsplit("|", 2)
+        if int(exp) < int(time.time()):
+            return None
+        good = hmac.new(os.getenv("SECRET_KEY", "dev-key").encode(), f"{path}|{exp}".encode(), hashlib.sha256).hexdigest()[:32]
+        return path if hmac.compare_digest(good, sig) else None
+    except Exception:
+        return None
+
+def _arquivo_condo_id(db, path: str):
+    """Resolve o condomínio dono do arquivo pelos registros do banco (p/ checar permissão)."""
+    for tbl, col in [("emissoes_arquivos", "arquivo_url"), ("segundas_vias", "boleto_url"),
+                     ("segundas_vias", "anexo_url"), ("consumos_faturas", "arquivo_url"),
+                     ("consumos_relatorios_leitura", "arquivo_url")]:
+        try:
+            r = db.table(tbl).select("condominio_id").eq(col, path).limit(1).execute().data
+            if r:
+                return r[0].get("condominio_id")
+        except Exception:
+            pass
+    return None
+
+class ArquivoLinkSchema(BaseModel):
+    path: str
+
+@router.post("/arquivo/link")
+def api_arquivo_link(data: ArquivoLinkSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Devolve um link do NOSSO domínio para abrir o arquivo, só se o usuário tiver permissão."""
+    path = (data.path or "").strip()
+    if not path:
+        raise HTTPException(400, "path obrigatório")
+    if user["role"] not in ("master", "departamento"):
+        cid = _arquivo_condo_id(db, path)
+        if user["role"] in ("gerente", "assistente"):
+            if not cid or cid not in carteira_condo_ids(db, user):
+                raise HTTPException(403, "Sem permissão para este arquivo.")
+        elif not cid:
+            raise HTTPException(403, "Sem permissão para este arquivo.")
+    return {"url": f"/api/arquivo/abrir?t={_sign_arquivo_token(path)}"}
+
+@router.get("/arquivo/abrir")
+def api_arquivo_abrir(t: str, db: Client = Depends(get_db)):
+    """Streama o arquivo (protegido por token assinado, curto). Sem expor o Supabase."""
+    from fastapi import Response
+    path = _verify_arquivo_token(t)
+    if not path:
+        raise HTTPException(403, "Link inválido ou expirado.")
+    try:
+        conteudo = db.storage.from_("emissoes").download(path)
+    except Exception:
+        raise HTTPException(404, "Arquivo não encontrado.")
+    nome = path.split("/")[-1] or "arquivo"
+    low = nome.lower()
+    mime = ("application/pdf" if low.endswith(".pdf")
+            else "image/png" if low.endswith(".png")
+            else "image/jpeg" if low.endswith((".jpg", ".jpeg"))
+            else "image/webp" if low.endswith(".webp")
+            else "application/octet-stream")
+    return Response(content=conteudo, media_type=mime,
+                    headers={"Content-Disposition": f'inline; filename="{nome}"', "Cache-Control": "private, no-store"})
+
+
 class EmailHookSchema(BaseModel):
     to: str
     subject: str
