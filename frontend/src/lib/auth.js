@@ -84,9 +84,18 @@ export function AuthProvider({ children }) {
   }
 
   async function sendPasswordReset(email) {
-    const redirectTo = `${window.location.origin}/reset-password`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-    if (error) throw error;
+    // Usa o NOSSO backend (e o nosso Gmail), não o e-mail do Supabase (que não chega sem SMTP).
+    const redirect_to = `${window.location.origin}/reset-password`;
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, redirect_to }),
+    });
+    if (!res.ok) {
+      let msg = 'Não foi possível enviar o e-mail.';
+      try { const j = await res.json(); msg = j.detail || msg; } catch {}
+      throw new Error(msg);
+    }
   }
 
   async function refreshProfile() {

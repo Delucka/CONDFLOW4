@@ -274,6 +274,75 @@ def _enviar_email_acesso(db, email: str, full_name: str, password: str) -> bool:
     return False
 
 
+def _enviar_email_recuperacao(db, email: str, full_name: str, link: str) -> bool:
+    """E-mail de 'esqueci minha senha' enviado pelo NOSSO Gmail (não pelo Supabase).
+    O link de recuperação vai COMPLETO no corpo (o botão do template prefixa a base)."""
+    try:
+        primeiro = (full_name or "").strip().split(" ")[0]
+        saud = f"Ol&aacute;, {primeiro}!" if primeiro else "Ol&aacute;!"
+        btn = (
+            f'<div style="margin:18px 0;"><a href="{link}" '
+            'style="display:inline-block;background:#142a63;color:#ffffff;font-size:15px;'
+            'font-weight:bold;padding:13px 30px;border-radius:10px;text-decoration:none;">'
+            'Criar nova senha</a></div>'
+        )
+        corpo = (
+            f"{saud}<br><br>"
+            "Recebemos um pedido para redefinir a senha da sua conta no CondoFlow. "
+            "Clique no bot&atilde;o abaixo para criar uma nova senha (o link expira em 1 hora):"
+            f"{btn}"
+            "Se voc&ecirc; n&atilde;o pediu isso, pode ignorar este e-mail com seguran&ccedil;a."
+        )
+        html = db.rpc("email_template", {"p_titulo": "Redefinir sua senha", "p_mensagem": corpo, "p_link": None}).execute().data
+        if isinstance(html, str) and html:
+            return _enviar_email_smtp(email, "CondoFlow — Redefinir senha", html)
+    except Exception as e:
+        print(f"[email_recuperacao] falha: {e}")
+    return False
+
+
+class ForgotPasswordSchema(BaseModel):
+    email: str
+    redirect_to: Optional[str] = None
+
+@router.post("/auth/forgot-password")
+def api_forgot_password(data: ForgotPasswordSchema, db: Client = Depends(get_db)):
+    """'Esqueci minha senha' (público): gera o link de recuperação (Supabase admin) e envia
+    pelo NOSSO Gmail — não depende do e-mail do Supabase. Resposta SEMPRE genérica
+    (anti-enumeração de e-mails)."""
+    email = (data.email or "").strip().lower()
+    if not email:
+        raise HTTPException(400, "Informe o e-mail.")
+    if not SB_SERVICE:
+        raise HTTPException(500, "Service Key não configurada")
+    try:
+        params = {"type": "recovery", "email": email}
+        if data.redirect_to:
+            params["options"] = {"redirect_to": data.redirect_to}
+        res = db.auth.admin.generate_link(params)
+        # extrai o action_link (varia conforme versão da lib)
+        link = None
+        props = getattr(res, "properties", None)
+        if props is not None:
+            link = getattr(props, "action_link", None)
+            if not link and isinstance(props, dict):
+                link = props.get("action_link")
+        if not link and isinstance(res, dict):
+            link = (res.get("properties") or {}).get("action_link")
+        if link:
+            nome = ""
+            try:
+                p = db.table("profiles").select("full_name").eq("email", email).maybe_single().execute().data
+                nome = (p or {}).get("full_name") or ""
+            except Exception:
+                pass
+            _enviar_email_recuperacao(db, email, nome, link)
+    except Exception as e:
+        # nunca vaza se o e-mail existe ou não
+        print(f"[forgot-password] {email}: {e}")
+    return {"ok": True}
+
+
 # ═══ Segundas Vias (fila de pedidos de boleto 2ª via) ════════════════
 _MODALIDADE_LABEL = {"com_multa": "Com multa", "sem_multa": "Sem multa", "quinto_andar": "Quinto Andar (venc. +5 dias)"}
 ROLES_SEGVIA_ATENDE = ("master", "departamento")
@@ -631,6 +700,74 @@ def _contatos_unidade(db, condominio_id, unidade, bloco):
             seen.add(email.lower())
             out.append({"nome": r.get("nome"), "tipo": r.get("tipo"), "email": email})
     return out
+
+
+# ─── Ferramentas do agente de IA (JARVIS 2ª via): verificação + criação seguras ───
+# Desenho à prova de jailbreak: a IA conversa, mas QUEM decide segurança é o servidor.
+# A IA só recebe e-mails MASCARADOS (com índice); nunca vê/escolhe o e-mail real,
+# e o CPF é RE-VERIFICADO no servidor na hora de criar (dupla trava).
+class VerificarCondominoSchema(BaseModel):
+    condominio: str
+    unidade: str
+    bloco: Optional[str] = None
+    cpf: str
+
+@router.post("/integracao/verificar-condomino")
+def api_integracao_verificar_condomino(data: VerificarCondominoSchema, request: Request,
+                                       _: bool = Depends(require_api_key), db: Client = Depends(get_db)):
+    """Tool do agente: o CPF é o responsável pelo pagamento da unidade?
+    Retorna autorizado + e-mails MASCARADOS com índice (a IA nunca vê o e-mail real)."""
+    condo = _resolve_condominio(db, data.condominio)
+    if not condo:
+        return {"autorizado": False, "motivo": "condominio_nao_encontrado"}
+    cond = _verificar_condomino(db, condo["id"], data.unidade, data.bloco, data.cpf)
+    if not cond:
+        return {"autorizado": False, "motivo": "cpf_nao_responsavel"}
+    contatos = _contatos_unidade(db, condo["id"], data.unidade, data.bloco)
+    emails = [{"indice": i, "email_mascarado": _mascara_email(c["email"])} for i, c in enumerate(contatos)]
+    return {
+        "autorizado": True,
+        "condominio": condo.get("name"),
+        "condomino_nome": cond.get("nome"),
+        "emails": emails,
+    }
+
+class CriarPedidoBotSchema(BaseModel):
+    condominio: str
+    unidade: str
+    bloco: Optional[str] = None
+    cpf: str
+    email_indice: int = 0                 # índice devolvido por verificar-condomino
+    ref_mes: Optional[int] = None
+    ref_ano: Optional[int] = None
+    modalidade: str = "com_multa"
+    observacoes: Optional[str] = None
+
+@router.post("/integracao/segundas-vias/bot")
+def api_integracao_criar_pedido_bot(data: CriarPedidoBotSchema, request: Request,
+                                    _: bool = Depends(require_api_key), db: Client = Depends(get_db)):
+    """Tool do agente: cria o pedido APÓS RE-VERIFICAR o CPF no servidor (dupla trava).
+    O e-mail vem por ÍNDICE — a IA nunca manda e-mail livre."""
+    condo = _resolve_condominio(db, data.condominio)
+    if not condo:
+        raise HTTPException(404, "Condomínio não encontrado.")
+    cond = _verificar_condomino(db, condo["id"], data.unidade, data.bloco, data.cpf)
+    if not cond:
+        raise HTTPException(403, "Não autorizado: CPF não é o responsável pelo pagamento desta unidade.")
+    if data.modalidade not in ("com_multa", "sem_multa", "quinto_andar"):
+        raise HTTPException(400, "Modalidade inválida.")
+    contatos = _contatos_unidade(db, condo["id"], data.unidade, data.bloco)
+    if not contatos:
+        raise HTTPException(400, "Nenhum e-mail cadastrado para esta unidade.")
+    idx = data.email_indice if 0 <= (data.email_indice or 0) < len(contatos) else 0
+    email = contatos[idx]["email"]
+    venc = None
+    if data.modalidade == "quinto_andar":
+        import datetime
+        venc = (datetime.date.today() + datetime.timedelta(days=5)).isoformat()
+    sv = _criar_sv_integracao(db, condo, data.unidade, data.bloco, data.ref_mes, data.ref_ano,
+                              data.modalidade, venc, email, data.observacoes, (cond.get("nome") or "WhatsApp"))
+    return {"ok": True, "protocolo": sv.get("id"), "email_destino": _mascara_email(email)}
 
 
 def _wa_step(db, msg, nome, etapa, dados):

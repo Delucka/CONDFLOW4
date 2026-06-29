@@ -282,10 +282,12 @@ function ModalResetSenha({ usuario, onClose }) {
 }
 
 function gerarSenhaTemp() {
+  // 12 chars sem ambíguos (sem I/O/l/0/1) e SEM caractere especial no fim
+  // (o '!' antigo era fácil de perder ao ler/copiar e travava o login).
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
   let out = '';
-  for (let i = 0; i < 10; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  return out + '!';
+  for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
 }
 
 // ─── Modal Carteira ───────────────────────────────────────────────────
