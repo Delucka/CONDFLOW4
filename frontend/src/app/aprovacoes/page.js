@@ -413,8 +413,8 @@ export default function AprovacoesPage() {
               </h4>
               <div className="space-y-2">
                 {edicoesReaberturas.map(e => (
-                  <div key={e.id} className="flex items-center justify-between gap-4 p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                    <div className="flex-1 min-w-0">
+                  <div key={e.id} className="flex flex-wrap items-center justify-between gap-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                    <div className="flex-1 min-w-[150px]">
                       <p className="text-sm font-bold text-slate-900">{e.condominios?.name}</p>
                       <p className="text-[11px] text-slate-400">{MESES[e.mes_referencia]}/{e.ano_referencia} · motivo: {e.reabertura_motivo}</p>
                     </div>
@@ -666,7 +666,7 @@ export default function AprovacoesPage() {
                           </details>
                         )}
                       </div>
-                      <div className="text-right shrink-0 w-[130px]">
+                      <div className="text-right shrink-0 w-[96px] sm:w-[130px]">
                         <p className="text-[10px] text-slate-500 truncate">{er.user_nome || '—'}</p>
                         <p className="text-[10px] text-slate-400 tabular-nums mt-0.5">{quando}</p>
                       </div>
@@ -704,7 +704,7 @@ export default function AprovacoesPage() {
                         </button>
                       )}
                     </div>
-                    <div className="text-right shrink-0 w-[150px]">
+                    <div className="text-right shrink-0 w-[104px] sm:w-[150px]">
                       <p className="text-[11px] font-bold text-slate-700 truncate">{ev.condominio_nome || '—'}</p>
                       <p className="text-[10px] text-slate-500 truncate">{ev.ator || '—'}{ev.ator_role ? ` · ${ev.ator_role}` : ''}</p>
                       <p className="text-[10px] text-slate-400 tabular-nums mt-0.5">{quando}</p>

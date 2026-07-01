@@ -1267,7 +1267,7 @@ function RelatorioUnidadesModal({ info, onClose, podeExcluir, onDeleted }) {
 
         {/* Resumo */}
         {!loading && !erro && lista.length > 0 && (
-          <div className="px-6 py-3 border-b border-slate-200 grid grid-cols-3 gap-3 text-center shrink-0">
+          <div className="px-6 py-3 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center shrink-0">
             <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Unidades</p><p className="text-lg font-black text-slate-900">{lista.length}</p></div>
             <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Consumo total</p><p className="text-lg font-black text-violet-700">{somaM3.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} m³</p></div>
             <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Valor total</p><p className="text-lg font-black text-emerald-700">R$ {fmtBRL(somaValor)}</p></div>
