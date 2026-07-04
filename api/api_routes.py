@@ -2902,8 +2902,9 @@ class AbrirEdicaoSchema(BaseModel):
 
 @router.post("/edicoes-mensais/abrir")
 def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
-    if user.get("role") != "master":
-        raise HTTPException(403, "Apenas master pode abrir edicao mensal")
+    # Abrir/reabrir edição = emissor (departamento) ou master (antes: só master)
+    if user.get("role") not in EMIT_DOCUMENT:
+        raise HTTPException(403, "Apenas o emissor ou o master pode abrir/reabrir edição mensal")
     mes_padrao, ano_padrao = _mes_alvo_padrao()
     mes = data.mes or mes_padrao
     ano = data.ano or ano_padrao

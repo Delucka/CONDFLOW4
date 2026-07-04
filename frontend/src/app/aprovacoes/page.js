@@ -86,13 +86,20 @@ export default function AprovacoesPage() {
   const [filtroEtapa, setFiltroEtapa] = useState('');
   const [showFiltros, setShowFiltros] = useState(false);
 
+  // Ciclo-alvo (M+1: em junho preparamos julho). A fila mostra SÓ este ciclo —
+  // edições de meses passados NÃO aparecem como abertas (ficam fechadas; só o
+  // emissor/master reabre). Antes vinham todas as edições de todos os meses.
+  const mesAtual = new Date();
+  const mesAlvo = mesAtual.getMonth() === 11 ? 1 : mesAtual.getMonth() + 2; // M+1 (getMonth 0-based)
+  const anoAlvo = mesAtual.getMonth() === 11 ? mesAtual.getFullYear() + 1 : mesAtual.getFullYear();
+
   // ── Fila de aprovações (processos legados, mantido para retro) ──
   const { data: filaData, error: filaError, isLoading: filaLoading, mutate: mutateF } =
     useSWR('/api/aprovacoes', apiFetcher, { refreshInterval: 60000 });
 
-  // ── Edicoes Mensais (novo ciclo: gerente libera condos do mes alvo) ──
+  // ── Edicoes Mensais: escopo do ciclo-alvo (não traz meses passados) ──
   const { data: edicoesData, isLoading: edicoesLoading, mutate: mutateE } =
-    useSWR('/api/edicoes-mensais', apiFetcher, { revalidateOnFocus: false, refreshInterval: 60000 });
+    useSWR(`/api/edicoes-mensais?mes=${mesAlvo}&ano=${anoAlvo}`, apiFetcher, { revalidateOnFocus: false, refreshInterval: 60000 });
   const edicoes = edicoesData?.edicoes || [];
   const edicoesEmEdicao    = edicoes.filter(e => e.status === 'em_edicao');
   const edicoesFinalizadas = edicoes.filter(e => e.status === 'edicao_finalizada');
@@ -157,9 +164,6 @@ export default function AprovacoesPage() {
     }
   }
 
-  const mesAtual = new Date();
-  const mesAlvo = mesAtual.getMonth() === 11 ? 1 : mesAtual.getMonth() + 2; // M+1 (getMonth = 0-based)
-  const anoAlvo = mesAtual.getMonth() === 11 ? mesAtual.getFullYear() + 1 : mesAtual.getFullYear();
   const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   // ── Auditoria: atividade (todas as etapas) ──
