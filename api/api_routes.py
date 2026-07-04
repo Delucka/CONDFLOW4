@@ -1093,15 +1093,28 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
             g_id = carteira_gerente_id(db, user)
             query = query.eq("gerente_id", g_id or "00000000-0000-0000-0000-000000000000")
                 
-        condos = query.execute().data or []
-        
+        # 3 consultas independentes EM PARALELO: condomínios + de-para de gerentes/profiles.
+        from concurrent.futures import ThreadPoolExecutor
+        def _q_condos():
+            return query.execute().data or []
+        def _q_gerentes():
+            try:
+                return db.table("gerentes").select("id, profile_id, nome").execute().data or []
+            except Exception:
+                return []
+        def _q_profiles():
+            try:
+                return db.table("profiles").select("id, full_name").execute().data or []
+            except Exception:
+                return []
+        with ThreadPoolExecutor(max_workers=3) as _ex:
+            _fc, _fg, _fp = _ex.submit(_q_condos), _ex.submit(_q_gerentes), _ex.submit(_q_profiles)
+            condos = _fc.result()
+            gerentes_res = _fg.result()
+            profiles_res = _fp.result()
+
         # Mapeamento de nomes de gerentes de forma estável
         try:
-            # Puxa todos os gerentes e profiles para o De-para (leitura rápida)
-            # gerente.nome cobre os "ghosts" (sem profile); profile.full_name cobre os com login
-            gerentes_res = db.table("gerentes").select("id, profile_id, nome").execute().data or []
-            profiles_res = db.table("profiles").select("id, full_name").execute().data or []
-
             p_map = {p["id"]: p["full_name"] for p in profiles_res}
             g_map = {
                 g["id"]: p_map.get(g["profile_id"]) or g.get("nome") or "Gerente desconhecido"
@@ -3200,22 +3213,30 @@ def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Dep
     import traceback
     try:
         cfg_map = {}
-        try:
-            cfg_res = db.table("condominios_concessionarias").select("condominio_id, concessionaria").execute()
-            for r in (cfg_res.data or []):
-                cid = r["condominio_id"]
+        # 2 consultas independentes EM PARALELO; merge no cfg_map depois (seguro).
+        from concurrent.futures import ThreadPoolExecutor
+        def _q_cfg():
+            try:
+                return db.table("condominios_concessionarias").select("condominio_id, concessionaria").execute().data or []
+            except Exception as e:
+                print(f"[consumos] cond_conc erro: {e}")
+                return []
+        def _q_fat():
+            try:
+                return db.table("consumos_faturas").select("condominio_id, concessionaria").execute().data or []
+            except Exception as e:
+                print(f"[consumos] consumos_faturas erro: {e}")
+                return []
+        with ThreadPoolExecutor(max_workers=2) as _ex:
+            _fcfg, _ffat = _ex.submit(_q_cfg), _ex.submit(_q_fat)
+            _cfg_rows, _fat_rows = _fcfg.result(), _ffat.result()
+        for r in _cfg_rows:
+            cid = r["condominio_id"]
+            cfg_map.setdefault(cid, set()).add(r["concessionaria"])
+        for r in _fat_rows:
+            cid = r.get("condominio_id")
+            if cid:
                 cfg_map.setdefault(cid, set()).add(r["concessionaria"])
-        except Exception as e:
-            print(f"[consumos] cond_conc erro: {e}")
-
-        try:
-            fat_res = db.table("consumos_faturas").select("condominio_id, concessionaria").execute()
-            for r in (fat_res.data or []):
-                cid = r.get("condominio_id")
-                if cid:
-                    cfg_map.setdefault(cid, set()).add(r["concessionaria"])
-        except Exception as e:
-            print(f"[consumos] consumos_faturas erro: {e}")
 
         if not cfg_map:
             return {"condominios": []}
