@@ -1279,121 +1279,134 @@ def api_auditoria(
             except Exception:
                 return ""
 
+        from concurrent.futures import ThreadPoolExecutor
+
         # 1) Arrecadação — aprovacoes
-        try:
-            q = db.table("aprovacoes").select(
-                "id, action, comment, created_at, approver:approver_id(full_name, role), "
-                "processo:processo_id(year, semester, condominio_id, condominios(name, gerente_id))"
-            ).order("created_at", desc=True).limit(CAP)
-            if date_from: q = q.gte("created_at", date_from)
-            if dt_to: q = q.lte("created_at", dt_to)
-            for r in (q.execute().data or []):
-                proc = r.get("processo") or {}
-                cond = proc.get("condominios") or {}
-                ap = r.get("approver") or {}
-                eventos.append({
-                    "id": f"arr:{r['id']}", "quando": r.get("created_at"), "etapa": "Arrecadação",
-                    "acao": r.get("action") or "—", "ator": ap.get("full_name"), "ator_role": ap.get("role"),
-                    "condominio_id": proc.get("condominio_id"), "condominio_nome": cond.get("name"),
-                    "gerente_id": cond.get("gerente_id"), "motivo": r.get("comment"),
-                    "ref": f"{proc.get('year')}/{proc.get('semester')}" if proc.get("year") else "",
-                })
-        except Exception as e:
-            print(f"[auditoria] aprovacoes: {e}")
+        def _src1():
+            try:
+                q = db.table("aprovacoes").select(
+                    "id, action, comment, created_at, approver:approver_id(full_name, role), "
+                    "processo:processo_id(year, semester, condominio_id, condominios(name, gerente_id))"
+                ).order("created_at", desc=True).limit(CAP)
+                if date_from: q = q.gte("created_at", date_from)
+                if dt_to: q = q.lte("created_at", dt_to)
+                for r in (q.execute().data or []):
+                    proc = r.get("processo") or {}
+                    cond = proc.get("condominios") or {}
+                    ap = r.get("approver") or {}
+                    eventos.append({
+                        "id": f"arr:{r['id']}", "quando": r.get("created_at"), "etapa": "Arrecadação",
+                        "acao": r.get("action") or "—", "ator": ap.get("full_name"), "ator_role": ap.get("role"),
+                        "condominio_id": proc.get("condominio_id"), "condominio_nome": cond.get("name"),
+                        "gerente_id": cond.get("gerente_id"), "motivo": r.get("comment"),
+                        "ref": f"{proc.get('year')}/{proc.get('semester')}" if proc.get("year") else "",
+                    })
+            except Exception as e:
+                print(f"[auditoria] aprovacoes: {e}")
 
         # 2) Emissão · aprovação — emissoes_pacotes_aprovacoes
-        try:
-            q = db.table("emissoes_pacotes_aprovacoes").select(
-                "id, acao, role, usuario_nome, criado_em, "
-                "pacote:pacote_id(mes_referencia, ano_referencia, condominio_id, condominios(name, gerente_id))"
-            ).order("criado_em", desc=True).limit(CAP)
-            if date_from: q = q.gte("criado_em", date_from)
-            if dt_to: q = q.lte("criado_em", dt_to)
-            for r in (q.execute().data or []):
-                pac = r.get("pacote") or {}
-                cond = pac.get("condominios") or {}
-                eventos.append({
-                    "id": f"pacapr:{r['id']}", "quando": r.get("criado_em"), "etapa": "Emissão · aprovação",
-                    "acao": ("Solicitou correção" if r.get("acao") == "correcao" else "Aprovou"),
-                    "ator": r.get("usuario_nome"), "ator_role": r.get("role"),
-                    "condominio_id": pac.get("condominio_id"), "condominio_nome": cond.get("name"),
-                    "gerente_id": cond.get("gerente_id"), "motivo": None,
-                    "ref": _per(pac.get("mes_referencia"), pac.get("ano_referencia")),
-                })
-        except Exception as e:
-            print(f"[auditoria] pacotes_aprovacoes: {e}")
+        def _src2():
+            try:
+                q = db.table("emissoes_pacotes_aprovacoes").select(
+                    "id, acao, role, usuario_nome, criado_em, "
+                    "pacote:pacote_id(mes_referencia, ano_referencia, condominio_id, condominios(name, gerente_id))"
+                ).order("criado_em", desc=True).limit(CAP)
+                if date_from: q = q.gte("criado_em", date_from)
+                if dt_to: q = q.lte("criado_em", dt_to)
+                for r in (q.execute().data or []):
+                    pac = r.get("pacote") or {}
+                    cond = pac.get("condominios") or {}
+                    eventos.append({
+                        "id": f"pacapr:{r['id']}", "quando": r.get("criado_em"), "etapa": "Emissão · aprovação",
+                        "acao": ("Solicitou correção" if r.get("acao") == "correcao" else "Aprovou"),
+                        "ator": r.get("usuario_nome"), "ator_role": r.get("role"),
+                        "condominio_id": pac.get("condominio_id"), "condominio_nome": cond.get("name"),
+                        "gerente_id": cond.get("gerente_id"), "motivo": None,
+                        "ref": _per(pac.get("mes_referencia"), pac.get("ano_referencia")),
+                    })
+            except Exception as e:
+                print(f"[auditoria] pacotes_aprovacoes: {e}")
 
         # 3) Arquivos postados — emissoes_arquivos
-        try:
-            q = db.table("emissoes_arquivos").select(
-                "id, arquivo_nome, arquivo_url, tipo, mes_referencia, ano_referencia, criado_em, "
-                "condominio_id, condominios(name, gerente_id), uploaded:uploaded_by(full_name, role)"
-            ).order("criado_em", desc=True).limit(CAP)
-            if date_from: q = q.gte("criado_em", date_from)
-            if dt_to: q = q.lte("criado_em", dt_to)
-            for r in (q.execute().data or []):
-                cond = r.get("condominios") or {}
-                up = r.get("uploaded") or {}
-                eventos.append({
-                    "id": f"arq:{r['id']}", "quando": r.get("criado_em"), "etapa": "Arquivo",
-                    "acao": f"Postou arquivo · {r.get('tipo') or 'arquivo'}",
-                    "ator": up.get("full_name"), "ator_role": up.get("role"),
-                    "condominio_id": r.get("condominio_id"), "condominio_nome": cond.get("name"),
-                    "gerente_id": cond.get("gerente_id"), "motivo": None,
-                    "ref": _per(r.get("mes_referencia"), r.get("ano_referencia")),
-                    "arquivo_nome": r.get("arquivo_nome"), "arquivo_url": r.get("arquivo_url"),
-                })
-        except Exception as e:
-            print(f"[auditoria] arquivos: {e}")
+        def _src3():
+            try:
+                q = db.table("emissoes_arquivos").select(
+                    "id, arquivo_nome, arquivo_url, tipo, mes_referencia, ano_referencia, criado_em, "
+                    "condominio_id, condominios(name, gerente_id), uploaded:uploaded_by(full_name, role)"
+                ).order("criado_em", desc=True).limit(CAP)
+                if date_from: q = q.gte("criado_em", date_from)
+                if dt_to: q = q.lte("criado_em", dt_to)
+                for r in (q.execute().data or []):
+                    cond = r.get("condominios") or {}
+                    up = r.get("uploaded") or {}
+                    eventos.append({
+                        "id": f"arq:{r['id']}", "quando": r.get("criado_em"), "etapa": "Arquivo",
+                        "acao": f"Postou arquivo · {r.get('tipo') or 'arquivo'}",
+                        "ator": up.get("full_name"), "ator_role": up.get("role"),
+                        "condominio_id": r.get("condominio_id"), "condominio_nome": cond.get("name"),
+                        "gerente_id": cond.get("gerente_id"), "motivo": None,
+                        "ref": _per(r.get("mes_referencia"), r.get("ano_referencia")),
+                        "arquivo_nome": r.get("arquivo_nome"), "arquivo_url": r.get("arquivo_url"),
+                    })
+            except Exception as e:
+                print(f"[auditoria] arquivos: {e}")
 
         # 4) Edição mensal — edicoes_mensais (abertura/reabertura)
-        try:
-            q = db.table("edicoes_mensais").select(
-                "id, status, mes_referencia, ano_referencia, aberto_por, aberto_em, "
-                "condominio_id, condominios(name, gerente_id)"
-            ).order("aberto_em", desc=True).limit(CAP)
-            if date_from: q = q.gte("aberto_em", date_from)
-            if dt_to: q = q.lte("aberto_em", dt_to)
-            for r in (q.execute().data or []):
-                cond = r.get("condominios") or {}
-                if r.get("aberto_por"): ids_perfil.add(r["aberto_por"])
-                eventos.append({
-                    "id": f"edm:{r['id']}", "quando": r.get("aberto_em"), "etapa": "Edição mensal",
-                    "acao": "Abriu/atualizou edição do mês", "ator_id": r.get("aberto_por"),
-                    "ator": None, "ator_role": None,
-                    "condominio_id": r.get("condominio_id"), "condominio_nome": cond.get("name"),
-                    "gerente_id": cond.get("gerente_id"), "motivo": f"status: {r.get('status')}",
-                    "ref": _per(r.get("mes_referencia"), r.get("ano_referencia")),
-                })
-        except Exception as e:
-            print(f"[auditoria] edicoes_mensais: {e}")
+        def _src4():
+            try:
+                q = db.table("edicoes_mensais").select(
+                    "id, status, mes_referencia, ano_referencia, aberto_por, aberto_em, "
+                    "condominio_id, condominios(name, gerente_id)"
+                ).order("aberto_em", desc=True).limit(CAP)
+                if date_from: q = q.gte("aberto_em", date_from)
+                if dt_to: q = q.lte("aberto_em", dt_to)
+                for r in (q.execute().data or []):
+                    cond = r.get("condominios") or {}
+                    if r.get("aberto_por"): ids_perfil.add(r["aberto_por"])
+                    eventos.append({
+                        "id": f"edm:{r['id']}", "quando": r.get("aberto_em"), "etapa": "Edição mensal",
+                        "acao": "Abriu/atualizou edição do mês", "ator_id": r.get("aberto_por"),
+                        "ator": None, "ator_role": None,
+                        "condominio_id": r.get("condominio_id"), "condominio_nome": cond.get("name"),
+                        "gerente_id": cond.get("gerente_id"), "motivo": f"status: {r.get('status')}",
+                        "ref": _per(r.get("mes_referencia"), r.get("ano_referencia")),
+                    })
+            except Exception as e:
+                print(f"[auditoria] edicoes_mensais: {e}")
 
         # 5) Conferência — emissoes_ocorrencias
-        try:
-            q = db.table("emissoes_ocorrencias").select(
-                "id, tipo, origem, status, descricao, criado_em, criado_por, criado_por_role, "
-                "condominio_id, condominios(name, gerente_id)"
-            ).order("criado_em", desc=True).limit(CAP)
-            if date_from: q = q.gte("criado_em", date_from)
-            if dt_to: q = q.lte("criado_em", dt_to)
-            for r in (q.execute().data or []):
-                cond = r.get("condominios") or {}
-                if r.get("criado_por"): ids_perfil.add(r["criado_por"])
-                org = r.get("origem")
-                if org == "reabertura": acao = "Mês reaberto"
-                elif org == "correcao": acao = "Correção solicitada"
-                elif r.get("tipo") == "ocorrencia": acao = "Registrou ocorrência"
-                else: acao = "Registrou solicitação"
-                eventos.append({
-                    "id": f"ocr:{r['id']}", "quando": r.get("criado_em"), "etapa": "Conferência",
-                    "acao": acao, "ator_id": r.get("criado_por"), "ator": None,
-                    "ator_role": r.get("criado_por_role"),
-                    "condominio_id": r.get("condominio_id"), "condominio_nome": cond.get("name"),
-                    "gerente_id": cond.get("gerente_id"), "motivo": r.get("descricao"),
-                    "ref": "", "status": r.get("status"),
-                })
-        except Exception as e:
-            print(f"[auditoria] ocorrencias: {e}")
+        def _src5():
+            try:
+                q = db.table("emissoes_ocorrencias").select(
+                    "id, tipo, origem, status, descricao, criado_em, criado_por, criado_por_role, "
+                    "condominio_id, condominios(name, gerente_id)"
+                ).order("criado_em", desc=True).limit(CAP)
+                if date_from: q = q.gte("criado_em", date_from)
+                if dt_to: q = q.lte("criado_em", dt_to)
+                for r in (q.execute().data or []):
+                    cond = r.get("condominios") or {}
+                    if r.get("criado_por"): ids_perfil.add(r["criado_por"])
+                    org = r.get("origem")
+                    if org == "reabertura": acao = "Mês reaberto"
+                    elif org == "correcao": acao = "Correção solicitada"
+                    elif r.get("tipo") == "ocorrencia": acao = "Registrou ocorrência"
+                    else: acao = "Registrou solicitação"
+                    eventos.append({
+                        "id": f"ocr:{r['id']}", "quando": r.get("criado_em"), "etapa": "Conferência",
+                        "acao": acao, "ator_id": r.get("criado_por"), "ator": None,
+                        "ator_role": r.get("criado_por_role"),
+                        "condominio_id": r.get("condominio_id"), "condominio_nome": cond.get("name"),
+                        "gerente_id": cond.get("gerente_id"), "motivo": r.get("descricao"),
+                        "ref": "", "status": r.get("status"),
+                    })
+            except Exception as e:
+                print(f"[auditoria] ocorrencias: {e}")
+
+        # As 5 fontes são independentes → rodam EM PARALELO (append em list / add em
+        # set são atômicos sob o GIL). Antes: 5 idas sequenciais ao banco (~200ms).
+        with ThreadPoolExecutor(max_workers=5) as _ex:
+            for _f in [_ex.submit(fn) for fn in (_src1, _src2, _src3, _src4, _src5)]:
+                _f.result()
 
         # Resolve nomes (aberto_por / criado_por -> profiles)
         if ids_perfil:
