@@ -37,9 +37,14 @@ export async function updateSession(request) {
     }
   )
 
+  // getSession lê o cookie LOCALMENTE (só vai à rede se o token expirou, pra
+  // renovar). O getUser() antigo fazia 1 chamada ao Supabase em TODA navegação —
+  // era o maior custo fixo de troca de página. Aqui só decidimos redirect;
+  // a autorização de verdade é o JWT validado pela API + RLS.
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   // Evitar redirecionamentos nulos em assets
   const path = request.nextUrl.pathname

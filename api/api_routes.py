@@ -24,25 +24,43 @@ def get_db() -> Client:
     return _db_client
 
 # ═══ Dependency: Authentication via JWT ══════════════════════════════
+# Cache token→user em memória (TTL curto). Cada request pagava 2 idas ao Supabase
+# (auth.get_user + profiles) ANTES de qualquer query útil — em rajadas de SWR isso
+# dominava a latência. Com TTL de 120s, mudança de role/senha propaga em ≤2 min.
+import time as _auth_time
+import hashlib as _auth_hash
+_user_cache: dict = {}          # sha256(token) -> (user_dict, expira_em)
+_USER_CACHE_TTL = 120
+
 def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token JWT ausente ou inválido")
-    
+
     token = authorization.split(" ")[1]
+
+    tkey = _auth_hash.sha256(token.encode()).hexdigest()
+    now = _auth_time.time()
+    hit = _user_cache.get(tkey)
+    if hit and hit[1] > now:
+        return dict(hit[0])
+
     db = get_db()
-    
+
     # Valida token com o Supabase Auth
     user_res = db.auth.get_user(token)
     if not user_res or not user_res.user:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
-        
+
     user_id = user_res.user.id
-    
+
     # Busca profile
     prof_res = db.table("profiles").select("*").eq("id", user_id).single().execute()
     profile = prof_res.data if prof_res.data else {}
-    
-    return {
+
+    if len(_user_cache) > 500:  # nunca cresce sem limite (instância serverless)
+        _user_cache.clear()
+
+    result = {
         "id": user_id,
         "email": user_res.user.email,
         "role": profile.get("role", "gerente"),
@@ -54,6 +72,8 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         # sinaliza que o profile já foi carregado (mesmo que gerente_id seja None)
         "_profile_loaded": True,
     }
+    _user_cache[tkey] = (result, now + _USER_CACHE_TTL)
+    return dict(result)
 
 def get_gerente_id(db: Client, profile_id: str) -> Optional[str]:
     res = db.table("gerentes").select("id").eq("profile_id", profile_id).execute()
@@ -1992,6 +2012,7 @@ def api_change_own_password(data: ChangeOwnPasswordSchema,
             "must_change_password": False,
             "password_changed_at": _dt.datetime.utcnow().isoformat(),
         }).eq("id", user["id"]).execute()
+        _user_cache.clear()  # senha/flag mudou — não servir user cacheado
         return {"success": True}
     except Exception as e:
         print(f"[change-password] erro: {e}")
