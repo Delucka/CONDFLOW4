@@ -138,9 +138,33 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             query = query.eq("gerente_id", g_id or "00000000-0000-0000-0000-000000000000")
         elif gerente_id and user["role"] in DASHBOARD_FILTER_GERENTE:
             query = query.eq("gerente_id", gerente_id)
-            
-        raw_condos = query.execute().data
-        
+
+        # As 3 consultas independentes rodam EM PARALELO (supabase-py é síncrono;
+        # antes eram idas sequenciais ao banco). Os pacotes vêm depois (dependem
+        # dos ids dos condomínios).
+        from concurrent.futures import ThreadPoolExecutor
+        def _q_condos():
+            return query.execute().data or []
+        def _q_gerentes():
+            if user["role"] == "gerente":
+                return []
+            try:
+                return db.table("gerentes").select("id, nome, profiles!gerentes_profile_id_fkey(full_name)").execute().data
+            except Exception as e:
+                print(f"[dashboard] gerentes falhou (segue sem): {e}")
+                return []
+        def _q_pipeline():
+            try:
+                return (db.table("pipeline_config").select("*").eq("ano", year).limit(1).execute().data or [None])[0]
+            except Exception as e:
+                print(f"[dashboard] pipeline_config falhou (segue sem): {e}")
+                return None
+        with ThreadPoolExecutor(max_workers=3) as _ex:
+            _fc, _fg, _fp = _ex.submit(_q_condos), _ex.submit(_q_gerentes), _ex.submit(_q_pipeline)
+            raw_condos = _fc.result()
+            gerentes = _fg.result()
+            pipeline_config = _fp.result()
+
         condos = []
         processos = {}
         stats = {"total": len(raw_condos), "em_edicao": 0, "pendentes": 0, "aprovados": 0}
@@ -159,13 +183,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                 
             condos.append(c)
             
-        gerentes = []
-        if user["role"] != "gerente":
-            # inclui o campo 'nome' direto da tabela gerentes pra cobrir os "ghosts" (sem profile)
-            try:
-                gerentes = db.table("gerentes").select("id, nome, profiles!gerentes_profile_id_fkey(full_name)").execute().data
-            except Exception as e:
-                print(f"[dashboard] gerentes falhou (segue sem): {e}")
+        # (gerentes já carregado em paralelo acima)
 
         # ── Emissões: stats agregados + status mais recente por condomínio ──
         condo_ids = [c["id"] for c in raw_condos]
@@ -194,13 +212,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                 if cid and cid not in emissao_by_condo:
                     emissao_by_condo[cid] = p.get("status") or "sem_processo"
 
-        # ── Pipeline config do ano corrente (tolera ausência da tabela) ──
-        pipeline_config = None
-        try:
-            pipeline_res = db.table("pipeline_config").select("*").eq("ano", year).limit(1).execute()
-            pipeline_config = (pipeline_res.data or [None])[0]
-        except Exception as e:
-            print(f"[dashboard] pipeline_config falhou (segue sem): {e}")
+        # (pipeline_config já carregado em paralelo acima)
 
         return {
             "year": year,
