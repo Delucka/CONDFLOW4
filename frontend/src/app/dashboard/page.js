@@ -342,7 +342,9 @@ export default function DashboardPage() {
               <SkeletonTable rows={8} cols={4} />
             </div>
           ) : condos.length > 0 ? (
-            <div className="overflow-x-auto flex-1">
+            <>
+            {/* Desktop: tabela */}
+            <div className="hidden md:block overflow-x-auto flex-1">
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-slate-200 text-[9px] uppercase tracking-widest font-black text-slate-500">
@@ -408,6 +410,48 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile: cards empilhados (mesma info, layout próprio do celular) */}
+            <div className="md:hidden flex-1 overflow-y-auto divide-y divide-slate-200">
+              {condosOrdenados.map((c) => {
+                const proc          = processos[c.id];
+                const procStatus    = proc?.status || null;
+                const emissaoStatus = emissaoByCondominio[c.id] || null;
+                const isLocked      = procStatus === 'Edição finalizada';
+                return (
+                  <div key={c.id} className="p-3 active:bg-slate-100 transition-colors">
+                    <div className="flex items-start gap-2">
+                      {isLocked
+                        ? <Lock className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-1" />
+                        : <Unlock className="w-3.5 h-3.5 text-emerald-500/50 shrink-0 mt-1" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-800 uppercase tracking-tight text-[13px] break-words">{c.name}</p>
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          {gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}
+                          {c.due_day && <span className="text-slate-400"> · venc. dia {c.due_day}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>}
+                        </p>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        <Link href={`/condominio/${c.id}/arrecadacoes`} className="tap flex items-center justify-center rounded-lg bg-violet-500/10 text-violet-500" title="Arrecadações"><Layers className="w-4 h-4" /></Link>
+                        <Link href={`/condominio/${c.id}/cobrancas`} className="tap flex items-center justify-center rounded-lg bg-amber-500/10 text-amber-500" title="Cobranças"><Receipt className="w-4 h-4" /></Link>
+                        <button onClick={() => handleQuickView(c.id)} className="tap flex items-center justify-center rounded-lg bg-violet-500/10 text-violet-500" title="Ver Info"><Eye className="w-4 h-4" /></button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2 pl-6">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Planilha</span>
+                        {procStatus ? <StatusBadge status={procStatus} flow="processo" /> : <span className="text-[10px] text-slate-400 font-bold">—</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Emissão</span>
+                        {emissaoStatus ? <StatusBadge status={emissaoStatus} flow="emissao" /> : <span className="text-[10px] text-slate-400 font-bold">—</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            </>
           ) : (
             <div className="p-20 text-center flex-1">
               <Inbox className="w-12 h-12 text-slate-700 mx-auto mb-4" />
