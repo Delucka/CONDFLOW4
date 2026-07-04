@@ -522,7 +522,7 @@ export default function VisaoMaster() {
     <div className="space-y-8">
 
       {/* ── Navegação de Mês ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => navMes(-1)} className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all">
             <ChevronLeft className="w-5 h-5" />
@@ -635,9 +635,9 @@ export default function VisaoMaster() {
 
             return (
               <div key={pacote.id} className={`hover:bg-slate-100 transition-colors ${isRegistrado ? 'border-l-2 border-violet-500/30' : ''}`}>
-                <div className="px-6 py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isRegistrado ? 'bg-violet-500/10' : 'bg-slate-50'}`}>
+                <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isRegistrado ? 'bg-violet-500/10' : 'bg-slate-50'}`}>
                       <Package className={`w-5 h-5 ${isRegistrado ? 'text-violet-400' : 'text-violet-400'}`} />
                     </div>
                     <div>
@@ -652,10 +652,10 @@ export default function VisaoMaster() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap shrink-0 pl-14 sm:pl-0">
                     <StatusBadge status={pacote.status} />
 
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
                       {/* Registrar (aprovado → registrado) */}
                       {statusLower === 'aprovado' && roleAutorizado && (
                         <button onClick={() => handleRegistrar(pacote)}
