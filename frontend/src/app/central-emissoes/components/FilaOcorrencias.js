@@ -563,17 +563,17 @@ export default function FilaOcorrencias() {
                 const iconCls = COLOR_MAP[a.color] || COLOR_MAP.cyan;
                 return (
                   <Link key={a.id} href={a.link || '#'}
-                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-100 transition-colors group">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${iconCls}`}>
+                    className="w-full px-4 sm:px-6 py-4 flex items-center justify-between gap-3 hover:bg-slate-100 transition-colors group">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${iconCls}`}>
                         <ColorIcon className="w-5 h-5" />
                       </div>
-                      <div>
-                        <p className="text-slate-900 text-sm font-bold leading-tight">{a.titulo}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{a.subtitulo}</p>
+                      <div className="min-w-0">
+                        <p className="text-slate-900 text-sm font-bold leading-tight break-words">{a.titulo}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5 break-words">{a.subtitulo}</p>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-900 transition-colors" />
+                    <ChevronRight className="w-4 h-4 shrink-0 text-slate-400 group-hover:text-slate-900 transition-colors" />
                   </Link>
                 );
               })}

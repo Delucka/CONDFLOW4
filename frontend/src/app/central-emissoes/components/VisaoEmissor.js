@@ -1590,13 +1590,13 @@ export default function VisaoEmissor({ profile }) {
                     const canCreate = !temAltPrevista && (isPronto || !!pacote);
 
                     return (
-                      <div key={condo.id} className={`flex items-center justify-between px-6 py-3 border-b border-slate-200 last:border-b-0 transition-colors ${
+                      <div key={condo.id} className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-3 border-b border-slate-200 last:border-b-0 transition-colors ${
                         temAltPrevista ? 'bg-amber-500/[0.05] hover:bg-amber-500/[0.08]'
                           : !pacote && isPronto ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.07]'
                           : 'hover:bg-slate-100'
                       }`}>
                         <div className="flex items-center gap-3 flex-wrap">
-                          <span className="text-sm font-bold text-slate-700 truncate max-w-[280px]">{condo.name}</span>
+                          <span className="text-sm font-bold text-slate-700 truncate max-w-[75vw] sm:max-w-[280px]">{condo.name}</span>
                           {condo.due_day && <span className="text-[10px] text-slate-400 font-medium">venc. dia {condo.due_day}{condo.due_day_2 ? ` e ${condo.due_day_2}` : ''}</span>}
                           {temAltPrevista && (
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black uppercase tracking-widest animate-pulse"
@@ -1608,7 +1608,7 @@ export default function VisaoEmissor({ profile }) {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 flex-wrap sm:justify-end">
                           {pacote ? (
                             <>
                               <span className="text-[10px] font-bold text-slate-500">{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}</span>

@@ -326,7 +326,7 @@ export default function VisaoGerente({ profile }) {
             return (
               <div key={pacote.id} className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
                 {/* Header */}
-                <div className="p-5 flex items-center justify-between gap-4">
+                <div className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500/20 to-violet-500/20 border border-slate-200 flex items-center justify-center shrink-0">
                       <Package className="w-5 h-5 text-violet-400" />
@@ -341,7 +341,7 @@ export default function VisaoGerente({ profile }) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0 flex-wrap sm:justify-end pl-[60px] sm:pl-0">
                     <StatusBadge status={pacote.status} />
                     {aguardandoGerente && (
                       <div className="flex gap-2">
