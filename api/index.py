@@ -19,8 +19,13 @@ app = FastAPI(title="CondoAdmin", docs_url=None, redoc_url=None)
 
 # CORS travado: só origens conhecidas (prod + dev + previews do projeto no Vercel).
 # Configurável por env ALLOWED_ORIGINS (lista separada por vírgula) sem mexer no código.
+# Os domínios oficiais entram SEMPRE, mesmo com ALLOWED_ORIGINS definida — um .env
+# desatualizado na VPS não pode derrubar o site (foi o que quebrou o painel em 07/2026,
+# quando o domínio virou emissaonline.com e o .env ainda listava só o host antigo).
+_OFFICIAL_ORIGINS = ["https://emissaonline.com", "https://www.emissaonline.com"]
 _DEFAULT_ORIGINS = "https://condominios-gamma.vercel.app,http://localhost:3000,http://127.0.0.1:3000"
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", _DEFAULT_ORIGINS).split(",") if o.strip()]
+ALLOWED_ORIGINS = _OFFICIAL_ORIGINS + [o for o in ALLOWED_ORIGINS if o not in _OFFICIAL_ORIGINS]
 
 app.add_middleware(
     CORSMiddleware,
