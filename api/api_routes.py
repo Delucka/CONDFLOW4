@@ -168,7 +168,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         condos = []
         processos = {}
         stats = {"total": len(raw_condos), "em_edicao": 0, "pendentes": 0, "aprovados": 0}
-        
+
         for c in raw_condos:
             procs = c.pop("processos", [])
             proc = next((p for p in procs if p["year"] == year and p["semester"] == sem), None)
@@ -180,7 +180,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                 elif st in ["Aprovado", "Emitido"]: stats["aprovados"] += 1
             else:
                 stats["em_edicao"] += 1
-                
+
             condos.append(c)
             
         # (gerentes já carregado em paralelo acima)

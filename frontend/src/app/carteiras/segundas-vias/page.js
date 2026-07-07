@@ -125,18 +125,18 @@ export default function SegundasViasPage() {
   return (
     <div className="animate-fade-in w-full flex flex-col gap-6 pb-20">
       {/* Header */}
-      <div className="glass-panel p-6 rounded-[2rem] border border-slate-200 shadow-xl flex items-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center shrink-0">
-          <FileText className="w-7 h-7 text-violet-500" />
+      <div className="glass-panel p-4 md:p-6 rounded-2xl md:rounded-[2rem] border border-slate-200 shadow-xl flex items-center gap-3 md:gap-4">
+        <div className="w-11 h-11 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center shrink-0">
+          <FileText className="w-6 h-6 md:w-7 md:h-7 text-violet-500" />
         </div>
         <div>
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Segundas Vias</h2>
+          <h2 className="text-lg md:text-xl font-black text-slate-900 uppercase tracking-tight">Segundas Vias</h2>
           <p className="text-xs text-slate-500 mt-1">Pedidos de boleto de 2ª via, centralizados — sem depender de e-mail solto.{atende ? ` · ${pendentes.length} pendente${pendentes.length !== 1 ? 's' : ''}` : ''}</p>
         </div>
       </div>
 
       {/* Formulário de nova solicitação */}
-      <form onSubmit={handleCreate} className="glass-panel p-6 rounded-2xl border border-slate-200 space-y-4">
+      <form onSubmit={handleCreate} className="glass-panel p-4 md:p-6 rounded-2xl border border-slate-200 space-y-4">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2"><Plus className="w-4 h-4 text-violet-500" /> Nova solicitação</p>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">

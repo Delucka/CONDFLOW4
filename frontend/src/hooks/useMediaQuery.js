@@ -19,3 +19,8 @@ export function useMediaQuery(query) {
 export function useIsDesktop() {
   return useMediaQuery('(min-width: 1024px)');
 }
+
+// Atalho: true quando a tela é um celular (< md / 768px) → usa a casca de app
+export function useIsMobile() {
+  return useMediaQuery('(max-width: 767px)');
+}

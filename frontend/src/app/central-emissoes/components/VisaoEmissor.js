@@ -1064,17 +1064,17 @@ export default function VisaoEmissor({ profile }) {
       
       {/* ═══ PAINEL DO PACOTE ATIVO ═══ */}
       {activePacote ? (
-        <div className="border border-violet-500/30 rounded-3xl bg-violet-500/5 p-6 shadow-2xl animate-fade-in">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-violet-500/20 rounded-2xl flex items-center justify-center border border-violet-500/30">
-                <Package className="w-6 h-6 text-violet-400" />
+        <div className="border border-violet-500/30 rounded-2xl md:rounded-3xl bg-violet-500/5 p-4 md:p-6 shadow-2xl animate-fade-in">
+          <div className="flex items-center justify-between gap-2 mb-6">
+            <div className="flex items-center gap-3 md:gap-4 min-w-0">
+              <div className="w-11 h-11 md:w-12 md:h-12 bg-violet-500/20 rounded-xl md:rounded-2xl flex items-center justify-center border border-violet-500/30 shrink-0">
+                <Package className="w-5 h-5 md:w-6 md:h-6 text-violet-400" />
               </div>
-              <div>
-                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+              <div className="min-w-0">
+                <h3 className="text-base md:text-lg font-black text-slate-900 uppercase tracking-tight break-words">
                   {condominios.find(c => c.id === activePacote.condominio_id)?.name || 'Condomínio'}
                 </h3>
-                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest flex items-center gap-3">
+                <p className="text-xs font-bold text-violet-400 uppercase tracking-widest flex items-center flex-wrap gap-x-3 gap-y-1">
                   Emissão {String(activePacote.mes_referencia).padStart(2,'0')}/{activePacote.ano_referencia} • <StatusBadge status={activePacote.status} />
                   
                   {/* Botão de Registro Rápido no Painel Ativo */}
@@ -1471,8 +1471,8 @@ export default function VisaoEmissor({ profile }) {
         </div>
       ) : (
         /* ═══ FORMULÁRIO CRIAR/ABRIR PACOTE ═══ */
-        <div className="border border-slate-200 rounded-3xl bg-slate-50 p-6 shadow-xl">
-          <h3 className="font-black text-slate-900 text-lg mb-6 flex items-center gap-2">
+        <div className="border border-slate-200 rounded-2xl md:rounded-3xl bg-slate-50 p-4 md:p-6 shadow-xl">
+          <h3 className="font-black text-slate-900 text-base md:text-lg mb-6 flex items-center gap-2">
             <UploadCloud className="text-violet-400 w-5 h-5"/>
             Nova Emissão / Abrir Existente
           </h3>

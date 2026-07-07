@@ -4,12 +4,17 @@ import { AuthProvider } from "@/lib/auth";
 import { ToastProvider } from "@/components/Toast";
 import AppShell from "@/components/AppShell";
 import SWRProvider from "@/components/SWRProvider";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata = {
   title: "CondoFlow — Sistema de Gestão de Condomínios",
   description: "Gestão moderna de arrecadações, cobranças e aprovações de condomínios",
+  applicationName: "CondoFlow",
+  appleWebApp: { capable: true, title: "CondoFlow", statusBarStyle: "default" },
+  icons: { apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }] },
+  formatDetection: { telephone: false },
 };
 
 export const viewport = {
@@ -28,6 +33,7 @@ export default function RootLayout({ children }) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className={`${inter.variable} font-sans text-slate-800 antialiased min-h-screen bg-slate-50`}>
+        <ServiceWorkerRegister />
         <AuthProvider>
           <SWRProvider>
             <ToastProvider>

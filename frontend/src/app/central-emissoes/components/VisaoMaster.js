@@ -18,6 +18,7 @@ import TrilhaAprovacao from '@/components/TrilhaAprovacao';
 import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
 import { safeStorageName } from '@/lib/storage';
 import { Inbox } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -25,6 +26,7 @@ export default function VisaoMaster() {
   const supabase = createClient();
   const { addToast } = useToast();
   const { profile, user } = useAuth();
+  const isMobile = useIsMobile();
   const [arquivoAberto, setArquivoAberto] = useState(null);
 
   const [pacotes, setPacotes] = useState([]);
@@ -518,8 +520,200 @@ export default function VisaoMaster() {
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-violet-500"/></div>;
 
+  // ═══════════ APROVAÇÃO DE EMISSÕES — versão de celular (layout de app) ═══════════
+  const renderMasterMobile = () => {
+    const ehAtual = mesAtivo === hoje.getMonth() + 1 && anoAtivo === hoje.getFullYear();
+    const roleAutorizado = profile?.role === 'master' || profile?.role === 'departamento';
+    const actBtn = 'flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest active:opacity-70 transition-opacity';
+    const statChips = [
+      { label: 'Total no mês',      value: stats.total,            filter: null                          },
+      { label: 'Em edição',         value: stats.rascunho,         filter: 'rascunho'                    },
+      { label: 'Aguard. registro',  value: stats.aprovado,         filter: 'aprovado'                    },
+      { label: 'Registrada',        value: stats.registrado,       filter: 'registrado'                  },
+      { label: 'Com gerente',       value: stats.gerente,          filter: 'pendente_gerente'            },
+      { label: 'Sup. gerente',      value: stats.supGerente,       filter: 'pendente_sup_gerentes'       },
+      { label: 'Sup. contab.',      value: stats.supContabilidade, filter: 'pendente_sup_contabilidade'  },
+    ];
+
+    return (
+      <div className="space-y-4">
+
+        {/* Cabeçalho + navegação de mês */}
+        <div>
+          <h2 className="text-lg font-black text-slate-900 flex items-center gap-2 mb-3">
+            <Activity className="w-5 h-5 text-violet-400" aria-hidden="true" /> Aprovação de emissões
+          </h2>
+          <div className="flex items-center gap-2">
+            <button onClick={() => navMes(-1)} aria-label="Mês anterior" className="tap rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+              <ChevronLeft className="w-5 h-5" aria-hidden="true" />
+            </button>
+            <div className="flex-1 text-center bg-white border border-slate-200 rounded-xl py-2.5">
+              <span className="font-black text-slate-900">{MESES[mesAtivo - 1]} {anoAtivo}</span>
+              {ehAtual && <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-violet-500 bg-violet-50 px-1.5 py-0.5 rounded-full">Atual</span>}
+            </div>
+            <button onClick={() => navMes(1)} aria-label="Próximo mês" className="tap rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+              <ChevronRight className="w-5 h-5" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        {/* Expedir mês */}
+        {prontosParaExpedir.length > 0 && roleAutorizado && (
+          <button onClick={abrirFecharMes}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest active:opacity-70">
+            <Rocket className="w-4 h-4" aria-hidden="true" /> Expedir mês — {prontosParaExpedir.length} emissão{prontosParaExpedir.length !== 1 ? 'ões' : ''}
+          </button>
+        )}
+
+        {/* Chips de filtro (rolam) */}
+        <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 scrollbar-thin">
+          {statChips.map(stat => {
+            const active = filtroAtivo === stat.filter;
+            return (
+              <button key={stat.label} onClick={() => setFiltroAtivo(active ? null : stat.filter)}
+                aria-pressed={active}
+                className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors ${active ? 'border-violet-500 bg-violet-50' : 'border-slate-200 bg-white'}`}>
+                <span className="text-lg font-black text-slate-900 tabular-nums leading-none">{stat.value}</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight text-left leading-tight">{stat.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Só minhas pendências */}
+        {totalMinhasPendencias > 0 && (
+          <button onClick={() => setApenasMinhasPendencias(v => !v)}
+            className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border text-[11px] font-black uppercase tracking-widest active:opacity-70 ${apenasMinhasPendencias ? 'bg-rose-500/15 border-rose-300 text-rose-500' : 'bg-white border-slate-200 text-rose-400'}`}>
+            <Inbox className="w-4 h-4" aria-hidden="true" />
+            {apenasMinhasPendencias ? 'Mostrando suas pendências' : 'Só minhas pendências'}
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${apenasMinhasPendencias ? 'bg-rose-500 text-white' : 'bg-rose-500/20 text-rose-500'}`}>{totalMinhasPendencias}</span>
+          </button>
+        )}
+
+        {/* Filtro ativo */}
+        {filtroAtivo && (
+          <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 px-3 py-1.5 rounded-full w-max">
+            <span className="text-[10px] font-black text-violet-500 uppercase tracking-widest">Filtro: {filtroAtivo.replace(/_/g, ' ')}</span>
+            <button onClick={() => setFiltroAtivo(null)} aria-label="Limpar filtro"><X className="w-3.5 h-3.5 text-violet-500" /></button>
+          </div>
+        )}
+
+        {/* Lista de pacotes */}
+        {pacotesFiltrados.length === 0 ? (
+          <div className="py-12 text-center">
+            <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" aria-hidden="true" />
+            <p className="text-slate-500 font-bold text-sm">
+              {pacotesAtivos.length === 0 ? `Nenhuma emissão em ${MESES[mesAtivo - 1]}/${anoAtivo}.` : 'Nenhum pacote nesta categoria.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {pacotesFiltrados.map(pacote => {
+              const numArq = pacote.arquivos?.length || 0;
+              const statusLower = (pacote.status || '').toLowerCase();
+              const isRegistrado = statusLower === 'registrado';
+              const emFluxo = !['registrado', 'aprovado', 'rascunho', 'solicitar_correcao', 'expedida'].includes(statusLower);
+              return (
+                <div key={pacote.id} className={`bg-white rounded-2xl border p-3.5 ${isRegistrado ? 'border-violet-200' : 'border-slate-200'}`}>
+                  <div className="flex items-start gap-2.5 mb-2">
+                    <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+                      <Package className="w-4 h-4 text-violet-400" aria-hidden="true" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-slate-900 text-sm break-words leading-tight">{pacote.condominios?.name}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        {String(pacote.mes_referencia).padStart(2, '0')}/{pacote.ano_referencia} • {numArq} arquivo{numArq !== 1 ? 's' : ''}
+                        {isRegistrado && pacote.planilha_snapshot && <span className="text-violet-500"> • 🔒</span>}
+                      </p>
+                    </div>
+                    <div className="shrink-0"><StatusBadge status={pacote.status} /></div>
+                  </div>
+
+                  <div className="mb-2.5"><TrilhaAprovacao pacote={pacote} /></div>
+
+                  {numArq > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2.5">
+                      {pacote.arquivos.map(arq => (
+                        <button key={arq.id} onClick={() => openFileUrl(arq, pacote)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs active:opacity-70">
+                          <FileText className="w-3 h-3 text-slate-500" aria-hidden="true" />
+                          <span className="font-bold text-slate-600 truncate max-w-[130px]">{arq.arquivo_nome}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Ações */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {statusLower === 'aprovado' && roleAutorizado && (
+                      <button onClick={() => handleRegistrar(pacote)} className={`${actBtn} bg-violet-600 text-white`}><FileCheck className="w-3.5 h-3.5" /> Registrar</button>
+                    )}
+                    {isRegistrado && roleAutorizado && (
+                      <button onClick={() => handleExpedir(pacote)} className={`${actBtn} bg-emerald-600 text-white`}><Rocket className="w-3.5 h-3.5" /> Expedir</button>
+                    )}
+                    {emFluxo && (
+                      <button onClick={() => handleAprovar(pacote)} className={`${actBtn} bg-emerald-600 text-white`}><CheckCircle className="w-3.5 h-3.5" /> Aprovar</button>
+                    )}
+                    {emFluxo && (
+                      <button onClick={() => handleRejeitar(pacote)} className={`${actBtn} bg-rose-50 text-rose-500 border border-rose-200`}><XCircle className="w-3.5 h-3.5" /> Corrigir</button>
+                    )}
+                    {emFluxo && (
+                      <button onClick={() => handleRenotificar(pacote)} disabled={notificandoId === pacote.id} className={`${actBtn} bg-violet-50 text-violet-600 border border-violet-200 disabled:opacity-50`}>
+                        {notificandoId === pacote.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BellRing className="w-3.5 h-3.5" />} Notificar
+                      </button>
+                    )}
+                    {(statusLower === 'rascunho' || statusLower === 'solicitar_correcao') && (
+                      <button onClick={() => handleConcluirRapido(pacote)} className={`${actBtn} bg-emerald-600 text-white`}><SendIcon className="w-3.5 h-3.5" /> Enviar</button>
+                    )}
+                    <button onClick={(e) => handleDelete(e, pacote.id)}
+                      className={`ml-auto tap rounded-lg flex items-center justify-center ${confirmDeleteId === pacote.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-50 text-rose-400'}`}
+                      aria-label={confirmDeleteId === pacote.id ? 'Confirmar exclusão' : 'Excluir'}>
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Órfãos */}
+        {orphans.length > 0 && (
+          <div className="border border-rose-200 rounded-2xl bg-rose-50/50 overflow-hidden">
+            <div className="px-4 py-3 border-b border-rose-100 flex items-center gap-2">
+              <FileText className="text-rose-400 w-4 h-4" aria-hidden="true" />
+              <h3 className="font-black text-slate-900 text-sm">Arquivos órfãos / legados</h3>
+            </div>
+            <div className="divide-y divide-rose-100">
+              {orphans.map(arq => (
+                <div key={arq.id} className="px-4 py-3">
+                  <div className="flex items-start gap-2.5">
+                    <FileText className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" aria-hidden="true" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-900 text-sm break-words">{arq.arquivo_nome}</p>
+                      <p className="text-[10px] text-slate-500">{arq.condominios?.name || 'Condomínio não identificado'} • {new Date(arq.criado_em).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <button onClick={() => openFileUrl(arq, { status: 'none' })} className={`${actBtn} bg-slate-100 text-slate-600`}><ExternalLink className="w-3.5 h-3.5" /> Abrir</button>
+                    <button onClick={(e) => handleDeleteOrphan(e, arq.id, arq.arquivo_url)}
+                      className={`ml-auto tap rounded-lg flex items-center justify-center ${confirmDeleteOrphanId === arq.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-50 text-rose-400'}`} aria-label="Excluir arquivo legado">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-8">
+
+      {isMobile ? renderMasterMobile() : (<>
 
       {/* ── Navegação de Mês ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -771,6 +965,7 @@ export default function VisaoMaster() {
           </div>
         </div>
       )}
+      </>)}
 
       <FilePreviewDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} file={selectedFile} />
 

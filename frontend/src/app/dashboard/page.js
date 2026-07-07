@@ -18,6 +18,7 @@ import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import FilaOcorrencias from '@/app/central-emissoes/components/FilaOcorrencias';
 import { SkeletonTable } from '@/components/Skeleton';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 const ANO_ATUAL = new Date().getFullYear();
 const MES_ATUAL = new Date().getMonth() + 1;
@@ -151,6 +152,7 @@ export default function DashboardPage() {
   const [filtroGerente, setFiltroGerente] = useState('');
   const [mesEmissao, setMesEmissao] = useState(MES_ATUAL);
   const [ordemAsc, setOrdemAsc] = useState(true);
+  const isMobile = useIsMobile();
 
   // Persiste o mês escolhido: mantém ao sair/voltar; só muda quando o usuário troca
   useEffect(() => { const v = parseInt(localStorage.getItem('dash_mes') || '', 10); if (v >= 1 && v <= 12) setMesEmissao(v); }, []);
@@ -183,12 +185,31 @@ export default function DashboardPage() {
   const emissaoByCondominio = data?.emissao_by_condo || {};
   const countdown           = useCountdown(pipelineConfig);
 
+  // Status da edição mensal (edicoes_mensais) por condomínio — VENCE o status
+  // semestral no painel: quando o gerente "libera este mês", o painel reflete.
+  // Usa o endpoint que JÁ existe na VPS (sem precisar de deploy do backend).
+  const { data: edicoesData, mutate: mutateEdicoes } = useSWR(`/api/edicoes-mensais?ano=${ANO_ATUAL}`, apiFetcher, {
+    revalidateOnFocus: false, dedupingInterval: 30000, keepPreviousData: true,
+  });
+  const EDI_TO_PROC = { em_edicao: 'Em edição', edicao_finalizada: 'Edição finalizada', reabertura_solicitada: 'Solicitar alteração' };
+  const edicaoByCondo = useMemo(() => {
+    const m = {};
+    // rows já vêm ordenados por ano/mes/aberto_em desc → 1º por condo = mais recente
+    for (const e of (edicoesData?.edicoes || [])) {
+      if (!(e.condominio_id in m)) m[e.condominio_id] = e.status;
+    }
+    return m;
+  }, [edicoesData]);
+  // Status efetivo da Planilha = edição mensal (se houver) senão o semestral
+  const statusPlanilha = (condoId) => EDI_TO_PROC[edicaoByCondo[condoId]] || null;
+
   // Realtime: invalida o cache SWR quando emissoes_pacotes muda
   useEffect(() => {
     const channel = supabase.channel(`dash-realtime-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => mutate())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'processos' },         () => mutate())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_config' },   () => mutate())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'edicoes_mensais' },   () => mutateEdicoes())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [mutate, supabase]);
@@ -282,11 +303,169 @@ export default function DashboardPage() {
     );
   }
 
-  const stats    = data?.stats    || { total: 0, em_edicao: 0, pendentes: 0, aprovados: 0 };
+  const statsBase = data?.stats || { total: 0, em_edicao: 0, pendentes: 0, aprovados: 0 };
+  // Recalcula as contagens considerando a edição mensal (que vence o semestral),
+  // pra o contador "Em edição" bater com os badges das linhas.
+  const stats = (() => {
+    const procs = data?.processos || {};
+    if (!condos.length) return statsBase;
+    let em_edicao = 0, pendentes = 0, aprovados = 0;
+    for (const c of condos) {
+      const eff = statusPlanilha(c.id) || procs[c.id]?.status || null;
+      if (eff === 'Em edição' || eff === 'Solicitar alteração') em_edicao++;
+      else if (eff === 'Enviado' || eff === 'Em aprovação') pendentes++;
+      else if (eff === 'Aprovado' || eff === 'Emitido') aprovados++;
+      else if (!eff) em_edicao++;
+      // 'Edição finalizada' → não conta em nenhum bucket
+    }
+    return { ...statsBase, em_edicao, pendentes, aprovados };
+  })();
   const gerentes = data?.gerentes || [];
   const gerenteNomePorId = {};
   gerentes.forEach(g => { gerenteNomePorId[g.id] = g.profiles?.full_name || g.nome || null; });
   const processos = data?.processos || {};
+
+  // ═══════════════ INÍCIO — versão de celular (layout de app) ═══════════════
+  if (isMobile) {
+    return (
+      <div className="animate-fade-in space-y-4">
+
+        {/* Cabeçalho: mês da emissão */}
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Emissões de</p>
+            <p className="text-2xl font-black text-slate-900 leading-tight truncate">
+              {MESES[mesEmissao]} <span className="text-slate-400">{ANO_ATUAL}</span>
+            </p>
+          </div>
+          <select
+            value={mesEmissao}
+            onChange={(e) => setMesEmissao(Number(e.target.value))}
+            aria-label="Mês da emissão"
+            className="shrink-0 text-xs font-bold bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 outline-none focus:border-violet-500"
+          >
+            {MESES.slice(1).map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+          </select>
+        </div>
+
+        {/* Resumo em 3 números */}
+        <div className="grid grid-cols-3 gap-2.5">
+          <div className="rounded-2xl bg-amber-50 p-3">
+            <p className="text-2xl font-black text-amber-600 leading-none tabular-nums">{isLoading ? '·' : stats.em_edicao}</p>
+            <p className="text-[10px] font-bold text-slate-500 mt-1.5 leading-tight">Em edição</p>
+          </div>
+          <div className="rounded-2xl bg-slate-100 p-3">
+            <p className="text-2xl font-black text-slate-700 leading-none tabular-nums">{isLoading ? '·' : emissaoStats.aguardando}</p>
+            <p className="text-[10px] font-bold text-slate-500 mt-1.5 leading-tight">Aguard. registro</p>
+          </div>
+          <div className="rounded-2xl bg-emerald-50 p-3">
+            <p className="text-2xl font-black text-emerald-600 leading-none tabular-nums">{isLoading ? '·' : emissaoStats.registrada}</p>
+            <p className="text-[10px] font-bold text-slate-500 mt-1.5 leading-tight">Registradas</p>
+          </div>
+        </div>
+
+        {/* Filtro por gerente (oculto pro próprio gerente) */}
+        {user?.role !== 'gerente' && gerentes.length > 0 && (
+          <select
+            value={filtroGerente}
+            onChange={(e) => setFiltroGerente(e.target.value)}
+            aria-label="Filtrar por gerente"
+            className="w-full text-sm font-bold bg-white border border-slate-200 rounded-xl px-3 py-3 text-slate-700 outline-none focus:border-violet-500"
+          >
+            <option value="">Todos os gerentes</option>
+            {gerentes.map((g) => (
+              <option key={g.id} value={g.id}>{g.profiles?.full_name || g.nome || '—'}</option>
+            ))}
+          </select>
+        )}
+
+        {/* Cabeçalho da lista + ordenação */}
+        <div className="flex items-center justify-between px-0.5 pt-1">
+          <h3 className="text-sm font-black text-slate-900">
+            Condomínios <span className="text-slate-400">({condosOrdenados.length})</span>
+          </h3>
+          <button
+            onClick={() => setOrdemAsc(v => !v)}
+            className="tap inline-flex items-center gap-1 text-[11px] font-bold text-slate-500"
+            aria-label="Inverter ordem"
+          >
+            <ArrowUpDown className="w-3.5 h-3.5" aria-hidden="true" /> {ordemAsc ? 'Menor → maior' : 'Maior → menor'}
+          </button>
+        </div>
+
+        {/* Lista de condomínios (cards) */}
+        {isLoading ? (
+          <div className="space-y-2.5">
+            {[...Array(6)].map((_, i) => <div key={i} className="h-28 rounded-2xl bg-slate-100 animate-pulse" />)}
+          </div>
+        ) : condosOrdenados.length === 0 ? (
+          <div className="py-16 text-center">
+            <Inbox className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-500 font-bold">Nenhum condomínio encontrado</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {condosOrdenados.map((c) => {
+              const proc          = processos[c.id];
+              const procStatus    = statusPlanilha(c.id) || proc?.status || null;
+              const emissaoStatus = emissaoByCondominio[c.id] || null;
+              const isLocked      = procStatus === 'Edição finalizada';
+              return (
+                <div key={c.id} className="bg-white rounded-2xl border border-slate-200 p-3.5">
+                  {/* Nome */}
+                  <div className="flex items-center gap-2.5 mb-1">
+                    {isLocked
+                      ? <Lock className="w-4 h-4 text-rose-500 shrink-0" aria-label="Edição finalizada" />
+                      : <Unlock className="w-4 h-4 text-emerald-500 shrink-0" aria-label="Edição aberta" />}
+                    <p className="flex-1 min-w-0 font-black text-slate-900 text-[13px] uppercase tracking-tight break-words">{c.name}</p>
+                  </div>
+                  {/* Gerente + vencimento */}
+                  <p className="text-[11px] text-slate-500 font-medium mb-2.5 pl-[26px]">
+                    {gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}
+                    {c.due_day && <span className="text-slate-400"> · venc. dia {c.due_day}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>}
+                  </p>
+                  {/* Status */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3 pl-[26px]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Planilha</span>
+                      {procStatus ? <StatusBadge status={procStatus} flow="processo" /> : <span className="text-[10px] text-slate-400 font-bold">—</span>}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Emissão</span>
+                      {emissaoStatus ? <StatusBadge status={emissaoStatus} flow="emissao" /> : <span className="text-[10px] text-slate-400 font-bold">—</span>}
+                    </div>
+                  </div>
+                  {/* Ações */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <Link href={`/condominio/${c.id}/arrecadacoes`} className="flex items-center justify-center gap-1 py-2.5 rounded-xl bg-violet-50 text-violet-600 text-[11px] font-black active:opacity-70 transition-opacity">
+                      <Layers className="w-3.5 h-3.5" aria-hidden="true" /> Planilha
+                    </Link>
+                    <Link href={`/condominio/${c.id}/cobrancas`} className="flex items-center justify-center gap-1 py-2.5 rounded-xl bg-amber-50 text-amber-600 text-[11px] font-black active:opacity-70 transition-opacity">
+                      <Receipt className="w-3.5 h-3.5" aria-hidden="true" /> Cobranças
+                    </Link>
+                    <button onClick={() => handleQuickView(c.id)} className="flex items-center justify-center gap-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-black active:opacity-70 transition-opacity">
+                      <Eye className="w-3.5 h-3.5" aria-hidden="true" /> Ver
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Prévia/conferência (botão "Ver") */}
+        {arquivoConferencia && (
+          <VisualizadorConferencia
+            arquivo={arquivoConferencia}
+            arquivos={arquivoConferencia.arquivos}
+            currentUser={user}
+            onClose={() => setArquivoConferencia(null)}
+            onAction={() => { mutate(); setArquivoConferencia(null); }}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in w-full h-full relative space-y-4 pb-12">
@@ -364,7 +543,7 @@ export default function DashboardPage() {
                 <tbody className="text-sm divide-y divide-slate-200">
                   {condosOrdenados.map((c) => {
                     const proc         = processos[c.id];
-                    const procStatus   = proc?.status || null;
+                    const procStatus   = statusPlanilha(c.id) || proc?.status || null;
                     const emissaoStatus = emissaoByCondominio[c.id] || null;
                     const isLocked     = procStatus === 'Edição finalizada';
 
@@ -415,7 +594,7 @@ export default function DashboardPage() {
             <div className="md:hidden flex-1 overflow-y-auto divide-y divide-slate-200">
               {condosOrdenados.map((c) => {
                 const proc          = processos[c.id];
-                const procStatus    = proc?.status || null;
+                const procStatus    = statusPlanilha(c.id) || proc?.status || null;
                 const emissaoStatus = emissaoByCondominio[c.id] || null;
                 const isLocked      = procStatus === 'Edição finalizada';
                 return (

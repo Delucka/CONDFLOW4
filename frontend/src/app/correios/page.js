@@ -30,11 +30,15 @@ export default function CorreiosPage() {
           href={SRC}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-violet-600 hover:bg-violet-50 border border-violet-200 transition-colors"
+          className="inline-flex w-full md:w-auto justify-center items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-violet-600 hover:bg-violet-50 border border-violet-200 transition-colors"
         >
           <ExternalLink className="w-4 h-4" /> Abrir em nova aba
         </a>
       </div>
+
+      <p className="md:hidden text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-snug">
+        No celular, essa ferramenta funciona melhor em <strong>tela cheia</strong> — toque em “Abrir em nova aba”.
+      </p>
 
       <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
         <iframe

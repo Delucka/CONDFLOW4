@@ -48,12 +48,12 @@ export default function CentralEmissoesPage() {
 
   // Toolbar
   const toolbar = (
-    <div className="flex gap-4 mb-6 border-b border-slate-200 pb-6">
+    <div className="flex gap-4 mb-6 border-b border-slate-200 pb-6 overflow-x-auto scrollbar-thin">
       {tabs.map(tab => (
         <button
           key={tab.id}
           onClick={() => setActiveView(tab.id)}
-          className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
             activeView === tab.id ? tab.activeClass : 'bg-slate-50 text-slate-500 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >

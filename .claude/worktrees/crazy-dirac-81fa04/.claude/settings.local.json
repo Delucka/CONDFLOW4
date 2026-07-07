@@ -62,7 +62,9 @@
       "Bash(grep -nA12 \"def get_db\\\\|def get_current_user\\\\|def get_gerente_id\" api/api_routes.py)",
       "mcp__visualize__read_me",
       "mcp__visualize__show_widget",
-      "WebSearch"
+      "WebSearch",
+      "Bash(curl -sI https://emissaonline.com/api/health)",
+      "Bash(curl -sI https://emissaonline.com/dashboard)"
     ]
   }
 }

@@ -9,6 +9,7 @@ import { can } from '@/lib/roles';
 import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
 import { safeStorageName } from '@/lib/storage';
 import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen, Droplet, AlertTriangle, ClipboardList } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 const MESES_LONG_VC = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -21,6 +22,8 @@ function fmt(v) {
 export default function VisualizadorConferencia({ arquivo, arquivos = [], currentUser, onClose, onAction }) {
   const { addToast } = useToast();
   const supabase = createClient();
+  const isMobile = useIsMobile();
+  const [mobileTab, setMobileTab] = useState('doc'); // celular: doc | planilha | cobrancas | consumos | anexos
 
   const [currentFile, setCurrentFile] = useState(arquivo);
   const [loadingFile, setLoadingFile] = useState(false);
@@ -288,6 +291,18 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   // Snapshot: exibe somente o mês emitido (congelado). Ao vivo: exibe todos.
   const mesesParaExibir = planilha?.meses || [];
 
+  // Abas do celular: quais seções existem
+  const temConsumos = docList.some(a => a.categoria === 'concessionaria' || a.categoria === 'relatorio_leitura');
+  const temAnexos   = docList.some(a => a.categoria === 'outros');
+  const mobileTabs = [
+    { id: 'doc',       label: 'Documento' },
+    { id: 'planilha',  label: 'Planilha'  },
+    { id: 'cobrancas', label: 'Cobranças' },
+    ...(temConsumos ? [{ id: 'consumos', label: 'Consumos' }] : []),
+    ...(temAnexos   ? [{ id: 'anexos',   label: 'Anexos'   }] : []),
+  ];
+  const abaAtiva = mobileTabs.some(t => t.id === mobileTab) ? mobileTab : 'doc';
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex flex-col">
 
@@ -428,11 +443,23 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
       )}
 
+      {/* Abas (só no celular) */}
+      {isMobile && (
+        <div className="shrink-0 flex gap-1.5 overflow-x-auto px-3 py-2 border-b border-slate-200 bg-white scrollbar-thin">
+          {mobileTabs.map(t => (
+            <button key={t.id} onClick={() => setMobileTab(t.id)} aria-pressed={abaAtiva === t.id}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${abaAtiva === t.id ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Split view */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden">
 
         {/* PDF */}
-        <div className="bg-white border border-slate-800 rounded-xl overflow-hidden flex flex-col relative min-h-[60vh] lg:min-h-0">
+        <div className={`bg-white border border-slate-800 rounded-xl overflow-hidden flex flex-col relative min-h-[60vh] lg:min-h-0 ${isMobile && abaAtiva !== 'doc' ? 'hidden' : ''}`}>
           {loadingFile && (
             <div className="absolute inset-0 z-10 bg-white backdrop-blur-sm flex items-center justify-center">
               <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
@@ -447,10 +474,10 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
 
         {/* Painel lateral - usa flex height, nao calc() */}
-        <div className="flex flex-col gap-3 pr-2 conf-scroll min-h-0 lg:h-full lg:overflow-y-auto overflow-x-hidden">
+        <div className={`flex flex-col gap-3 pr-2 conf-scroll min-h-0 lg:h-full lg:overflow-y-auto overflow-x-hidden ${isMobile && abaAtiva === 'doc' ? 'hidden' : ''}`}>
 
           {/* Planilha Anual */}
-          <div className="bg-white border border-slate-800 rounded-xl overflow-hidden shrink-0">
+          <div className={`bg-white border border-slate-800 rounded-xl overflow-hidden shrink-0 ${isMobile && abaAtiva !== 'planilha' ? 'hidden' : ''}`}>
             <div className="px-4 py-3 border-b border-slate-800 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className={`w-4 h-4 ${isSnapshot ? 'text-amber-400' : 'text-violet-400'}`} />
@@ -475,7 +502,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                     <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     Nenhuma planilha cadastrada para este condomínio.
                   </div>
-                : <table className="w-full text-sm">
+                : <div className="overflow-x-auto"><table className="w-full text-sm">
                     <thead>
                       <tr className="bg-slate-50">
                         <th className="text-left px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Mês</th>
@@ -513,12 +540,12 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                         </tr>
                       )}
                     </tbody>
-                  </table>
+                  </table></div>
             }
           </div>
 
           {/* Cobranças Extras — sempre visível */}
-          <div className="bg-white border border-slate-800 rounded-xl overflow-hidden flex flex-col max-h-72 shrink-0">
+          <div className={`bg-white border border-slate-800 rounded-xl overflow-hidden flex flex-col max-h-72 shrink-0 ${isMobile && abaAtiva !== 'cobrancas' ? 'hidden' : ''}`}>
             <div className="px-4 py-3 border-b border-slate-800 bg-slate-50 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-amber-400" />
@@ -573,7 +600,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             const concessionarias = docList.filter(a => a.categoria === 'concessionaria');
             if (concessionarias.length === 0) return null;
             return (
-              <div className="bg-white border border-amber-500/30 rounded-xl overflow-hidden shrink-0">
+              <div className={`bg-white border border-amber-500/30 rounded-xl overflow-hidden shrink-0 ${isMobile && abaAtiva !== 'consumos' ? 'hidden' : ''}`}>
                 <div className="px-4 py-3 border-b border-amber-500/20 bg-amber-500/5 flex items-center gap-2">
                   <Package className="w-4 h-4 text-amber-400" />
                   <h4 className="text-sm font-bold text-amber-300">Concessionárias</h4>
@@ -620,7 +647,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             const relatorios = docList.filter(a => a.categoria === 'relatorio_leitura');
             if (relatorios.length === 0) return null;
             return (
-              <div className="bg-white border border-violet-500/30 rounded-xl overflow-hidden shrink-0">
+              <div className={`bg-white border border-violet-500/30 rounded-xl overflow-hidden shrink-0 ${isMobile && abaAtiva !== 'consumos' ? 'hidden' : ''}`}>
                 <div className="px-4 py-3 border-b border-violet-500/20 bg-violet-500/5 flex items-center gap-2">
                   <ClipboardList className="w-4 h-4 text-violet-500" />
                   <h4 className="text-sm font-bold text-violet-600">Relatórios de Leitura</h4>
@@ -680,7 +707,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             const outros = docList.filter(a => a.categoria === 'outros');
             if (outros.length === 0) return null;
             return (
-              <div className="bg-white border border-slate-700 rounded-xl overflow-hidden shrink-0">
+              <div className={`bg-white border border-slate-700 rounded-xl overflow-hidden shrink-0 ${isMobile && abaAtiva !== 'anexos' ? 'hidden' : ''}`}>
                 <div className="px-4 py-3 border-b border-slate-800 bg-slate-50 flex items-center gap-2">
                   <FolderOpen className="w-4 h-4 text-slate-400" />
                   <h4 className="text-sm font-bold text-slate-800">Outros Anexos</h4>

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useLockedMonths } from '@/lib/useLockedMonths';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -415,6 +416,7 @@ export default function CobrancasExtrasPage() {
   const { user, profile } = useAuth();
   const { addToast } = useToast();
   const supabase = createClient();
+  const isMobile = useIsMobile();
 
   const [condominios, setCondominios] = useState([]);
   const [condoSel, setCondoSel] = useState('');
@@ -535,8 +537,153 @@ export default function CobrancasExtrasPage() {
     return list;
   }, [todosGrupos, filtroStatus, search]);
 
+  // ═══════════ COBRANÇAS EXTRAS — versão de celular (layout de app) ═══════════
+  const renderMobile = () => {
+    const scopeText = role === 'gerente' ? 'Sua carteira' : role === 'assistente' ? 'Carteira do seu gerente' : 'Todos os condomínios';
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+            <Receipt className="w-5 h-5 text-amber-500" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-black text-slate-900 leading-tight">Cobranças extras</h2>
+            <p className="text-[11px] text-slate-500">{scopeText}</p>
+          </div>
+        </div>
+
+        {condominios.length === 0 ? (
+          <p className="text-xs text-slate-500 italic px-1">{loadingCondos ? 'Carregando carteira…' : 'Nenhum condomínio na sua carteira'}</p>
+        ) : (
+          <div className="space-y-2">
+            <CondoPicker condominios={condominios} value={condoSel} onChange={setCondoSel} />
+            {podeLancar && (
+              <button onClick={() => setModalLancar(true)}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-amber-600 text-white text-sm font-black active:opacity-80 transition-opacity">
+                <Plus className="w-4 h-4" aria-hidden="true" /> Nova cobrança
+              </button>
+            )}
+          </div>
+        )}
+
+        {condoSel && todosGrupos.length > 0 && (
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-2xl bg-slate-100 p-3">
+              <p className="text-2xl font-black text-slate-800 leading-none tabular-nums">{stats.total}</p>
+              <p className="text-[10px] font-bold text-slate-500 mt-1.5">Total</p>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 p-3">
+              <p className="text-2xl font-black text-emerald-600 leading-none tabular-nums">{stats.ativas}</p>
+              <p className="text-[10px] font-bold text-slate-500 mt-1.5">Ativas</p>
+            </div>
+            <div className="rounded-2xl bg-rose-50 p-3">
+              <p className="text-2xl font-black text-rose-500 leading-none tabular-nums">{stats.cancel}</p>
+              <p className="text-[10px] font-bold text-slate-500 mt-1.5">Aguard. cancel.</p>
+            </div>
+            <div className="rounded-2xl bg-amber-50 p-3">
+              <p className="text-lg font-black text-amber-600 leading-none truncate">R$ {stats.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-[10px] font-bold text-slate-500 mt-1.5">Valor estimado</p>
+            </div>
+          </div>
+        )}
+
+        {condoSel && todosGrupos.length > 0 && (
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar descrição…"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 text-sm text-slate-800 outline-none focus:border-amber-500 placeholder-slate-400" />
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-1 scrollbar-thin">
+              {[{ id: 'todos', label: 'Todas' }, { id: 'ativa', label: 'Ativas' }, { id: 'cancelamento', label: 'Em cancelamento' }].map(opt => (
+                <button key={opt.id} onClick={() => setFiltroStatus(opt.id)}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors ${filtroStatus === opt.id ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {podeExecutar && cancelamentos.length > 0 && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50/50 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-rose-100 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-rose-400" aria-hidden="true" />
+              <h3 className="text-xs font-black text-rose-500">Aguardando sua aprovação ({cancelamentos.length})</h3>
+            </div>
+            <div className="divide-y divide-rose-100">
+              {cancelamentos.map(c => (
+                <div key={c.grupo_id} className="px-4 py-3">
+                  <p className="text-sm font-bold text-slate-800 break-words">{c.descricao} — {c.condominio}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{c.parcelas_pendentes} parcela(s) de R$ {Number(c.valor_parcela).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · <em>{c.motivo}</em></p>
+                  <button onClick={() => handleExecutarCancelamento(c.grupo_id)}
+                    className="mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-black active:opacity-80">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Cancelar parcelas futuras
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>
+        ) : !condoSel ? (
+          <div className="py-14 text-center"><Building2 className="w-10 h-10 mx-auto mb-2 text-slate-300" /><p className="text-slate-500 font-bold text-sm">Nenhum condomínio na carteira</p></div>
+        ) : todosGrupos.length === 0 ? (
+          <div className="py-14 text-center"><Receipt className="w-10 h-10 mx-auto mb-2 text-slate-300" /><p className="text-slate-500 font-bold text-sm">Nenhuma cobrança lançada</p><p className="text-slate-400 text-xs mt-1">Toque em “Nova cobrança”.</p></div>
+        ) : gruposFiltrados.length === 0 ? (
+          <div className="py-14 text-center"><p className="text-slate-500 font-bold text-sm">Nada encontrado</p><p className="text-slate-400 text-xs mt-1">Limpe a busca ou troque o filtro.</p></div>
+        ) : (
+          <div className="space-y-2.5">
+            {gruposFiltrados.map(grupo => (
+              <div key={grupo.grupo_id} className={`bg-white rounded-2xl border p-3.5 ${grupo.status === 'solicitado_cancelamento' ? 'border-rose-200' : 'border-slate-200'}`}>
+                <div className="flex items-start gap-2.5">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${grupo.parcela_total > 1 ? 'bg-violet-50' : 'bg-amber-50'}`}>
+                    {grupo.parcela_total > 1 ? <Repeat className="w-4 h-4 text-violet-500" /> : <Receipt className="w-4 h-4 text-amber-500" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-slate-900 text-sm break-words leading-tight">{grupo.descricao_base}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {grupo.parcela_total > 1 ? `${grupo.parcela_total}x de R$ ${Number(grupo.valor_parcela).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : `R$ ${Number(grupo.valor_parcela).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                    </p>
+                  </div>
+                  {grupo.attachments?.length > 0 && (
+                    <a href={grupo.attachments[0]} target="_blank" rel="noreferrer" className="tap shrink-0 text-slate-400" title="Ver documento"><FileText className="w-4 h-4" /></a>
+                  )}
+                  {podeSolicitar && grupo.status === 'ativa' && (
+                    <button onClick={() => setModalCancelar(grupo)} className="tap shrink-0 text-slate-400" aria-label="Solicitar cancelamento"><Trash2 className="w-4 h-4" /></button>
+                  )}
+                </div>
+                {grupo.status === 'solicitado_cancelamento' && (
+                  <span className="inline-block mt-2 text-[10px] font-bold bg-rose-50 text-rose-500 border border-rose-200 px-2 py-0.5 rounded">Cancelamento solicitado</span>
+                )}
+                {grupo.parcelas.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2.5 pt-2.5 border-t border-slate-100">
+                    {grupo.parcelas.sort((a, b) => a.parcela_atual - b.parcela_atual).map(p => {
+                      const bloq = isMesNoPassado(p.mes, p.ano);
+                      const cancelado = p.status === 'solicitado_cancelamento' || p.status === 'cancelada';
+                      const processada = p.status === 'processada';
+                      return (
+                        <span key={p.id} className={`text-[10px] font-bold px-2 py-0.5 rounded border ${cancelado ? 'bg-rose-50 text-rose-500 border-rose-200 line-through' : processada ? 'bg-violet-50 text-violet-500 border-violet-200' : bloq ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                          {MESES[(p.mes || 1) - 1]}/{p.ano}{p.parcela_total > 1 ? ` (${p.parcela_atual}/${p.parcela_total})` : ''}{processada ? ' ✓' : ''}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="animate-fade-in w-full space-y-6 pb-20">
+
+      {isMobile ? renderMobile() : (<>
 
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-panel p-6 rounded-[2rem] border-slate-200 shadow-xl">
@@ -741,6 +888,7 @@ export default function CobrancasExtrasPage() {
           ))}
         </div>
       )}
+      </>)}
 
       {modalLancar && (
         <ModalLancar condominioId={condoSel} condominioNome={condoNome} onClose={() => setModalLancar(false)} onSaved={carregar} />

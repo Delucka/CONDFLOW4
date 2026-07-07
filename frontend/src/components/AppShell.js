@@ -3,13 +3,16 @@ import { useAuth } from '@/lib/auth';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
+import MobileShell from './MobileShell';
 import NotificationsBell from './NotificationsBell';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { Loader2, Menu } from 'lucide-react';
 
 export default function AppShell({ children }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Fecha o menu mobile ao trocar de rota
@@ -72,6 +75,12 @@ export default function AppShell({ children }) {
   const defaultTitle = pathname.includes('/arrecadacoes') ? 'Arrecadações Financeiras' : 
                        pathname.includes('/cobrancas') ? 'Cobranças Extras' : '';
   const pageTitle = TITLES[pathname] || defaultTitle || 'CondoFlow Premium';
+
+  // Celular (< 768px): casca de app própria (topo + barra inferior + "Mais").
+  // O desktop/tablet (≥ 768px) continua com o layout de sidebar abaixo, intacto.
+  if (isMobile) {
+    return <MobileShell>{children}</MobileShell>;
+  }
 
   return (
     <div className="h-screen flex p-2 sm:p-3 md:p-4 gap-4 overflow-hidden selection:bg-violet-200 font-sans">

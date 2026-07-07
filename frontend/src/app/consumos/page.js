@@ -12,6 +12,7 @@ import {
   Droplet, Building2, Plus, Upload, Loader2, X, FileText, Trash2,
   CheckCircle2, Clock, AlertTriangle, Copy, Pencil, Search, ExternalLink, RefreshCw,
 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 const MESES = ['', 'Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const MESES_LONG = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -386,6 +387,7 @@ export default function ConsumosPage() {
   const { addToast } = useToast();
   const supabase = useMemo(() => createClient(), []);
   const role = profile?.role;
+  const isMobile = useIsMobile();
 
   const podeAdicionar = ['master', 'departamento', 'assistente'].includes(role);
 
@@ -708,8 +710,123 @@ export default function ConsumosPage() {
 
   const mesAtual = anoSel === new Date().getFullYear() ? new Date().getMonth() + 1 : 0;
 
+  // ═══════════ CONSUMOS — versão de celular (condo-first) ═══════════
+  const renderMobile = () => {
+    const anomalias = alertasList.filter(a => a.tipo === 'anomalia').length;
+    const relatoriosDoCondo = relatorios
+      .filter(r => r.condominio_id === condoSel)
+      .sort((a, b) => (b.ano_referencia - a.ano_referencia) || (b.mes_referencia - a.mes_referencia));
+    const gruposFiltrados = grupos
+      .map(g => ({ ...g, faturas: filtroConc === 'todas' ? g.faturas : g.faturas.filter(f => f.concessionaria === filtroConc) }))
+      .filter(g => g.faturas.length > 0);
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0"><Droplet className="w-5 h-5 text-violet-500" aria-hidden="true" /></div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-black text-slate-900 leading-tight">Consumos</h2>
+            <p className="text-[11px] text-slate-500">Água, gás e energia por condomínio</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="rounded-2xl bg-slate-100 p-3"><p className="text-2xl font-black text-slate-800 leading-none tabular-nums">{stats.processadas}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Processadas</p></div>
+          <div className="rounded-2xl bg-amber-50 p-3"><p className="text-2xl font-black text-amber-600 leading-none tabular-nums">{anomalias}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Anomalias</p></div>
+          <div className="rounded-2xl bg-rose-50 p-3"><p className="text-2xl font-black text-rose-500 leading-none tabular-nums">{stats.duplicatas}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Duplicatas</p></div>
+          <div className="rounded-2xl bg-violet-50 p-3"><p className="text-2xl font-black text-violet-600 leading-none tabular-nums">{stats.pendentes}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Pendentes</p></div>
+        </div>
+
+        <div className="flex gap-2">
+          <select value={condoSel} onChange={e => setCondoSel(e.target.value)} aria-label="Condomínio"
+            className="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-violet-500">
+            {condosComFaturas.length === 0 && <option value="">Nenhum condomínio</option>}
+            {condosComFaturas.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select value={anoSel} onChange={e => setAnoSel(Number(e.target.value))} aria-label="Ano"
+            className="shrink-0 bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-violet-700 outline-none focus:border-violet-500">
+            {[anoSel - 1, anoSel, anoSel + 1].map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+
+        {podeAdicionar && (
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => { setEditFatura(null); setPreFatura(null); setShowNovaModal(true); }} disabled={!condoSel}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-black active:opacity-80 disabled:opacity-40">
+              <Plus className="w-4 h-4" /> Nova fatura
+            </button>
+            <button onClick={() => setShowAddCondoModal(true)}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 text-xs font-black active:opacity-80">
+              <Building2 className="w-4 h-4" /> Add condomínio
+            </button>
+          </div>
+        )}
+
+        <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-1 scrollbar-thin">
+          {['todas', 'SABESP', 'COMGAS', 'ENEL'].map(id => (
+            <button key={id} onClick={() => setFiltroConc(id)}
+              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors ${filtroConc === id ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+              {id === 'todas' ? 'Todas' : id}
+            </button>
+          ))}
+        </div>
+
+        {loadingFaturas ? (
+          <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-violet-500" /></div>
+        ) : !condoSel ? (
+          <div className="py-14 text-center"><Droplet className="w-10 h-10 mx-auto mb-2 text-slate-300" /><p className="text-slate-500 font-bold text-sm">Escolha um condomínio</p></div>
+        ) : (
+          <>
+            {gruposFiltrados.length === 0 ? (
+              <div className="py-14 text-center"><FileText className="w-10 h-10 mx-auto mb-2 text-slate-300" /><p className="text-slate-500 font-bold text-sm">Nenhuma fatura</p><p className="text-slate-400 text-xs mt-1">Toque em “Nova fatura”.</p></div>
+            ) : (
+              <div className="space-y-4">
+                {gruposFiltrados.map(g => (
+                  <div key={`${g.ano}-${g.mes}`}>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 px-0.5">{MESES_LONG[g.mes]} / {g.ano}</p>
+                    <div className="space-y-2.5">
+                      {g.faturas.map(f => (
+                        <FaturaCard key={f.id} fatura={f} profile={profile}
+                          onEdit={(x) => { setEditFatura(x); setPreFatura(null); setShowNovaModal(true); }}
+                          onDuplicar={handleDuplicar} onAnexar={handleAnexar} onDelete={handleDelete} onAbrir={handleAbrir} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {relatoriosDoCondo.length > 0 && (
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 px-0.5 flex items-center gap-1.5"><Droplet className="w-3.5 h-3.5 text-violet-500" /> Relatórios de leitura</p>
+                <div className="space-y-2">
+                  {relatoriosDoCondo.map(r => (
+                    <button key={r.id} onClick={() => abrirUnidades({ id: r.id, nome: condoNomeSel, empresa: r.empresa_leitura, mes: r.mes_referencia, servico: r.tipo_servico, origem: r.origem_emissao_arquivo_id, arquivo_url: r.arquivo_url })}
+                      className="w-full text-left bg-white rounded-2xl border border-slate-200 p-3 active:opacity-80">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-violet-50 text-violet-600">{r.empresa_leitura}</span>
+                        <span className="text-[11px] text-slate-500">{r.tipo_servico === 'gas' ? '🔥 gás' : '💧 água'} · {MESES[r.mes_referencia]}/{r.ano_referencia}</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-violet-400 ml-auto" />
+                      </div>
+                      <div className="flex items-center gap-4 mt-1.5 text-[11px]">
+                        {r.consumo_total != null && <span className="text-slate-600"><span className="text-slate-400">consumo:</span> {Number(r.consumo_total).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m³</span>}
+                        {r.valor_total != null && <span className="font-bold text-emerald-600">R$ {fmtBRL(r.valor_total)}</span>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="animate-fade-in w-full flex flex-col gap-6 pb-20">
+
+      {isMobile ? renderMobile() : (<>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 glass-panel p-6 rounded-[2rem] border-slate-200 shadow-xl">
         <div className="flex items-center gap-4">
@@ -1112,6 +1229,7 @@ export default function ConsumosPage() {
         </div>
       )}
       </div>{/* fim matrizes lado a lado */}
+      </>)}
 
       {/* Modal Nova/Edit */}
       {showNovaModal && condoSel && (

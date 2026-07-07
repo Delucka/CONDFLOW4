@@ -251,7 +251,7 @@ export default function CondominiosPage() {
 
       {/* ── Painel de Controle Global (só master) ── */}
       {user?.role === 'master' && (
-        <div className="glass-panel p-6 rounded-[2rem] border border-slate-200 shadow-2xl space-y-5">
+        <div className="glass-panel p-4 md:p-6 rounded-2xl md:rounded-[2rem] border border-slate-200 shadow-2xl space-y-5">
 
           {/* Cabeçalho */}
           <div className="flex items-center justify-between">
@@ -407,14 +407,14 @@ export default function CondominiosPage() {
       )}
 
       {/* Header com Busca e Ação */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-6 glass-panel p-8 rounded-[2rem] border-slate-200 shadow-2xl">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6 glass-panel p-4 md:p-8 rounded-2xl md:rounded-[2rem] border-slate-200 shadow-2xl">
         <div className="flex-1 w-full max-w-md relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-violet-400 transition-colors" />
-          <input 
-            type="text" 
-            placeholder="Pesquisar condomínio..." 
+          <input
+            type="text"
+            placeholder="Pesquisar condomínio..."
             value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-2xl py-4 pl-12 pr-6 text-sm text-slate-800 outline-none focus:border-violet-500/50 transition-all shadow-inner"
+            className="w-full bg-white border border-slate-200 rounded-2xl py-3 md:py-4 pl-12 pr-6 text-sm text-slate-800 outline-none focus:border-violet-500/50 transition-all shadow-inner"
           />
         </div>
 
@@ -607,7 +607,7 @@ export default function CondominiosPage() {
 // Componente Card para evitar repetição
 function CondoCardBase({ c, canEdit, onEdit, onQuickView }) {
   return (
-    <div className="glass-panel p-6 rounded-[2rem] border-slate-200 hover:border-violet-500/30 transition-all group shadow-xl flex flex-col justify-between h-full">
+    <div className="glass-panel p-5 md:p-6 rounded-2xl md:rounded-[2rem] border-slate-200 hover:border-violet-500/30 transition-all group shadow-xl flex flex-col justify-between h-full">
         <div>
            <div className="flex items-start justify-between mb-6">
               <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center border border-slate-200 group-hover:scale-105 transition-transform shadow-inner">

@@ -9,10 +9,12 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import {
   Save, Lock, ArrowLeft, PlusCircle, X, Search,
-  ChevronDown, Layers, Building, Calendar, Info,
-  Printer, Send, Trash2, CheckCircle2, Settings, Timer, FileWarning
+  ChevronDown, ChevronRight, Layers, Building, Calendar, Info,
+  Printer, Send, Trash2, CheckCircle2, Settings, Timer, FileWarning,
+  Copy, Minus, Plus
 } from 'lucide-react';
 import Link from 'next/link';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
 import ModalSelecionarConta from '@/components/ModalSelecionarConta';
 import { useLockedMonths, reasonLabel } from '@/lib/useLockedMonths';
@@ -77,6 +79,12 @@ export default function ArrecadacoesPage() {
   const [showContaDropdown, setShowContaDropdown] = useState(null);  // guarda o rateio_id em edição
   const [showConfirmSend, setShowConfirmSend] = useState(false);
   const [editingRateioId, setEditingRateioId] = useState(null);
+
+  // ── Celular: edita um mês por vez + atalho "aplicar valor a N meses" ──
+  const isMobile = useIsMobile();
+  const [mesSelMobile, setMesSelMobile] = useState(() => new Date().getMonth() + 1);
+  const [aplicarMesesFor, setAplicarMesesFor] = useState(null); // { rid, valor } | null
+  const [aplicarCount, setAplicarCount] = useState(1);
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
 
@@ -431,9 +439,304 @@ export default function ArrecadacoesPage() {
       setShowContaDropdown(null);
   };
 
+  // ─── Trava de um mês (mesma regra da célula do desktop) ───
+  const mesTravadoInfo = (m) => {
+    const edicaoFinalizadaMes = !!edicoesLockedMeses[m];
+    const lockReason = reasonFor(m);
+    const hardLock = lockReason === 'emitido';
+    const reaberto = mesesReabertos.has(m);
+    const softLock = isLocked(m) && !hardLock && !reaberto;
+    const mesTravado = hardLock || edicaoFinalizadaMes || softLock;
+    const reason = edicaoFinalizadaMes ? 'Edição finalizada (liberada). Solicite reabertura para alterar.' : lockReason;
+    return { mesTravado, reason, cellDisabled: !canEdit || mesTravado };
+  };
+
+  // ─── Atalho do celular: aplicar um valor a N meses a partir do mês selecionado ───
+  const aplicarValorMeses = (rid, valor, count) => {
+    const start = mesSelMobile;
+    let aplicados = 0;
+    setRateiosVals(prev => {
+      const next = { ...prev, [rid]: { ...(prev[rid] || {}) } };
+      for (let k = 0; k < count; k++) {
+        const mm = start + k;
+        if (mm > 12) break;
+        if (mesTravadoInfo(mm).mesTravado) continue; // não sobrescreve mês travado
+        next[rid][mm] = valor;
+        aplicados++;
+      }
+      return next;
+    });
+    setAplicarMesesFor(null);
+    addToast(
+      aplicados > 0 ? `Valor aplicado a ${aplicados} ${aplicados > 1 ? 'meses' : 'mês'}.` : 'Nenhum mês editável no intervalo.',
+      aplicados > 0 ? 'success' : 'warning'
+    );
+  };
+
+  // ═══════════ PLANILHA — versão de celular (um mês por vez) ═══════════
+  const renderPlanilhaMobile = () => {
+    const m = mesSelMobile;
+    const totalMes = rateios.reduce((acc, r) => acc + parseValorNumerico(rateiosVals[r.id]?.[m]), 0);
+    const edicaoAberta = edicoesCondo.find(e => e.status === 'em_edicao');
+    const podeLiberarMensal = edicaoAberta && (profile?.role === 'gerente' || profile?.role === 'master');
+    const parcelaTxt = (r, mm) => {
+      if (!r.is_parcelado) return null;
+      const mesIni = parseInt(r.mes_inicio || 1), total = parseInt(r.parcela_total || 1), startNum = parseInt(r.parcela_inicio || 1);
+      if (mm >= mesIni) { const cur = startNum + (mm - mesIni); if (cur > 0 && cur <= total) return `${String(cur).padStart(2, '0')}/${String(total).padStart(2, '0')}`; }
+      return null;
+    };
+
+    return (
+      <div className="space-y-4">
+
+        <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 -ml-1">
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Painel
+        </Link>
+
+        {/* Cabeçalho do condomínio */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg font-black text-slate-900 uppercase tracking-tight leading-tight break-words">{condo?.name}</h1>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+              Gerente: {condo?.gerente_name} · venc. dia {condo?.due_day}{condo?.due_day_2 ? ` e ${condo.due_day_2}` : ''}
+            </p>
+            <div className="mt-1.5"><StatusBadge status={processo?.status} flow="processo" /></div>
+          </div>
+          <select
+            value={selectedYear}
+            onChange={(e) => router.push(`/condominio/${condoId}/arrecadacoes?ano=${e.target.value}`)}
+            aria-label="Ano de referência"
+            className="shrink-0 text-xs font-black bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-violet-500"
+          >
+            {[...Array(6)].map((_, i) => <option key={i} value={2024 + i}>{2024 + i}</option>)}
+          </select>
+        </div>
+
+        {/* Banner: sem permissão de edição */}
+        {!canEdit && (
+          <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-rose-50 border border-rose-200">
+            <Lock className="w-4 h-4 text-rose-500 shrink-0" aria-hidden="true" />
+            <p className="text-[11px] font-bold text-rose-600">
+              {prazoExpirado ? 'Prazo de devolução encerrado.' : 'Planilha bloqueada para edição.'}
+            </p>
+          </div>
+        )}
+
+        {/* Banners de edição mensal (finalizada / reabertura) */}
+        {edicoesCondo.filter(e => e.status !== 'em_edicao').map(ed => {
+          const mesNome = MESES[ed.mes_referencia];
+          if (ed.status === 'edicao_finalizada') return (
+            <div key={ed.id} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" aria-hidden="true" />
+              <p className="text-[11px] font-bold text-emerald-600">{mesNome}/{ed.ano_referencia} liberado · edição bloqueada.</p>
+            </div>
+          );
+          if (ed.status === 'reabertura_solicitada') return (
+            <div key={ed.id} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+              <Timer className="w-3.5 h-3.5 text-amber-500 shrink-0" aria-hidden="true" />
+              <p className="text-[11px] font-bold text-amber-600">{mesNome}/{ed.ano_referencia} · reabertura solicitada.</p>
+            </div>
+          );
+          return null;
+        })}
+
+        {/* Timeline do emissor */}
+        {isEmissor && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Emissor:</span>
+            {['Em edição', 'Edição finalizada'].map(st => (
+              <button key={st} onClick={() => handleForceStatus(st)}
+                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${processo?.status === st ? (st === 'Edição finalizada' ? 'bg-rose-500 text-white' : 'bg-violet-600 text-white') : 'bg-slate-100 text-slate-500'}`}>
+                {st}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Fita de meses */}
+        <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-1 scrollbar-thin">
+          {months.map(mm => {
+            const { mesTravado } = mesTravadoInfo(mm);
+            const sel = mm === m;
+            return (
+              <button key={mm} onClick={() => setMesSelMobile(mm)}
+                aria-pressed={sel}
+                className={`shrink-0 flex items-center gap-1 px-3.5 py-2 rounded-full text-xs font-bold transition-colors ${sel ? 'bg-violet-600 text-white' : mesTravado ? 'bg-rose-50 text-rose-500' : 'bg-slate-100 text-slate-600'}`}>
+                {mesTravado && <Lock className="w-3 h-3" aria-hidden="true" />}
+                {MESES[mm].slice(0, 3)}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Total do mês */}
+        <div className="flex items-center justify-between bg-violet-50 rounded-2xl px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold text-violet-600">Total de {MESES[m]}</p>
+            <p className="text-xl font-black text-violet-700 tabular-nums truncate">{formatBRL(totalMes)}</p>
+          </div>
+          <span className="text-[11px] text-slate-500 font-bold shrink-0 ml-2">{rateios.length} verba{rateios.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        {/* Lista de verbas do mês */}
+        {rateios.length === 0 ? (
+          <div className="py-12 text-center">
+            <Layers className="w-10 h-10 text-slate-300 mx-auto mb-2" aria-hidden="true" />
+            <p className="text-slate-500 font-bold text-sm">Nenhuma verba cadastrada</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {rateios.map(r => {
+              const val = rateiosVals[r.id]?.[m] || '0.00';
+              const { mesTravado, reason, cellDisabled } = mesTravadoInfo(m);
+              const isPlanilhaSpecial = val === 'PLANILHA';
+              const displayValue = isPlanilhaSpecial ? val : formatBRL(val);
+              const parc = parcelaTxt(r, m);
+              return (
+                <div key={r.id} className={`bg-white rounded-2xl border p-3 ${mesTravado ? 'border-rose-200' : 'border-slate-200'}`}>
+                  <div className="flex items-start gap-2 mb-2.5">
+                    <div className="flex-1 min-w-0">
+                      <input value={r.nome || ''} onChange={e => handleRateioChange(r.id, 'nome', e.target.value)} disabled={!canEdit}
+                        placeholder="Nome da verba"
+                        className="w-full bg-transparent border-none p-0 text-[13px] font-black uppercase text-slate-800 placeholder:text-slate-400 focus:ring-0 disabled:cursor-default" />
+                      <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">
+                        CT. {r.conta_contabil || '—'}{r.conta_nome ? ` · ${r.conta_nome}` : ''}{parc && <span className="text-violet-500"> · parcela {parc}</span>}
+                      </p>
+                    </div>
+                    {canEdit && (
+                      <button onClick={() => setEditingRateioId(r.id)} className="tap shrink-0 -mt-1 -mr-1 text-slate-400" aria-label="Configurar verba">
+                        <Settings className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="text" inputMode="numeric" value={displayValue}
+                      onChange={isPlanilhaSpecial ? (e) => handleValueChange(r.id, m, e.target.value) : (e) => handleCurrencyInput(r.id, m, e.target.value)}
+                      onFocus={isPlanilhaSpecial ? undefined : handleCurrencyFocus} disabled={cellDisabled} placeholder="R$ 0,00"
+                      aria-label={`Valor de ${r.nome || 'verba'} em ${MESES[m]}`}
+                      className={`flex-1 min-w-0 text-right bg-slate-50 border rounded-xl text-base font-black px-3 py-2.5 outline-none transition-colors focus:border-violet-500
+                        ${isPlanilhaSpecial ? 'text-violet-500 text-center' : 'text-slate-800'}
+                        ${mesTravado ? 'border-rose-200 text-rose-400' : 'border-slate-200'}
+                        ${cellDisabled ? 'opacity-60 cursor-not-allowed' : ''}`} />
+                    {canEdit && !cellDisabled && !isPlanilhaSpecial && (
+                      <button onClick={() => { setAplicarMesesFor({ rid: r.id, valor: val }); setAplicarCount(Math.max(1, 12 - m + 1)); }}
+                        className="tap shrink-0 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center" aria-label="Aplicar valor a vários meses">
+                        <Copy className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button onClick={() => handleDelete(r.id)} className="tap shrink-0 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center" aria-label="Excluir verba">
+                        <Trash2 className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                  {mesTravado && (
+                    <p className="text-[10px] font-bold text-rose-400 mt-1.5 flex items-center gap-1"><Lock className="w-3 h-3" aria-hidden="true" /> {reasonLabel(reason)}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Adicionar verba */}
+        {canEdit && (
+          <button onClick={handleAddNew} className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-2xl text-[11px] font-black text-slate-500 uppercase tracking-widest active:opacity-70">
+            <PlusCircle className="w-4 h-4" aria-hidden="true" /> Adicionar verba
+          </button>
+        )}
+
+        {/* Alterações (AGO/AGE) do mês */}
+        {canEdit && (
+          <button onClick={() => setModalAlteracoesMes(m)} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-50 text-amber-600 text-[11px] font-black uppercase tracking-widest active:opacity-70">
+            <FileWarning className="w-4 h-4" aria-hidden="true" /> Alterações de {MESES[m]} (AGO/AGE)
+          </button>
+        )}
+
+        {/* Observações */}
+        <div>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+            <Info className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" /> Observações de emissão
+          </label>
+          <textarea value={obsEmissao} onChange={e => setObsEmissao(e.target.value)} disabled={!canEdit} rows={3}
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm font-medium text-slate-700 outline-none focus:border-violet-500 resize-none"
+            placeholder="Observações importantes para a emissão..." />
+        </div>
+
+        {/* Ações */}
+        {canEdit && (
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => handleSave()} disabled={saving}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs font-black text-slate-900 uppercase tracking-widest active:opacity-70 disabled:opacity-50">
+              <Save className="w-4 h-4 text-violet-500" aria-hidden="true" /> {saving ? 'Salvando...' : 'Salvar'}
+            </button>
+            {podeLiberarMensal ? (
+              <button onClick={() => liberarEdicaoMensal(edicaoAberta)} disabled={edicaoLoading}
+                className="flex-[1.3] flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-500 text-white text-xs font-black uppercase tracking-widest active:opacity-70 disabled:opacity-50">
+                <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> Liberar {MESES[edicaoAberta.mes_referencia].slice(0, 3)}
+              </button>
+            ) : edicoesCondo.length === 0 && (
+              <button onClick={() => setShowConfirmSend(true)}
+                className="flex-[1.3] flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-violet-600 text-white text-xs font-black uppercase tracking-widest active:opacity-70">
+                <Send className="w-4 h-4" aria-hidden="true" /> Enviar
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Folha: aplicar valor a N meses */}
+        {aplicarMesesFor && (() => {
+          const start = m;
+          const alvo = [];
+          for (let k = 0; k < aplicarCount; k++) { const mm = start + k; if (mm > 12) break; alvo.push(mm); }
+          const maxCount = 12 - start + 1;
+          return (
+            <div className="fixed inset-0 z-[90] flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="Aplicar valor a vários meses">
+              <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm animate-fade-in" onClick={() => setAplicarMesesFor(null)} />
+              <div className="relative bg-white rounded-t-3xl px-5 pt-3 animate-slide-up" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+                <div className="mx-auto w-10 h-1.5 rounded-full bg-slate-300 mb-4" aria-hidden="true" />
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Aplicar valor</p>
+                <p className="text-2xl font-black text-slate-900 mb-1 tabular-nums">{formatBRL(aplicarMesesFor.valor)}</p>
+                <p className="text-xs text-slate-500 font-medium mb-5">A partir de <strong className="text-slate-700">{MESES[start]}</strong>, em quantos meses aplicar?</p>
+
+                <div className="flex items-center justify-center gap-5 mb-4">
+                  <button onClick={() => setAplicarCount(c => Math.max(1, c - 1))} disabled={aplicarCount <= 1}
+                    className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 disabled:opacity-40 active:opacity-70" aria-label="Menos um mês">
+                    <Minus className="w-5 h-5" aria-hidden="true" />
+                  </button>
+                  <div className="text-center min-w-[64px]">
+                    <p className="text-4xl font-black text-violet-600 tabular-nums leading-none">{aplicarCount}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{aplicarCount > 1 ? 'meses' : 'mês'}</p>
+                  </div>
+                  <button onClick={() => setAplicarCount(c => Math.min(maxCount, c + 1))} disabled={aplicarCount >= maxCount}
+                    className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 disabled:opacity-40 active:opacity-70" aria-label="Mais um mês">
+                    <Plus className="w-5 h-5" aria-hidden="true" />
+                  </button>
+                </div>
+
+                <p className="text-center text-[11px] font-bold text-slate-500 mb-5 leading-relaxed">
+                  Preenche: <span className="text-violet-600">{alvo.map(mm => MESES[mm].slice(0, 3)).join(' · ')}</span>
+                  <br /><span className="text-[10px] text-slate-400 font-medium">Meses travados são ignorados.</span>
+                </p>
+
+                <div className="flex gap-2">
+                  <button onClick={() => setAplicarMesesFor(null)} className="flex-1 py-3.5 rounded-2xl bg-slate-100 text-xs font-black text-slate-600 uppercase tracking-widest active:opacity-70">Cancelar</button>
+                  <button onClick={() => aplicarValorMeses(aplicarMesesFor.rid, aplicarMesesFor.valor, aplicarCount)}
+                    className="flex-[1.5] py-3.5 rounded-2xl bg-violet-600 text-white text-xs font-black uppercase tracking-widest active:opacity-70">Aplicar</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    );
+  };
+
 
   return (
     <div className="animate-fade-in w-full h-full pb-20">
+
+      {isMobile ? renderPlanilhaMobile() : (<>
 
       {/* ─── Banner bloqueio em nível de pagina (prazo expirado / status invalido) ─── */}
       {!canEdit && (
@@ -856,6 +1159,7 @@ export default function ArrecadacoesPage() {
             </div>
         </div>
       </div>
+      </>)}
 
       {/* ─── MODAL EDIÇÃO AVANÇADA DE VERBA ─── */}
       {editingRateioId && (

@@ -638,18 +638,18 @@ export default function UsuariosPage() {
 
   return (
     <div className="animate-fade-in w-full h-full relative">
-      <div className="flex justify-between items-end mb-8">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6 md:mb-8">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 mb-1">Usuários do Sistema</h2>
+          <h2 className="text-lg md:text-xl font-bold text-slate-900 mb-1">Usuários do Sistema</h2>
           <p className="text-sm text-slate-400">Gerencie contas, acessos e carteiras de condomínios.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <a href="/admin/importar-gerentes"
-            className="bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all">
+            className="flex-1 md:flex-none justify-center bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all">
             <Users className="w-4 h-4" /> Importar Gerentes
           </a>
           <button onClick={() => setModalCriar(true)}
-            className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-violet-500  transition-all">
+            className="flex-1 md:flex-none justify-center bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-violet-500  transition-all">
             <PlusCircle className="w-4 h-4" /> Novo Usuário
           </button>
         </div>
