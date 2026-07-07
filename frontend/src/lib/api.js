@@ -1,6 +1,13 @@
 import { createClient } from '@/utils/supabase/client';
 
-const API = process.env.NEXT_PUBLIC_API_URL || '';
+// Base da API. Normalmente o mesmo domínio (''), servido pela função Python no Vercel
+// (ver vercel.json). A VPS api.emissaonline.com fica atrás de um firewall que redes
+// restritivas (ex.: a rede do escritório) bloqueiam — quando NEXT_PUBLIC_API_URL volta
+// apontando pra ela, o painel cai em "Erro de Conexão". Enquanto o site roda no Vercel,
+// ignoramos essa URL se ela reaparecer, pra não quebrar. Para voltar pra VPS (ex.: via
+// Cloudflare, num IP que as redes liberem), remover este guard.
+let API = process.env.NEXT_PUBLIC_API_URL || '';
+if (API.includes('api.emissaonline.com')) API = '';
 
 async function getAuthHeaders() {
   const supabase = createClient();
