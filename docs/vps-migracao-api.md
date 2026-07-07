@@ -45,7 +45,7 @@ SUPABASE_KEY=...                 # anon
 SUPABASE_SERVICE_KEY=...         # service-role (NUNCA exponha)
 SECRET_KEY=<gere com: openssl rand -hex 32>
 PRODUCTION=1                     # faz o app exigir SECRET_KEY (fail-closed)
-ALLOWED_ORIGINS=https://condominios-gamma.vercel.app
+ALLOWED_ORIGINS=https://emissaonline.com,https://www.emissaonline.com,https://condominios-gamma.vercel.app
 INTEGRACAO_API_KEY=...           # a mesma usada no n8n
 NOTIF_EMAIL_SECRET=...
 ```
