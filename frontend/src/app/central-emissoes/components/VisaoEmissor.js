@@ -1429,6 +1429,29 @@ export default function VisaoEmissor({ profile }) {
                 </div>
               </div>
 
+              {/* Vagas fixas por tipo — categoria 'outros' + subtipo FIXO (a extração usa isso pra achar cada item na ordem certa) */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {[
+                  { label: 'Correios', sub: 'Correios' },
+                  { label: 'Seguro', sub: 'Seguro' },
+                  { label: 'Salão de festas', sub: 'Salão de festas' },
+                  { label: 'Relatório de Rateio', sub: 'Relatório de Rateio' },
+                ].map(({ label, sub }) => (
+                  <div key={sub} className="relative border border-dashed border-slate-300 hover:border-violet-400 rounded-xl p-2.5 text-center cursor-pointer transition-all bg-white group">
+                    <input type="file" multiple disabled={isUploading}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={async e => {
+                        const files = Array.from(e.target.files || []);
+                        for (const f of files) { await handleUploadArquivo(f, { categoria: 'outros', subtipo: sub }); }
+                        e.target.value = '';
+                      }}
+                    />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-violet-500">+ {label}</span>
+                  </div>
+                ))}
+              </div>
+
               {/* Botões de ação do rascunho */}
               <div className="flex flex-col sm:flex-row gap-3 justify-end">
                 <button

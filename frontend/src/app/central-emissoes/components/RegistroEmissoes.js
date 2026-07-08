@@ -4,10 +4,12 @@ import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
-import { Archive, Search, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, FileText, AlertTriangle, Loader2, Building, Download, Trash2 } from 'lucide-react';
+import { Archive, Search, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, FileText, AlertTriangle, Loader2, Building, Download, FileDown, Trash2 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
+import { ordenarParaExtracao, montarPdfEmissao } from '@/lib/extrairEmissao';
+import { apiFetch } from '@/lib/api';
 
 export default function RegistroEmissoes({ profile }) {
   const supabase = createClient();
@@ -34,6 +36,13 @@ export default function RegistroEmissoes({ profile }) {
 
   // Visualizador com planilha
   const [arquivoAberto, setArquivoAberto] = useState(null);
+
+  // Extração (PDF único, na ordem)
+  const [extraindo, setExtraindo] = useState(null);   // pacote.id em extração
+  const [extProg, setExtProg] = useState(null);        // { i, n, nome }
+  const [showExtrairModal, setShowExtrairModal] = useState(false);
+  const [extCondo, setExtCondo] = useState('');
+  const [extComp, setExtComp] = useState('');
 
   async function fetchRegistradas() {
     setLoading(true);
@@ -92,6 +101,18 @@ export default function RegistroEmissoes({ profile }) {
     pacotes.forEach(p => set.add(`${String(p.mes_referencia).padStart(2,'0')}/${p.ano_referencia}`));
     return Array.from(set).sort().reverse();
   }, [pacotes]);
+
+  // Condomínios/competências disponíveis pro modal "Extrair emissão"
+  const condosDisponiveis = useMemo(() => {
+    const m = {};
+    pacotes.forEach(p => { if (p.condominio_id) m[p.condominio_id] = p.condominios?.name || 'Condomínio'; });
+    return Object.entries(m).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [pacotes]);
+  const compsDoExtCondo = useMemo(() => {
+    const s = new Set();
+    pacotes.filter(p => p.condominio_id === extCondo).forEach(p => s.add(`${String(p.mes_referencia).padStart(2,'0')}/${p.ano_referencia}`));
+    return Array.from(s).sort().reverse();
+  }, [pacotes, extCondo]);
 
   const pacotesFiltrados = useMemo(() => {
     return pacotes.filter(p => {
@@ -209,6 +230,48 @@ export default function RegistroEmissoes({ profile }) {
     }
   }
 
+  // Extrai a emissão como PDF único, na ordem de auditoria (1→8).
+  async function handleExtrair(pacote) {
+    if (!pacote) return;
+    setExtraindo(pacote.id);
+    setExtProg({ i: 0, n: (pacote.arquivos?.length || 0) + 1, nome: 'preparando…' });
+    try {
+      // Cobranças incluídas na emissão (item 7) — anexos, via /conferencia
+      let cobrancas = [];
+      try {
+        const conf = await apiFetch(`/api/condominio/${pacote.condominio_id}/conferencia?mes=${pacote.mes_referencia}&ano=${pacote.ano_referencia}&retificacao=false`);
+        const todas = conf?.cobrancas_extras || [];
+        const incl = pacote.cobrancas_incluidas;
+        cobrancas = Array.isArray(incl) ? todas.filter(c => incl.includes(c.id)) : todas;
+      } catch { /* segue sem cobranças */ }
+
+      const itens = ordenarParaExtracao(pacote.arquivos || [], cobrancas);
+      if (itens.length === 0) { addToast('Essa emissão não tem arquivos pra extrair.', 'warning'); return; }
+
+      const { blob, pulados, totalPaginas } = await montarPdfEmissao(itens, (i, n, nome) => setExtProg({ i, n, nome }));
+      if (totalPaginas === 0) { addToast('Nenhum arquivo pôde ser mesclado (só PDF/imagem entram no PDF).', 'error'); return; }
+
+      const nome = `${(pacote.condominios?.name || 'emissao').replace(/[^\w]+/g, '_')}_${String(pacote.mes_referencia).padStart(2,'0')}-${pacote.ano_referencia}.pdf`;
+      saveAs(blob, nome);
+      if (pulados.length) addToast(`PDF gerado! ${pulados.length} item(ns) ficaram de fora: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');
+      else addToast('PDF da emissão gerado!', 'success');
+    } catch (e) {
+      addToast('Erro ao extrair: ' + (e.message || e), 'error');
+    } finally {
+      setExtraindo(null);
+      setExtProg(null);
+    }
+  }
+
+  function extrairDoModal() {
+    if (!extCondo || !extComp) return;
+    const [mes, ano] = extComp.split('/');
+    const pacote = pacotes.find(p => p.condominio_id === extCondo && String(p.mes_referencia).padStart(2, '0') === mes && String(p.ano_referencia) === ano);
+    if (!pacote) { addToast('Emissão não encontrada.', 'error'); return; }
+    setShowExtrairModal(false);
+    handleExtrair(pacote);
+  }
+
   return (
     <div className="space-y-6">
       {/* Header com stats */}
@@ -263,12 +326,18 @@ export default function RegistroEmissoes({ profile }) {
 
       {/* Tabela */}
       <div className="border border-slate-200 rounded-3xl bg-slate-50 overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-slate-200 flex items-center gap-4">
+        <div className="p-6 border-b border-slate-200 flex items-center gap-4 flex-wrap">
           <Archive className="w-5 h-5 text-emerald-400" />
           <h3 className="font-black text-slate-900 text-lg">Registro de Emissões Expedidas</h3>
           <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
             {pacotesFiltrados.length} registro{pacotesFiltrados.length !== 1 ? 's' : ''}
           </span>
+          {pacotes.length > 0 && (
+            <button onClick={() => { setExtCondo(''); setExtComp(''); setShowExtrairModal(true); }}
+              className="ml-auto px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg transition-all">
+              <FileDown className="w-4 h-4" /> Extrair emissão
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -328,9 +397,9 @@ export default function RegistroEmissoes({ profile }) {
                         <Eye className="w-4 h-4" />
                       </button>
                       {(p.arquivos?.length || 0) > 0 && (
-                        <button onClick={() => handleDownloadZip(p)}
-                          className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30 transition-all" title="Baixar pacote ZIP">
-                          <Download className="w-4 h-4" />
+                        <button onClick={() => handleExtrair(p)} disabled={extraindo === p.id}
+                          className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-violet-500 hover:border-violet-500/30 transition-all disabled:opacity-50" title="Extrair emissão (PDF único, na ordem)">
+                          {extraindo === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
                         </button>
                       )}
                       {canRetif && (
@@ -471,6 +540,54 @@ export default function RegistroEmissoes({ profile }) {
                 Solicitar Retificação
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MODAL EXTRAIR EMISSÃO ═══ */}
+      {showExtrairModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-8 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2"><FileDown className="w-5 h-5 text-violet-500" /> Extrair emissão</h3>
+              <button onClick={() => setShowExtrairModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Condomínio</label>
+                <select value={extCondo} onChange={e => { setExtCondo(e.target.value); setExtComp(''); }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-violet-500">
+                  <option value="">Selecione…</option>
+                  {condosDisponiveis.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Emissão (mês/ano)</label>
+                <select value={extComp} onChange={e => setExtComp(e.target.value)} disabled={!extCondo}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-violet-500 disabled:opacity-50">
+                  <option value="">{extCondo ? 'Selecione a competência…' : 'Escolha o condomínio primeiro'}</option>
+                  {compsDoExtCondo.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <button onClick={extrairDoModal} disabled={!extCondo || !extComp}
+                className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all disabled:opacity-40 flex items-center justify-center gap-2">
+                <FileDown className="w-4 h-4" /> Extrair PDF único
+              </button>
+              <p className="text-[10px] text-slate-400 text-center leading-relaxed">
+                Junta os anexos na ordem: emissão → correios → seguros → água → gás → energia → cobranças → rateio.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ OVERLAY DE PROGRESSO DA EXTRAÇÃO ═══ */}
+      {extraindo && extProg && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 shadow-2xl text-center max-w-xs">
+            <Loader2 className="w-8 h-8 text-violet-500 animate-spin mx-auto mb-3" />
+            <p className="text-sm font-black text-slate-900">Montando o PDF da emissão…</p>
+            <p className="text-xs text-slate-500 mt-1 truncate">{extProg.i}/{extProg.n} · {extProg.nome}</p>
           </div>
         </div>
       )}
