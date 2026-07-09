@@ -103,72 +103,93 @@ async function rasterizarPaginas(arrayBuffer) {
   return out;
 }
 
-// Baixa cada item e mescla num PDF único. PDFs entram RASTERIZADOS (pdf.js); imagens
-// entram direto. Devolve { blob, pulados, totalPaginas }.
+// Baixa 1 item e adiciona ao doc `merged`. PDF entra RASTERIZADO (pdf.js); imagem
+// entra direto. Falhas vão pra `pulados` (não abortam o resto).
+async function mesclarItem(merged, PDFDocument, item, pulados, onProgress, idx, total) {
+  const nome = item.arquivo_nome || 'arquivo';
+  onProgress?.(idx, total, nome);
+  const path = item.__attachment || item.arquivo_url;
+  if (!path) return;
+
+  let bytes;
+  try {
+    const url = await getArquivoUrlSeguro(path, { stream: true }); // fetch → same-origin, sem CORS
+    if (!url) { pulados.push(`${nome} (sem acesso)`); return; }
+    const resp = await fetch(url);
+    if (!resp.ok) { pulados.push(`${nome} (falha HTTP ${resp.status})`); return; }
+    bytes = await resp.arrayBuffer();
+    if (!bytes || bytes.byteLength === 0) { pulados.push(`${nome} (arquivo vazio)`); return; }
+  } catch {
+    pulados.push(`${nome} (falha ao baixar)`);
+    return;
+  }
+
+  const low = nome.toLowerCase();
+  const fmt = norm(item.formato);
+  const isPdf = low.endsWith('.pdf') || fmt === 'pdf';
+  const isPng = low.endsWith('.png') || fmt === 'png';
+  const isJpg = /\.jpe?g$/.test(low) || fmt === 'jpg' || fmt === 'jpeg';
+
+  try {
+    if (isPdf) {
+      const paginas = await rasterizarPaginas(bytes);
+      if (paginas.length === 0) { pulados.push(`${nome} (sem páginas)`); return; }
+      for (const pg of paginas) {
+        const jpg = await merged.embedJpg(pg.bytes);
+        const page = merged.addPage([pg.ptW, pg.ptH]);
+        page.drawImage(jpg, { x: 0, y: 0, width: pg.ptW, height: pg.ptH });
+      }
+    } else if (isPng || isJpg) {
+      const img = isPng ? await merged.embedPng(bytes) : await merged.embedJpg(bytes);
+      const page = merged.addPage([img.width, img.height]);
+      page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+    } else {
+      pulados.push(`${nome} (não é PDF/imagem)`);
+    }
+  } catch {
+    // Fallback: se a rasterização falhar, tenta copiar as páginas direto (salva PDFs normais).
+    try {
+      if (isPdf) {
+        const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+        const pages = await merged.copyPages(src, src.getPageIndices());
+        pages.forEach((p) => merged.addPage(p));
+      } else {
+        pulados.push(`${nome} (não consegui mesclar)`);
+      }
+    } catch {
+      pulados.push(`${nome} (não consegui mesclar)`);
+    }
+  }
+}
+
+// Uma emissão: junta os itens num PDF único. Devolve { blob, pulados, totalPaginas }.
 export async function montarPdfEmissao(itens, onProgress) {
   const { PDFDocument } = await import('pdf-lib');
   const merged = await PDFDocument.create();
   const pulados = [];
   let i = 0;
+  for (const item of itens) { i += 1; await mesclarItem(merged, PDFDocument, item, pulados, onProgress, i, itens.length); }
+  const blob = new Blob([await merged.save()], { type: 'application/pdf' });
+  return { blob, pulados, totalPaginas: merged.getPageCount() };
+}
 
-  for (const item of itens) {
-    i += 1;
-    const nome = item.arquivo_nome || 'arquivo';
-    onProgress?.(i, itens.length, nome);
-    const path = item.__attachment || item.arquivo_url;
-    if (!path) continue;
-
-    let bytes;
-    try {
-      const url = await getArquivoUrlSeguro(path, { stream: true }); // fetch → same-origin, sem CORS
-      if (!url) { pulados.push(`${nome} (sem acesso)`); continue; }
-      const resp = await fetch(url);
-      if (!resp.ok) { pulados.push(`${nome} (falha HTTP ${resp.status})`); continue; }
-      bytes = await resp.arrayBuffer();
-      if (!bytes || bytes.byteLength === 0) { pulados.push(`${nome} (arquivo vazio)`); continue; }
-    } catch {
-      pulados.push(`${nome} (falha ao baixar)`);
-      continue;
+// Várias emissões num PDF único, cada uma com uma página divisória rotulada (ex.:
+// "Janeiro/2026"). grupos: [{ label, itens }]. Devolve { blob, pulados, totalPaginas }.
+export async function montarPdfMulti(grupos, onProgress) {
+  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const merged = await PDFDocument.create();
+  const font = await merged.embedFont(StandardFonts.HelveticaBold);
+  const pulados = [];
+  const total = grupos.reduce((s, g) => s + (g.itens?.length || 0), 0);
+  let i = 0;
+  for (const g of grupos) {
+    if (g.label) {
+      const p = merged.addPage([595.28, 841.89]); // A4 retrato
+      p.drawText(String(g.label), { x: 50, y: 780, size: 22, font, color: rgb(0.1, 0.1, 0.15) });
+      p.drawText('Documentos da emissão', { x: 50, y: 752, size: 11, font, color: rgb(0.42, 0.42, 0.48) });
     }
-
-    const low = nome.toLowerCase();
-    const fmt = norm(item.formato);
-    const isPdf = low.endsWith('.pdf') || fmt === 'pdf';
-    const isPng = low.endsWith('.png') || fmt === 'png';
-    const isJpg = /\.jpe?g$/.test(low) || fmt === 'jpg' || fmt === 'jpeg';
-
-    try {
-      if (isPdf) {
-        const paginas = await rasterizarPaginas(bytes);
-        if (paginas.length === 0) { pulados.push(`${nome} (sem páginas)`); continue; }
-        for (const pg of paginas) {
-          const jpg = await merged.embedJpg(pg.bytes);
-          const page = merged.addPage([pg.ptW, pg.ptH]);
-          page.drawImage(jpg, { x: 0, y: 0, width: pg.ptW, height: pg.ptH });
-        }
-      } else if (isPng || isJpg) {
-        const img = isPng ? await merged.embedPng(bytes) : await merged.embedJpg(bytes);
-        const page = merged.addPage([img.width, img.height]);
-        page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
-      } else {
-        pulados.push(`${nome} (não é PDF/imagem)`);
-      }
-    } catch {
-      // Fallback: se a rasterização falhar, tenta copiar as páginas direto (salva PDFs normais).
-      try {
-        if (isPdf) {
-          const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
-          const pages = await merged.copyPages(src, src.getPageIndices());
-          pages.forEach((p) => merged.addPage(p));
-        } else {
-          pulados.push(`${nome} (não consegui mesclar)`);
-        }
-      } catch {
-        pulados.push(`${nome} (não consegui mesclar)`);
-      }
-    }
+    for (const item of (g.itens || [])) { i += 1; await mesclarItem(merged, PDFDocument, item, pulados, onProgress, i, total); }
   }
-
   const blob = new Blob([await merged.save()], { type: 'application/pdf' });
   return { blob, pulados, totalPaginas: merged.getPageCount() };
 }

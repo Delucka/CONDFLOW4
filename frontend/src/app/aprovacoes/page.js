@@ -32,6 +32,7 @@ import VisaoGerente from '@/app/central-emissoes/components/VisaoGerente';
 import VisaoMaster from '@/app/central-emissoes/components/VisaoMaster';
 import RegistroEmissoes from '@/app/central-emissoes/components/RegistroEmissoes';
 import RelatorioEmissoes from '@/app/aprovacoes/RelatorioEmissoes';
+import BaixarDocumentosEmissao from '@/app/aprovacoes/BaixarDocumentosEmissao';
 import { Package, Archive, BarChart3 } from 'lucide-react';
 
 // Cor e ícone por tipo de ação
@@ -601,7 +602,12 @@ export default function AprovacoesPage() {
             </button>
           </div>
 
-          {auditView === 'relatorios' ? <RelatorioEmissoes /> : (<>
+          {auditView === 'relatorios' ? (
+            <div className="space-y-4">
+              <BaixarDocumentosEmissao />
+              <RelatorioEmissoes />
+            </div>
+          ) : (<>
           {/* Barra de filtros */}
           <div className="glass-panel p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex flex-wrap gap-3 items-center">
