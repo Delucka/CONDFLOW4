@@ -10,7 +10,7 @@ import { abrirArquivoSeguro } from '@/lib/arquivo';
 import { safeStorageName } from '@/lib/storage';
 import {
   FileText, Plus, Loader2, Building2, Send, Paperclip, X, CheckCircle2,
-  AlertTriangle, Clock, Ban, Mail, Calendar, UploadCloud,
+  AlertTriangle, Clock, Ban, Mail, Calendar, Pencil, UploadCloud,
 } from 'lucide-react';
 
 const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -71,6 +71,7 @@ export default function SegundasViasPage() {
     if (!form.condominio_id) return addToast('Escolha o condomínio.', 'error');
     if (!form.unidade.trim()) return addToast('Informe a unidade.', 'error');
     if (!form.observacoes.trim()) return addToast('Descreva a solicitação nas observações.', 'error');
+    if (!form.email_destinatario.trim()) return addToast('Informe o e-mail do destinatário.', 'error');
     if (form.modalidade === 'sem_multa' && !anexoFile) return addToast('Sem multa exige anexar a autorização do síndico/gerente.', 'error');
     if (anexoFile) { const v = validarArquivo(anexoFile); if (!v.ok) return addToast(v.erro, 'error'); }
     setSaving(true);
@@ -120,6 +121,27 @@ export default function SegundasViasPage() {
     catch (err) { addToast(err.message, 'error'); }
   }
 
+  // Solicitar alteração (nova data / motivo) numa 2ª via existente — sem abrir outro chamado
+  const [modalAlterar, setModalAlterar] = useState(null);
+  const [altVenc, setAltVenc] = useState('');
+  const [altMotivo, setAltMotivo] = useState('');
+  const [savingAlt, setSavingAlt] = useState(false);
+  async function handleSolicitarAlteracao() {
+    if (!modalAlterar) return;
+    if (!altMotivo.trim()) return addToast('Descreva o motivo da alteração.', 'error');
+    setSavingAlt(true);
+    try {
+      await apiPost(`/api/segundas-vias/${modalAlterar.id}/solicitar-alteracao`, {
+        motivo: altMotivo.trim(),
+        vencimento: altVenc || null,
+      });
+      addToast('Alteração solicitada! O time de 2ª via foi avisado.', 'success');
+      setModalAlterar(null); setAltVenc(''); setAltMotivo('');
+      mutate();
+    } catch (err) { addToast(err.message || 'Erro ao solicitar alteração', 'error'); }
+    finally { setSavingAlt(false); }
+  }
+
   const pendentes = solicitacoes.filter(s => s.status === 'pendente');
 
   return (
@@ -159,8 +181,8 @@ export default function SegundasViasPage() {
               className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500/60" />
           </div>
           <div className="md:col-span-3">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">E-mail do destinatário</label>
-            <input type="email" value={form.email_destinatario} onChange={e => setForm({ ...form, email_destinatario: e.target.value })} placeholder="quem recebe o boleto"
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">E-mail do destinatário <span className="text-rose-600">(obrigatório)</span></label>
+            <input required type="email" value={form.email_destinatario} onChange={e => setForm({ ...form, email_destinatario: e.target.value })} placeholder="quem recebe o boleto"
               className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500/60" />
           </div>
         </div>
@@ -270,6 +292,12 @@ export default function SegundasViasPage() {
                       {atende && sv.status === 'pendente' && (
                         <EmitirBox sv={sv} emitindo={emitindoId === sv.id} onEmitir={handleEmitir} />
                       )}
+                      {sv.status !== 'cancelado' && (
+                        <button onClick={() => { setModalAlterar(sv); setAltVenc(sv.vencimento || ''); setAltMotivo(''); }} title="Solicitar alteração (nova data / motivo)"
+                          className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-400 hover:text-violet-500 hover:border-violet-300 transition-all">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
                       {sv.status !== 'cancelado' && sv.status !== 'emitido' && (
                         <button onClick={() => handleCancelar(sv)} title="Cancelar"
                           className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-300 transition-all">
@@ -284,6 +312,42 @@ export default function SegundasViasPage() {
           </div>
         )}
       </div>
+
+      {/* ═══ MODAL SOLICITAR ALTERAÇÃO ═══ */}
+      {modalAlterar && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2"><Pencil className="w-5 h-5 text-violet-500" /> Solicitar alteração</h3>
+              <button onClick={() => setModalAlterar(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3 mb-4">
+              <p className="text-sm font-bold text-slate-800">{modalAlterar.condominios?.name || '—'} · unid. {modalAlterar.unidade}{modalAlterar.bloco ? ` · bloco ${modalAlterar.bloco}` : ''}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Isso reabre o pedido pro time de 2ª via — <strong>sem criar outro chamado</strong>.</p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Novo vencimento <span className="text-slate-400 normal-case font-medium">(opcional)</span></label>
+                <input type="date" value={altVenc} onChange={e => setAltVenc(e.target.value)}
+                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500/60" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Motivo <span className="text-rose-600">(obrigatório)</span></label>
+                <textarea value={altMotivo} onChange={e => setAltMotivo(e.target.value)} rows={3}
+                  placeholder="Ex: mudar o vencimento para 10/07 — o morador pediu novo prazo."
+                  className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500/60 resize-none" />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setModalAlterar(null)} className="flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">Cancelar</button>
+                <button onClick={handleSolicitarAlteracao} disabled={savingAlt || !altMotivo.trim()}
+                  className="flex-[2] py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all disabled:opacity-40 flex items-center justify-center gap-2">
+                  {savingAlt ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Solicitar alteração
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

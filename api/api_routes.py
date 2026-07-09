@@ -405,6 +405,8 @@ def api_criar_segunda_via(data: SegundaViaCreate, user: dict = Depends(get_curre
         raise HTTPException(400, "Informe a unidade.")
     if not (data.observacoes and data.observacoes.strip()):
         raise HTTPException(400, "Descreva a solicitação nas observações.")
+    if not (data.email_destinatario and data.email_destinatario.strip()):
+        raise HTTPException(400, "Informe o e-mail do destinatário (obrigatório).")
     if data.modalidade == "sem_multa" and not (data.anexo_url and data.anexo_url.strip()):
         raise HTTPException(400, "Sem multa exige anexar a autorização do síndico/gerente.")
 
@@ -458,10 +460,36 @@ def api_listar_segundas_vias(status: str = None, user: dict = Depends(get_curren
     return {"solicitacoes": rows}
 
 
+def _emails_assistentes_condo(db, condominio_id):
+    """E-mails dos assistentes ligados ao gerente do condomínio — pra CC na 2ª via.
+    condominios.gerente_id -> gerentes.profile_id (profile do gerente) -> profiles
+    (role='assistente', gerente_id = profile do gerente, migration 0057)."""
+    try:
+        if not condominio_id:
+            return []
+        condo = db.table("condominios").select("gerente_id").eq("id", condominio_id).maybe_single().execute().data
+        if not condo or not condo.get("gerente_id"):
+            return []
+        ger = db.table("gerentes").select("profile_id").eq("id", condo["gerente_id"]).maybe_single().execute().data
+        gp = (ger or {}).get("profile_id")
+        if not gp:
+            return []
+        assist = db.table("profiles").select("email, notificacao_email").eq("role", "assistente").eq("gerente_id", gp).execute().data or []
+        out = []
+        for a in assist:
+            e = (a.get("notificacao_email") or a.get("email") or "").strip()
+            if e:
+                out.append(e)
+        return out
+    except Exception as _e:
+        print(f"[segunda_via] assistentes p/ CC: {_e}")
+        return []
+
+
 def _emitir_segunda_via(db, sv, boleto_url=None, boleto_nome=None, enviar_email=True, atendido_por=None):
     """Marca a 2ª via como emitida, anexa o boleto e (se enviar_email) dispara o e-mail
-    padrão do boleto + CC do solicitante. Retorna email_enviado. Reutilizado pelo endpoint
-    manual e pela integração (n8n/Ahreas)."""
+    padrão do boleto + CC do solicitante e dos assistentes da carteira. Retorna
+    email_enviado. Reutilizado pelo endpoint manual e pela integração (n8n/Ahreas)."""
     import datetime
     sv_id = sv["id"]
     boleto_url = boleto_url or sv.get("boleto_url")
@@ -512,7 +540,12 @@ def _emitir_segunda_via(db, sv, boleto_url=None, boleto_nome=None, enviar_email=
                     anexos.append((boleto_nome or "boleto.pdf", pdf, "application/pdf"))
                 except Exception as e:
                     print(f"[segunda_via] download boleto: {e}")
-            cc = [sv.get("criado_por_email")] if sv.get("criado_por_email") else []
+            # CC: quem abriu o chamado + os assistentes da carteira do condomínio (dedup, sem o destinatário)
+            cc = []
+            if sv.get("criado_por_email"):
+                cc.append(sv["criado_por_email"])
+            cc.extend(_emails_assistentes_condo(db, sv.get("condominio_id")))
+            cc = list(dict.fromkeys([c for c in cc if c and c.strip().lower() != dest.strip().lower()]))
             bloco_txt = (sv.get("bloco") or "").strip()
             assunto = (
                 f"{cnome} - Unid. {sv.get('unidade') or ''}"
@@ -551,6 +584,61 @@ def api_cancelar_segunda_via(sv_id: str, user: dict = Depends(get_current_user),
     if user["role"] not in ROLES_SEGVIA_ATENDE and sv.get("criado_por") != user["id"]:
         raise HTTPException(403, "Sem permissão.")
     db.table("segundas_vias").update({"status": "cancelado"}).eq("id", sv_id).execute()
+    return {"ok": True}
+
+
+class SegundaViaAlterar(BaseModel):
+    motivo: str
+    vencimento: Optional[str] = None
+    ref_mes: Optional[int] = None
+    ref_ano: Optional[int] = None
+    modalidade: Optional[str] = None
+
+
+@router.post("/segundas-vias/{sv_id}/solicitar-alteracao")
+def api_solicitar_alteracao_sv(sv_id: str, data: SegundaViaAlterar, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Pede alteração (ex.: nova data) numa 2ª via existente, SEM abrir outro chamado:
+    atualiza os campos, reabre pra a fila (status=pendente) e avisa o time de 2ª via."""
+    if user["role"] not in ROLES_SEGVIA_ABRE:
+        raise HTTPException(403, "Sem permissão.")
+    if not (data.motivo and data.motivo.strip()):
+        raise HTTPException(400, "Descreva o motivo da alteração.")
+    sv = db.table("segundas_vias").select("*, condominios(name)").eq("id", sv_id).maybe_single().execute().data
+    if not sv:
+        raise HTTPException(404, "Solicitação não encontrada.")
+    if user["role"] in ("gerente", "assistente") and sv.get("condominio_id") not in carteira_condo_ids(db, user):
+        raise HTTPException(403, "Este condomínio não está na sua carteira.")
+    if sv.get("status") == "cancelado":
+        raise HTTPException(400, "Solicitação cancelada não pode ser alterada.")
+
+    import datetime
+    upd = {"status": "pendente", "email_enviado": False}
+    if data.vencimento:
+        upd["vencimento"] = data.vencimento
+    if data.ref_mes:
+        upd["ref_mes"] = data.ref_mes
+    if data.ref_ano:
+        upd["ref_ano"] = data.ref_ano
+    if data.modalidade in ("com_multa", "sem_multa", "quinto_andar"):
+        upd["modalidade"] = data.modalidade
+    quando = (datetime.datetime.utcnow() - datetime.timedelta(hours=3)).strftime("%d/%m/%Y %H:%M")
+    nota = f"[Alteração solicitada por {user.get('full_name') or 'usuário'} em {quando}]: {data.motivo.strip()}"
+    upd["observacoes"] = ((sv.get("observacoes") or "").strip() + "\n\n" + nota).strip()
+    db.table("segundas_vias").update(upd).eq("id", sv_id).execute()
+
+    # Avisa o time (departamento + master) — sino
+    try:
+        cnome = (sv.get("condominios") or {}).get("name") or "Condomínio"
+        for p in (db.table("profiles").select("id").in_("role", list(ROLES_SEGVIA_ATENDE)).execute().data or []):
+            db.table("notificacoes").insert({
+                "user_id": p["id"], "tipo": "segunda_via",
+                "titulo": "Alteração pedida em 2ª via",
+                "mensagem": f"{cnome} · unidade {sv.get('unidade') or ''}: {data.motivo.strip()[:80]}",
+                "link": "/carteiras/segundas-vias",
+            }).execute()
+    except Exception as e:
+        print(f"[segunda_via] alteracao notif: {e}")
+
     return {"ok": True}
 
 
