@@ -429,6 +429,12 @@ def api_criar_segunda_via(data: SegundaViaCreate, user: dict = Depends(get_curre
     }).execute().data
     sv = ins[0] if ins else {}
 
+    _log_sv_hist(db, sv.get("id"), "criacao",
+                 autor_id=user["id"], autor_nome=user.get("full_name") or user.get("email"),
+                 vencimento=venc, ref_mes=data.ref_mes, ref_ano=data.ref_ano,
+                 modalidade=data.modalidade, email_destinatario=(data.email_destinatario or "").strip() or None,
+                 motivo=(data.observacoes or "").strip() or None)
+
     # Notifica o time (departamento + master) — sino + e-mail
     try:
         condo = db.table("condominios").select("name").eq("id", data.condominio_id).maybe_single().execute().data or {}
@@ -486,7 +492,32 @@ def _emails_assistentes_condo(db, condominio_id):
         return []
 
 
-def _emitir_segunda_via(db, sv, boleto_url=None, boleto_nome=None, enviar_email=True, atendido_por=None):
+def _log_sv_hist(db, sv_id, tipo, autor_id=None, autor_nome=None, **campos):
+    """Grava um evento na linha do tempo (auditoria) de uma 2ª via: quem/quando +
+    snapshot dos dados e, nas emissões, o boleto daquele momento (preservado, não
+    sobrescrito). tipo: criacao | solicitacao_alteracao | emissao | cancelamento."""
+    try:
+        if not sv_id:
+            return
+        row = {"segunda_via_id": sv_id, "tipo": tipo, "autor_id": autor_id, "autor_nome": autor_nome}
+        for k, v in campos.items():
+            if v is not None:
+                row[k] = v
+        db.table("segundas_vias_historico").insert(row).execute()
+    except Exception as e:
+        print(f"[segunda_via] hist {tipo}: {e}")
+
+
+def _fmt_data_br(d):
+    """ISO 'YYYY-MM-DD' -> 'DD/MM/YYYY' (pra descrever alterações no histórico)."""
+    try:
+        y, m, dd = str(d).split("-")[:3]
+        return f"{dd[:2]}/{m}/{y}"
+    except Exception:
+        return str(d or "")
+
+
+def _emitir_segunda_via(db, sv, boleto_url=None, boleto_nome=None, enviar_email=True, atendido_por=None, atendido_nome=None):
     """Marca a 2ª via como emitida, anexa o boleto e (se enviar_email) dispara o e-mail
     padrão do boleto + CC do solicitante e dos assistentes da carteira. Retorna
     email_enviado. Reutilizado pelo endpoint manual e pela integração (n8n/Ahreas)."""
@@ -557,6 +588,16 @@ def _emitir_segunda_via(db, sv, boleto_url=None, boleto_nome=None, enviar_email=
             db.table("segundas_vias").update({"email_enviado": email_enviado}).eq("id", sv_id).execute()
         except Exception as e:
             print(f"[segunda_via] emitir/email: {e}")
+
+    # Linha do tempo: guarda ESTE boleto (arquivo preservado no bucket) + snapshot
+    _log_sv_hist(
+        db, sv_id, "emissao",
+        autor_id=atendido_por,
+        autor_nome=(atendido_nome or (None if atendido_por else "Integração")),
+        vencimento=sv.get("vencimento"), ref_mes=sv.get("ref_mes"), ref_ano=sv.get("ref_ano"),
+        modalidade=sv.get("modalidade"), email_destinatario=(dest or sv.get("email_destinatario")),
+        boleto_url=boleto_url, boleto_nome=boleto_nome, email_enviado=email_enviado,
+    )
     return email_enviado
 
 
@@ -572,7 +613,8 @@ def api_emitir_segunda_via(sv_id: str, data: SegundaViaEmitir, user: dict = Depe
     sv = db.table("segundas_vias").select("*, condominios(name)").eq("id", sv_id).maybe_single().execute().data
     if not sv:
         raise HTTPException(404, "Solicitação não encontrada.")
-    email_enviado = _emitir_segunda_via(db, sv, data.boleto_url, data.boleto_nome, data.enviar_email, atendido_por=user["id"])
+    email_enviado = _emitir_segunda_via(db, sv, data.boleto_url, data.boleto_nome, data.enviar_email,
+                                        atendido_por=user["id"], atendido_nome=user.get("full_name"))
     return {"ok": True, "email_enviado": email_enviado}
 
 
@@ -584,6 +626,8 @@ def api_cancelar_segunda_via(sv_id: str, user: dict = Depends(get_current_user),
     if user["role"] not in ROLES_SEGVIA_ATENDE and sv.get("criado_por") != user["id"]:
         raise HTTPException(403, "Sem permissão.")
     db.table("segundas_vias").update({"status": "cancelado"}).eq("id", sv_id).execute()
+    _log_sv_hist(db, sv_id, "cancelamento",
+                 autor_id=user["id"], autor_nome=user.get("full_name") or user.get("email"))
     return {"ok": True}
 
 
@@ -593,6 +637,7 @@ class SegundaViaAlterar(BaseModel):
     ref_mes: Optional[int] = None
     ref_ano: Optional[int] = None
     modalidade: Optional[str] = None
+    email_destinatario: Optional[str] = None
 
 
 @router.post("/segundas-vias/{sv_id}/solicitar-alteracao")
@@ -613,18 +658,37 @@ def api_solicitar_alteracao_sv(sv_id: str, data: SegundaViaAlterar, user: dict =
 
     import datetime
     upd = {"status": "pendente", "email_enviado": False}
-    if data.vencimento:
+    mudancas = []   # de->para legível pro histórico
+    if data.vencimento and data.vencimento != sv.get("vencimento"):
         upd["vencimento"] = data.vencimento
-    if data.ref_mes:
+        mudancas.append(f"venc. {_fmt_data_br(sv.get('vencimento')) or '—'} → {_fmt_data_br(data.vencimento)}")
+    if data.ref_mes and data.ref_mes != sv.get("ref_mes"):
         upd["ref_mes"] = data.ref_mes
-    if data.ref_ano:
+        mudancas.append(f"mês ref. {sv.get('ref_mes') or '—'} → {data.ref_mes}")
+    if data.ref_ano and data.ref_ano != sv.get("ref_ano"):
         upd["ref_ano"] = data.ref_ano
-    if data.modalidade in ("com_multa", "sem_multa", "quinto_andar"):
+        mudancas.append(f"ano ref. {sv.get('ref_ano') or '—'} → {data.ref_ano}")
+    if data.modalidade in ("com_multa", "sem_multa", "quinto_andar") and data.modalidade != sv.get("modalidade"):
         upd["modalidade"] = data.modalidade
+        mudancas.append(f"modalidade {sv.get('modalidade') or '—'} → {data.modalidade}")
+    novo_email = (data.email_destinatario or "").strip()
+    if novo_email and novo_email.lower() != (sv.get("email_destinatario") or "").strip().lower():
+        upd["email_destinatario"] = novo_email
+        mudancas.append(f"e-mail {sv.get('email_destinatario') or '—'} → {novo_email}")
     quando = (datetime.datetime.utcnow() - datetime.timedelta(hours=3)).strftime("%d/%m/%Y %H:%M")
     nota = f"[Alteração solicitada por {user.get('full_name') or 'usuário'} em {quando}]: {data.motivo.strip()}"
     upd["observacoes"] = ((sv.get("observacoes") or "").strip() + "\n\n" + nota).strip()
     db.table("segundas_vias").update(upd).eq("id", sv_id).execute()
+
+    # Linha do tempo: quem pediu, quando, motivo e o de->para
+    _log_sv_hist(db, sv_id, "solicitacao_alteracao",
+                 autor_id=user["id"], autor_nome=user.get("full_name") or user.get("email"),
+                 motivo=data.motivo.strip(), detalhes=("; ".join(mudancas) or None),
+                 vencimento=upd.get("vencimento") or sv.get("vencimento"),
+                 ref_mes=upd.get("ref_mes") or sv.get("ref_mes"),
+                 ref_ano=upd.get("ref_ano") or sv.get("ref_ano"),
+                 modalidade=upd.get("modalidade") or sv.get("modalidade"),
+                 email_destinatario=upd.get("email_destinatario") or sv.get("email_destinatario"))
 
     # Avisa o time (departamento + master) — sino
     try:
@@ -640,6 +704,21 @@ def api_solicitar_alteracao_sv(sv_id: str, data: SegundaViaAlterar, user: dict =
         print(f"[segunda_via] alteracao notif: {e}")
 
     return {"ok": True}
+
+
+@router.get("/segundas-vias/{sv_id}/historico")
+def api_historico_segunda_via(sv_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Linha do tempo da 2ª via: criação, pedidos de alteração e cada emissão de
+    boleto (com o arquivo daquele momento preservado) — pra comparação/comprovação."""
+    if user["role"] not in ROLES_SEGVIA_ABRE:
+        raise HTTPException(403, "Sem permissão.")
+    sv = db.table("segundas_vias").select("id, condominio_id, unidade, bloco, condominios(name)").eq("id", sv_id).maybe_single().execute().data
+    if not sv:
+        raise HTTPException(404, "Solicitação não encontrada.")
+    if user["role"] in ("gerente", "assistente") and sv.get("condominio_id") not in carteira_condo_ids(db, user):
+        raise HTTPException(403, "Este condomínio não está na sua carteira.")
+    eventos = db.table("segundas_vias_historico").select("*").eq("segunda_via_id", sv_id).order("criado_em").execute().data or []
+    return {"segunda_via": sv, "eventos": eventos}
 
 
 # ═══ Integração externa (n8n / WhatsApp / Ahreas) — protegida por API-key ═══════════
@@ -689,6 +768,10 @@ def _criar_sv_integracao(db, condo, unidade, bloco, ref_mes, ref_ano, modalidade
         "criado_por_nome": (solicitante or "WhatsApp"), "criado_por_email": cc_email,
     }).execute().data
     sv = ins[0] if ins else {}
+    _log_sv_hist(db, sv.get("id"), "criacao", autor_nome=(solicitante or "WhatsApp"),
+                 vencimento=venc, ref_mes=ref_mes, ref_ano=ref_ano,
+                 modalidade=modalidade, email_destinatario=(email or "").strip() or None,
+                 motivo=(obs or "").strip() or None)
     try:
         cnome = condo.get("name") or "Condomínio"
         for p in (db.table("profiles").select("id").in_("role", list(ROLES_SEGVIA_ATENDE)).execute().data or []):
