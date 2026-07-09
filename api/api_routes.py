@@ -1151,7 +1151,10 @@ class ArquivoLinkSchema(BaseModel):
 
 @router.post("/arquivo/link")
 def api_arquivo_link(data: ArquivoLinkSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
-    """Devolve um link do NOSSO domínio para abrir o arquivo, só se o usuário tiver permissão."""
+    """Devolve um link curto para abrir o arquivo, só se o usuário tiver permissão.
+    A permissão é checada AQUI; o arquivo é entregue por URL ASSINADA direto pela CDN
+    do Supabase (não passa pela função serverless) — tira banda/memória do backend e
+    escala p/ o volume de boletos. Se a assinatura falhar, cai no streaming interno."""
     path = (data.path or "").strip()
     if not path:
         raise HTTPException(400, "path obrigatório")
@@ -1162,7 +1165,16 @@ def api_arquivo_link(data: ArquivoLinkSchema, user: dict = Depends(get_current_u
                 raise HTTPException(403, "Sem permissão para este arquivo.")
         elif not cid:
             raise HTTPException(403, "Sem permissão para este arquivo.")
-    return {"url": f"/api/arquivo/abrir?t={_sign_arquivo_token(path)}"}
+    # Preferência: URL assinada do Supabase (entrega direta pela CDN, sem passar pela função)
+    try:
+        signed = db.storage.from_("emissoes").create_signed_url(path, 1800)   # 30 min
+        url = signed.get("signedURL") if isinstance(signed, dict) else signed
+        if url:
+            return {"url": url, "direct": True}
+    except Exception as e:
+        print(f"[arquivo/link] URL assinada falhou, usando streaming interno: {e}")
+    # Fallback: streaming protegido por token (compatível com o comportamento antigo)
+    return {"url": f"/api/arquivo/abrir?t={_sign_arquivo_token(path)}", "direct": False}
 
 @router.get("/arquivo/abrir")
 def api_arquivo_abrir(t: str, db: Client = Depends(get_db)):
