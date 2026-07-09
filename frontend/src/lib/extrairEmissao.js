@@ -79,7 +79,12 @@ function dataUrlParaBytes(dataUrl) {
 
 async function rasterizarPaginas(arrayBuffer) {
   const pdfjs = await getPdfjs();
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(arrayBuffer.slice(0)),
+    wasmUrl: '/pdfjs-wasm/',                       // JBIG2/JPEG2000 (scans) decodificam via WASM — SEM isso o scan sai em branco
+    standardFontDataUrl: '/pdfjs-standard-fonts/', // fontes padrão (boletos/PDFs vetoriais)
+    isEvalSupported: false,
+  }).promise;
   const out = [];
   try {
     for (let n = 1; n <= doc.numPages; n += 1) {
