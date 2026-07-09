@@ -132,7 +132,7 @@ export default function CondominioEmissoesPage() {
 
   const handleDownload = async (emissao) => {
       try {
-          const link = await getArquivoUrlSeguro(emissao.storage_path);
+          const link = await getArquivoUrlSeguro(emissao.storage_path, { stream: true });   // fetch → same-origin
           if (!link) throw new Error('Sem acesso ao arquivo.');
           const resp = await fetch(link);
           if (!resp.ok) throw new Error('Falha ao baixar.');

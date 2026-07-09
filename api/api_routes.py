@@ -1154,6 +1154,7 @@ def _arquivo_condo_id(db, path: str):
 
 class ArquivoLinkSchema(BaseModel):
     path: str
+    stream: Optional[bool] = False   # true = link same-origin (p/ quem faz fetch()/download no navegador, sem CORS)
 
 @router.post("/arquivo/link")
 def api_arquivo_link(data: ArquivoLinkSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
@@ -1173,14 +1174,17 @@ def api_arquivo_link(data: ArquivoLinkSchema, user: dict = Depends(get_current_u
             raise HTTPException(403, "Sem permissão para este arquivo.")
     # Preferência: URL assinada do Supabase (entrega direta pela CDN, sem passar pela função).
     # TTL curto (5 min): tempo de sobra p/ abrir/visualizar, exposição mínima se o link vazar.
-    try:
-        signed = db.storage.from_("emissoes").create_signed_url(path, 300)   # 5 min
-        url = signed.get("signedURL") if isinstance(signed, dict) else signed
-        if url:
-            return {"url": url, "direct": True}
-    except Exception as e:
-        print(f"[arquivo/link] URL assinada falhou, usando streaming interno: {e}")
-    # Fallback: streaming protegido por token (compatível com o comportamento antigo)
+    # stream=true pula isso: quem faz fetch()/download no navegador (extração, ZIP) precisa
+    # de link same-origin p/ não depender de CORS cross-origin do Supabase.
+    if not data.stream:
+        try:
+            signed = db.storage.from_("emissoes").create_signed_url(path, 300)   # 5 min
+            url = signed.get("signedURL") if isinstance(signed, dict) else signed
+            if url:
+                return {"url": url, "direct": True}
+        except Exception as e:
+            print(f"[arquivo/link] URL assinada falhou, usando streaming interno: {e}")
+    # Streaming same-origin protegido por token (compatível com o comportamento antigo)
     return {"url": f"/api/arquivo/abrir?t={_sign_arquivo_token(path)}", "direct": False}
 
 @router.get("/arquivo/abrir")

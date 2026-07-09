@@ -215,9 +215,10 @@ export default function RegistroEmissoes({ profile }) {
     try {
       const zip = new JSZip();
       for (const arq of (pacote.arquivos || [])) {
-        const url = await getArquivoUrlSeguro(arq.arquivo_url);
+        const url = await getArquivoUrlSeguro(arq.arquivo_url, { stream: true });   // fetch → same-origin
         if (!url) continue;
         const resp = await fetch(url);
+        if (!resp.ok) continue;
         const blob = await resp.blob();
         zip.file(arq.arquivo_nome, blob);
       }

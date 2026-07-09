@@ -69,9 +69,12 @@ export async function montarPdfEmissao(itens, onProgress) {
 
     let bytes;
     try {
-      const url = await getArquivoUrlSeguro(path);
+      const url = await getArquivoUrlSeguro(path, { stream: true });   // fetch → same-origin, sem CORS
       if (!url) { pulados.push(`${nome} (sem acesso)`); continue; }
-      bytes = await (await fetch(url)).arrayBuffer();
+      const resp = await fetch(url);
+      if (!resp.ok) { pulados.push(`${nome} (falha HTTP ${resp.status})`); continue; }
+      bytes = await resp.arrayBuffer();
+      if (!bytes || bytes.byteLength === 0) { pulados.push(`${nome} (arquivo vazio)`); continue; }
     } catch {
       pulados.push(`${nome} (falha ao baixar)`);
       continue;
