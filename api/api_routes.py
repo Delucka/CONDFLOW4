@@ -1165,9 +1165,10 @@ def api_arquivo_link(data: ArquivoLinkSchema, user: dict = Depends(get_current_u
                 raise HTTPException(403, "Sem permissão para este arquivo.")
         elif not cid:
             raise HTTPException(403, "Sem permissão para este arquivo.")
-    # Preferência: URL assinada do Supabase (entrega direta pela CDN, sem passar pela função)
+    # Preferência: URL assinada do Supabase (entrega direta pela CDN, sem passar pela função).
+    # TTL curto (5 min): tempo de sobra p/ abrir/visualizar, exposição mínima se o link vazar.
     try:
-        signed = db.storage.from_("emissoes").create_signed_url(path, 1800)   # 30 min
+        signed = db.storage.from_("emissoes").create_signed_url(path, 300)   # 5 min
         url = signed.get("signedURL") if isinstance(signed, dict) else signed
         if url:
             return {"url": url, "direct": True}
