@@ -96,14 +96,19 @@ export function usePendingCount() {
 
   useEffect(() => { fetchCount(); }, [fetchCount]);
 
-  // Realtime: atualiza badge quando algum pacote muda
+  // Realtime: atualiza badge quando algum pacote muda.
+  // Debounce: uma rajada de mudanças (ex.: várias aprovações seguidas) vira UM
+  // refetch em vez de N. Não altera O QUE é contado — só evita a tempestade de
+  // requisições sob carga (esse hook roda p/ todo usuário logado).
   useEffect(() => {
     if (!profile?.role) return;
     const supabase = createClient();
+    let t = null;
+    const agendarRefetch = () => { clearTimeout(t); t = setTimeout(fetchCount, 1200); };
     const ch = supabase.channel(`pending_count_${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, fetchCount)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, agendarRefetch)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { clearTimeout(t); supabase.removeChannel(ch); };
   }, [profile?.role, fetchCount]);
 
   return { count, loading, refetch: fetchCount };
