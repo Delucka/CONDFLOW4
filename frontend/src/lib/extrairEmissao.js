@@ -53,7 +53,58 @@ export function ordenarParaExtracao(arquivos = [], cobrancas = []) {
   return out;
 }
 
-// Baixa cada item e mescla num PDF único (pdf-lib). Devolve { blob, pulados, totalPaginas }.
+// ── pdf.js (rasterização) ──────────────────────────────────────────────────────────
+// Renderiza cada página do PDF e embute como imagem no PDF final. Garante conteúdo
+// VISÍVEL mesmo nos PDFs que o copyPages do pdf-lib deixava em branco (scanner/gerador
+// específico). Worker self-hosted em /public (same-origin, sem CDN, sem CSP issue).
+let _pdfjs = null;
+async function getPdfjs() {
+  if (!_pdfjs) {
+    const pdfjs = await import('pdfjs-dist');
+    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    _pdfjs = pdfjs;
+  }
+  return _pdfjs;
+}
+
+const RASTER = 2; // 2x = boa legibilidade sem inflar demais o arquivo
+
+function dataUrlParaBytes(dataUrl) {
+  const b64 = dataUrl.split(',')[1] || '';
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let k = 0; k < bin.length; k += 1) arr[k] = bin.charCodeAt(k);
+  return arr;
+}
+
+async function rasterizarPaginas(arrayBuffer) {
+  const pdfjs = await getPdfjs();
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(arrayBuffer.slice(0)) }).promise;
+  const out = [];
+  try {
+    for (let n = 1; n <= doc.numPages; n += 1) {
+      const page = await doc.getPage(n);
+      const vp1 = page.getViewport({ scale: 1 });
+      const vp = page.getViewport({ scale: RASTER });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(vp.width);
+      canvas.height = Math.ceil(vp.height);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      out.push({ bytes: dataUrlParaBytes(canvas.toDataURL('image/jpeg', 0.9)), ptW: vp1.width, ptH: vp1.height });
+      canvas.width = 0; canvas.height = 0; // libera memória
+      page.cleanup();
+    }
+  } finally {
+    await doc.destroy();
+  }
+  return out;
+}
+
+// Baixa cada item e mescla num PDF único. PDFs entram RASTERIZADOS (pdf.js); imagens
+// entram direto. Devolve { blob, pulados, totalPaginas }.
 export async function montarPdfEmissao(itens, onProgress) {
   const { PDFDocument } = await import('pdf-lib');
   const merged = await PDFDocument.create();
@@ -69,7 +120,7 @@ export async function montarPdfEmissao(itens, onProgress) {
 
     let bytes;
     try {
-      const url = await getArquivoUrlSeguro(path, { stream: true });   // fetch → same-origin, sem CORS
+      const url = await getArquivoUrlSeguro(path, { stream: true }); // fetch → same-origin, sem CORS
       if (!url) { pulados.push(`${nome} (sem acesso)`); continue; }
       const resp = await fetch(url);
       if (!resp.ok) { pulados.push(`${nome} (falha HTTP ${resp.status})`); continue; }
@@ -88,9 +139,13 @@ export async function montarPdfEmissao(itens, onProgress) {
 
     try {
       if (isPdf) {
-        const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
-        const pages = await merged.copyPages(src, src.getPageIndices());
-        pages.forEach((p) => merged.addPage(p));
+        const paginas = await rasterizarPaginas(bytes);
+        if (paginas.length === 0) { pulados.push(`${nome} (sem páginas)`); continue; }
+        for (const pg of paginas) {
+          const jpg = await merged.embedJpg(pg.bytes);
+          const page = merged.addPage([pg.ptW, pg.ptH]);
+          page.drawImage(jpg, { x: 0, y: 0, width: pg.ptW, height: pg.ptH });
+        }
       } else if (isPng || isJpg) {
         const img = isPng ? await merged.embedPng(bytes) : await merged.embedJpg(bytes);
         const page = merged.addPage([img.width, img.height]);
@@ -99,7 +154,18 @@ export async function montarPdfEmissao(itens, onProgress) {
         pulados.push(`${nome} (não é PDF/imagem)`);
       }
     } catch {
-      pulados.push(`${nome} (não consegui mesclar)`);
+      // Fallback: se a rasterização falhar, tenta copiar as páginas direto (salva PDFs normais).
+      try {
+        if (isPdf) {
+          const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+          const pages = await merged.copyPages(src, src.getPageIndices());
+          pages.forEach((p) => merged.addPage(p));
+        } else {
+          pulados.push(`${nome} (não consegui mesclar)`);
+        }
+      } catch {
+        pulados.push(`${nome} (não consegui mesclar)`);
+      }
     }
   }
 
