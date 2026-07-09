@@ -456,13 +456,19 @@ def api_criar_segunda_via(data: SegundaViaCreate, user: dict = Depends(get_curre
 def api_listar_segundas_vias(status: str = None, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     if user["role"] not in ROLES_SEGVIA_ABRE:
         raise HTTPException(403, "Sem permissão.")
-    q = db.table("segundas_vias").select("*, condominios(name)").order("criado_em", desc=True).limit(300)
+    q = db.table("segundas_vias").select("*, condominios(name)").order("criado_em", desc=True)
     if status:
         q = q.eq("status", status)
-    rows = q.execute().data or []
+    # Gerente/assistente: escopa pela carteira NA QUERY (antes do limite). Antes o
+    # filtro era em Python DEPOIS de pegar as 300 globais mais recentes — com a fila
+    # crescendo, os itens do gerente podiam ficar de fora das 300. Agora o limite é
+    # aplicado já dentro da carteira dele.
     if user["role"] in ("gerente", "assistente"):
-        ids = set(carteira_condo_ids(db, user))
-        rows = [r for r in rows if r.get("condominio_id") in ids]
+        ids = carteira_condo_ids(db, user)
+        if not ids:
+            return {"solicitacoes": []}
+        q = q.in_("condominio_id", ids)
+    rows = q.limit(300).execute().data or []
     return {"solicitacoes": rows}
 
 
