@@ -48,6 +48,8 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const [correcaoFile, setCorrecaoFile] = useState(null);
   const [observacaoAprovacao, setObservacaoAprovacao] = useState('');
   const [leituraModal, setLeituraModal] = useState(null); // { arq } — leitura por unidade do relatório
+  const [caracteristicas, setCaracteristicas] = useState(''); // observações/características do condomínio
+  const [showObs, setShowObs] = useState(false);              // modal de observações
 
   // Snapshot congela os valores; dados ao vivo são mutáveis
   const planilha = isSnapshot ? arquivo.planilha_snapshot : data?.planilha;
@@ -57,6 +59,17 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     if (arquivo) setCurrentFile(arquivo);
     setDocList(arquivos);   // nova conferência -> volta a navegar a lista do pacote atual
   }, [arquivo, arquivos]);
+
+  // Observações/características do condomínio (editadas no "Fazer Emissões") — pra conferir aqui
+  useEffect(() => {
+    const cid = currentFile?.condominio_id;
+    if (!cid) { setCaracteristicas(''); return; }
+    let cancelado = false;
+    supabase.from('condominios').select('caracteristicas').eq('id', cid).maybeSingle()
+      .then(({ data: c }) => { if (!cancelado) setCaracteristicas(c?.caracteristicas || ''); })
+      .catch(() => { if (!cancelado) setCaracteristicas(''); });
+    return () => { cancelado = true; };
+  }, [currentFile?.condominio_id]);
 
   const podeAprovar = can(currentUser?.role, 'approve_document');
   const podeAssinar = can(currentUser?.role, 'sign_document');
@@ -475,6 +488,25 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
         {/* Painel lateral - usa flex height, nao calc() */}
         <div className={`flex flex-col gap-3 pr-2 conf-scroll min-h-0 lg:h-full lg:overflow-y-auto overflow-x-hidden ${isMobile && abaAtiva === 'doc' ? 'hidden' : ''}`}>
+
+          {/* Observações do condomínio — clique para abrir e conferir */}
+          <div className={`bg-white border border-slate-800 rounded-xl overflow-hidden shrink-0 ${isMobile && abaAtiva !== 'planilha' ? 'hidden' : ''}`}>
+            <button type="button" onClick={() => caracteristicas.trim() && setShowObs(true)}
+              className={`w-full px-4 py-3 flex items-center justify-between gap-2 text-left transition-colors ${caracteristicas.trim() ? 'hover:bg-amber-50 cursor-pointer' : 'cursor-default'}`}>
+              <div className="flex items-center gap-2 min-w-0">
+                <ClipboardList className="w-4 h-4 text-amber-500 shrink-0" />
+                <div className="min-w-0">
+                  <h4 className="text-sm font-bold text-slate-800">Observações do condomínio</h4>
+                  <p className="text-[10px] text-slate-500 truncate">
+                    {caracteristicas.trim() ? 'Clique para abrir e conferir as instruções' : 'Nenhuma observação cadastrada'}
+                  </p>
+                </div>
+              </div>
+              {caracteristicas.trim() && (
+                <span className="text-[9px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded shrink-0">Abrir</span>
+              )}
+            </button>
+          </div>
 
           {/* Planilha Anual */}
           <div className={`bg-white border border-slate-800 rounded-xl overflow-hidden shrink-0 ${isMobile && abaAtiva !== 'planilha' ? 'hidden' : ''}`}>
@@ -916,6 +948,24 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           </div>
         );
       })()}
+
+      {/* Modal Observações do condomínio */}
+      {showObs && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-4" onClick={() => setShowObs(false)}>
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-slate-200 shrink-0">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2"><ClipboardList className="w-5 h-5 text-amber-500" /> Observações do condomínio</h3>
+              <button onClick={() => setShowObs(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 overflow-y-auto">
+              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{caracteristicas}</p>
+            </div>
+            <div className="p-4 border-t border-slate-200 flex justify-end shrink-0">
+              <button onClick={() => setShowObs(false)} className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-colors">Voltar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
