@@ -1259,10 +1259,12 @@ def api_renotificar_emissao(pacote_id: str, user: dict = Depends(get_current_use
         for p in (db.table("profiles").select("id").eq("role", "supervisor_gerentes").execute().data or []):
             alvos.add(p["id"])
     elif "contabil" in s:
-        for p in (db.table("profiles").select("id").eq("role", "supervisora_contabilidade").execute().data or []):
+        for p in (db.table("profiles").select("id").in_("role", ["supervisora", "supervisora_contabilidade"]).execute().data or []):
             alvos.add(p["id"])
     elif ("supervisor" in s) or ("sup" in s):
-        for p in (db.table("profiles").select("id").in_("role", ["supervisora", "supervisora_contabilidade", "supervisor_gerentes"]).execute().data or []):
+        # Fallback p/ status genérico de supervisor: contabilidade (etapa mais comum) —
+        # NÃO os três, senão o sup. de gerentes recebe o que não é dele.
+        for p in (db.table("profiles").select("id").in_("role", ["supervisora", "supervisora_contabilidade"]).execute().data or []):
             alvos.add(p["id"])
 
     if not alvos:
