@@ -50,10 +50,14 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const [leituraModal, setLeituraModal] = useState(null); // { arq } — leitura por unidade do relatório
   const [caracteristicas, setCaracteristicas] = useState(''); // observações/características do condomínio
   const [showObs, setShowObs] = useState(false);              // modal de observações
+  const [cobrancasSnap, setCobrancasSnap] = useState([]);     // cobranças reconstruídas p/ emissão registrada
 
   // Snapshot congela os valores; dados ao vivo são mutáveis
   const planilha = isSnapshot ? arquivo.planilha_snapshot : data?.planilha;
-  const cobrancas = isSnapshot ? [] : (data?.cobrancas_extras || []);
+  // Cobranças extras: ao vivo vêm do conferencia; numa emissão REGISTRADA (snapshot) o
+  // conferencia pula as 'processada', então reconstruímos direto da tabela (abaixo) —
+  // senão os documentos de cobrança (salão de festas etc.) somem após a emissão.
+  const cobrancas = isSnapshot ? cobrancasSnap : (data?.cobrancas_extras || []);
 
   useEffect(() => {
     if (arquivo) setCurrentFile(arquivo);
@@ -70,6 +74,36 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       .catch(() => { if (!cancelado) setCaracteristicas(''); });
     return () => { cancelado = true; };
   }, [currentFile?.condominio_id]);
+
+  // Emissão REGISTRADA (snapshot): reconstrói as cobranças extras (com anexos) direto da
+  // tabela — inclusive as 'processada', que o conferencia esconde. Filtra pelas que
+  // entraram na emissão (cobrancas_incluidas do pacote). Assim os documentos ficam ali.
+  useEffect(() => {
+    if (!isSnapshot) { setCobrancasSnap([]); return; }
+    const cid = currentFile?.condominio_id, m = currentFile?.mes, a = currentFile?.ano;
+    if (!cid || !m || !a) { setCobrancasSnap([]); return; }
+    let cancelado = false;
+    (async () => {
+      try {
+        let incluidas = null;
+        if (currentFile?.pacote_id) {
+          const { data: pac } = await supabase.from('emissoes_pacotes')
+            .select('cobrancas_incluidas').eq('id', currentFile.pacote_id).maybeSingle();
+          incluidas = pac?.cobrancas_incluidas ?? null;
+        }
+        const { data: rows } = await supabase.from('cobrancas_extras')
+          .select('id, description, amount, mes, ano, unidades, attachments, status')
+          .eq('condominio_id', cid).eq('mes', m).eq('ano', a).neq('status', 'cancelada');
+        let list = rows || [];
+        if (Array.isArray(incluidas)) list = list.filter((c) => incluidas.includes(c.id));
+        if (!cancelado) setCobrancasSnap(list.map((c) => ({
+          id: c.id, descricao: c.description || 'Cobrança Extra', valor: Number(c.amount) || 0,
+          mes: c.mes, ano: c.ano, unidades: c.unidades, attachments: c.attachments || [],
+        })));
+      } catch { if (!cancelado) setCobrancasSnap([]); }
+    })();
+    return () => { cancelado = true; };
+  }, [isSnapshot, currentFile?.condominio_id, currentFile?.mes, currentFile?.ano, currentFile?.pacote_id]);
 
   const podeAprovar = can(currentUser?.role, 'approve_document');
   const podeAssinar = can(currentUser?.role, 'sign_document');
@@ -223,9 +257,14 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   }
 
   // Abre o anexo da cobrança extra ao clicar em qualquer lugar da linha
-  function abrirCobranca(c) {
+  async function abrirCobranca(c) {
     if (!c?.attachments?.length) { addToast('Esta cobrança não tem anexo.', 'info'); return; }
-    setCurrentFile({ ...currentFile, id: `att_${c.id}`, nome: `Anexo: ${c.descricao}`, url: c.attachments[0] });
+    let url = c.attachments[0];
+    if (url && !/^https?:\/\//.test(url)) {     // caminho cru (emissão registrada) → assina
+      url = await getArquivoUrlSeguro(url);
+      if (!url) { addToast('Não consegui abrir o anexo.', 'error'); return; }
+    }
+    setCurrentFile({ ...currentFile, id: `att_${c.id}`, nome: `Anexo: ${c.descricao}`, url });
   }
 
   // Volta pra emissão que está sendo conferida (restaura a lista do pacote atual)
