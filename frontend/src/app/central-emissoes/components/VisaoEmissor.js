@@ -836,6 +836,27 @@ export default function VisaoEmissor({ profile }) {
       } catch { /* snapshot é opcional — não bloqueia o registro */ }
     }
 
+    // Congela as cobranças extras incluídas (com anexos crus) — integridade/auditoria:
+    // vira um retrato imutável, não some nem muda se a cobrança for editada/apagada depois.
+    let cobrancas_snapshot = null;
+    if (activePacote.condominio_id) {
+      try {
+        const { data: rows } = await supabase.from('cobrancas_extras')
+          .select('id, description, amount, mes, ano, unidades, attachments, status')
+          .eq('condominio_id', activePacote.condominio_id)
+          .eq('mes', activePacote.mes_referencia)
+          .eq('ano', activePacote.ano_referencia)
+          .neq('status', 'cancelada');
+        let list = rows || [];
+        const incl = activePacote.cobrancas_incluidas;
+        if (Array.isArray(incl)) list = list.filter((c) => incl.includes(c.id));
+        cobrancas_snapshot = list.map((c) => ({
+          id: c.id, descricao: c.description || 'Cobrança Extra', valor: Number(c.amount) || 0,
+          mes: c.mes, ano: c.ano, unidades: c.unidades, attachments: c.attachments || [],
+        }));
+      } catch { /* snapshot é opcional */ }
+    }
+
     const semestre = activePacote.mes_referencia <= 6 ? 1 : 2;
     const { data: processo } = await supabase
       .from('processos')
@@ -853,6 +874,7 @@ export default function VisaoEmissor({ profile }) {
         atualizado_em: selectedDate.toISOString(),
         ...(processo?.id ? { processo_id: processo.id } : {}),
         ...(planilha_snapshot ? { planilha_snapshot } : {}),
+        ...(cobrancas_snapshot !== null ? { cobrancas_snapshot } : {}),
       })
       .eq('id', activePacote.id);
 

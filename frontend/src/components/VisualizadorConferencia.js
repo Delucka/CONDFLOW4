@@ -85,12 +85,16 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
     let cancelado = false;
     (async () => {
       try {
-        let incluidas = null;
+        let incluidas = null, congelado = null;
         if (currentFile?.pacote_id) {
           const { data: pac } = await supabase.from('emissoes_pacotes')
-            .select('cobrancas_incluidas').eq('id', currentFile.pacote_id).maybeSingle();
+            .select('cobrancas_incluidas, cobrancas_snapshot').eq('id', currentFile.pacote_id).maybeSingle();
           incluidas = pac?.cobrancas_incluidas ?? null;
+          congelado = pac?.cobrancas_snapshot ?? null;
         }
+        // Congelado (emissões novas) tem prioridade — retrato imutável do que foi emitido.
+        if (Array.isArray(congelado)) { if (!cancelado) setCobrancasSnap(congelado); return; }
+        // Sem snapshot (emissões antigas): reconstrói da tabela (inclui 'processada').
         const { data: rows } = await supabase.from('cobrancas_extras')
           .select('id, description, amount, mes, ano, unidades, attachments, status')
           .eq('condominio_id', cid).eq('mes', m).eq('ano', a).neq('status', 'cancelada');

@@ -207,6 +207,26 @@ export default function VisaoMaster() {
     } catch { return null; }
   }
 
+  // Congela as cobranças extras incluídas (com anexos crus) — integridade/auditoria.
+  async function fetchCobrancasSnapshot(pacote) {
+    if (!pacote?.condominio_id) return null;
+    try {
+      const { data: rows } = await supabase.from('cobrancas_extras')
+        .select('id, description, amount, mes, ano, unidades, attachments, status')
+        .eq('condominio_id', pacote.condominio_id)
+        .eq('mes', pacote.mes_referencia)
+        .eq('ano', pacote.ano_referencia)
+        .neq('status', 'cancelada');
+      let list = rows || [];
+      const incl = pacote.cobrancas_incluidas;
+      if (Array.isArray(incl)) list = list.filter((c) => incl.includes(c.id));
+      return list.map((c) => ({
+        id: c.id, descricao: c.description || 'Cobrança Extra', valor: Number(c.amount) || 0,
+        mes: c.mes, ano: c.ano, unidades: c.unidades, attachments: c.attachments || [],
+      }));
+    } catch { return null; }
+  }
+
   // ── Ações ─────────────────────────────────────────────────────────────────
   async function handleRenotificar(pacote) {
     setNotificandoId(pacote.id);
@@ -303,6 +323,7 @@ export default function VisaoMaster() {
 
     const { data: { session } } = await supabase.auth.getSession();
     const planilha_snapshot = await fetchSnapshot(activePacote, session?.access_token);
+    const cobrancas_snapshot = await fetchCobrancasSnapshot(activePacote);
 
     const semestre = activePacote.mes_referencia <= 6 ? 1 : 2;
     const { data: processo } = await supabase.from('processos').select('id')
@@ -317,6 +338,7 @@ export default function VisaoMaster() {
       atualizado_em: selectedDate.toISOString(),
       ...(processo?.id ? { processo_id: processo.id } : {}),
       ...(planilha_snapshot ? { planilha_snapshot } : {}),
+      ...(cobrancas_snapshot !== null ? { cobrancas_snapshot } : {}),
     }).eq('id', activePacote.id);
 
     if (error) addToast('Erro ao registrar: ' + error.message, 'error');
