@@ -102,6 +102,25 @@ export default function VisaoEmissor({ profile }) {
     setCaracSaving('idle');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePacote?.id]);
+
+  // Observações do GERENTE (issue_notes do processo, escritas na planilha dele) — o
+  // emissor precisa ver antes de emitir, pra conferir se há algo. Fallback: condo.obs_emissao.
+  const [obsGerente, setObsGerente] = useState('');
+  useEffect(() => {
+    const cid = activePacote?.condominio_id;
+    if (!cid) { setObsGerente(''); return; }
+    const cond = condominios.find(c => c.id === cid);
+    const fallback = (cond?.obs_emissao || '').trim();
+    const sem = (activePacote.mes_referencia <= 6) ? 1 : 2;
+    let cancel = false;
+    supabase.from('processos').select('issue_notes')
+      .eq('condominio_id', cid).eq('year', activePacote.ano_referencia).eq('semester', sem).maybeSingle()
+      .then(({ data }) => { if (!cancel) setObsGerente(((data?.issue_notes || '').trim()) || fallback); })
+      .catch(() => { if (!cancel) setObsGerente(fallback); });
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePacote?.id]);
+
   const salvarCaracteristicas = (val) => {
     setCaracteristicas(val);
     setCaracSaving('saving');
@@ -1256,6 +1275,17 @@ export default function VisaoEmissor({ profile }) {
               </div>
             );
           })()}
+
+          {/* Observações do GERENTE (da planilha dele) — destaque p/ o emissor conferir */}
+          {obsGerente && (
+            <div className="mb-4 rounded-2xl border-2 border-amber-400/70 bg-amber-50 p-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-600" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-700">Observações do gerente (da planilha)</span>
+              </div>
+              <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{obsGerente}</p>
+            </div>
+          )}
 
           {/* Características do condomínio — editável, auto-salva, sempre visível */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
