@@ -8,7 +8,7 @@ import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
 import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
 import { safeStorageName } from '@/lib/storage';
-import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen, Droplet, AlertTriangle, ClipboardList } from 'lucide-react';
+import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen, Droplet, AlertTriangle, ClipboardList, StickyNote } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
 const MESES_LONG_VC = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -49,7 +49,8 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const [observacaoAprovacao, setObservacaoAprovacao] = useState('');
   const [leituraModal, setLeituraModal] = useState(null); // { arq } — leitura por unidade do relatório
   const [caracteristicas, setCaracteristicas] = useState(''); // observações/características do condomínio
-  const [showObs, setShowObs] = useState(false);              // modal de observações
+  const [obsGerente, setObsGerente] = useState('');           // observações do gerente (issue_notes da planilha)
+  const [obsModal, setObsModal] = useState(null);             // modal de observações { titulo, texto }
   const [cobrancasSnap, setCobrancasSnap] = useState([]);     // cobranças reconstruídas p/ emissão registrada
 
   // Snapshot congela os valores; dados ao vivo são mutáveis
@@ -74,6 +75,27 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       .catch(() => { if (!cancelado) setCaracteristicas(''); });
     return () => { cancelado = true; };
   }, [currentFile?.condominio_id]);
+
+  // Observações do GERENTE (issue_notes que ele salva na planilha) — pra consultar aqui.
+  useEffect(() => {
+    const cid = currentFile?.condominio_id, m = currentFile?.mes, a = currentFile?.ano;
+    if (!cid || !m || !a) { setObsGerente(''); return; }
+    const sem = m <= 6 ? 1 : 2;
+    let cancelado = false;
+    (async () => {
+      try {
+        const { data: proc } = await supabase.from('processos').select('issue_notes')
+          .eq('condominio_id', cid).eq('year', a).eq('semester', sem).maybeSingle();
+        let txt = (proc?.issue_notes || '').trim();
+        if (!txt) {
+          const { data: cond } = await supabase.from('condominios').select('obs_emissao').eq('id', cid).maybeSingle();
+          txt = (cond?.obs_emissao || '').trim();
+        }
+        if (!cancelado) setObsGerente(txt);
+      } catch { if (!cancelado) setObsGerente(''); }
+    })();
+    return () => { cancelado = true; };
+  }, [currentFile?.condominio_id, currentFile?.mes, currentFile?.ano]);
 
   // Emissão REGISTRADA (snapshot): reconstrói as cobranças extras (com anexos) direto da
   // tabela — inclusive as 'processada', que o conferencia esconde. Filtra pelas que
@@ -534,7 +556,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
           {/* Observações do condomínio — clique para abrir e conferir */}
           <div className={`bg-white border border-slate-800 rounded-xl overflow-hidden shrink-0 ${isMobile && abaAtiva !== 'planilha' ? 'hidden' : ''}`}>
-            <button type="button" onClick={() => caracteristicas.trim() && setShowObs(true)}
+            <button type="button" onClick={() => caracteristicas.trim() && setObsModal({ titulo: 'Observações do condomínio', texto: caracteristicas })}
               className={`w-full px-4 py-3 flex items-center justify-between gap-2 text-left transition-colors ${caracteristicas.trim() ? 'hover:bg-amber-50 cursor-pointer' : 'cursor-default'}`}>
               <div className="flex items-center gap-2 min-w-0">
                 <ClipboardList className="w-4 h-4 text-amber-500 shrink-0" />
@@ -547,6 +569,25 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
               </div>
               {caracteristicas.trim() && (
                 <span className="text-[9px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded shrink-0">Abrir</span>
+              )}
+            </button>
+          </div>
+
+          {/* Observações do gerente (as que ele salva na planilha) — clique para consultar */}
+          <div className={`bg-white border border-slate-800 rounded-xl overflow-hidden shrink-0 ${isMobile && abaAtiva !== 'planilha' ? 'hidden' : ''}`}>
+            <button type="button" onClick={() => obsGerente.trim() && setObsModal({ titulo: 'Observações do gerente', texto: obsGerente })}
+              className={`w-full px-4 py-3 flex items-center justify-between gap-2 text-left transition-colors ${obsGerente.trim() ? 'hover:bg-violet-50 cursor-pointer' : 'cursor-default'}`}>
+              <div className="flex items-center gap-2 min-w-0">
+                <StickyNote className="w-4 h-4 text-violet-500 shrink-0" />
+                <div className="min-w-0">
+                  <h4 className="text-sm font-bold text-slate-800">Observações do gerente</h4>
+                  <p className="text-[10px] text-slate-500 truncate">
+                    {obsGerente.trim() ? 'Da planilha do gerente — clique para consultar' : 'Nenhuma observação do gerente'}
+                  </p>
+                </div>
+              </div>
+              {obsGerente.trim() && (
+                <span className="text-[9px] font-bold uppercase tracking-wider bg-violet-500/10 text-violet-500 border border-violet-500/20 px-2 py-0.5 rounded shrink-0">Abrir</span>
               )}
             </button>
           </div>
@@ -992,19 +1033,19 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         );
       })()}
 
-      {/* Modal Observações do condomínio */}
-      {showObs && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-4" onClick={() => setShowObs(false)}>
+      {/* Modal de observações (condomínio ou gerente) */}
+      {obsModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-4" onClick={() => setObsModal(null)}>
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-slate-200 shrink-0">
-              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2"><ClipboardList className="w-5 h-5 text-amber-500" /> Observações do condomínio</h3>
-              <button onClick={() => setShowObs(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors"><X className="w-5 h-5" /></button>
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2"><ClipboardList className="w-5 h-5 text-amber-500" /> {obsModal.titulo}</h3>
+              <button onClick={() => setObsModal(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 overflow-y-auto">
-              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{caracteristicas}</p>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{obsModal.texto}</p>
             </div>
             <div className="p-4 border-t border-slate-200 flex justify-end shrink-0">
-              <button onClick={() => setShowObs(false)} className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-colors">Voltar</button>
+              <button onClick={() => setObsModal(null)} className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-colors">Voltar</button>
             </div>
           </div>
         </div>

@@ -583,7 +583,7 @@ export default function VisaoMaster() {
         {prontosParaExpedir.length > 0 && roleAutorizado && (
           <button onClick={abrirFecharMes}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest active:opacity-70">
-            <Rocket className="w-4 h-4" aria-hidden="true" /> Expedir mês — {prontosParaExpedir.length} emissão{prontosParaExpedir.length !== 1 ? 'ões' : ''}
+            <Rocket className="w-4 h-4" aria-hidden="true" /> Expedir mês — {prontosParaExpedir.length} emiss{prontosParaExpedir.length !== 1 ? 'ões' : 'ão'}
           </button>
         )}
 
@@ -759,7 +759,7 @@ export default function VisaoMaster() {
           <button onClick={abrirFecharMes}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-black text-[11px] uppercase tracking-widest  transition-all border border-slate-200">
             <Rocket className="w-4 h-4" />
-            Expedir Mês — {prontosParaExpedir.length} emissão{prontosParaExpedir.length !== 1 ? 'ões' : ''}
+            Expedir Mês — {prontosParaExpedir.length} emiss{prontosParaExpedir.length !== 1 ? 'ões' : 'ão'}
           </button>
         )}
       </div>
@@ -1128,7 +1128,7 @@ export default function VisaoMaster() {
             </div>
             <h3 className="text-xl font-black text-slate-900 text-center mb-1">Expedir {MESES[mesAtivo - 1]}/{anoAtivo}</h3>
             <p className="text-sm text-slate-500 text-center mb-2">
-              <span className="font-black text-slate-900">{prontosParaExpedir.length}</span> emissão{prontosParaExpedir.length !== 1 ? 'ões' : ''} serão expedidas e arquivadas no histórico.
+              <span className="font-black text-slate-900">{prontosParaExpedir.length}</span> emiss{prontosParaExpedir.length !== 1 ? 'ões' : 'ão'} serão expedidas e arquivadas no histórico.
             </p>
             <p className="text-[10px] text-emerald-400/70 text-center mb-6 font-bold uppercase tracking-widest">
               Esta ação não pode ser desfeita.
