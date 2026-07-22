@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
 import { usePendingCount } from '@/lib/usePendingCount';
-import { PenguinMark } from './PenguinLogo';
+import { LogoMark } from './Logo';
 import NotificationsBell from './NotificationsBell';
 import ThemeToggle from './ThemeToggle';
 import InstallAppButton from './InstallAppButton';
@@ -65,7 +65,7 @@ export default function MobileShell({ children }) {
       {/* ===== Topo ===== */}
       <header className="shrink-0 h-14 px-4 flex items-center justify-between border-b border-slate-200 bg-white z-20">
         <div className="flex items-center gap-2">
-          <PenguinMark size={30} className="shrink-0" />
+          <LogoMark size={30} className="shrink-0" />
           <span className="text-base font-black tracking-tight text-slate-900">
             Condo<span className="text-violet-600">Flow</span>
           </span>

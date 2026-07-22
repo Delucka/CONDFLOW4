@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Fredoka } from 'next/font/google';
-import { PenguinMark, PenguinGlyph } from '@/components/PenguinLogo';
+import { LogoMark, LogoGlyph } from '@/components/Logo';
 import {
   Receipt, FileUp, FileCheck2, Droplet, ScanLine, ShieldCheck,
   ArrowRight, Check, Layers, Clock, ChevronDown, Building2,
@@ -84,7 +84,7 @@ export default function Home() {
       <header className="sticky top-0 z-40 border-b-2 border-[#1e3a8a]/10 bg-[#f8fafc]/85 backdrop-blur-md">
         <nav className="max-w-6xl mx-auto px-5 h-[68px] flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5" aria-label="CondoFlow — início">
-            <PenguinMark size={38} className="shrink-0" />
+            <LogoMark size={38} className="shrink-0" />
             <Wordmark />
           </Link>
           <div className="flex items-center gap-1 sm:gap-3">
@@ -133,7 +133,7 @@ export default function Home() {
               <div className="w-[300px] h-[300px] sm:w-[360px] sm:h-[360px] rounded-[42%_58%_55%_45%/48%_42%_58%_52%] bg-[#eaf1ff] border-2 border-[#3b6fe0]/15" />
               {/* pinguim */}
               <div className="absolute inset-0 flex items-center justify-center animate-float">
-                <PenguinGlyph size={230} />
+                <LogoGlyph size={230} />
               </div>
               {/* balão de fala */}
               <div className={`absolute -top-2 -right-2 sm:right-0 bg-white border-2 border-[#1e3a8a]/10 rounded-2xl rounded-br-sm px-4 py-2.5 shadow-[0_4px_0_#e7ddcb] ${fredoka.className}`}>
@@ -246,7 +246,7 @@ export default function Home() {
           <div className="pointer-events-none absolute -bottom-20 -left-10 w-72 h-72 bg-[#3b6fe0]/30 rounded-full blur-3xl" />
           <div className="relative flex flex-col md:flex-row items-center gap-8 md:gap-12">
             <div className="shrink-0 w-36 h-36 rounded-[42%_58%_55%_45%/48%_42%_58%_52%] bg-white/10 flex items-center justify-center animate-float">
-              <PenguinGlyph size={120} />
+              <LogoGlyph size={120} />
             </div>
             <div className="text-center md:text-left">
               <h2 className={`text-3xl md:text-4xl font-bold tracking-tight text-white ${fredoka.className}`}>Pronto para organizar o seu condomínio?</h2>
@@ -262,7 +262,7 @@ export default function Home() {
       {/* ─── Footer ─── */}
       <footer className="border-t-2 border-[#1e3a8a]/10 bg-white">
         <div className="max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2.5"><PenguinMark size={32} /><Wordmark className="!text-lg" /></Link>
+          <Link href="/" className="flex items-center gap-2.5"><LogoMark size={32} /><Wordmark className="!text-lg" /></Link>
           <p className="text-xs text-slate-400 font-semibold">© {new Date().getFullYear()} CondoFlow · Sistema de Gestão de Condomínios</p>
           <Link href="/login" className={`text-sm font-bold text-[#1e3a8a] hover:text-[#3b6fe0] transition-colors ${fredoka.className}`}>Entrar →</Link>
         </div>

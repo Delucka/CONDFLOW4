@@ -1,19 +1,30 @@
 <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="0" width="100" height="100" rx="26" fill="#eef3fb"/>
-  <g transform="translate(21.4,11) scale(0.65)">
-    <path d="M14 46 Q0 66 14 94 Q20 82 22 60 Z" fill="#1e3a8a"/>
-    <path d="M74 46 Q88 66 74 94 Q68 82 66 60 Z" fill="#1e3a8a"/>
-    <path d="M44 6 C22 6 12 28 12 54 C12 66 14 80 16 90 C20 106 30 114 44 114 C58 114 68 106 72 90 C74 80 76 66 76 54 C76 28 66 6 44 6 Z" fill="#1e3a8a"/>
-    <ellipse cx="44" cy="72" rx="24" ry="36" fill="#ffffff"/>
-    <circle cx="35" cy="34" r="8" fill="#ffffff"/>
-    <circle cx="53" cy="34" r="8" fill="#ffffff"/>
-    <circle cx="36" cy="35" r="4" fill="#172554"/>
-    <circle cx="52" cy="35" r="4" fill="#172554"/>
-    <polygon points="44,42 53,49 44,56 35,49" fill="#f6883c"/>
-    <polygon points="30,58 30,72 44,65" fill="#3b6fe0"/>
-    <polygon points="58,58 58,72 44,65" fill="#3b6fe0"/>
-    <circle cx="44" cy="65" r="3.5" fill="#2a52c9"/>
-    <ellipse cx="33" cy="116" rx="10" ry="5" fill="#f6883c"/>
-    <ellipse cx="55" cy="116" rx="10" ry="5" fill="#f6883c"/>
+  <!-- CondoFlow — "Vizinhança": o conjunto de condomínios sob a mesma gestão.
+       Mesmo desenho de src/components/Logo.js (LogoMark). -->
+  <rect x="1.5" y="1.5" width="97" height="97" rx="26" fill="#eef3fb" stroke="#1e3a8a" stroke-opacity="0.18" stroke-width="1.5"/>
+
+  <rect x="45" y="23" width="25" height="56" rx="3.5" fill="#2a4ba0"/>
+  <g fill="#eef3fb">
+    <rect x="49" y="29" width="5" height="5" rx="1.2"/><rect x="60" y="29" width="5" height="5" rx="1.2"/>
+    <rect x="49" y="38" width="5" height="5" rx="1.2"/><rect x="60" y="38" width="5" height="5" rx="1.2"/>
+    <rect x="49" y="47" width="5" height="5" rx="1.2"/>
+    <rect x="49" y="56" width="5" height="5" rx="1.2"/><rect x="60" y="56" width="5" height="5" rx="1.2"/>
   </g>
+  <rect x="60" y="47" width="5" height="5" rx="1.2" fill="#f6883c"/>
+
+  <rect x="16" y="41" width="26" height="38" rx="3.5" fill="#1e3a8a"/>
+  <g fill="#eef3fb">
+    <rect x="20" y="47" width="5" height="5" rx="1.2"/><rect x="31" y="47" width="5" height="5" rx="1.2"/>
+    <rect x="20" y="56" width="5" height="5" rx="1.2"/><rect x="31" y="56" width="5" height="5" rx="1.2"/>
+  </g>
+  <rect x="24" y="68" width="9" height="11" rx="2" fill="#f6883c"/>
+
+  <rect x="72" y="50" width="14" height="29" rx="3.5" fill="#1e3a8a"/>
+  <g fill="#eef3fb">
+    <rect x="76" y="56" width="5" height="5" rx="1.2"/><rect x="76" y="65" width="5" height="5" rx="1.2"/>
+  </g>
+
+  <rect x="12" y="79" width="76" height="5" rx="2.5" fill="#c3d6f0"/>
+  <circle cx="43" cy="70" r="7" fill="#3f9c74"/>
+  <rect x="41.8" y="74" width="2.4" height="6" rx="1.2" fill="#2f7a5a"/>
 </svg>

@@ -7,7 +7,7 @@ import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
 import { usePendingCount } from '@/lib/usePendingCount';
 import ThemeToggle from './ThemeToggle';
 import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Receipt, FileUp, KeyRound, Droplet, Mail, X, FileText } from 'lucide-react';
-import { PenguinMark } from './PenguinLogo';
+import { LogoMark } from './Logo';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 
@@ -75,7 +75,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
         <div className="flex-1 flex flex-col py-4 glass-panel rounded-2xl overflow-hidden relative">
 
           <div className={`flex items-center gap-2.5 px-4 mb-6 mt-1 ${isCollapsed ? 'justify-center px-0' : ''}`}>
-            <PenguinMark size={36} className="shrink-0" />
+            <LogoMark size={36} className="shrink-0" />
             {!isCollapsed && <h1 className="text-lg font-black tracking-tight text-slate-900">Condo<span className="text-violet-600">Flow</span></h1>}
             <button type="button" onClick={onCloseMobile} aria-label="Fechar menu"
               className="lg:hidden tap ml-auto inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors">

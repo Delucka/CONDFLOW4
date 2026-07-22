@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { Loader2, KeyRound, Mail, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
-import { PenguinMark } from '@/components/PenguinLogo';
+import { LogoMark } from '@/components/Logo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -62,7 +62,7 @@ export default function LoginPage() {
       <div className="glass-panel w-full max-w-md rounded-2xl p-8 animate-fade-up relative z-10">
         {/* Logo */}
         <div className="flex items-center justify-center mb-6">
-          <PenguinMark size={72} />
+          <LogoMark size={72} />
         </div>
         <h2 className="text-3xl font-black text-center text-slate-900 mb-1 tracking-tight">
           Condo<span className="text-violet-400">Flow</span>
