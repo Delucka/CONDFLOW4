@@ -15,12 +15,18 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState('');
   const { signIn, sendPasswordReset, user } = useAuth();
   const router = useRouter();
+  const [sessaoExpirada, setSessaoExpirada] = useState(false);
 
   useEffect(() => {
     if (user) {
       router.push('/dashboard');
     }
   }, [user, router]);
+
+  // Chegou aqui por sessão expirada/derrubada (api.js redireciona com ?expirado=1)
+  useEffect(() => {
+    try { if (new URLSearchParams(window.location.search).get('expirado')) setSessaoExpirada(true); } catch {}
+  }, []);
 
   // Pré-aquece a função Python do backend enquanto o usuário digita — mata o cold start no 1º dashboard
   useEffect(() => { try { fetch('/api/health').catch(() => {}); } catch {} }, []);
@@ -70,6 +76,13 @@ export default function LoginPage() {
         <p className="text-slate-400 text-center mb-8 text-sm font-medium tracking-wide">
           SISTEMA DE GESTÃO E ARRECADAÇÕES
         </p>
+
+        {/* Aviso de sessão expirada / conta aberta em outro lugar */}
+        {sessaoExpirada && mode === 'login' && (
+          <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Sua sessão foi encerrada — provavelmente a conta foi aberta em outro computador. É só entrar de novo.
+          </div>
+        )}
 
         {/* Error */}
         {erro && (

@@ -9,8 +9,7 @@ import { createClient } from '@/utils/supabase/client';
 let API = process.env.NEXT_PUBLIC_API_URL || '';
 if (API.includes('api.emissaonline.com')) API = '';
 
-async function getAuthHeaders() {
-  const supabase = createClient();
+async function getAuthHeaders(supabase) {
   const { data: { session } } = await supabase.auth.getSession();
   const headers = { 'Content-Type': 'application/json' };
   if (session?.access_token) {
@@ -19,17 +18,47 @@ async function getAuthHeaders() {
   return headers;
 }
 
+// Sessão inválida (login expirado, ou derrubado ao entrar com a conta em outro lugar):
+// leva pro /login com aviso, em vez de mostrar o "Erro de Conexão" genérico. O flag
+// evita vários redirecionamentos quando várias chamadas dão 401 ao mesmo tempo.
+let jaRedirecionando = false;
+function irParaLoginSessaoExpirada() {
+  if (typeof window === 'undefined' || jaRedirecionando) return;
+  if (window.location.pathname.startsWith('/login')) return;
+  jaRedirecionando = true;
+  try { createClient().auth.signOut(); } catch { /* ignora */ }
+  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.href = `/login?expirado=1&next=${next}`;
+}
+
 export async function apiFetcher(url) {
   return apiFetch(url);
 }
 
-export async function apiFetch(path, opts = {}) {
+export async function apiFetch(path, opts = {}, _jaRenovou = false) {
+  const supabase = createClient();
   try {
-    const headers = await getAuthHeaders();
+    const headers = await getAuthHeaders(supabase);
     const response = await fetch(`${API}${path}`, {
       ...opts,
       headers: { ...headers, ...opts.headers },
     });
+
+    // 401 = problema de AUTENTICAÇÃO (token expirado/derrubado), não de conexão.
+    if (response.status === 401) {
+      if (!_jaRenovou) {
+        // Tenta renovar a sessão uma vez (caso o token só tenha expirado) e repete.
+        try {
+          const { data, error } = await supabase.auth.refreshSession();
+          if (!error && data?.session) {
+            return await apiFetch(path, opts, true);
+          }
+        } catch { /* refresh falhou → cai no login abaixo */ }
+      }
+      // Não deu pra renovar: a sessão foi mesmo derrubada. Login limpo.
+      irParaLoginSessaoExpirada();
+      throw new Error('Sua sessão expirou. Faça login novamente.');
+    }
 
     if (!response.ok) {
       let errorMessage = `Erro ${response.status}`;
