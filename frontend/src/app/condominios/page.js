@@ -657,7 +657,7 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView }) {
         <div className="pt-6 border-t border-slate-200 flex gap-2">
            <button onClick={() => onQuickView(c.id)} className="p-3 bg-violet-500/10 hover:bg-violet-500 text-violet-400 hover:text-slate-950 rounded-xl transition-all border border-violet-500/20 shadow-lg shadow-violet-500/10" title="Visualizar Emissão"><Eye className="w-4 h-4" /></button>
            <Link href={`/condominio/${c.id}/arrecadacoes`} className="flex-1 py-3 text-center bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-400 hover:text-slate-900 rounded-xl uppercase tracking-widest transition-all">Planilha</Link>
-           <Link href={`/condominio/${c.id}/cobrancas`} className="flex-1 py-3 text-center bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-400 hover:text-slate-900 rounded-xl uppercase tracking-widest transition-all">Extras</Link>
+           <Link href={`/carteiras/cobrancas?condo=${c.id}`} className="flex-1 py-3 text-center bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-400 hover:text-slate-900 rounded-xl uppercase tracking-widest transition-all">Extras</Link>
         </div>
     </div>
   );

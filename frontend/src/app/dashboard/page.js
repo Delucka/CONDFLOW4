@@ -462,7 +462,7 @@ export default function DashboardPage() {
                     <Link href={`/condominio/${c.id}/arrecadacoes`} className="flex items-center justify-center gap-1 py-2.5 rounded-xl bg-violet-50 text-violet-600 text-[11px] font-black active:opacity-70 transition-opacity">
                       <Layers className="w-3.5 h-3.5" aria-hidden="true" /> Planilha
                     </Link>
-                    <Link href={`/condominio/${c.id}/cobrancas`} className="flex items-center justify-center gap-1 py-2.5 rounded-xl bg-amber-50 text-amber-600 text-[11px] font-black active:opacity-70 transition-opacity">
+                    <Link href={`/carteiras/cobrancas?condo=${c.id}`} className="flex items-center justify-center gap-1 py-2.5 rounded-xl bg-amber-50 text-amber-600 text-[11px] font-black active:opacity-70 transition-opacity">
                       <Receipt className="w-3.5 h-3.5" aria-hidden="true" /> Cobranças
                     </Link>
                     <button onClick={() => handleQuickView(c.id)} className="flex items-center justify-center gap-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-black active:opacity-70 transition-opacity">
@@ -631,7 +631,7 @@ export default function DashboardPage() {
                         <td className="px-4 py-2">
                           <div className="flex gap-1 justify-end">
                             <Link href={`/condominio/${c.id}/arrecadacoes`} className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-slate-950 transition-all" title="Arrecadações"><Layers className="w-3 h-3" /></Link>
-                            <Link href={`/condominio/${c.id}/cobrancas`}    className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-slate-950 transition-all" title="Cobranças"><Receipt className="w-3 h-3" /></Link>
+                            <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-slate-950 transition-all" title="Cobranças"><Receipt className="w-3 h-3" /></Link>
                             <button onClick={() => handleQuickView(c.id)}   className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-slate-950 transition-all" title="Ver Info"><Eye className="w-3 h-3" /></button>
                           </div>
                         </td>
@@ -664,7 +664,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex gap-1.5 shrink-0">
                         <Link href={`/condominio/${c.id}/arrecadacoes`} className="tap flex items-center justify-center rounded-lg bg-violet-500/10 text-violet-500" title="Arrecadações"><Layers className="w-4 h-4" /></Link>
-                        <Link href={`/condominio/${c.id}/cobrancas`} className="tap flex items-center justify-center rounded-lg bg-amber-500/10 text-amber-500" title="Cobranças"><Receipt className="w-4 h-4" /></Link>
+                        <Link href={`/carteiras/cobrancas?condo=${c.id}`} className="tap flex items-center justify-center rounded-lg bg-amber-500/10 text-amber-500" title="Cobranças"><Receipt className="w-4 h-4" /></Link>
                         <button onClick={() => handleQuickView(c.id)} className="tap flex items-center justify-center rounded-lg bg-violet-500/10 text-violet-500" title="Ver Info"><Eye className="w-4 h-4" /></button>
                       </div>
                     </div>

@@ -445,7 +445,16 @@ export default function CobrancasExtrasPage() {
           .map(c => ({ id: c.id, name: c.name }))
           .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         setCondominios(data);
-        if (data.length) setCondoSel(data[0].id);
+        if (data.length) {
+          // Se veio de um link focado num condomínio (?condo=…, ex.: o "$" do dashboard),
+          // abre já nele — mesma tela de cobranças pra todo mundo, sem tela paralela.
+          let inicial = data[0].id;
+          try {
+            const q = new URLSearchParams(window.location.search).get('condo');
+            if (q && data.some(c => c.id === q)) inicial = q;
+          } catch { /* ignora */ }
+          setCondoSel(inicial);
+        }
       } catch {
         setCondominios([]);
       } finally {
