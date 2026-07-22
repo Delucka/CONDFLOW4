@@ -97,6 +97,9 @@ export default function CondominiosPage() {
   const [gerenteFilter, setGerenteFilter] = useState('');  // '' = todos
   const [condoFilter, setCondoFilter]     = useState('');  // '' = todos (da seleção) · senão 1 condomínio
   const [mesEdicao, setMesEdicao]         = useState(() => { const m = new Date(); return m.getMonth() === 11 ? 1 : m.getMonth() + 2; }); // default M+1
+  // Em massa NÃO reabre o que o gerente já liberou (a previsão dele fica de pé).
+  // Marcar aqui força a reabertura mesmo assim.
+  const [forcarReabertura, setForcarReabertura] = useState(false);
 
   const handleForceAll = async (status) => {
     setForcingAll(true);
@@ -128,11 +131,15 @@ export default function CondominiosPage() {
   const handleAbrirEdicaoMensal = async () => {
     setForcingAll(true);
     try {
-      const payload = { mes: mesEdicao, ano: pipelineAno };
+      const payload = { mes: mesEdicao, ano: pipelineAno, forcar_reabertura: forcarReabertura };
       if (condoFilter) payload.condominio_id = condoFilter;
       else if (gerenteFilter) payload.gerente_id = gerenteFilter;
       const res = await apiPost('/api/edicoes-mensais/abrir', payload);
-      addToast(`${_MESES[mesEdicao]}/${pipelineAno} aberto · ${res.criados} novos + ${res.reabertos} reabertos`, 'success');
+      const mantidos = res.mantidos_liberados || 0;
+      addToast(
+        `${_MESES[mesEdicao]}/${pipelineAno} aberto · ${res.criados} novos + ${res.reabertos} reabertos`
+        + (mantidos ? ` · ${mantidos} mantido${mantidos !== 1 ? 's' : ''} liberado${mantidos !== 1 ? 's' : ''}` : ''),
+        'success');
     } catch (err) {
       addToast('Erro: ' + err.message, 'error');
     } finally {
@@ -388,12 +395,18 @@ export default function CondominiosPage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <div>
                   <p className="text-[10px] font-black text-violet-300 uppercase tracking-widest">Ciclo mensal · {pipelineAno}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Abra ou <b>reabra</b> o mês p/ os gerentes editarem</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Abre o mês p/ os gerentes editarem · o que já foi <b>liberado</b> continua liberado</p>
                 </div>
                 <select value={mesEdicao} onChange={e => setMesEdicao(Number(e.target.value))}
                   className="bg-white border border-violet-200 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-800 outline-none focus:border-violet-500/50">
                   {_MESES.slice(1).map((nome, i) => (<option key={i + 1} value={i + 1}>{nome}</option>))}
                 </select>
+                <label className="flex items-center gap-2 text-[10px] font-bold text-slate-600 cursor-pointer select-none"
+                  title="Por padrão, abrir o mês NÃO desfaz o que o gerente já liberou. Marque para reabrir mesmo assim.">
+                  <input type="checkbox" checked={forcarReabertura} onChange={e => setForcarReabertura(e.target.checked)}
+                    className="rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
+                  Reabrir também os já liberados
+                </label>
               </div>
               <button onClick={handleAbrirEdicaoMensal} disabled={forcingAll}
                 className="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-violet-500 hover:bg-violet-400 text-white disabled:opacity-50 flex items-center gap-2">

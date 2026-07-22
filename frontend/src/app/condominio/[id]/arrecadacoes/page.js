@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { apiPost, apiFetch } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
@@ -190,6 +190,44 @@ export default function ArrecadacoesPage() {
     }
   }
 
+  // ── Liberar VÁRIOS meses de uma vez (a previsão que o gerente preencheu) ──
+  const mesesAbertos = useMemo(
+    () => edicoesCondo.filter(e => e.status === 'em_edicao').sort((a, b) => a.mes_referencia - b.mes_referencia),
+    [edicoesCondo],
+  );
+  const [showLiberarTodos, setShowLiberarTodos] = useState(false);
+  async function liberarTodosMesesAbertos() {
+    setEdicaoLoading(true);
+    try {
+      // Salva antes de liberar (mesmo cuidado do "Liberar este mês")
+      const ok = await handleSave(true);
+      if (!ok) { addToast('Não consegui salvar as alterações — corrija e tente de novo.', 'error'); return; }
+      const ids = mesesAbertos.map(e => e.id);
+      const res = await apiPost('/api/edicoes-mensais/liberar-todos', { ids });
+      const n = res?.liberados ?? ids.length;
+      addToast(`${n} ${n === 1 ? 'mês liberado' : 'meses liberados'} — não precisa confirmar de novo.`, 'success');
+      setShowLiberarTodos(false);
+      await fetchEdicoes();
+    } catch (e) {
+      addToast(e.message || 'Erro ao liberar', 'error');
+    } finally {
+      setEdicaoLoading(false);
+    }
+  }
+
+  // ── Aviso ao sair com mês preenchido e NÃO liberado (avisa, não trava) ──
+  const [avisoSaida, setAvisoSaida] = useState(false);
+  useEffect(() => {
+    if (mesesAbertos.length === 0) return;
+    const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);   // fechar/recarregar a aba
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [mesesAbertos.length]);
+  const tentarSair = () => {
+    if (mesesAbertos.length > 0) setAvisoSaida(true);
+    else router.push('/dashboard');
+  };
+
   // Locks visuais por mes adicionais — edicao_finalizada bloqueia o mes pro gerente
   const edicoesLockedMeses = useMemo(() => {
     const map = {};
@@ -245,9 +283,25 @@ export default function ArrecadacoesPage() {
       }
   };
 
+  // ── Auto-save: salva sozinho enquanto o gerente digita (nada se perde) ──
+  const autoSaveTimer = useRef(null);
+  const [autoSaveState, setAutoSaveState] = useState('idle'); // idle | saving | saved
+  const agendarAutoSave = () => {
+    if (!canEdit) return;
+    setAutoSaveState('saving');
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      const ok = await handleSave(true);   // modo silencioso (sem toast)
+      setAutoSaveState(ok ? 'saved' : 'idle');
+      if (ok) setTimeout(() => setAutoSaveState(s => (s === 'saved' ? 'idle' : s)), 1800);
+    }, 1500);
+  };
+  useEffect(() => () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); }, []);
+
   // Logic Helpers
   const handleRateioChange = (id, field, value) => {
     setRateios(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
+    agendarAutoSave();
   };
 
   const handleValueChange = (rid, month, value) => {
@@ -255,6 +309,7 @@ export default function ArrecadacoesPage() {
       ...prev,
       [rid]: { ...prev[rid], [month]: value }
     }));
+    agendarAutoSave();
   };
 
   // Mascara de moeda em tempo real: extrai digitos do input e converte
@@ -656,7 +711,7 @@ export default function ArrecadacoesPage() {
         {/* Observações */}
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
-            <Info className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" /> Observações de emissão
+            <Info className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" /> Observações para o emissor
           </label>
           <textarea value={obsEmissao} onChange={e => setObsEmissao(e.target.value)} disabled={!canEdit} rows={3}
             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm font-medium text-slate-700 outline-none focus:border-violet-500 resize-none"
@@ -785,6 +840,15 @@ export default function ArrecadacoesPage() {
                     <Building className="w-7 h-7 text-violet-400" />
                 </div>
                 <div>
+                    {/* Deixa explícito que esta tela é a PLANILHA (etapa 1), não a EMISSÃO (etapa 2) */}
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-violet-600 text-white">
+                            Etapa 1 · Planilha (previsão)
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                            Aqui você define os <b className="text-slate-700">valores</b>. Conferir/aprovar o documento da <b className="text-slate-700">emissão</b> é a etapa seguinte, em Aprovações.
+                        </span>
+                    </div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase leading-none">{condo?.name}</h1>
                     <div className="flex items-center gap-3 mt-2">
                         <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest flex items-center gap-1 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
@@ -816,6 +880,18 @@ export default function ArrecadacoesPage() {
         {/* ── Banner Edição Mensal (gerente libera por mês daqui) ── */}
         {edicoesCondo.length > 0 && (
           <div className="space-y-2 mt-4">
+            {/* Previsão: libera TODOS os meses preenchidos de uma vez (sem confirmar mês a mês) */}
+            {mesesAbertos.length > 1 && (profile?.role === 'gerente' || profile?.role === 'master') && (
+              <div className="flex items-center justify-between gap-4 px-5 py-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/30">
+                <p className="text-xs font-bold text-slate-700">
+                  Você tem <b>{mesesAbertos.length} meses</b> de planilha abertos. Pode liberar todos de uma vez.
+                </p>
+                <button onClick={() => setShowLiberarTodos(true)} disabled={edicaoLoading}
+                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 disabled:opacity-50 shrink-0">
+                  Liberar todos os meses abertos ({mesesAbertos.length})
+                </button>
+              </div>
+            )}
             {edicoesCondo.map(ed => {
               const mesNome = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][ed.mes_referencia];
               if (ed.status === 'em_edicao') {
@@ -824,7 +900,7 @@ export default function ArrecadacoesPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-2.5 h-2.5 rounded-full bg-violet-400 animate-pulse" />
                       <div>
-                        <p className="text-sm font-black text-slate-900">Edição aberta · {mesNome}/{ed.ano_referencia}</p>
+                        <p className="text-sm font-black text-slate-900">Planilha de {mesNome}/{ed.ano_referencia} · em edição (não liberada)</p>
                         <p className="text-[11px] text-violet-300/80">Revise os valores e libere para finalizar.</p>
                       </div>
                     </div>
@@ -841,7 +917,7 @@ export default function ArrecadacoesPage() {
                 return (
                   <div key={ed.id} className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
                     <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                    <p className="text-xs font-bold text-emerald-300">{mesNome}/{ed.ano_referencia} · liberado em {ed.liberado_em ? new Date(ed.liberado_em).toLocaleDateString('pt-BR') : ''}. Edição bloqueada.</p>
+                    <p className="text-xs font-bold text-emerald-300">Planilha de {mesNome}/{ed.ano_referencia} · liberada{ed.liberado_em ? ` em ${new Date(ed.liberado_em).toLocaleDateString('pt-BR')}` : ''}. Não volta pra você, a não ser que a administração reabra.</p>
                   </div>
                 );
               }
@@ -1124,9 +1200,9 @@ export default function ArrecadacoesPage() {
 
             {/* ACÕES FINAIS */}
             <div className="flex flex-wrap justify-between items-center gap-4 mt-20 pt-8 border-t border-slate-200">
-                <Link href="/dashboard" className="text-xs font-black text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2">
+                <button type="button" onClick={tentarSair} className="text-xs font-black text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2">
                     <ArrowLeft className="w-4 h-4" /> Voltar ao Painel
-                </Link>
+                </button>
 
 
                 <div className="flex gap-4">
@@ -1141,7 +1217,10 @@ export default function ArrecadacoesPage() {
                                 disabled={saving}
                                 className="px-8 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-black text-slate-900 rounded-xl uppercase tracking-widest transition-all shadow-xl flex items-center gap-2"
                             >
-                                <Save className="w-4 h-4 text-violet-400" /> {saving ? 'SALVANDO...' : 'SALVAR RASCUNHO'}
+                                <Save className="w-4 h-4 text-violet-400" />
+                                {saving || autoSaveState === 'saving' ? 'SALVANDO...'
+                                  : autoSaveState === 'saved' ? '✓ SALVO'
+                                  : 'SALVAR AGORA'}
                             </button>
 
                             {/* "Enviar Conferência" é o fluxo semestral antigo — no ciclo mensal quem finaliza é "Liberar este mês" (que já salva) */}
@@ -1160,6 +1239,60 @@ export default function ArrecadacoesPage() {
         </div>
       </div>
       </>)}
+
+      {/* ─── MODAL: LIBERAR TODOS OS MESES ABERTOS ─── */}
+      {showLiberarTodos && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowLiberarTodos(false)} />
+          <div className="relative w-full max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-2xl">
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">Liberar {mesesAbertos.length} meses</h4>
+            <p className="text-xs text-slate-500 mb-4">
+              Estes meses da planilha serão salvos e liberados de uma vez. Depois disso <b className="text-slate-700">não voltam pra você</b>, a não ser que a administração reabra.
+            </p>
+            <ul className="mb-5 space-y-1 max-h-52 overflow-y-auto">
+              {mesesAbertos.map(ed => (
+                <li key={ed.id} className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  {MESES[ed.mes_referencia]}/{ed.ano_referencia}
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-3">
+              <button onClick={() => setShowLiberarTodos(false)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">Cancelar</button>
+              <button onClick={liberarTodosMesesAbertos} disabled={edicaoLoading}
+                className="flex-[2] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black uppercase tracking-widest text-xs disabled:opacity-50">
+                {edicaoLoading ? 'Liberando…' : 'Salvar e liberar todos'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: AVISO AO SAIR SEM LIBERAR ─── */}
+      {avisoSaida && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setAvisoSaida(false)} />
+          <div className="relative w-full max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-2xl">
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">Você ainda não liberou</h4>
+            <p className="text-xs text-slate-500 mb-4">
+              {mesesAbertos.length === 1
+                ? <>A planilha de <b className="text-slate-700">{MESES[mesesAbertos[0].mes_referencia]}/{mesesAbertos[0].ano_referencia}</b> está preenchida mas <b className="text-slate-700">não foi liberada</b>. Enquanto não liberar, ela continua pendente com você.</>
+                : <>Você tem <b className="text-slate-700">{mesesAbertos.length} meses</b> preenchidos mas <b className="text-slate-700">não liberados</b>. Enquanto não liberar, continuam pendentes com você.</>}
+              <br /><span className="text-slate-400">Seus valores já foram salvos automaticamente.</span>
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => { setAvisoSaida(false); router.push('/dashboard'); }}
+                className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">Sair mesmo assim</button>
+              <button onClick={async () => { setAvisoSaida(false); if (mesesAbertos.length === 1) { await liberarEdicaoMensal(mesesAbertos[0]); } else { setShowLiberarTodos(true); } }}
+                disabled={edicaoLoading}
+                className="flex-[2] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black uppercase tracking-widest text-xs disabled:opacity-50">
+                Liberar agora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── MODAL EDIÇÃO AVANÇADA DE VERBA ─── */}
       {editingRateioId && (

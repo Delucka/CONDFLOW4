@@ -3132,6 +3132,7 @@ class AbrirEdicaoSchema(BaseModel):
     ano: Optional[int] = None
     gerente_id: Optional[str] = None  # se nulo, abre pra todos
     condominio_id: Optional[str] = None  # 1-a-1: abre/reabre só este condomínio
+    forcar_reabertura: Optional[bool] = False  # em massa: reabrir até o que o gerente já liberou
 
 
 @router.post("/edicoes-mensais/abrir")
@@ -3155,16 +3156,24 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
     cond_res = cond_q.execute()
     condos = cond_res.data or []
 
+    # Só REABRE o que o gerente já liberou quando o master escolheu o condomínio (1-a-1)
+    # ou pediu explicitamente pra forçar. Em massa, a previsão que ele já liberou fica de pé.
+    pode_reabrir = bool(data.condominio_id) or bool(data.forcar_reabertura)
+
     criados = 0
     reabertos = 0
+    mantidos_liberados = 0
     for c in condos:
         existing = db.table("edicoes_mensais").select("id, status") \
             .eq("condominio_id", c["id"]).eq("ano_referencia", ano).eq("mes_referencia", mes) \
             .limit(1).execute()
         if existing.data:
             row = existing.data[0]
+            if row["status"] != "em_edicao" and not pode_reabrir:
+                # Já liberado e abertura em massa: não mexe (não volta pro gerente)
+                mantidos_liberados += 1
             # Se ja existe e nao esta em_edicao, reabre
-            if row["status"] != "em_edicao":
+            elif row["status"] != "em_edicao":
                 db.table("edicoes_mensais").update({
                     "status": "em_edicao",
                     "aberto_por": user["id"],
@@ -3205,7 +3214,8 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
             }).execute()
             criados += 1
 
-    return {"ok": True, "mes": mes, "ano": ano, "criados": criados, "reabertos": reabertos, "total_condos": len(condos)}
+    return {"ok": True, "mes": mes, "ano": ano, "criados": criados, "reabertos": reabertos,
+            "mantidos_liberados": mantidos_liberados, "total_condos": len(condos)}
 
 
 @router.get("/edicoes-mensais")
@@ -3268,6 +3278,7 @@ def api_liberar_edicao(edicao_id: str, user: dict = Depends(get_current_user), d
 class LiberarTodosSchema(BaseModel):
     mes: Optional[int] = None
     ano: Optional[int] = None
+    ids: Optional[List[str]] = None   # libera exatamente estas edições (vários MESES de uma vez)
 
 
 @router.post("/edicoes-mensais/liberar-todos")
@@ -3278,6 +3289,26 @@ def api_liberar_todos(data: LiberarTodosSchema, user: dict = Depends(get_current
         raise HTTPException(403, "Sem permissao")
 
     from datetime import datetime, timezone
+
+    # Modo "vários meses": o gerente manda as edições abertas que quer liberar de uma vez
+    # (a previsão que ele preencheu), em vez de confirmar mês a mês.
+    if data.ids:
+        q = db.table("edicoes_mensais").select("id, gerente_id, status").in_("id", data.ids)
+        if role == "gerente":
+            g_id = get_gerente_id(db, user["id"])
+            if not g_id:
+                return {"ok": True, "liberados": 0}
+            q = q.eq("gerente_id", g_id)
+        rows = q.execute().data or []
+        ids = [e["id"] for e in rows if e.get("status") == "em_edicao"]
+        if not ids:
+            return {"ok": True, "liberados": 0}
+        db.table("edicoes_mensais").update({
+            "status": "edicao_finalizada",
+            "liberado_em": datetime.now(timezone.utc).isoformat(),
+        }).in_("id", ids).execute()
+        return {"ok": True, "liberados": len(ids)}
+
     mes_padrao, ano_padrao = _mes_alvo_padrao()
     mes = data.mes or mes_padrao
     ano = data.ano or ano_padrao

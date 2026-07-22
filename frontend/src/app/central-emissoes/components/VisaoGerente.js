@@ -265,6 +265,16 @@ export default function VisaoGerente({ profile }) {
   return (
     <div className="space-y-6">
 
+      {/* Deixa explícito que aqui é a EMISSÃO (etapa 2), não a planilha (etapa 1) */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-emerald-600 text-white">
+          Etapa 2 · Emissão
+        </span>
+        <span className="text-[10px] text-slate-500">
+          Aqui você <b className="text-slate-700">confere e aprova o documento</b> da emissão. Os <b className="text-slate-700">valores</b> são definidos antes, na Planilha.
+        </span>
+      </div>
+
       {/* Filtros */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between border border-slate-200 rounded-3xl bg-slate-50 p-4 shadow-xl">
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
