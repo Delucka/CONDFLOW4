@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
+import { mesAnoVigente } from '@/lib/mesVigente';
 import { can } from '@/lib/roles';
 import {
   Plus, Trash2, Loader2, X, AlertCircle, CheckCircle2,
@@ -16,8 +17,7 @@ import { useIsMobile } from '@/hooks/useMediaQuery';
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
 function getMesAtual() {
-  const n = new Date();
-  return { mes: n.getMonth() + 1, ano: n.getFullYear() };
+  return mesAnoVigente();   // trabalhamos 1 mês à frente
 }
 
 // Lock por (condo, ano) é calculado no hook useLockedMonths; aqui mantemos só

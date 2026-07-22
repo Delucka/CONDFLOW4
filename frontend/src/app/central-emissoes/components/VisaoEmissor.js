@@ -12,6 +12,7 @@ import { apiPost, apiFetch } from '@/lib/api';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { ocrFileToText, parseFaturaOcr, decodeBoletoValor } from '@/lib/ocrClient';
 import ModalPreparacao from './ModalPreparacao';
+import { mesVigente, anoVigente } from '@/lib/mesVigente';
 import { FileWarning } from 'lucide-react';
 
 export default function VisaoEmissor({ profile }) {
@@ -34,8 +35,8 @@ export default function VisaoEmissor({ profile }) {
   
   // Form para novo pacote
   const [condoId, setCondoId] = useState('');
-  const [mes, setMes] = useState(new Date().getMonth() + 1);
-  const [ano, setAno] = useState(new Date().getFullYear());
+  const [mes, setMes] = useState(mesVigente());   // trabalhamos 1 mês à frente
+  const [ano, setAno] = useState(anoVigente());
 
   // Persiste mês/ano: mantém ao sair/voltar; só muda quando o usuário troca
   useEffect(() => {

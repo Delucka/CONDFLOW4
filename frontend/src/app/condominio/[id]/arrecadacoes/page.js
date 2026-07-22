@@ -18,6 +18,7 @@ import { useIsMobile } from '@/hooks/useMediaQuery';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
 import ModalSelecionarConta from '@/components/ModalSelecionarConta';
 import { useLockedMonths, reasonLabel } from '@/lib/useLockedMonths';
+import { mesVigente } from '@/lib/mesVigente';
 import { useAlteracoesRateio } from '@/lib/useAlteracoesRateio';
 import ModalAlteracoesRateio from '@/components/ModalAlteracoesRateio';
 
@@ -82,7 +83,7 @@ export default function ArrecadacoesPage() {
 
   // ── Celular: edita um mês por vez + atalho "aplicar valor a N meses" ──
   const isMobile = useIsMobile();
-  const [mesSelMobile, setMesSelMobile] = useState(() => new Date().getMonth() + 1);
+  const [mesSelMobile, setMesSelMobile] = useState(() => mesVigente());
   const [aplicarMesesFor, setAplicarMesesFor] = useState(null); // { rid, valor } | null
   const [aplicarCount, setAplicarCount] = useState(1);
 

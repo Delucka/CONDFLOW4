@@ -19,6 +19,7 @@ import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
 import { safeStorageName } from '@/lib/storage';
 import { Inbox } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { mesVigente, anoVigente } from '@/lib/mesVigente';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -50,8 +51,8 @@ export default function VisaoMaster() {
 
   // ── Mês ativo ─────────────────────────────────────────────────────────────
   const hoje = new Date();
-  const [mesAtivo, setMesAtivo] = useState(hoje.getMonth() + 1);
-  const [anoAtivo, setAnoAtivo]  = useState(hoje.getFullYear());
+  const [mesAtivo, setMesAtivo] = useState(mesVigente());   // trabalhamos 1 mês à frente
+  const [anoAtivo, setAnoAtivo]  = useState(anoVigente());
 
   function navMes(dir) {
     let m = mesAtivo + dir, a = anoAtivo;
@@ -544,7 +545,7 @@ export default function VisaoMaster() {
 
   // ═══════════ APROVAÇÃO DE EMISSÕES — versão de celular (layout de app) ═══════════
   const renderMasterMobile = () => {
-    const ehAtual = mesAtivo === hoje.getMonth() + 1 && anoAtivo === hoje.getFullYear();
+    const ehAtual = mesAtivo === mesVigente() && anoAtivo === anoVigente();
     const roleAutorizado = profile?.role === 'master' || profile?.role === 'departamento';
     const actBtn = 'flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest active:opacity-70 transition-opacity';
     const statChips = [
@@ -745,7 +746,7 @@ export default function VisaoMaster() {
           </button>
           <div className="px-6 py-2.5 bg-white border border-slate-200 rounded-xl min-w-[160px] text-center">
             <span className="text-slate-900 font-black text-lg">{MESES[mesAtivo - 1]} {anoAtivo}</span>
-            {mesAtivo === hoje.getMonth() + 1 && anoAtivo === hoje.getFullYear() && (
+            {mesAtivo === mesVigente() && anoAtivo === anoVigente() && (
               <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full">Atual</span>
             )}
           </div>

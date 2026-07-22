@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
+import { mesVigente, anoVigente } from '@/lib/mesVigente';
 import {
   FileText, Download, Trash2, Calendar, FileUp, 
   Building2, PlusCircle, ShieldAlert, Loader2
@@ -27,8 +28,8 @@ export default function CondominioEmissoesPage() {
 
   // Form de Upload
   const [file, setFile] = useState(null);
-  const todaysMonth = new Date().getMonth() + 1;
-  const todaysYear = new Date().getFullYear();
+  const todaysMonth = mesVigente();   // trabalhamos 1 mês à frente
+  const todaysYear = anoVigente();
   const [formMesAno, setFormMesAno] = useState(`${String(todaysMonth).padStart(2, '0')}/${todaysYear}`);
   const [formTipo, setFormTipo] = useState('Boleto');
 

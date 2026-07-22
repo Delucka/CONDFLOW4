@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
+import { mesVigente } from '@/lib/mesVigente';
 import { useAlteracoesRateio, TIPOS_ALTERACAO, STATUS_ALTERACAO } from '@/lib/useAlteracoesRateio';
 import {
   X, Plus, Calendar, Trash2, Check, AlertCircle, Loader2, MessageSquare,
@@ -33,7 +34,7 @@ export default function ModalAlteracoesRateio({ condoId, ano, mesInicial = null,
   const [editandoId, setEditandoId] = useState(null);
 
   const [form, setForm] = useState({
-    mes: mesInicial || new Date().getMonth() + 1,
+    mes: mesInicial || mesVigente(),
     tipo: 'AGO',
     data_evento: '',
     descricao: '',
@@ -53,7 +54,7 @@ export default function ModalAlteracoesRateio({ condoId, ano, mesInicial = null,
     } else {
       setEditandoId(null);
       setForm({
-        mes: mesInicial || new Date().getMonth() + 1,
+        mes: mesInicial || mesVigente(),
         tipo: 'AGO',
         data_evento: '',
         descricao: '',

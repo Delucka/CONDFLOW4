@@ -6,6 +6,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
+import { mesAnoVigente } from '@/lib/mesVigente';
 import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
   AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2,
@@ -20,8 +21,8 @@ import FilaOcorrencias from '@/app/central-emissoes/components/FilaOcorrencias';
 import { SkeletonTable } from '@/components/Skeleton';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
-const ANO_ATUAL = new Date().getFullYear();
-const MES_ATUAL = new Date().getMonth() + 1;
+// Trabalhamos 1 mês à frente: o padrão das telas é o mês VIGENTE (M+1)
+const { mes: MES_ATUAL, ano: ANO_ATUAL } = mesAnoVigente();
 const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 function useCountdown(pipelineConfig) {

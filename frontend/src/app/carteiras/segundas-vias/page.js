@@ -8,6 +8,7 @@ import { apiFetcher, apiPost } from '@/lib/api';
 import { validarArquivo } from '@/lib/uploadGuard';
 import { abrirArquivoSeguro } from '@/lib/arquivo';
 import { safeStorageName } from '@/lib/storage';
+import { mesVigente, anoVigente } from '@/lib/mesVigente';
 import {
   FileText, Plus, Loader2, Building2, Send, Paperclip, X, CheckCircle2,
   AlertTriangle, Clock, Ban, Mail, Calendar, Pencil, UploadCloud, History,
@@ -52,8 +53,8 @@ export default function SegundasViasPage() {
   const { data: listData, mutate, isLoading } = useSWR('/api/segundas-vias', apiFetcher, { refreshInterval: 30000 });
   const solicitacoes = listData?.solicitacoes || [];
 
-  const anoAtual = new Date().getFullYear();
-  const vazio = { condominio_id: '', unidade: '', bloco: '', ref_mes: new Date().getMonth() + 1, ref_ano: anoAtual,
+  const anoAtual = anoVigente();
+  const vazio = { condominio_id: '', unidade: '', bloco: '', ref_mes: mesVigente(), ref_ano: anoAtual,
                   vencimento: '', modalidade: 'com_multa', email_destinatario: '', observacoes: '' };
   const [form, setForm] = useState(vazio);
   const [anexoFile, setAnexoFile] = useState(null);

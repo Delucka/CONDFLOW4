@@ -5,6 +5,7 @@ import { apiFetcher, apiPost, apiFetch } from '@/lib/api';
 import { safeStorageName } from '@/lib/storage';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
+import { mesVigente, anoVigente } from '@/lib/mesVigente';
 import { createClient } from '@/utils/supabase/client';
 import { validarArquivo } from '@/lib/uploadGuard';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
@@ -57,8 +58,8 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
   const [form, setForm] = useState({
     concessionaria: CONCESSIONARIAS.includes(initialConc) ? initialConc : 'Outra',
     concessionaria_outra: CONCESSIONARIAS.includes(initialConc) ? '' : initialConc,
-    mes_referencia: fatura?.mes_referencia || preFatura?.mes_referencia || (new Date().getMonth() + 1),
-    ano_referencia: fatura?.ano_referencia || preFatura?.ano_referencia || new Date().getFullYear(),
+    mes_referencia: fatura?.mes_referencia || preFatura?.mes_referencia || mesVigente(),
+    ano_referencia: fatura?.ano_referencia || preFatura?.ano_referencia || anoVigente(),
     leitura_atual: fatura?.leitura_atual || '',
     proxima_leitura: fatura?.proxima_leitura || '',
     vencimento: fatura?.vencimento || '',
@@ -456,7 +457,7 @@ export default function ConsumosPage() {
   // Ao carregar (ano corrente), rola as duas matrizes pra deixar o mês atual visível
   useEffect(() => {
     if (anoSel !== new Date().getFullYear()) return;
-    const mesAtual = new Date().getMonth() + 1;
+    const mesAtual = mesVigente();   // trabalhamos 1 mês à frente
     const rolar = (container) => {
       if (!container) return;
       const alvo = container.querySelector(`[data-mes="${mesAtual}"]`);
@@ -708,7 +709,7 @@ export default function ConsumosPage() {
     return all.filter(x => x.em).sort((a, b) => new Date(b.em) - new Date(a.em)).slice(0, 10);
   }, [todasFaturas, relatorios]);
 
-  const mesAtual = anoSel === new Date().getFullYear() ? new Date().getMonth() + 1 : 0;
+  const mesAtual = anoSel === anoVigente() ? mesVigente() : 0;   // mês VIGENTE (M+1)
 
   // ═══════════ CONSUMOS — versão de celular (condo-first) ═══════════
   const renderMobile = () => {
@@ -1041,7 +1042,7 @@ export default function ConsumosPage() {
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[120px]">Gerente</th>
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[80px]">Conta</th>
                   {Array.from({length:12}, (_,i)=>i+1).map(m => (
-                    <th key={m} scope="col" data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">hoje</span> : null}</th>
+                    <th key={m} scope="col" data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">vigente</span> : null}</th>
                   ))}
                 </tr>
               </thead>
@@ -1150,7 +1151,7 @@ export default function ConsumosPage() {
                   <th className="text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 sticky left-0 bg-slate-50 z-20 min-w-[220px]">Condomínio</th>
                   <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[140px] border-r border-slate-200">Empresa · Serviço</th>
                   {Array.from({length:12}, (_,i)=>i+1).map(m => (
-                    <th key={m} scope="col" data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">hoje</span> : null}</th>
+                    <th key={m} scope="col" data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">vigente</span> : null}</th>
                   ))}
                 </tr>
               </thead>
