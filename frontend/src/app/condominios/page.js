@@ -6,6 +6,7 @@ import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
+import { combina } from '@/lib/busca';
 import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/utils/supabase/client';
@@ -159,7 +160,7 @@ export default function CondominiosPage() {
   const condosDaSelecao = gerenteFilter ? condos.filter(c => (c.gerente_name || '') === selGerenteNome) : condos;
 
   const canEdit = user?.role === 'master';
-  const filtered = condos.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = condos.filter(c => combina(search, c.name, c.gerente_name));
 
   function openEdit(condo = null) {
     if (condo) {

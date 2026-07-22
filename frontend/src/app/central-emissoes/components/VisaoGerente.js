@@ -9,6 +9,7 @@ import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
+import { combina } from '@/lib/busca';
 
 export default function VisaoGerente({ profile }) {
   const supabase = createClient();
@@ -232,10 +233,7 @@ export default function VisaoGerente({ profile }) {
         }
       }
 
-      if (termoBusca) {
-        const b = termoBusca.toLowerCase();
-        return (p.condominios?.name || '').toLowerCase().includes(b);
-      }
+      if (termoBusca) return combina(termoBusca, p.condominios?.name);
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

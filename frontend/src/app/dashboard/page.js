@@ -7,11 +7,12 @@ import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { mesAnoVigente } from '@/lib/mesVigente';
+import { combina } from '@/lib/busca';
 import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
   AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2,
   FileCheck, User, Activity, Zap, Lock, Unlock, Timer, TrendingUp,
-  ClipboardList, CalendarClock, BarChart3, ChevronRight, ArrowUpDown
+  ClipboardList, CalendarClock, BarChart3, ChevronRight, ArrowUpDown, Search, X
 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
@@ -151,6 +152,7 @@ function PipelineWidget({ processos, condosTotal, pipelineConfig, countdown }) {
 
 export default function DashboardPage() {
   const [filtroGerente, setFiltroGerente] = useState('');
+  const [buscaCondo, setBuscaCondo] = useState('');
   const [mesEmissao, setMesEmissao] = useState(MES_ATUAL);
   const [ordemAsc, setOrdemAsc] = useState(true);
   const isMobile = useIsMobile();
@@ -279,8 +281,9 @@ export default function DashboardPage() {
   const condos = data?.condos || [];
   const condosOrdenados = useMemo(() => {
     const codeOf = (n) => { const m = String(n || '').match(/^\s*0*(\d+)/); return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER; };
-    return [...condos].sort((a, b) => ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name));
-  }, [condos, ordemAsc]);
+    const achados = condos.filter(c => combina(buscaCondo, c.name, c.gerente_name));
+    return achados.sort((a, b) => ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name));
+  }, [condos, ordemAsc, buscaCondo]);
   const pendingProcesses = useMemo(() => {
     if (!data?.processos) return [];
     const out = [];
@@ -363,6 +366,24 @@ export default function DashboardPage() {
             <p className="text-2xl font-black text-emerald-600 leading-none tabular-nums">{isLoading ? '·' : emissaoStats.registrada}</p>
             <p className="text-[10px] font-bold text-slate-500 mt-1.5 leading-tight">Registradas</p>
           </div>
+        </div>
+
+        {/* Busca por condomínio (código ou nome) ou gerente */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <input
+            value={buscaCondo}
+            onChange={(e) => setBuscaCondo(e.target.value)}
+            placeholder="Buscar condomínio ou gerente…"
+            aria-label="Buscar condomínio"
+            className="w-full text-sm bg-white border border-slate-200 rounded-xl pl-9 pr-9 py-3 text-slate-700 outline-none focus:border-violet-500"
+          />
+          {buscaCondo && (
+            <button onClick={() => setBuscaCondo('')} aria-label="Limpar busca"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Filtro por gerente (oculto pro próprio gerente) */}
@@ -485,6 +506,23 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full sm:w-auto">
+              {/* Busca por condomínio (código ou nome) ou gerente */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <input
+                  value={buscaCondo}
+                  onChange={(e) => setBuscaCondo(e.target.value)}
+                  placeholder="Buscar condomínio (código ou nome) ou gerente…"
+                  aria-label="Buscar condomínio"
+                  className="w-full text-xs bg-white border border-slate-200 rounded-xl pl-8 pr-8 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all"
+                />
+                {buscaCondo && (
+                  <button onClick={() => setBuscaCondo('')} aria-label="Limpar busca"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
               {/* Mês da emissão */}
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter shrink-0">Emissão de:</label>
@@ -517,11 +555,24 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Busca sem resultado — evita a tabela ficar vazia sem explicação */}
+          {!isLoading && buscaCondo && condosOrdenados.length === 0 && (
+            <div className="px-6 py-12 text-center">
+              <Search className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-700">Nenhum condomínio encontrado para &ldquo;{buscaCondo}&rdquo;</p>
+              <p className="text-xs text-slate-500 mt-1">Tente o código (ex.: 002) ou parte do nome.</p>
+              <button onClick={() => setBuscaCondo('')}
+                className="mt-3 text-[10px] font-black uppercase tracking-widest text-violet-600 hover:text-violet-500">
+                Limpar busca
+              </button>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="p-6">
               <SkeletonTable rows={8} cols={4} />
             </div>
-          ) : condos.length > 0 ? (
+          ) : condos.length > 0 && condosOrdenados.length > 0 ? (
             <>
             {/* Desktop: tabela */}
             <div className="hidden md:block overflow-x-auto flex-1">

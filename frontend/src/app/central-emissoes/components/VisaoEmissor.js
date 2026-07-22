@@ -13,6 +13,7 @@ import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { ocrFileToText, parseFaturaOcr, decodeBoletoValor } from '@/lib/ocrClient';
 import ModalPreparacao from './ModalPreparacao';
 import { mesVigente, anoVigente } from '@/lib/mesVigente';
+import { combina } from '@/lib/busca';
 import { FileWarning } from 'lucide-react';
 
 export default function VisaoEmissor({ profile }) {
@@ -1068,13 +1069,12 @@ export default function VisaoEmissor({ profile }) {
 
   // Busca (ignora acentos/caixa): casa por nome/código do condomínio OU nome do gerente
   const carteirasFiltradas = useMemo(() => {
-    const norm = (s) => (s || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-    const q = norm(buscaCarteira).trim();
+    const q = (buscaCarteira || '').trim();
     if (!q) return carteiras;
     const out = {};
     Object.entries(carteiras).forEach(([gerente, condos]) => {
-      if (norm(gerente).includes(q)) { out[gerente] = condos; return; }
-      const m = condos.filter(c => norm(c.name).includes(q));
+      if (combina(q, gerente)) { out[gerente] = condos; return; }   // achou o gerente: leva a carteira toda
+      const m = condos.filter(c => combina(q, c.name));
       if (m.length) out[gerente] = m;
     });
     return out;
