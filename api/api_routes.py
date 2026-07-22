@@ -2737,7 +2737,7 @@ def api_vincular_assistente(
 from datetime import datetime as _dt
 
 ROLES_LANCA_COBRANCA  = ['master', 'gerente', 'assistente']
-ROLES_SOLICITA_CANCEL = ['master', 'gerente']
+ROLES_SOLICITA_CANCEL = ['master', 'gerente', 'assistente']
 ROLES_EXECUTA_CANCEL  = ['master', 'departamento']
 
 def _mes_atual():

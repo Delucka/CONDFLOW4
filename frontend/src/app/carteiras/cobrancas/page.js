@@ -432,7 +432,7 @@ export default function CobrancasExtrasPage() {
   const role = profile?.role || user?.role;
   const podeLancar   = can(role, 'edit_cobrancas_extras');
   const podeExecutar = role === 'master' || role === 'departamento';
-  const podeSolicitar = role === 'master' || role === 'gerente';
+  const podeSolicitar = role === 'master' || role === 'gerente' || role === 'assistente';
 
   // Carrega condomínios da carteira — usa /api/condominios (já filtra carteira p/ gerente E assistente)
   useEffect(() => {
