@@ -1228,6 +1228,195 @@ def api_email_hook(data: EmailHookSchema, request: Request):
     return {"ok": True}
 
 
+# ═══ Extrair emissão: PDF único montado NO SERVIDOR ════════════════════════════════
+# Por que no servidor: no navegador a mesclagem dependia de DECODIFICAR os scans
+# (JBIG2 via WASM no pdf.js). Quando isso falhava, saía a página em branco. Aqui o
+# pikepdf (QPDF) apenas COPIA as páginas — não decodifica nada — então o resultado é
+# fiel e o visualizador do usuário renderiza igual ao arquivo original.
+
+def _norm_txt(s):
+    import unicodedata
+    s = unicodedata.normalize("NFD", str(s or ""))
+    return "".join(c for c in s if unicodedata.category(c) != "Mn").lower().strip()
+
+
+def _ordenar_para_extracao(arquivos, cobrancas):
+    """Ordem de auditoria (espelha ordenarParaExtracao do front):
+    1 Emissão · 2 Correios · 3 Seguros · 4 Água · 5 Gás · 6 Energia ·
+    7 Cobranças extras e salão · 8 Relatório de rateio · resto no fim."""
+    usados, out = set(), []
+
+    def add(item):
+        chave = item.get("__attachment") or item.get("arquivo_url") or item.get("id")
+        if not chave or chave in usados:
+            return
+        usados.add(chave)
+        out.append(item)
+
+    def por_cat(cat):
+        return [a for a in arquivos if a.get("categoria") == cat]
+
+    def outros_sub(*subs):
+        alvo = [_norm_txt(s) for s in subs]
+        return [a for a in arquivos if a.get("categoria") == "outros" and _norm_txt(a.get("subtipo")) in alvo]
+
+    def concess(*chaves):
+        alvo = [_norm_txt(k) for k in chaves]
+        return [a for a in arquivos
+                if a.get("categoria") == "concessionaria" and any(k in _norm_txt(a.get("subtipo")) for k in alvo)]
+
+    def relat(serv):
+        return [a for a in arquivos
+                if a.get("categoria") == "relatorio_leitura" and _norm_txt(a.get("relatorio_tipo_servico")) == serv]
+
+    for a in por_cat("emissao"):
+        add(a)
+    for a in outros_sub("Correios"):
+        add(a)
+    for a in outros_sub("Seguro", "Seguros"):
+        add(a)
+    for a in concess("sabesp", "agua"):
+        add(a)
+    for a in relat("agua"):
+        add(a)
+    for a in concess("comgas", "gas"):
+        add(a)
+    for a in relat("gas"):
+        add(a)
+    for a in concess("enel", "energia", "eletropaulo", "cpfl", "edp", "light"):
+        add(a)
+    for c in (cobrancas or []):
+        for att in (c.get("attachments") or []):
+            add({"__attachment": att, "arquivo_nome": f"Cobranca_{c.get('descricao') or c.get('description') or ''}"})
+    for a in outros_sub("Salão de festas", "Salao de festas"):
+        add(a)
+    for a in outros_sub("Relatório de Rateio", "Relatorio de Rateio"):
+        add(a)
+    for a in arquivos:
+        add(a)
+    return out
+
+
+def _cobrancas_da_emissao(db, pac):
+    """Cobranças extras incluídas na emissão, com os anexos. Prioriza o snapshot
+    congelado no registro; sem ele (emissões antigas) lê da tabela INCLUINDO as
+    'processada' (o /conferencia esconde as processadas)."""
+    snap = pac.get("cobrancas_snapshot")
+    if isinstance(snap, list) and snap:
+        return snap
+    try:
+        rows = db.table("cobrancas_extras") \
+            .select("id, description, attachments, status") \
+            .eq("condominio_id", pac["condominio_id"]) \
+            .eq("mes", pac.get("mes_referencia")).eq("ano", pac.get("ano_referencia")) \
+            .neq("status", "cancelada").execute().data or []
+        incl = pac.get("cobrancas_incluidas")
+        if isinstance(incl, list):
+            rows = [c for c in rows if c.get("id") in incl]
+        return [{"id": c.get("id"), "descricao": c.get("description"),
+                 "attachments": c.get("attachments") or []} for c in rows]
+    except Exception as e:
+        print(f"[extrair] cobrancas: {e}")
+        return []
+
+
+@router.post("/emissoes/{pacote_id}/extrair-pdf")
+def api_extrair_emissao_pdf(pacote_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Junta os documentos da emissão num PDF único, na ordem de auditoria."""
+    import io
+
+    pac = db.table("emissoes_pacotes") \
+        .select("id, condominio_id, mes_referencia, ano_referencia, cobrancas_incluidas, cobrancas_snapshot, condominios(name)") \
+        .eq("id", pacote_id).maybe_single().execute().data
+    if not pac:
+        raise HTTPException(404, "Emissão não encontrada.")
+    if user["role"] in ("gerente", "assistente") and pac.get("condominio_id") not in carteira_condo_ids(db, user):
+        raise HTTPException(403, "Este condomínio não está na sua carteira.")
+
+    arquivos = db.table("emissoes_arquivos") \
+        .select("id, arquivo_nome, arquivo_url, formato, categoria, subtipo, relatorio_tipo_servico") \
+        .eq("pacote_id", pacote_id).execute().data or []
+
+    itens = _ordenar_para_extracao(arquivos, _cobrancas_da_emissao(db, pac))
+    if not itens:
+        raise HTTPException(400, "Esta emissão não tem documentos para extrair.")
+
+    try:
+        import pikepdf
+    except Exception:
+        raise HTTPException(500, "Biblioteca de PDF indisponível no servidor.")
+
+    saida = pikepdf.Pdf.new()
+    abertos = []          # segura as referências: o pikepdf lê as páginas de forma preguiçosa
+    pulados = []
+    for item in itens:
+        path = item.get("__attachment") or item.get("arquivo_url")
+        nome = item.get("arquivo_nome") or "arquivo"
+        if not path:
+            continue
+        try:
+            dados = db.storage.from_("emissoes").download(path)
+        except Exception:
+            pulados.append(nome)
+            continue
+
+        low = (nome or "").lower()
+        fmt = _norm_txt(item.get("formato"))
+        eh_pdf = low.endswith(".pdf") or fmt == "pdf"
+        try:
+            if eh_pdf:
+                src = pikepdf.Pdf.open(io.BytesIO(dados))
+                abertos.append(src)
+                saida.pages.extend(src.pages)         # cópia fiel, sem decodificar
+            else:
+                from PIL import Image
+                img = Image.open(io.BytesIO(dados))
+                if img.mode in ("RGBA", "P", "LA"):
+                    img = img.convert("RGB")
+                buf = io.BytesIO()
+                img.save(buf, format="PDF")
+                buf.seek(0)
+                src = pikepdf.Pdf.open(buf)
+                abertos.append(src)
+                saida.pages.extend(src.pages)
+        except Exception as e:
+            print(f"[extrair] {nome}: {e}")
+            pulados.append(nome)
+
+    if len(saida.pages) == 0:
+        raise HTTPException(400, "Nenhum documento pôde ser lido.")
+
+    out = io.BytesIO()
+    saida.save(out)
+    pdf_bytes = out.getvalue()
+    paginas = len(saida.pages)
+    for p in abertos:
+        try:
+            p.close()
+        except Exception:
+            pass
+
+    cnome = ((pac.get("condominios") or {}).get("name") or "emissao")
+    cnome = "".join(ch if ch.isalnum() else "_" for ch in cnome).strip("_")
+    fname = f"{cnome}_{int(pac.get('mes_referencia') or 0):02d}-{pac.get('ano_referencia')}.pdf"
+
+    # Não devolvemos os bytes na resposta: a função do Vercel corta em ~4,5 MB e uma
+    # emissão escaneada passa disso fácil. Sobe pro bucket e devolve link assinado curto.
+    destino = f"extracoes/{pacote_id}/{int(datetime.now().timestamp())}_{fname}"
+    try:
+        db.storage.from_("emissoes").upload(
+            destino, pdf_bytes,
+            {"content-type": "application/pdf", "upsert": "true"},
+        )
+        assinada = db.storage.from_("emissoes").create_signed_url(destino, 600)  # 10 min
+        url = assinada.get("signedURL") if isinstance(assinada, dict) else assinada
+    except Exception as e:
+        print(f"[extrair] upload/assinatura: {e}")
+        raise HTTPException(500, "PDF montado, mas não consegui disponibilizar o download.")
+
+    return {"url": url, "nome": fname, "paginas": paginas, "pulados": pulados}
+
+
 @router.post("/emissoes/{pacote_id}/notificar")
 def api_renotificar_emissao(pacote_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     """Re-notifica (sino + e-mail) quem precisa AGIR num pacote de emissão pendente.

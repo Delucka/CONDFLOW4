@@ -9,7 +9,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { ordenarParaExtracao, montarPdfEmissao, montarZipEmissao } from '@/lib/extrairEmissao';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, apiPost } from '@/lib/api';
 
 export default function RegistroEmissoes({ profile }) {
   const supabase = createClient();
@@ -274,8 +274,32 @@ export default function RegistroEmissoes({ profile }) {
         return;
       }
 
-      // Padrão: TUDO EM UM ARQUIVO (PDF único, na ordem 1→8)
-      const { blob, pulados, totalPaginas } = await montarPdfEmissao(itens, (i, n, nome) => setExtProg({ i, n, nome }));
+      // Padrão: TUDO EM UM ARQUIVO (PDF único, na ordem 1→8).
+      // Monta no navegador copiando as páginas (rápido, sem limite de tamanho).
+      let blob = null, pulados = [], totalPaginas = 0;
+      try {
+        ({ blob, pulados, totalPaginas } = await montarPdfEmissao(itens, (i, n, nome) => setExtProg({ i, n, nome })));
+      } catch { /* cai no plano B */ }
+
+      // Plano B: se nada entrou, ou se algum documento ficou de fora, monta NO SERVIDOR
+      // com o QPDF, que engole PDF que o navegador recusa. Volta por link assinado.
+      if (totalPaginas === 0 || pulados.length > 0) {
+        try {
+          setExtProg({ i: 0, n: 0, nome: 'montando no servidor…' });
+          const r = await apiPost(`/api/emissoes/${pacote.id}/extrair-pdf`, {});
+          if (r?.url) {
+            const resp = await fetch(r.url);
+            if (resp.ok) {
+              saveAs(await resp.blob(), r.nome || `${base}.pdf`);
+              const faltou = r.pulados?.length || 0;
+              if (faltou) addToast(`PDF gerado (${r.paginas} páginas). ${faltou} item(ns) ficaram de fora: ${r.pulados.slice(0, 3).join('; ')}${faltou > 3 ? '…' : ''}`, 'warning');
+              else addToast(`Emissão extraída! ${r.paginas} páginas num arquivo só.`, 'success');
+              return;
+            }
+          }
+        } catch (e2) { /* se o servidor também falhar, usa o que o navegador conseguiu */ }
+      }
+
       if (!blob || totalPaginas === 0) { addToast('Não consegui montar o PDF (nenhum documento pôde ser lido).', 'error'); return; }
       saveAs(blob, `${base}.pdf`);
       if (pulados.length) addToast(`PDF gerado (${totalPaginas} páginas). ${pulados.length} item(ns) ficaram de fora: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');

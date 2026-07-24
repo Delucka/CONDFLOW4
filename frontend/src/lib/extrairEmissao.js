@@ -153,66 +153,21 @@ export async function montarZipMulti(grupos, onProgress) {
   return { blob, pulados, incluidos };
 }
 
-// ── pdf.js (rasterização) ──────────────────────────────────────────────────────────
-// Renderiza cada página do PDF e embute como imagem no PDF final. Garante conteúdo
-// VISÍVEL mesmo nos PDFs que o copyPages do pdf-lib deixava em branco (scanner/gerador
-// específico). Worker self-hosted em /public (same-origin, sem CDN, sem CSP issue).
-let _pdfjs = null;
-async function getPdfjs() {
-  if (!_pdfjs) {
-    // Build LEGACY de propósito: é transpilado e roda em navegador mais antigo. O build
-    // moderno falhava silenciosamente na máquina do usuário e a mesclagem caía no
-    // fallback (páginas em branco). O worker em /public é o legacy correspondente.
-    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-    _pdfjs = pdfjs;
-  }
-  return _pdfjs;
-}
+// ── Mesclagem: CÓPIA DE PÁGINA, nada de rasterizar ─────────────────────────────────
+// Histórico: por um tempo esta função RENDERIZAVA cada página com pdf.js e embutia a
+// imagem no PDF final. Foi aí que nasceu o "PDF em branco": os scans (Canon iR-ADV)
+// guardam o texto numa camada JBIG2, que o pdf.js só decodifica com um módulo WASM.
+// Quando esse módulo não carregava, o render desenhava só o fundo claro e **terminava
+// sem erro** — página aparentemente vazia, e o fallback nunca era acionado.
+//
+// Medi o arquivo do usuário lado a lado (mesma escala, % de pixels escuros):
+//   original 1,33%  ·  copyPages do pdf-lib 1,33%  ·  merge do pypdf 1,33%
+// Ou seja: copiar página é FIEL. O defeito era só o rasterizador. Então copiamos —
+// os objetos entram como estão, sem decodificar nada, sem WASM, sem depender do
+// navegador. O que abre hoje continua abrindo igual depois de mesclado.
 
-const RASTER = 2; // 2x = boa legibilidade sem inflar demais o arquivo
-
-function dataUrlParaBytes(dataUrl) {
-  const b64 = dataUrl.split(',')[1] || '';
-  const bin = atob(b64);
-  const arr = new Uint8Array(bin.length);
-  for (let k = 0; k < bin.length; k += 1) arr[k] = bin.charCodeAt(k);
-  return arr;
-}
-
-async function rasterizarPaginas(arrayBuffer) {
-  const pdfjs = await getPdfjs();
-  const doc = await pdfjs.getDocument({
-    data: new Uint8Array(arrayBuffer.slice(0)),
-    wasmUrl: '/pdfjs-wasm/',                       // JBIG2/JPEG2000 (scans) decodificam via WASM — SEM isso o scan sai em branco
-    standardFontDataUrl: '/pdfjs-standard-fonts/', // fontes padrão (boletos/PDFs vetoriais)
-    isEvalSupported: false,
-  }).promise;
-  const out = [];
-  try {
-    for (let n = 1; n <= doc.numPages; n += 1) {
-      const page = await doc.getPage(n);
-      const vp1 = page.getViewport({ scale: 1 });
-      const vp = page.getViewport({ scale: RASTER });
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.ceil(vp.width);
-      canvas.height = Math.ceil(vp.height);
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      await page.render({ canvasContext: ctx, viewport: vp }).promise;
-      out.push({ bytes: dataUrlParaBytes(canvas.toDataURL('image/jpeg', 0.9)), ptW: vp1.width, ptH: vp1.height });
-      canvas.width = 0; canvas.height = 0; // libera memória
-      page.cleanup();
-    }
-  } finally {
-    await doc.destroy();
-  }
-  return out;
-}
-
-// Baixa 1 item e adiciona ao doc `merged`. PDF entra RASTERIZADO (pdf.js); imagem
-// entra direto. Falhas vão pra `pulados` (não abortam o resto).
+// Baixa 1 item e adiciona ao doc `merged`: PDF por cópia de páginas, imagem embutida.
+// Falhas vão pra `pulados` (não abortam o resto).
 async function mesclarItem(merged, PDFDocument, item, pulados, onProgress, idx, total) {
   const nome = item.arquivo_nome || 'arquivo';
   onProgress?.(idx, total, nome);
@@ -240,13 +195,11 @@ async function mesclarItem(merged, PDFDocument, item, pulados, onProgress, idx, 
 
   try {
     if (isPdf) {
-      const paginas = await rasterizarPaginas(bytes);
-      if (paginas.length === 0) { pulados.push(`${nome} (sem páginas)`); return; }
-      for (const pg of paginas) {
-        const jpg = await merged.embedJpg(pg.bytes);
-        const page = merged.addPage([pg.ptW, pg.ptH]);
-        page.drawImage(jpg, { x: 0, y: 0, width: pg.ptW, height: pg.ptH });
-      }
+      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const idxs = src.getPageIndices();
+      if (idxs.length === 0) { pulados.push(`${nome} (sem páginas)`); return; }
+      const pages = await merged.copyPages(src, idxs);
+      pages.forEach((p) => merged.addPage(p));
     } else if (isPng || isJpg) {
       const img = isPng ? await merged.embedPng(bytes) : await merged.embedJpg(bytes);
       const page = merged.addPage([img.width, img.height]);
@@ -254,19 +207,10 @@ async function mesclarItem(merged, PDFDocument, item, pulados, onProgress, idx, 
     } else {
       pulados.push(`${nome} (não é PDF/imagem)`);
     }
-  } catch {
-    // Fallback: se a rasterização falhar, tenta copiar as páginas direto (salva PDFs normais).
-    try {
-      if (isPdf) {
-        const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
-        const pages = await merged.copyPages(src, src.getPageIndices());
-        pages.forEach((p) => merged.addPage(p));
-      } else {
-        pulados.push(`${nome} (não consegui mesclar)`);
-      }
-    } catch {
-      pulados.push(`${nome} (não consegui mesclar)`);
-    }
+  } catch (e) {
+    // PDF que o pdf-lib não consegue abrir (corrompido, cifrado de um jeito estranho).
+    // Marca como pulado — quem resolve esses é o servidor (QPDF), no plano B.
+    pulados.push(`${nome} (não consegui mesclar)`);
   }
 }
 
