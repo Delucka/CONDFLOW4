@@ -160,7 +160,10 @@ export async function montarZipMulti(grupos, onProgress) {
 let _pdfjs = null;
 async function getPdfjs() {
   if (!_pdfjs) {
-    const pdfjs = await import('pdfjs-dist');
+    // Build LEGACY de propósito: é transpilado e roda em navegador mais antigo. O build
+    // moderno falhava silenciosamente na máquina do usuário e a mesclagem caía no
+    // fallback (páginas em branco). O worker em /public é o legacy correspondente.
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
     pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
     _pdfjs = pdfjs;
   }

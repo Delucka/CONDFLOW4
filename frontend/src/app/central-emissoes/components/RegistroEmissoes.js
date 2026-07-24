@@ -8,7 +8,7 @@ import { Archive, Search, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, Fi
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
-import { ordenarParaExtracao, montarZipEmissao } from '@/lib/extrairEmissao';
+import { ordenarParaExtracao, montarPdfEmissao, montarZipEmissao } from '@/lib/extrairEmissao';
 import { apiFetch } from '@/lib/api';
 
 export default function RegistroEmissoes({ profile }) {
@@ -231,32 +231,55 @@ export default function RegistroEmissoes({ profile }) {
     }
   }
 
-  // Extrai a emissão como ZIP com os ORIGINAIS numerados na ordem de auditoria (1→8).
-  // Arquivar pede fidelidade: os documentos vão bit a bit, sem re-renderizar nada.
-  async function handleExtrair(pacote) {
+  // Extrai a emissão na ordem de auditoria (1→8), incluindo os anexos das cobranças extras.
+  // formato 'pdf' = tudo num arquivo só (padrão) · 'zip' = os arquivos originais, bit a bit.
+  async function handleExtrair(pacote, formato = 'pdf') {
     if (!pacote) return;
     setExtraindo(pacote.id);
     setExtProg({ i: 0, n: (pacote.arquivos?.length || 0) + 1, nome: 'preparando…' });
     try {
-      // Cobranças incluídas na emissão (item 7) — anexos, via /conferencia
+      // Cobranças incluídas na emissão (item 7) — com os anexos.
+      // Prioriza o SNAPSHOT congelado no registro; sem ele (emissões antigas), lê direto
+      // da tabela INCLUINDO as 'processada'. O /conferencia esconde as processadas, por
+      // isso as cobranças extras não estavam entrando na extração.
       let cobrancas = [];
       try {
-        const conf = await apiFetch(`/api/condominio/${pacote.condominio_id}/conferencia?mes=${pacote.mes_referencia}&ano=${pacote.ano_referencia}&retificacao=false`);
-        const todas = conf?.cobrancas_extras || [];
-        const incl = pacote.cobrancas_incluidas;
-        cobrancas = Array.isArray(incl) ? todas.filter(c => incl.includes(c.id)) : todas;
+        if (Array.isArray(pacote.cobrancas_snapshot) && pacote.cobrancas_snapshot.length) {
+          cobrancas = pacote.cobrancas_snapshot;
+        } else {
+          const { data: rows } = await supabase.from('cobrancas_extras')
+            .select('id, description, amount, attachments, status')
+            .eq('condominio_id', pacote.condominio_id)
+            .eq('mes', pacote.mes_referencia)
+            .eq('ano', pacote.ano_referencia)
+            .neq('status', 'cancelada');
+          let list = rows || [];
+          const incl = pacote.cobrancas_incluidas;
+          if (Array.isArray(incl)) list = list.filter(c => incl.includes(c.id));
+          cobrancas = list.map(c => ({ id: c.id, descricao: c.description, attachments: c.attachments || [] }));
+        }
       } catch { /* segue sem cobranças */ }
 
       const itens = ordenarParaExtracao(pacote.arquivos || [], cobrancas);
       if (itens.length === 0) { addToast('Essa emissão não tem arquivos pra extrair.', 'warning'); return; }
 
-      const { blob, pulados, incluidos } = await montarZipEmissao(itens, (i, n, nome) => setExtProg({ i, n, nome }));
-      if (!blob || incluidos === 0) { addToast('Nenhum arquivo pôde ser baixado desta emissão.', 'error'); return; }
+      const base = `${(pacote.condominios?.name || 'emissao').replace(/[^\w]+/g, '_')}_${String(pacote.mes_referencia).padStart(2,'0')}-${pacote.ano_referencia}`;
 
-      const nome = `${(pacote.condominios?.name || 'emissao').replace(/[^\w]+/g, '_')}_${String(pacote.mes_referencia).padStart(2,'0')}-${pacote.ano_referencia}.zip`;
-      saveAs(blob, nome);
-      if (pulados.length) addToast(`${incluidos} documento(s) no ZIP. ${pulados.length} ficaram de fora: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');
-      else addToast(`Emissão extraída! ${incluidos} documentos, na ordem, com índice.`, 'success');
+      if (formato === 'zip') {
+        const { blob, pulados, incluidos } = await montarZipEmissao(itens, (i, n, nome) => setExtProg({ i, n, nome }));
+        if (!blob || incluidos === 0) { addToast('Nenhum arquivo pôde ser baixado desta emissão.', 'error'); return; }
+        saveAs(blob, `${base}.zip`);
+        if (pulados.length) addToast(`${incluidos} documento(s) no ZIP. ${pulados.length} ficaram de fora: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');
+        else addToast(`Emissão extraída! ${incluidos} documentos, na ordem, com índice.`, 'success');
+        return;
+      }
+
+      // Padrão: TUDO EM UM ARQUIVO (PDF único, na ordem 1→8)
+      const { blob, pulados, totalPaginas } = await montarPdfEmissao(itens, (i, n, nome) => setExtProg({ i, n, nome }));
+      if (!blob || totalPaginas === 0) { addToast('Não consegui montar o PDF (nenhum documento pôde ser lido).', 'error'); return; }
+      saveAs(blob, `${base}.pdf`);
+      if (pulados.length) addToast(`PDF gerado (${totalPaginas} páginas). ${pulados.length} item(ns) ficaram de fora: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');
+      else addToast(`Emissão extraída! ${totalPaginas} páginas num arquivo só.`, 'success');
     } catch (e) {
       addToast('Erro ao extrair: ' + (e.message || e), 'error');
     } finally {
@@ -265,13 +288,13 @@ export default function RegistroEmissoes({ profile }) {
     }
   }
 
-  function extrairDoModal() {
+  function extrairDoModal(formato = 'pdf') {
     if (!extCondo || !extComp) return;
     const [mes, ano] = extComp.split('/');
     const pacote = pacotes.find(p => p.condominio_id === extCondo && String(p.mes_referencia).padStart(2, '0') === mes && String(p.ano_referencia) === ano);
     if (!pacote) { addToast('Emissão não encontrada.', 'error'); return; }
     setShowExtrairModal(false);
-    handleExtrair(pacote);
+    handleExtrair(pacote, formato);
   }
 
   return (
@@ -400,7 +423,7 @@ export default function RegistroEmissoes({ profile }) {
                       </button>
                       {(p.arquivos?.length || 0) > 0 && (
                         <button onClick={() => handleExtrair(p)} disabled={extraindo === p.id}
-                          className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-violet-500 hover:border-violet-500/30 transition-all disabled:opacity-50" title="Extrair emissão (ZIP com os documentos originais, na ordem)">
+                          className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-violet-500 hover:border-violet-500/30 transition-all disabled:opacity-50" title="Extrair emissão (PDF único, na ordem, com as cobranças extras)">
                           {extraindo === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
                         </button>
                       )}
@@ -571,9 +594,14 @@ export default function RegistroEmissoes({ profile }) {
                   {compsDoExtCondo.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-              <button onClick={extrairDoModal} disabled={!extCondo || !extComp}
+              <button onClick={() => extrairDoModal('zip')} disabled={!extCondo || !extComp}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-black uppercase tracking-widest text-[11px] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                title="Baixa os arquivos originais separados, sem reprocessar (melhor fidelidade)">
+                <Archive className="w-4 h-4" /> Originais (ZIP)
+              </button>
+              <button onClick={() => extrairDoModal('pdf')} disabled={!extCondo || !extComp}
                 className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all disabled:opacity-40 flex items-center justify-center gap-2">
-                <FileDown className="w-4 h-4" /> Extrair documentos (ZIP)
+                <FileDown className="w-4 h-4" /> Extrair tudo em um PDF
               </button>
               <p className="text-[10px] text-slate-400 text-center leading-relaxed">
                 Junta os anexos na ordem: emissão → correios → seguros → água → gás → energia → cobranças → rateio.
@@ -588,7 +616,7 @@ export default function RegistroEmissoes({ profile }) {
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 shadow-2xl text-center max-w-xs">
             <Loader2 className="w-8 h-8 text-violet-500 animate-spin mx-auto mb-3" />
-            <p className="text-sm font-black text-slate-900">Montando o ZIP da emissão…</p>
+            <p className="text-sm font-black text-slate-900">Montando o arquivo da emissão…</p>
             <p className="text-xs text-slate-500 mt-1 truncate">{extProg.i}/{extProg.n} · {extProg.nome}</p>
           </div>
         </div>

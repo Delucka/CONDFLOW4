@@ -1,6 +1,6 @@
 // Service worker do CondoFlow — instalável + casca offline.
 // SEGURO: nunca intercepta /api, auth ou domínios externos (Supabase, OCR).
-const CACHE = 'condoflow-shell-v1';
+const CACHE = 'condoflow-shell-v2';   // sobe a versão pra descartar bundle antigo em cache
 const OFFLINE_FALLBACK = '/dashboard';
 
 self.addEventListener('install', () => {
