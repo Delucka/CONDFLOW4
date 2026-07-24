@@ -53,6 +53,106 @@ export function ordenarParaExtracao(arquivos = [], cobrancas = []) {
   return out;
 }
 
+// ── ZIP com os ORIGINAIS, numerados na ordem de auditoria ─────────────────────────
+// Caminho preferido para ARQUIVAR: os arquivos entram bit a bit, exatamente como o
+// banco/concessionária emitiram (nada é re-renderizado), e vai um ÍNDICE junto.
+// Sem mesclagem = sem risco de página em branco.
+const CABECALHO_INDICE = [
+  'Documentos da emissão, na ordem de auditoria:',
+  '1 Emissão a processar · 2 Correios · 3 Seguros · 4 Água · 5 Gás · 6 Energia',
+  '7 Cobranças extras e salão · 8 Relatório de rateio',
+];
+
+// Baixa 1 original. Devolve { blob } ou { erro }.
+async function baixarOriginal(item) {
+  const path = item.__attachment || item.arquivo_url;
+  if (!path) return { erro: 'sem caminho' };
+  try {
+    const url = await getArquivoUrlSeguro(path, { stream: true }); // same-origin, sem CORS
+    if (!url) return { erro: 'sem acesso' };
+    const resp = await fetch(url);
+    if (!resp.ok) return { erro: `falha HTTP ${resp.status}` };
+    const blob = await resp.blob();
+    if (!blob.size) return { erro: 'arquivo vazio' };
+    return { blob };
+  } catch {
+    return { erro: 'falha ao baixar' };
+  }
+}
+
+function montarIndice(linhas, pulados) {
+  return [
+    ...CABECALHO_INDICE,
+    '',
+    ...linhas,
+    ...(pulados.length ? ['', 'Não incluídos:', ...pulados.map((p) => `  - ${p}`)] : []),
+    '',
+    `Gerado em ${new Date().toLocaleString('pt-BR')} — CondoFlow`,
+    'Os arquivos são os originais, sem qualquer reprocessamento.',
+  ].join('\r\n');
+}
+
+// Uma emissão -> ZIP com os arquivos numerados na raiz.
+export async function montarZipEmissao(itens, onProgress) {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  const pulados = [];
+  const linhas = [];
+  let i = 0;
+  let incluidos = 0;
+
+  for (const item of itens) {
+    i += 1;
+    const nome = item.arquivo_nome || `arquivo_${i}`;
+    onProgress?.(i, itens.length, nome);
+    const { blob, erro } = await baixarOriginal(item);
+    if (erro) { if (erro !== 'sem caminho') pulados.push(`${nome} (${erro})`); continue; }
+    const seq = String(i).padStart(2, '0');
+    zip.file(`${seq} - ${nome}`, blob);   // preserva o nome original
+    linhas.push(`${seq}  ${nome}`);
+    incluidos += 1;
+  }
+
+  if (incluidos === 0) return { blob: null, pulados, incluidos: 0 };
+  zip.file('INDICE.txt', montarIndice(linhas, pulados));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  return { blob, pulados, incluidos };
+}
+
+// Várias emissões -> ZIP com UMA PASTA por competência (ex.: "Agosto-2026/01 - …").
+// grupos: [{ label, itens }]
+export async function montarZipMulti(grupos, onProgress) {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  const pulados = [];
+  const linhas = [];
+  const total = grupos.reduce((s, g) => s + (g.itens?.length || 0), 0);
+  let feitos = 0;
+  let incluidos = 0;
+
+  for (const g of grupos) {
+    const pasta = String(g.label || 'emissao').replace(/[\\/:*?"<>|]/g, '-');
+    linhas.push('', `[${pasta}]`);
+    let i = 0;
+    for (const item of (g.itens || [])) {
+      i += 1; feitos += 1;
+      const nome = item.arquivo_nome || `arquivo_${i}`;
+      onProgress?.(feitos, total, nome);
+      const { blob, erro } = await baixarOriginal(item);
+      if (erro) { if (erro !== 'sem caminho') pulados.push(`${pasta}/${nome} (${erro})`); continue; }
+      const seq = String(i).padStart(2, '0');
+      zip.file(`${pasta}/${seq} - ${nome}`, blob);
+      linhas.push(`  ${seq}  ${nome}`);
+      incluidos += 1;
+    }
+  }
+
+  if (incluidos === 0) return { blob: null, pulados, incluidos: 0 };
+  zip.file('INDICE.txt', montarIndice(linhas, pulados));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  return { blob, pulados, incluidos };
+}
+
 // ── pdf.js (rasterização) ──────────────────────────────────────────────────────────
 // Renderiza cada página do PDF e embute como imagem no PDF final. Garante conteúdo
 // VISÍVEL mesmo nos PDFs que o copyPages do pdf-lib deixava em branco (scanner/gerador

@@ -4,7 +4,7 @@ import useSWR from 'swr';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { apiFetcher, apiFetch } from '@/lib/api';
-import { ordenarParaExtracao, montarPdfMulti } from '@/lib/extrairEmissao';
+import { ordenarParaExtracao, montarZipMulti } from '@/lib/extrairEmissao';
 import { saveAs } from 'file-saver';
 import { FolderDown, Loader2, FileText, Building2 } from 'lucide-react';
 
@@ -78,14 +78,14 @@ export default function BaixarDocumentosEmissao() {
         return;
       }
 
-      // 4) Junta tudo num PDF único (rasterizado), na ordem, com divisória por competência
-      const { blob, pulados, totalPaginas } = await montarPdfMulti(grupos, (i, n, nome) => setProg({ i, n, nome }));
-      if (totalPaginas === 0) { addToast('Não consegui montar o PDF (nenhum documento pôde ser lido).', 'error'); return; }
+      // 4) ZIP com os ORIGINAIS, uma pasta por competência e um índice
+      const { blob, pulados, incluidos } = await montarZipMulti(grupos, (i, n, nome) => setProg({ i, n, nome }));
+      if (!blob || incluidos === 0) { addToast('Nenhum documento pôde ser baixado no período.', 'error'); return; }
 
-      const nomeArq = `documentos_${(condoNome).replace(/[^\w]+/g, '_')}_${mes ? String(mes).padStart(2, '0') + '-' : ''}${ano}.pdf`;
+      const nomeArq = `documentos_${(condoNome).replace(/[^\w]+/g, '_')}_${mes ? String(mes).padStart(2, '0') + '-' : ''}${ano}.zip`;
       saveAs(blob, nomeArq);
-      const resumo = `${grupos.length} emissão(ões) · ${totalPaginas} página(s)`;
-      if (pulados.length) addToast(`PDF gerado (${resumo}). ${pulados.length} item(ns) ficaram de fora: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');
+      const resumo = `${grupos.length} emissão(ões) · ${incluidos} documento(s)`;
+      if (pulados.length) addToast(`ZIP gerado (${resumo}). ${pulados.length} item(ns) ficaram de fora: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');
       else addToast(`Documentos gerados! ${resumo}`, 'success');
     } catch (e) {
       addToast('Erro ao gerar: ' + (e.message || e), 'error');
@@ -103,7 +103,7 @@ export default function BaixarDocumentosEmissao() {
         </div>
         <div>
           <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Baixar documentos das emissões</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Junta os documentos de cada emissão num PDF único, na ordem 1→8, com divisória por competência.</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Baixa os documentos originais de cada emissão num ZIP, na ordem 1→8, com uma pasta por competência.</p>
         </div>
       </div>
 
@@ -133,7 +133,7 @@ export default function BaixarDocumentosEmissao() {
         </div>
         <button onClick={baixar} disabled={rodando || !condominioId}
           className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-2 disabled:opacity-40">
-          {rodando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Baixar documentos (PDF)
+          {rodando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Baixar documentos (ZIP)
         </button>
       </div>
 
@@ -145,7 +145,7 @@ export default function BaixarDocumentosEmissao() {
         </div>
       )}
       {mes === 0 && !rodando && (
-        <p className="text-[10px] text-amber-700"><Building2 className="w-3 h-3 inline -mt-0.5" /> Ano inteiro pode ser pesado (roda no navegador). Se travar, escolha um mês.</p>
+        <p className="text-[10px] text-amber-700"><Building2 className="w-3 h-3 inline -mt-0.5" /> Ano inteiro baixa muitos arquivos — pode demorar um pouco, mas não trava (são os originais, sem processamento).</p>
       )}
     </div>
   );
