@@ -1489,9 +1489,13 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
                 return []
         def _q_profiles():
             try:
-                return db.table("profiles").select("id, full_name").execute().data or []
+                return db.table("profiles").select("id, full_name, role, gerente_id").execute().data or []
             except Exception:
-                return []
+                # gerente_id pode não existir se a 0057 não rodou — cai no essencial
+                try:
+                    return db.table("profiles").select("id, full_name").execute().data or []
+                except Exception:
+                    return []
         with ThreadPoolExecutor(max_workers=3) as _ex:
             _fc, _fg, _fp = _ex.submit(_q_condos), _ex.submit(_q_gerentes), _ex.submit(_q_profiles)
             condos = _fc.result()
@@ -1505,14 +1509,28 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
                 g["id"]: p_map.get(g["profile_id"]) or g.get("nome") or "Gerente desconhecido"
                 for g in gerentes_res
             }
-            
+
+            # Assistente do condomínio = quem está vinculado ao GERENTE dele (0057).
+            # profiles.gerente_id aponta pro PROFILE do gerente, não pro gerentes.id.
+            por_gpid = {}
+            for p in profiles_res:
+                if p.get("role") == "assistente" and p.get("gerente_id") and p.get("full_name"):
+                    por_gpid.setdefault(p["gerente_id"], []).append(p["full_name"])
+            a_map = {
+                g["id"]: ", ".join(sorted(por_gpid[g["profile_id"]]))
+                for g in gerentes_res
+                if g.get("profile_id") and por_gpid.get(g["profile_id"])
+            }
+
             for c in condos:
                 c["gerente_name"] = g_map.get(c.get("gerente_id"), "Gerente não definido")
+                c["assistente_nome"] = a_map.get(c.get("gerente_id"))
         except Exception as inner_e:
             print(f"Erro ao mapear gerentes: {inner_e}")
             for c in condos:
                 c["gerente_name"] = "Gerente não definido"
-                
+                c["assistente_nome"] = None
+
         return {"condos": condos}
     except Exception as e:
         print(f"Erro crítico /condominios: {e}")
@@ -1521,6 +1539,9 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
 class CondoData(BaseModel):
     # Tudo que o formulário deixa em branco chega como "" — por isso é Optional aqui
     # e vira None no payload. Campo obrigatório de verdade é só o nome.
+    # `assistente` foi removido de propósito: a coluna nunca existiu no banco e o
+    # vínculo real é profiles.gerente_id (0057). Continua aceito e IGNORADO só para
+    # não quebrar um cliente antigo que ainda mande o campo.
     id: Optional[str] = None
     name: str
     due_day: Optional[str] = None
@@ -1566,13 +1587,6 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
         "gerente_id": (data.gerente_id or None),   # "" quebra a coluna UUID
         "fluxo": data.fluxo or 1,
     }
-    # `assistente` só entra se foi preenchido. A coluna nasceu faltando no banco
-    # (nenhuma migration cria — ver 0080) e mandá-la vazia fazia o PostgREST
-    # devolver PGRST204 e derrubar TODO o cadastro, mesmo sem ninguém usar o campo.
-    assistente = (data.assistente or "").strip()
-    if assistente:
-        payload["assistente"] = assistente
-
     try:
         if data.id:
             db.table("condominios").update(payload).eq("id", data.id).execute()
@@ -1592,10 +1606,24 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
 def api_carteiras(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:
         # Puxa todos os gerentes e seus condomínios vinculados
-        query = db.table("gerentes").select("id, profiles(full_name), condominios(*)")
+        query = db.table("gerentes").select("id, profile_id, profiles(full_name), condominios(*)")
         res = query.execute().data
         
-        # Mapa de assistentes conhecidos
+        # Assistentes de verdade: profiles.role='assistente' + gerente_id = profile do
+        # gerente (0057). Uma consulta só, mapeada por profile do gerente.
+        por_gpid = {}
+        try:
+            assist = db.table("profiles").select("full_name, gerente_id") \
+                .eq("role", "assistente").execute().data or []
+            for a in assist:
+                if a.get("gerente_id") and a.get("full_name"):
+                    por_gpid.setdefault(a["gerente_id"], []).append(a["full_name"])
+        except Exception as e:
+            print(f"[carteiras] assistentes por vínculo indisponíveis: {e}")
+
+        # Legado: mapa fixo de nomes, usado só para quem ainda não foi vinculado no
+        # /admin/usuarios. Apagar quando todos os assistentes estiverem vinculados —
+        # nome cravado em código quebra na primeira contratação ou saída.
         mapa_assistentes = {
             "Aline": "Vânia",
             "Eduardo": "Mayara",
@@ -1603,17 +1631,17 @@ def api_carteiras(user: dict = Depends(get_current_user), db: Client = Depends(g
             "Marlei": "Sem Associação",
             "Mauro Jr": "Sem Associação"
         }
-        
+
         carteiras = []
         for row in res:
             condos = row.get("condominios", [])
             gerente_full = row.get('profiles', {}).get('full_name', 'Sem Nome')
-            
+
             primeiro_nome = gerente_full.split(" ")[0] if gerente_full else ""
-            
-            assistente = ""
-            if condos and condos[0].get("assistente"):
-                assistente = condos[0].get("assistente")
+
+            vinculados = por_gpid.get(row.get("profile_id")) or []
+            if vinculados:
+                assistente = ", ".join(sorted(vinculados))
             else:
                 assistente = mapa_assistentes.get(primeiro_nome, "—")
 

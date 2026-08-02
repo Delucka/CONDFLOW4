@@ -30,7 +30,7 @@ export default function CondominiosPage() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', assistente: '', fluxo: 1 });
+  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', fluxo: 1 });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
   const supabase = createClient();
 
@@ -190,11 +190,10 @@ export default function CondominiosPage() {
         due_day: condo.due_day || '',
         due_day_2: condo.due_day_2 || '',
         gerente_id: condo.gerente_id || '',
-        assistente: condo.assistente || '',
         fluxo: condo.fluxo || 1
       });
     } else {
-      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', assistente: '', fluxo: 1 });
+      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', fluxo: 1 });
     }
     setModalOpen(true);
   }
@@ -589,33 +588,19 @@ export default function CondominiosPage() {
             <p className={AJUDA}>Comece pelo código: é por ele que a lista se ordena e a busca encontra.</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div className="space-y-1.5">
-              <label htmlFor="condo-venc1" className={LBL}>Dia de vencimento</label>
-              <div className="flex gap-2">
-                <input id="condo-venc1" type="number" inputMode="numeric" min="1" max="31" placeholder="1º"
-                  value={formData.due_day}
-                  onChange={e => setFormData({ ...formData, due_day: e.target.value })}
-                  className={CAMPO} aria-label="Primeiro dia de vencimento" />
-                <input type="number" inputMode="numeric" min="1" max="31" placeholder="2º"
-                  value={formData.due_day_2}
-                  onChange={e => setFormData({ ...formData, due_day_2: e.target.value })}
-                  className={CAMPO} aria-label="Segundo dia de vencimento (opcional)" />
-              </div>
-              <p className={AJUDA}>Opcional. O 2º só para vencimento dividido.</p>
+          <div className="space-y-1.5">
+            <label htmlFor="condo-venc1" className={LBL}>Dia de vencimento</label>
+            <div className="flex gap-2 max-w-[220px]">
+              <input id="condo-venc1" type="number" inputMode="numeric" min="1" max="31" placeholder="1º"
+                value={formData.due_day}
+                onChange={e => setFormData({ ...formData, due_day: e.target.value })}
+                className={CAMPO} aria-label="Primeiro dia de vencimento" />
+              <input type="number" inputMode="numeric" min="1" max="31" placeholder="2º"
+                value={formData.due_day_2}
+                onChange={e => setFormData({ ...formData, due_day_2: e.target.value })}
+                className={CAMPO} aria-label="Segundo dia de vencimento (opcional)" />
             </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="condo-assist" className={LBL}>Carteira / assistente</label>
-              <input
-                id="condo-assist" autoComplete="off"
-                value={formData.assistente}
-                onChange={e => setFormData({ ...formData, assistente: e.target.value })}
-                placeholder="Deixe vazio para o padrão"
-                className={CAMPO}
-              />
-              <p className={AJUDA}>Opcional. Sobrescreve o assistente que vem do gerente.</p>
-            </div>
+            <p className={AJUDA}>Opcional. O 2º só para vencimento dividido.</p>
           </div>
 
           {/* Nível de aprovação só ao EDITAR: num condomínio novo ainda não há nada
@@ -704,8 +689,9 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView }) {
                  <span className="text-xs font-bold">Vencimento: Dia {c.due_day || '—'}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>
               </div>
               <div className="flex items-center gap-3 text-slate-400">
-                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                 <span className="text-xs font-bold">Carteira: {c.assistente || 'Padrão'}</span>
+                 <ShieldCheck className="w-4 h-4 text-emerald-500" aria-hidden="true" />
+                 {/* Vem do vínculo assistente→gerente (0057), não de um campo do condomínio */}
+                 <span className="text-xs font-bold">Assistente: {c.assistente_nome || 'Não vinculado'}</span>
               </div>
            </div>
         </div>
