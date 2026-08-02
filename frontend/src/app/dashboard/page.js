@@ -22,8 +22,10 @@ import FilaOcorrencias from '@/app/central-emissoes/components/FilaOcorrencias';
 import { SkeletonTable } from '@/components/Skeleton';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
-// Trabalhamos 1 mês à frente: o padrão das telas é o mês VIGENTE (M+1)
-const { mes: MES_ATUAL, ano: ANO_ATUAL } = mesAnoVigente();
+// Trabalhamos 1 mês à frente: o padrão das telas é o mês VIGENTE (M+1).
+// O cálculo fica DENTRO do componente (useState), não aqui no escopo do módulo:
+// aqui ele congelaria no carregamento do bundle — numa aba deixada aberta na virada
+// do mês, o painel seguiria no mês velho. Dentro, recalcula a cada montagem.
 const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 function useCountdown(pipelineConfig) {
@@ -153,7 +155,9 @@ function PipelineWidget({ processos, condosTotal, pipelineConfig, countdown }) {
 export default function DashboardPage() {
   const [filtroGerente, setFiltroGerente] = useState('');
   const [buscaCondo, setBuscaCondo] = useState('');
-  const [mesEmissao, setMesEmissao] = useState(MES_ATUAL);
+  // Recalculado a cada montagem da tela (ver nota no topo do arquivo)
+  const [vigente] = useState(mesAnoVigente);
+  const [mesEmissao, setMesEmissao] = useState(vigente.mes);
   const [ordemAsc, setOrdemAsc] = useState(true);
   const isMobile = useIsMobile();
 
@@ -173,7 +177,7 @@ export default function DashboardPage() {
   const dashParams = new URLSearchParams();
   if (filtroGerente) dashParams.set('gerente_id', filtroGerente);
   dashParams.set('mes', String(mesEmissao));
-  dashParams.set('ano', String(ANO_ATUAL));
+  dashParams.set('ano', String(vigente.ano));
   const { data, error, isLoading, mutate } = useSWR(`/api/dashboard?${dashParams.toString()}`, apiFetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 30000,
@@ -191,7 +195,7 @@ export default function DashboardPage() {
   // Status da edição mensal (edicoes_mensais) por condomínio — VENCE o status
   // semestral no painel: quando o gerente "libera este mês", o painel reflete.
   // Usa o endpoint que JÁ existe na VPS (sem precisar de deploy do backend).
-  const { data: edicoesData, mutate: mutateEdicoes } = useSWR(`/api/edicoes-mensais?ano=${ANO_ATUAL}`, apiFetcher, {
+  const { data: edicoesData, mutate: mutateEdicoes } = useSWR(`/api/edicoes-mensais?ano=${vigente.ano}`, apiFetcher, {
     revalidateOnFocus: false, dedupingInterval: 30000, keepPreviousData: true,
   });
   const EDI_TO_PROC = { em_edicao: 'Em edição', edicao_finalizada: 'Edição finalizada', reabertura_solicitada: 'Solicitar alteração' };
@@ -339,7 +343,7 @@ export default function DashboardPage() {
           <div className="min-w-0">
             <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Emissões de</p>
             <p className="text-2xl font-black text-slate-900 leading-tight truncate">
-              {MESES[mesEmissao]} <span className="text-slate-400">{ANO_ATUAL}</span>
+              {MESES[mesEmissao]} <span className="text-slate-400">{vigente.ano}</span>
             </p>
           </div>
           <select
@@ -501,7 +505,7 @@ export default function DashboardPage() {
             <div className="border-l-2 border-violet-500 pl-3">
               <h3 className="text-xs font-black text-slate-900 leading-none uppercase tracking-tight">Situação Semestral</h3>
               <p className="text-[9px] uppercase tracking-widest text-violet-400 font-bold mt-1">
-                {data?.year || ANO_ATUAL} · {data?.semester === 1 ? '1º' : '2º'} Semestre
+                {data?.year || vigente.ano} · {data?.semester === 1 ? '1º' : '2º'} Semestre
               </p>
             </div>
 
@@ -532,7 +536,7 @@ export default function DashboardPage() {
                   className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer flex-1 min-w-0 max-w-full sm:flex-none"
                 >
                   {MESES.slice(1).map((m, i) => (
-                    <option key={i + 1} value={i + 1}>{m}/{ANO_ATUAL}</option>
+                    <option key={i + 1} value={i + 1}>{m}/{vigente.ano}</option>
                   ))}
                 </select>
               </div>
