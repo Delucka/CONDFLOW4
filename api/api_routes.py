@@ -1519,30 +1519,69 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
         raise HTTPException(500, str(e))
 
 class CondoData(BaseModel):
+    # Tudo que o formulário deixa em branco chega como "" — por isso é Optional aqui
+    # e vira None no payload. Campo obrigatório de verdade é só o nome.
     id: Optional[str] = None
     name: str
-    due_day: str
+    due_day: Optional[str] = None
     due_day_2: Optional[str] = None
-    gerente_id: str
-    assistente: str
+    gerente_id: Optional[str] = None
+    assistente: Optional[str] = None
     fluxo: int = 1
+
+
+def _dia_vencimento(v, rotulo):
+    """'' e None viram NULL; '5' vira 5. A coluna é INTEGER com CHECK 1..31 —
+    mandar string vazia estourava 'invalid input syntax for type integer: ""'
+    e derrubava o cadastro inteiro (o campo é opcional no formulário)."""
+    if v is None:
+        return None
+    s = str(v).strip()
+    if not s:
+        return None
+    try:
+        n = int(float(s))
+    except (TypeError, ValueError):
+        raise HTTPException(400, f"{rotulo}: '{v}' não é um dia válido.")
+    if not 1 <= n <= 31:
+        raise HTTPException(400, f"{rotulo} precisa ser entre 1 e 31 (recebi {n}).")
+    return n
+
 
 @router.post("/condominios/salvar")
 def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    # Fora do try: HTTPException também é Exception, e o except abaixo estava
+    # capturando o próprio 403 e devolvendo como 400 "403: Apenas master".
+    if user["role"] != "master":
+        raise HTTPException(403, "Apenas o master pode cadastrar ou editar condomínios.")
+
+    nome = (data.name or "").strip()
+    if not nome:
+        raise HTTPException(400, "O nome do condomínio é obrigatório.")
+
+    payload = {
+        "name": nome,
+        "due_day": _dia_vencimento(data.due_day, "1º vencimento"),
+        "due_day_2": _dia_vencimento(data.due_day_2, "2º vencimento"),
+        "gerente_id": (data.gerente_id or None),   # "" quebra a coluna UUID
+        "assistente": ((data.assistente or "").strip() or None),
+        "fluxo": data.fluxo or 1,
+    }
+
     try:
-        if user["role"] != "master":
-            raise HTTPException(403, "Apenas master")
-        
-        payload = {"name": data.name, "due_day": data.due_day, "due_day_2": (data.due_day_2 or None), "gerente_id": data.gerente_id, "assistente": data.assistente, "fluxo": data.fluxo}
-        
         if data.id:
             db.table("condominios").update(payload).eq("id", data.id).execute()
         else:
             db.table("condominios").insert(payload).execute()
-            
-        return {"success": True}
     except Exception as e:
-        raise HTTPException(400, str(e))
+        msg = str(e)
+        print(f"[condominios/salvar] falhou: {msg} | payload={payload}")
+        # PGRST204 = coluna que o código manda mas não existe na tabela
+        if "PGRST204" in msg or "schema cache" in msg:
+            raise HTTPException(400, f"O banco não tem uma das colunas enviadas. Detalhe: {msg}")
+        raise HTTPException(400, f"Não consegui salvar o condomínio: {msg}")
+
+    return {"success": True}
 
 @router.get("/carteiras")
 def api_carteiras(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
