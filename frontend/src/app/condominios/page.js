@@ -1,19 +1,27 @@
 'use client';
-import { useState, useEffect, useRef, memo } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
 import { combina } from '@/lib/busca';
-import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, AlertTriangle } from 'lucide-react';
+import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/utils/supabase/client';
 
 // Modal pesado: carrega sob demanda (fora do bundle inicial da página).
 const VisualizadorConferencia = dynamic(() => import('@/components/VisualizadorConferencia'), { ssr: false });
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
+import Modal from '@/components/Modal';
+
+// Estilos do formulário num lugar só — antes cada campo repetia a mesma
+// sequência de classes, e mudar um espaçamento significava editar 6 linhas.
+const LBL = 'block text-[10px] text-slate-500 font-black uppercase tracking-[0.15em]';
+const CAMPO = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-800 outline-none focus:border-violet-500 transition-colors';
+const AJUDA = 'text-[11px] text-slate-400 leading-snug';
 
 export default function CondominiosPage() {
   const { user } = useAuth();
@@ -24,8 +32,20 @@ export default function CondominiosPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', assistente: '', fluxo: 1 });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
-  const [selectedGerente, setSelectedGerente] = useState(null);
   const supabase = createClient();
+
+  // A carteira aberta mora na URL (?carteira=Fulano), não em useState: assim o
+  // Voltar do navegador sai da carteira em vez de sair da página, o link pode ser
+  // compartilhado, e recarregar não joga o usuário de volta pro início.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedGerente = searchParams.get('carteira') || null;
+  const setSelectedGerente = useCallback((nome) => {
+    const p = new URLSearchParams(Array.from(searchParams.entries()));
+    if (nome) p.set('carteira', nome); else p.delete('carteira');
+    const qs = p.toString();
+    router.push(qs ? `/condominios?${qs}` : '/condominios', { scroll: false });
+  }, [router, searchParams]);
 
   // ── Pipeline Global ──────────────────────────────────────────────
   const toLocalDT = (iso) => {
@@ -273,12 +293,14 @@ export default function CondominiosPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-              <button onClick={() => setPipelineAno(a => a - 1)} className="text-slate-400 hover:text-slate-900 transition-colors">
-                <ChevronLeft className="w-3.5 h-3.5" />
+              <button onClick={() => setPipelineAno(a => a - 1)} aria-label="Ano anterior"
+                className="text-slate-400 hover:text-slate-900 transition-colors">
+                <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
-              <span className="text-xs font-black text-slate-800 min-w-[40px] text-center">{pipelineAno}</span>
-              <button onClick={() => setPipelineAno(a => a + 1)} className="text-slate-400 hover:text-slate-900 transition-colors">
-                <ChevronRight className="w-3.5 h-3.5" />
+              <span className="text-xs font-black text-slate-800 min-w-[40px] text-center tabular-nums" aria-live="polite">{pipelineAno}</span>
+              <button onClick={() => setPipelineAno(a => a + 1)} aria-label="Próximo ano"
+                className="text-slate-400 hover:text-slate-900 transition-colors">
+                <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -300,8 +322,9 @@ export default function CondominiosPage() {
               </button>
               {(dataInicioLocal || dataFimLocal) && (
                 <button onClick={() => { setDataInicioLocal(''); setDataFimLocal(''); updatePipeline({ data_inicio: null, prazo_edicao: null }); }}
-                  className="px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-all shrink-0" title="Limpar período">
-                  <X className="w-3.5 h-3.5" />
+                  aria-label="Limpar período de edição" title="Limpar período"
+                  className="px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 transition-colors shrink-0">
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -445,15 +468,15 @@ export default function CondominiosPage() {
       {/* Breadcrumb / Back Button */}
       {selectedGerente && !search && (
         <div className="flex items-center gap-4 animate-fade-in">
-          <button 
+          <button
             onClick={() => setSelectedGerente(null)}
-            className="flex items-center gap-2 text-xs font-black text-slate-500 hover:text-violet-400 uppercase tracking-widest transition-colors group"
+            className="flex items-center gap-1.5 text-xs font-black text-slate-500 hover:text-violet-600 uppercase tracking-widest transition-colors"
           >
-            <X className="w-4 h-4 p-0.5 border border-slate-700 rounded group-hover:border-violet-500/50" />
-            Voltar para Gerentes
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+            Voltar para gerentes
           </button>
-          <div className="h-4 w-px bg-slate-50"></div>
-          <span className="text-xs font-black text-violet-400 uppercase tracking-[0.2em]">
+          <div className="h-4 w-px bg-slate-200"></div>
+          <span className="text-xs font-black text-violet-600 uppercase tracking-[0.2em]">
             Carteira: {selectedGerente}
           </span>
         </div>
@@ -463,7 +486,7 @@ export default function CondominiosPage() {
       {loadingCondos ? (
         <div className="p-24 text-center">
            <div className="w-10 h-10 border-4 border-violet-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
-           <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Sincronizando Base...</p>
+           <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Sincronizando base…</p>
         </div>
       ) : (
         <div className="space-y-12">
@@ -543,77 +566,106 @@ export default function CondominiosPage() {
         />
       )}
 
-      {/* Modal de Cadastro/Edição */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-fade-in">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={() => setModalOpen(false)}></div>
-          <div className="glass-panel max-w-xl w-full rounded-[2.5rem] relative animate-fade-up border border-slate-200 shadow-3xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-8 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
-                {formData.id ? 'Ajustar Cadastro' : 'Novo Condomínio'}
-              </h3>
-              <button onClick={() => setModalOpen(false)} className="p-2 text-slate-500 hover:text-slate-900 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSave} className="p-8 space-y-6 overflow-y-auto">
-              <div className="space-y-2">
-                <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Nome do condomínio</label>
-                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
-                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 outline-none focus:border-violet-500 shadow-inner" />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Dia de Vencimento <span className="text-slate-400 font-medium normal-case tracking-normal">(1º e 2º opcional)</span></label>
-                  <div className="flex gap-2">
-                    <input type="number" min="1" max="31" placeholder="1º" value={formData.due_day} onChange={e => setFormData({...formData, due_day: e.target.value})}
-                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 outline-none focus:border-violet-500 shadow-inner" />
-                    <input type="number" min="1" max="31" placeholder="2º" value={formData.due_day_2} onChange={e => setFormData({...formData, due_day_2: e.target.value})}
-                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 outline-none focus:border-violet-500 shadow-inner" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Carteira / Assistente</label>
-                  <input value={formData.assistente} onChange={e => setFormData({...formData, assistente: e.target.value})}
-                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 outline-none focus:border-violet-500 shadow-inner" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Gerente Responsável</label>
-                  <select required value={formData.gerente_id} onChange={e => setFormData({...formData, gerente_id: e.target.value})}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 outline-none focus:border-violet-500 shadow-inner cursor-pointer">
-                    <option value="">Selecione um gerente...</option>
-                    {gerentes.map(g => (
-                      <option key={g.id} value={g.id}>{g.full_name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Nível de Aprovação (Fluxo)</label>
-                  <select required value={formData.fluxo} onChange={e => setFormData({...formData, fluxo: Number(e.target.value)})}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 outline-none focus:border-violet-500 shadow-inner cursor-pointer">
-                    <option value={1}>Nível 1 - Fração (Gerente ➔ Sp. Contabilidade)</option>
-                    <option value={2}>Nível 2 - Sem consumos (Supervisora Direto)</option>
-                    <option value={3}>Nível 3 - Terceirizadas (Gerente ➔ Sup. Gerentes ➔ Sp. Contabilidade)</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="pt-6">
-                <button type="submit" disabled={isSaving} className="w-full py-5 bg-violet-500 text-slate-950 font-black rounded-2xl hover:bg-violet-400 transition-all uppercase tracking-[0.2em] text-xs shadow-2xl shadow-violet-500/20 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50">
-                  {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
-                  {formData.id ? 'SALVAR ALTERAÇÕES' : 'EFETIVAR CADASTRO'}
-                </button>
-              </div>
-            </form>
+      {/* Cadastro/Edição — usa o Modal acessível do projeto (Escape, foco preso,
+          role="dialog", trava o scroll e vira bottom-sheet no celular). */}
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={formData.id ? 'Ajustar cadastro' : 'Novo condomínio'}
+        maxWidth="max-w-xl"
+      >
+        <form onSubmit={handleSave} className="p-5 sm:p-6 space-y-5">
+          <div className="space-y-1.5">
+            <label htmlFor="condo-nome" className={LBL}>
+              Nome do condomínio <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="condo-nome" required autoFocus autoComplete="off"
+              value={formData.name}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Ex.: 480 — Cond. Ed. British"
+              className={CAMPO}
+            />
+            <p className={AJUDA}>Comece pelo código: é por ele que a lista se ordena e a busca encontra.</p>
           </div>
-        </div>
-      )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="space-y-1.5">
+              <label htmlFor="condo-venc1" className={LBL}>Dia de vencimento</label>
+              <div className="flex gap-2">
+                <input id="condo-venc1" type="number" inputMode="numeric" min="1" max="31" placeholder="1º"
+                  value={formData.due_day}
+                  onChange={e => setFormData({ ...formData, due_day: e.target.value })}
+                  className={CAMPO} aria-label="Primeiro dia de vencimento" />
+                <input type="number" inputMode="numeric" min="1" max="31" placeholder="2º"
+                  value={formData.due_day_2}
+                  onChange={e => setFormData({ ...formData, due_day_2: e.target.value })}
+                  className={CAMPO} aria-label="Segundo dia de vencimento (opcional)" />
+              </div>
+              <p className={AJUDA}>Opcional. O 2º só para vencimento dividido.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="condo-assist" className={LBL}>Carteira / assistente</label>
+              <input
+                id="condo-assist" autoComplete="off"
+                value={formData.assistente}
+                onChange={e => setFormData({ ...formData, assistente: e.target.value })}
+                placeholder="Deixe vazio para o padrão"
+                className={CAMPO}
+              />
+              <p className={AJUDA}>Opcional. Sobrescreve o assistente que vem do gerente.</p>
+            </div>
+          </div>
+
+          {/* Nível de aprovação só ao EDITAR: num condomínio novo ainda não há nada
+              para aprovar, e o fluxo é escolhido depois, na planilha de arrecadações. */}
+          <div className={`grid grid-cols-1 gap-5 ${formData.id ? 'sm:grid-cols-2' : ''}`}>
+            <div className="space-y-1.5">
+              <label htmlFor="condo-gerente" className={LBL}>
+                Gerente responsável <span className="text-rose-500">*</span>
+              </label>
+              <select id="condo-gerente" required value={formData.gerente_id}
+                onChange={e => setFormData({ ...formData, gerente_id: e.target.value })}
+                className={`${CAMPO} cursor-pointer`}>
+                <option value="">Selecione um gerente…</option>
+                {gerentes.map(g => <option key={g.id} value={g.id}>{g.full_name}</option>)}
+              </select>
+            </div>
+
+            {formData.id && (
+              <div className="space-y-1.5">
+                <label htmlFor="condo-fluxo" className={LBL}>Nível de aprovação</label>
+                <select id="condo-fluxo" value={formData.fluxo}
+                  onChange={e => setFormData({ ...formData, fluxo: Number(e.target.value) })}
+                  className={`${CAMPO} cursor-pointer`}>
+                  <option value={1}>Nível 1 — Fração (Gerente → Sup. Contabilidade)</option>
+                  <option value={2}>Nível 2 — Sem consumos (Supervisora direto)</option>
+                  <option value={3}>Nível 3 — Terceirizadas (Gerente → Sup. Gerentes → Sup. Contabilidade)</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          {!formData.id && (
+            <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+              O nível de aprovação é definido depois, na planilha de arrecadações. Este entra no <b>Nível 1</b>.
+            </p>
+          )}
+
+          <div className="flex flex-col-reverse sm:flex-row gap-2 pt-1">
+            <button type="button" onClick={() => setModalOpen(false)}
+              className="sm:w-auto px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-colors">
+              Cancelar
+            </button>
+            <button type="submit" disabled={isSaving}
+              className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-black rounded-xl transition-colors uppercase tracking-widest text-xs flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="w-4 h-4" aria-hidden="true" />}
+              {isSaving ? 'Salvando…' : formData.id ? 'Salvar alterações' : 'Cadastrar condomínio'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
@@ -628,8 +680,12 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView }) {
                  <Building className="w-6 h-6 text-slate-500 group-hover:text-violet-400" />
               </div>
               {canEdit && (
-                <button onClick={() => onEdit(c)} className="p-3 bg-slate-50 hover:bg-violet-500/10 text-slate-500 hover:text-violet-400 rounded-xl transition-all border border-transparent hover:border-violet-500/20">
-                   <Pencil className="w-4 h-4" />
+                <button
+                  onClick={() => onEdit(c)}
+                  aria-label={`Editar cadastro de ${c.name}`}
+                  title="Editar cadastro"
+                  className="tap inline-flex items-center justify-center bg-slate-50 hover:bg-violet-500/10 text-slate-500 hover:text-violet-500 rounded-xl transition-colors border border-transparent hover:border-violet-500/20">
+                   <Pencil className="w-4 h-4" aria-hidden="true" />
                 </button>
               )}
            </div>
@@ -655,9 +711,19 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView }) {
         </div>
 
         <div className="pt-6 border-t border-slate-200 flex gap-2">
-           <button onClick={() => onQuickView(c.id)} className="p-3 bg-violet-500/10 hover:bg-violet-500 text-violet-400 hover:text-slate-950 rounded-xl transition-all border border-violet-500/20 shadow-lg shadow-violet-500/10" title="Visualizar Emissão"><Eye className="w-4 h-4" /></button>
-           <Link href={`/condominio/${c.id}/arrecadacoes`} className="flex-1 py-3 text-center bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-400 hover:text-slate-900 rounded-xl uppercase tracking-widest transition-all">Planilha</Link>
-           <Link href={`/carteiras/cobrancas?condo=${c.id}`} className="flex-1 py-3 text-center bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-400 hover:text-slate-900 rounded-xl uppercase tracking-widest transition-all">Extras</Link>
+           <button
+             onClick={() => onQuickView(c.id)}
+             aria-label={`Ver última emissão de ${c.name}`}
+             title="Ver última emissão"
+             className="tap inline-flex items-center justify-center bg-violet-500/10 hover:bg-violet-600 text-violet-500 hover:text-white rounded-xl transition-colors border border-violet-500/20">
+             <Eye className="w-4 h-4" aria-hidden="true" />
+           </button>
+           <Link href={`/condominio/${c.id}/arrecadacoes`}
+             aria-label={`Abrir planilha de ${c.name}`}
+             className="flex-1 py-3 text-center bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-500 hover:text-slate-900 rounded-xl uppercase tracking-widest transition-colors">Planilha</Link>
+           <Link href={`/carteiras/cobrancas?condo=${c.id}`}
+             aria-label={`Abrir cobranças extras de ${c.name}`}
+             className="flex-1 py-3 text-center bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-500 hover:text-slate-900 rounded-xl uppercase tracking-widest transition-colors">Cobranças</Link>
         </div>
     </div>
   );

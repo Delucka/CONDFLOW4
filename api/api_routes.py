@@ -1564,9 +1564,14 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
         "due_day": _dia_vencimento(data.due_day, "1º vencimento"),
         "due_day_2": _dia_vencimento(data.due_day_2, "2º vencimento"),
         "gerente_id": (data.gerente_id or None),   # "" quebra a coluna UUID
-        "assistente": ((data.assistente or "").strip() or None),
         "fluxo": data.fluxo or 1,
     }
+    # `assistente` só entra se foi preenchido. A coluna nasceu faltando no banco
+    # (nenhuma migration cria — ver 0080) e mandá-la vazia fazia o PostgREST
+    # devolver PGRST204 e derrubar TODO o cadastro, mesmo sem ninguém usar o campo.
+    assistente = (data.assistente or "").strip()
+    if assistente:
+        payload["assistente"] = assistente
 
     try:
         if data.id:
