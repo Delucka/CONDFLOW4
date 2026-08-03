@@ -1694,6 +1694,161 @@ def api_importar_condominios(data: CondoImportPayload, user: dict = Depends(get_
     return {"simulacao": False, "resumo": {**resumo, "inseridos": inseridos}, "resultados": resultados}
 
 
+class CondominoItem(BaseModel):
+    unidade: str
+    bloco: Optional[str] = None
+    nome: Optional[str] = None
+    tipo: Optional[str] = None            # 'proprietario' | 'locatario'
+    email: Optional[str] = None
+    telefone: Optional[str] = None
+    responsavel_pagamento: bool = False
+
+
+class CondominosImportPayload(BaseModel):
+    condominio_id: Optional[str] = None
+    criar_condominio: Optional[dict] = None   # {name, cnpj} quando não existe ainda
+    linhas: List[CondominoItem]
+    confirmar: bool = False
+
+
+@router.post("/condominos/importar")
+def api_importar_condominos(data: CondominosImportPayload, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Importa a Relação de Condôminos (unidades + contatos) de um condomínio.
+
+    Com `confirmar=False` NADA é gravado — devolve o que aconteceria, para a prévia.
+    Nunca apaga: quem está no banco e não veio no relatório é só reportado. Preserva
+    `cpf` e `responsavel_pagamento` já ajustados à mão (o relatório não traz CPF).
+
+    LGPD: nome, telefone e e-mail de moradores. Os logs daqui levam SÓ contagens.
+    """
+    if user["role"] != "master":
+        raise HTTPException(403, "Apenas o master pode importar condôminos.")
+    if not data.linhas:
+        raise HTTPException(400, "Nenhuma linha para importar.")
+    if len(data.linhas) > 5000:
+        raise HTTPException(400, "Limite de 5000 linhas por importação.")
+
+    # ── 1. Resolver o condomínio: por CNPJ, por id, ou criar ────────────────────
+    condo_id = data.condominio_id
+    condo_nome = None
+    criado = False
+    cnpj = "".join(ch for ch in ((data.criar_condominio or {}).get("cnpj") or "") if ch.isdigit())
+
+    if not condo_id and cnpj:
+        try:
+            achado = db.table("condominios").select("id, name").eq("cnpj", cnpj).limit(1).execute().data or []
+            if achado:
+                condo_id, condo_nome = achado[0]["id"], achado[0]["name"]
+        except Exception as e:
+            print(f"[condominos/importar] busca por cnpj: {e}")
+
+    if not condo_id:
+        nome_novo = ((data.criar_condominio or {}).get("name") or "").strip()
+        if not nome_novo:
+            raise HTTPException(400, "Informe o condomínio (existente ou a criar).")
+        if data.confirmar:
+            try:
+                novo = db.table("condominios").insert(
+                    {"name": nome_novo, "cnpj": cnpj or None}
+                ).execute().data
+                condo_id = (novo or [{}])[0].get("id")
+                criado = True
+            except Exception as e:
+                raise HTTPException(400, f"Não consegui criar o condomínio: {e}")
+        condo_nome = nome_novo
+    elif not condo_nome:
+        try:
+            r = db.table("condominios").select("name").eq("id", condo_id).limit(1).execute().data or []
+            condo_nome = (r[0]["name"] if r else None)
+        except Exception:
+            pass
+
+    # ── 2. O que já existe (para diferenciar novo × atualizado) ─────────────────
+    existentes = {}
+    if condo_id:
+        try:
+            for r in (db.table("condominos").select("id, unidade, bloco, email")
+                      .eq("condominio_id", condo_id).execute().data or []):
+                chave = ((r.get("unidade") or "").strip().upper(),
+                         (r.get("bloco") or "").strip().upper(),
+                         (r.get("email") or "").strip().lower())
+                existentes[chave] = r["id"]
+        except Exception as e:
+            print(f"[condominos/importar] leitura do existente falhou: {e}")
+
+    # ── 3. Classificar cada linha ──────────────────────────────────────────────
+    inserir, atualizar, resultados = [], [], []
+    vistos = set()
+    for item in data.linhas:
+        unidade = (item.unidade or "").strip()
+        if not unidade:
+            resultados.append({"unidade": "", "status": "erro", "motivo": "sem unidade"})
+            continue
+
+        bloco = (item.bloco or "").strip() or None
+        email = (item.email or "").strip().lower() or None
+        chave = (unidade.upper(), (bloco or "").upper(), (email or ""))
+
+        if chave in vistos:
+            resultados.append({"unidade": unidade, "status": "erro", "motivo": "repetido no relatório"})
+            continue
+        vistos.add(chave)
+
+        registro = {
+            "condominio_id": condo_id,
+            "unidade": unidade,
+            "bloco": bloco,
+            "nome": (item.nome or "").strip() or None,
+            "tipo": item.tipo if item.tipo in ("proprietario", "locatario") else None,
+            "email": email,
+            "telefone": "".join(ch for ch in (item.telefone or "") if ch.isdigit()) or None,
+            "ativo": True,
+        }
+
+        antigo = existentes.get(chave)
+        if antigo:
+            # NÃO mexe em cpf nem responsavel_pagamento: podem ter sido ajustados à mão,
+            # e o relatório não traz CPF para reafirmar.
+            atualizar.append((antigo, {k: v for k, v in registro.items() if k != "condominio_id"}))
+            resultados.append({"unidade": unidade, "email": email, "status": "atualizado"})
+        else:
+            registro["responsavel_pagamento"] = bool(item.responsavel_pagamento)
+            inserir.append(registro)
+            resultados.append({"unidade": unidade, "email": email,
+                               "status": "novo" if email else "novo_sem_email"})
+
+    resumo = {
+        "condominio": condo_nome,
+        "condominio_novo": not data.condominio_id and not (condo_id and not criado),
+        "unidades": len({(r.get("unidade") or "").upper() for r in resultados if r.get("unidade")}),
+        "novos": len(inserir),
+        "atualizados": len(atualizar),
+        "sem_email": sum(1 for r in resultados if r["status"] == "novo_sem_email"),
+        "erros": sum(1 for r in resultados if r["status"] == "erro"),
+        "no_banco_fora_do_relatorio": max(0, len(existentes) - len(atualizar)),
+    }
+
+    if not data.confirmar:
+        return {"simulacao": True, "resumo": resumo, "resultados": resultados[:400]}
+
+    gravados = 0
+    try:
+        for i in range(0, len(inserir), 100):
+            db.table("condominos").insert(inserir[i:i + 100]).execute()
+            gravados += len(inserir[i:i + 100])
+        for cid, campos in atualizar:
+            db.table("condominos").update(campos).eq("id", cid).execute()
+    except Exception as e:
+        # Sem payload no log: dado pessoal.
+        print(f"[condominos/importar] falha ao gravar após {gravados} inserções: {type(e).__name__}")
+        raise HTTPException(400, f"Falhou ao gravar os condôminos: {e}")
+
+    print(f"[condominos/importar] condo={condo_id} novos={gravados} atualizados={len(atualizar)}")
+    return {"simulacao": False,
+            "resumo": {**resumo, "inseridos": gravados, "condominio_id": condo_id, "condominio_criado": criado},
+            "resultados": resultados[:400]}
+
+
 def _resolver_gerente_id(db: Client, valor):
     """Devolve sempre um `gerentes.id` válido (ou None).
 

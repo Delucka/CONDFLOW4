@@ -17,6 +17,7 @@ const VisualizadorConferencia = dynamic(() => import('@/components/VisualizadorC
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import Modal from '@/components/Modal';
 import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
+import { extrairTextoPdf, lerCondominos, exibirCnpj } from '@/lib/importarCondominos';
 
 // Estilos do formulário num lugar só — antes cada campo repetia a mesma
 // sequência de classes, e mudar um espaçamento significava editar 6 linhas.
@@ -670,27 +671,60 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
   const [linhas, setLinhas] = useState([]);
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState(null);
+  // Modo PDF: "Relação de Condôminos" de UM condomínio (unidades + contatos).
+  const [pdf, setPdf] = useState(null);         // { condominio, linhas }
+  const [nomeCondo, setNomeCondo] = useState('');
 
-  function limpar() { setTexto(''); setPrevia(null); setLinhas([]); setErro(null); }
+  function limpar() {
+    setTexto(''); setPrevia(null); setLinhas([]); setErro(null);
+    setPdf(null); setNomeCondo('');
+  }
 
   async function lerArquivo(e) {
     const f = e.target.files?.[0];
     if (!f) return;
-    setTexto(await f.text());
     setPrevia(null); setErro(null);
+
+    const ehPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+    if (!ehPdf) { setTexto(await f.text()); setPdf(null); return; }
+
+    // PDF é lido AQUI (pdfjs): a função do Vercel corta em 10s e o pdfplumber
+    // levava 3,18s só no menor condomínio da base.
+    setOcupado(true);
+    try {
+      const texto = await extrairTextoPdf(await f.arrayBuffer());
+      const { condominio, linhas: lidas, erroGeral } = lerCondominos(texto);
+      if (erroGeral) { setErro(erroGeral); return; }
+      setPdf({ condominio, linhas: lidas });
+      setNomeCondo(`${condominio.codigo} - ${condominio.nome}`);
+      setTexto('');
+    } catch (e2) {
+      setErro('Não consegui ler esse PDF: ' + (e2.message || e2));
+    } finally {
+      setOcupado(false);
+      e.target.value = '';   // permite reescolher o mesmo arquivo
+    }
   }
 
   async function conferir() {
     setErro(null);
-    const { linhas: lidas, erroGeral } = lerCondominios(texto);
-    if (erroGeral) { setErro(erroGeral); setPrevia(null); return; }
-    setLinhas(lidas);
     setOcupado(true);
     try {
+      if (pdf) {
+        const r = await apiPost('/api/condominos/importar', {
+          criar_condominio: { name: nomeCondo.trim(), cnpj: pdf.condominio.cnpj },
+          linhas: pdf.linhas, confirmar: false,
+        });
+        setPrevia(r);
+        return;
+      }
+      const { linhas: lidas, erroGeral } = lerCondominios(texto);
+      if (erroGeral) { setErro(erroGeral); setPrevia(null); return; }
+      setLinhas(lidas);
       const r = await apiPost('/api/condominios/importar', { itens: lidas, confirmar: false });
       setPrevia(r);
     } catch (e2) {
-      setErro(e2.message || 'Não consegui conferir a planilha.');
+      setErro(e2.message || 'Não consegui conferir.');
     } finally {
       setOcupado(false);
     }
@@ -699,8 +733,16 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
   async function importar() {
     setOcupado(true);
     try {
-      const r = await apiPost('/api/condominios/importar', { itens: linhas, confirmar: true });
-      addToast(`${r.resumo.inseridos} condomínio(s) importado(s).`, 'success');
+      if (pdf) {
+        const r = await apiPost('/api/condominos/importar', {
+          criar_condominio: { name: nomeCondo.trim(), cnpj: pdf.condominio.cnpj },
+          linhas: pdf.linhas, confirmar: true,
+        });
+        addToast(`${r.resumo.inseridos} condômino(s) gravado(s)${r.resumo.condominio_criado ? ' e condomínio criado' : ''}.`, 'success');
+      } else {
+        const r = await apiPost('/api/condominios/importar', { itens: linhas, confirmar: true });
+        addToast(`${r.resumo.inseridos} condomínio(s) importado(s).`, 'success');
+      }
       limpar();
       onPronto();
     } catch (e2) {
@@ -720,36 +762,67 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
     URL.revokeObjectURL(a.href);
   }
 
-  const COR = { novo: 'text-emerald-600', existe: 'text-slate-400', erro: 'text-rose-600' };
+  const COR = { novo: 'text-emerald-600', novo_sem_email: 'text-amber-600', atualizado: 'text-violet-600', existe: 'text-slate-400', erro: 'text-rose-600' };
 
   return (
     <Modal open={open} onClose={() => { limpar(); onClose(); }} title="Importar condomínios" maxWidth="max-w-3xl">
       <div className="p-5 sm:p-6 space-y-4">
         {!previa && (
           <>
-            <div className="text-[12px] text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
-              <p><b>No Excel:</b> selecione as células (com o cabeçalho), <b>Ctrl+C</b>, e cole abaixo.</p>
-              <p>Colunas reconhecidas: <b>Nome</b> (obrigatória), Vencimento, 2º Vencimento, CNPJ, Gerente.</p>
-              <button type="button" onClick={baixarModelo} className="text-violet-600 hover:text-violet-500 font-bold underline">
-                Baixar modelo .csv
-              </button>
-            </div>
+            {pdf ? (
+              /* ── Modo PDF: Relação de Condôminos de um condomínio ── */
+              <div className="space-y-3">
+                <div className="rounded-xl bg-violet-500/5 border border-violet-500/25 p-4 space-y-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Relação de condôminos lida</p>
+                  <div className="space-y-1.5">
+                    <label htmlFor="imp-nome" className={LBL}>Nome do condomínio</label>
+                    <input id="imp-nome" value={nomeCondo} onChange={(e) => setNomeCondo(e.target.value)} className={CAMPO} />
+                    <p className={AJUDA}>
+                      O relatório traz <b>{pdf.condominio.codigo}</b>; a base usa 3 dígitos (ex.: <code>001 - Nome</code>). Ajuste se precisar.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-600">
+                    <span>CNPJ: <b>{exibirCnpj(pdf.condominio.cnpj)}</b></span>
+                    <span>Unidades: <b className="tabular-nums">{pdf.condominio.unidades}</b></span>
+                    <span>Registros: <b className="tabular-nums">{pdf.linhas.length}</b> (um por e-mail)</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Este relatório não traz CPF, então a verificação de 2ª via continua indisponível — o resto entra normalmente.
+                </p>
+                <button type="button" onClick={limpar} className="text-[11px] font-bold text-slate-500 hover:text-violet-600">
+                  Escolher outro arquivo
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="text-[12px] text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
+                  <p><b>Vários condomínios:</b> no Excel, selecione as células (com o cabeçalho), <b>Ctrl+C</b>, e cole abaixo.</p>
+                  <p>Colunas reconhecidas: <b>Nome</b> (obrigatória), Vencimento, 2º Vencimento, CNPJ, Gerente.</p>
+                  <p><b>Um condomínio com seus moradores:</b> escolha o PDF da <b>Relação de Condôminos</b> abaixo.</p>
+                  <button type="button" onClick={baixarModelo} className="text-violet-600 hover:text-violet-500 font-bold underline">
+                    Baixar modelo .csv
+                  </button>
+                </div>
 
-            <textarea
-              data-autofocus
-              value={texto}
-              onChange={(e) => { setTexto(e.target.value); setErro(null); }}
-              rows={8}
-              placeholder={'Nome\tVencimento\tCNPJ\n001 - Cond. Ed. Exemplo\t10\t12.345.678/0001-90'}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-mono text-slate-800 outline-none focus:border-violet-500 transition-colors"
-            />
+                <textarea
+                  data-autofocus
+                  value={texto}
+                  onChange={(e) => { setTexto(e.target.value); setErro(null); }}
+                  rows={8}
+                  placeholder={'Nome\tVencimento\tCNPJ\n001 - Cond. Ed. Exemplo\t10\t12.345.678/0001-90'}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-mono text-slate-800 outline-none focus:border-violet-500 transition-colors"
+                />
 
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="text-[11px] font-bold text-slate-600 cursor-pointer hover:text-violet-600">
-                <input type="file" accept=".csv,.txt,text/csv" onChange={lerArquivo} className="sr-only" />
-                …ou escolher um arquivo .csv
-              </label>
-            </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="text-[11px] font-bold text-slate-600 cursor-pointer hover:text-violet-600">
+                    <input type="file" accept=".csv,.txt,text/csv,.pdf,application/pdf" onChange={lerArquivo} className="sr-only" />
+                    …ou escolher um arquivo <b>.csv</b> ou <b>.pdf</b>
+                  </label>
+                  {ocupado && !previa && <span className="text-[11px] text-slate-500">Lendo o PDF…</span>}
+                </div>
+              </>
+            )}
 
             {erro && (
               <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">{erro}</p>
@@ -760,7 +833,7 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
                 className="sm:w-auto px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-colors">
                 Cancelar
               </button>
-              <button type="button" onClick={conferir} disabled={ocupado || !texto.trim()}
+              <button type="button" onClick={conferir} disabled={ocupado || (!pdf && !texto.trim())}
                 className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-black rounded-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                 {ocupado ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
                 {ocupado ? 'Conferindo…' : 'Conferir antes de importar'}
@@ -771,14 +844,27 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
 
         {previa && (
           <>
+            {pdf && previa.resumo.condominio && (
+              <div className="rounded-xl bg-violet-500/5 border border-violet-500/25 p-3 text-xs text-slate-700">
+                <b>{previa.resumo.condominio}</b>{' '}
+                <span className="text-slate-500">
+                  {previa.resumo.condominio_novo ? '· será criado agora' : '· já existe, os condôminos entram nele'}
+                </span>
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
                 <p className="text-2xl font-black text-emerald-600 tabular-nums">{previa.resumo.novos}</p>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Novos</p>
               </div>
               <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-                <p className="text-2xl font-black text-slate-500 tabular-nums">{previa.resumo.existentes}</p>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Já existem</p>
+                <p className="text-2xl font-black text-slate-500 tabular-nums">
+                  {pdf ? previa.resumo.atualizados : previa.resumo.existentes}
+                </p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  {pdf ? 'Atualizados' : 'Já existem'}
+                </p>
               </div>
               <div className="rounded-xl bg-rose-50 border border-rose-200 p-3">
                 <p className="text-2xl font-black text-rose-600 tabular-nums">{previa.resumo.erros}</p>
@@ -787,15 +873,27 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
             </div>
 
             <p className="text-[11px] text-slate-500">
-              Nada foi gravado ainda. Só os <b className="text-emerald-600">novos</b> entram — quem já existe fica intacto.
+              {pdf ? (
+                <>Nada foi gravado ainda. Ninguém é apagado — quem está no banco e não veio no
+                  relatório continua lá{previa.resumo.no_banco_fora_do_relatorio > 0
+                    ? ` (${previa.resumo.no_banco_fora_do_relatorio} registro(s))` : ''}.
+                  {previa.resumo.sem_email > 0 && ` ${previa.resumo.sem_email} unidade(s) sem e-mail entram mesmo assim.`}</>
+              ) : (
+                <>Nada foi gravado ainda. Só os <b className="text-emerald-600">novos</b> entram — quem já existe fica intacto.</>
+              )}
             </p>
 
             <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
               {previa.resultados.map((r, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
-                  <span className="truncate text-slate-700 min-w-0">{r.name || <i>(sem nome)</i>}</span>
+                  <span className="truncate text-slate-700 min-w-0">
+                    {pdf ? `${r.unidade}${r.email ? ` · ${r.email}` : ''}` : (r.name || <i>(sem nome)</i>)}
+                  </span>
                   <span className={`shrink-0 font-bold ${COR[r.status] || 'text-slate-400'}`}>
-                    {r.status === 'novo' ? 'novo' : r.motivo}
+                    {r.status === 'novo' ? 'novo'
+                      : r.status === 'novo_sem_email' ? 'novo · sem e-mail'
+                      : r.status === 'atualizado' ? 'atualizado'
+                      : r.motivo}
                   </span>
                 </div>
               ))}
@@ -806,10 +904,13 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
                 className="sm:w-auto px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-colors">
                 Voltar
               </button>
-              <button type="button" onClick={importar} disabled={ocupado || previa.resumo.novos === 0}
+              <button type="button" onClick={importar}
+                disabled={ocupado || (previa.resumo.novos === 0 && !(pdf && previa.resumo.atualizados > 0))}
                 className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                 {ocupado ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Upload className="w-4 h-4" aria-hidden="true" />}
-                {ocupado ? 'Importando…' : `Importar ${previa.resumo.novos} condomínio(s)`}
+                {ocupado ? 'Importando…'
+                  : pdf ? `Importar ${previa.resumo.novos + previa.resumo.atualizados} registro(s)`
+                  : `Importar ${previa.resumo.novos} condomínio(s)`}
               </button>
             </div>
           </>
