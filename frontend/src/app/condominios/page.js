@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
 import { combina } from '@/lib/busca';
-import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, Upload } from 'lucide-react';
+import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, Upload, Users } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/utils/supabase/client';
 
@@ -18,6 +18,7 @@ import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import Modal from '@/components/Modal';
 import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
 import { extrairTextoPdf, lerCondominos, exibirCnpj } from '@/lib/importarCondominos';
+const PainelMoradores = dynamic(() => import('./PainelMoradores'), { ssr: false });
 
 // Estilos do formulário num lugar só — antes cada campo repetia a mesma
 // sequência de classes, e mudar um espaçamento significava editar 6 linhas.
@@ -32,6 +33,7 @@ export default function CondominiosPage() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [moradoresDe, setMoradoresDe] = useState(null);   // condomínio do painel de moradores
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '' });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
@@ -548,7 +550,7 @@ export default function CondominiosPage() {
               return (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {condos.map(c => (
-                    <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} />
+                    <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} onMoradores={setMoradoresDe} />
                   ))}
                 </div>
               );
@@ -558,7 +560,7 @@ export default function CondominiosPage() {
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filtered.map(c => (
-                  <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} />
+                  <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} onMoradores={setMoradoresDe} />
                 ))}
               </div>
             );
@@ -651,6 +653,12 @@ export default function CondominiosPage() {
           </div>
         </form>
       </Modal>
+
+      <PainelMoradores
+        open={!!moradoresDe}
+        condominio={moradoresDe}
+        onClose={() => setMoradoresDe(null)}
+      />
 
       <ImportarCondominios
         open={importOpen}
@@ -921,7 +929,7 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
 }
 
 // Componente Card para evitar repetição
-function CondoCardBase({ c, canEdit, onEdit, onQuickView }) {
+function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores }) {
   return (
     <div className="glass-panel p-5 md:p-6 rounded-2xl md:rounded-[2rem] border-slate-200 hover:border-violet-500/30 transition-all group shadow-xl flex flex-col justify-between h-full">
         <div>
@@ -975,6 +983,14 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView }) {
            <Link href={`/carteiras/cobrancas?condo=${c.id}`}
              aria-label={`Abrir cobranças extras de ${c.name}`}
              className="flex-1 py-3 text-center bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-500 hover:text-slate-900 rounded-xl uppercase tracking-widest transition-colors">Cobranças</Link>
+           {canEdit && (
+             <button onClick={() => onMoradores(c)}
+               aria-label={`Ver moradores de ${c.name}`}
+               title="Moradores, CPFs e teste do WhatsApp"
+               className="tap inline-flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-900 rounded-xl transition-colors">
+               <Users className="w-4 h-4" aria-hidden="true" />
+             </button>
+           )}
         </div>
     </div>
   );

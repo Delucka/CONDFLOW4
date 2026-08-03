@@ -1694,6 +1694,164 @@ def api_importar_condominios(data: CondoImportPayload, user: dict = Depends(get_
     return {"simulacao": False, "resumo": {**resumo, "inseridos": inseridos}, "resultados": resultados}
 
 
+@router.get("/condominos")
+def api_listar_condominos(condominio_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Moradores de um condomínio + quantos estão prontos para a 2ª via.
+
+    "Pronto" = tem CPF, é responsável pelo pagamento e tem e-mail — os três que
+    `_verificar_condomino` e `_contatos_unidade` exigem para o fluxo do WhatsApp
+    passar da etapa do CPF."""
+    if user["role"] not in ("master", "departamento"):
+        raise HTTPException(403, "Sem permissão para ver os moradores.")
+    try:
+        rows = db.table("condominos").select(
+            "id, unidade, bloco, nome, tipo, cpf, telefone, email, responsavel_pagamento, ativo"
+        ).eq("condominio_id", condominio_id).order("unidade").execute().data or []
+    except Exception as e:
+        raise HTTPException(500, f"Não consegui ler os moradores: {e}")
+
+    unidades = {}
+    for r in rows:
+        u = (r.get("unidade") or "").strip().upper()
+        unidades.setdefault(u, []).append(r)
+
+    prontas = sum(
+        1 for lista in unidades.values()
+        if any(r.get("cpf") and r.get("responsavel_pagamento") for r in lista)
+        and any(r.get("email") for r in lista)
+    )
+    return {
+        "condominos": rows,
+        "resumo": {
+            "registros": len(rows),
+            "unidades": len(unidades),
+            "com_cpf": sum(1 for r in rows if r.get("cpf")),
+            "unidades_prontas": prontas,
+        },
+    }
+
+
+class CondominoCpfItem(BaseModel):
+    unidade: str
+    bloco: Optional[str] = None
+    cpf: str
+
+
+class CondominosCpfPayload(BaseModel):
+    condominio_id: str
+    itens: List[CondominoCpfItem]
+    confirmar: bool = False
+
+
+@router.post("/condominos/cpf")
+def api_definir_cpf_condominos(data: CondominosCpfPayload, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Preenche o CPF do responsável por unidade — a peça que falta para o WhatsApp.
+
+    Casa por unidade (+ bloco) e grava o CPF em quem já é `responsavel_pagamento`.
+    Se a unidade não tiver responsável marcado, marca o primeiro proprietário.
+    Com `confirmar=False` apenas simula.
+
+    LGPD: CPF é dado sensível — nada de payload nos logs, só contagens.
+    """
+    if user["role"] != "master":
+        raise HTTPException(403, "Apenas o master pode definir CPF de moradores.")
+    if not data.itens:
+        raise HTTPException(400, "Nenhuma linha enviada.")
+
+    try:
+        rows = db.table("condominos").select("id, unidade, bloco, nome, tipo, cpf, responsavel_pagamento") \
+            .eq("condominio_id", data.condominio_id).execute().data or []
+    except Exception as e:
+        raise HTTPException(500, f"Não consegui ler os moradores: {e}")
+
+    porUnidade = {}
+    for r in rows:
+        chave = ((r.get("unidade") or "").strip().upper(), (r.get("bloco") or "").strip().upper())
+        porUnidade.setdefault(chave, []).append(r)
+
+    alteracoes, resultados = [], []
+    for item in data.itens:
+        unidade = (item.unidade or "").strip()
+        cpf = "".join(ch for ch in (item.cpf or "") if ch.isdigit())
+        linha = {"unidade": unidade, "status": None, "motivo": None}
+
+        if not unidade:
+            linha.update(status="erro", motivo="sem unidade"); resultados.append(linha); continue
+        if len(cpf) != 11:
+            linha.update(status="erro", motivo=f"CPF com {len(cpf)} dígitos (esperado 11)")
+            resultados.append(linha); continue
+
+        chave = (unidade.upper(), (item.bloco or "").strip().upper())
+        candidatos = porUnidade.get(chave)
+        if candidatos is None and not item.bloco:
+            # Sem bloco informado: aceita a unidade em qualquer bloco, se for só uma.
+            achados = [v for k, v in porUnidade.items() if k[0] == unidade.upper()]
+            candidatos = achados[0] if len(achados) == 1 else None
+        if not candidatos:
+            linha.update(status="erro", motivo="unidade não encontrada")
+            resultados.append(linha); continue
+
+        alvo = next((r for r in candidatos if r.get("responsavel_pagamento")), None) \
+            or next((r for r in candidatos if r.get("tipo") == "proprietario"), None) \
+            or candidatos[0]
+
+        if (alvo.get("cpf") or "") == cpf and alvo.get("responsavel_pagamento"):
+            linha.update(status="ja_ok", motivo="já estava assim")
+        else:
+            alteracoes.append((alvo["id"], {"cpf": cpf, "responsavel_pagamento": True}))
+            linha.update(status="definido", motivo=(alvo.get("nome") or None))
+        resultados.append(linha)
+
+    resumo = {
+        "definidos": sum(1 for r in resultados if r["status"] == "definido"),
+        "ja_ok": sum(1 for r in resultados if r["status"] == "ja_ok"),
+        "erros": sum(1 for r in resultados if r["status"] == "erro"),
+    }
+    if not data.confirmar:
+        return {"simulacao": True, "resumo": resumo, "resultados": resultados[:400]}
+
+    gravados = 0
+    try:
+        for cid, campos in alteracoes:
+            db.table("condominos").update(campos).eq("id", cid).execute()
+            gravados += 1
+    except Exception as e:
+        print(f"[condominos/cpf] falha após {gravados} atualizações: {type(e).__name__}")
+        raise HTTPException(400, f"Falhou ao gravar: {e}")
+
+    print(f"[condominos/cpf] condo={data.condominio_id} definidos={gravados}")
+    return {"simulacao": False, "resumo": {**resumo, "gravados": gravados}, "resultados": resultados[:400]}
+
+
+class WaSimulacaoSchema(BaseModel):
+    mensagem: str
+    etapa: Optional[str] = "inicio"
+    dados: Optional[dict] = None
+
+
+@router.post("/integracao/wa/simular")
+def api_simular_wa(data: WaSimulacaoSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Roda o MESMO `_wa_step` do WhatsApp, mas autenticado pelo site e sem persistir
+    conversa — serve para ver o fluxo funcionando (e onde ele trava) sem depender do
+    n8n nem da Meta.
+
+    Só o master, porque a conversa expõe e-mails mascarados de moradores. A etapa
+    'confirma' é bloqueada: simular não pode criar uma 2ª via de verdade.
+    """
+    if user["role"] != "master":
+        raise HTTPException(403, "Apenas o master pode simular o atendimento.")
+    etapa = data.etapa or "inicio"
+    dados = data.dados or {}
+    if etapa == "confirma" and (data.mensagem or "").strip().lower() in ("sim", "s", "ok", "confirmar", "isso", "pode"):
+        return {"reply": "🧪 Simulação: aqui o pedido seria registrado de verdade. "
+                         "Para criar de fato, use o WhatsApp.", "etapa": "feito", "dados": {}, "done": True}
+    try:
+        reply, etapa2, dados2, done = _wa_step(db, data.mensagem or "", "Simulação", etapa, dados)
+    except Exception as e:
+        raise HTTPException(400, f"O fluxo quebrou em '{etapa}': {e}")
+    return {"reply": reply, "etapa": etapa2, "dados": dados2, "done": done}
+
+
 class CondominoItem(BaseModel):
     unidade: str
     bloco: Optional[str] = None
