@@ -54,6 +54,7 @@ export default function Modal({
                 type="button"
                 onClick={onClose}
                 aria-label="Fechar"
+                data-modal-dismiss
                 className="tap shrink-0 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" aria-hidden="true" />

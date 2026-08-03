@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 const FOCUSABLE = [
   'a[href]', 'button:not([disabled])', 'input:not([disabled])',
@@ -11,6 +11,13 @@ const FOCUSABLE = [
 // ao abrir, devolve o foco ao elemento anterior ao fechar, e chama onEscape no Esc.
 // O contêiner deve ter tabIndex={-1} para servir de fallback de foco.
 export function useFocusTrap(ref, active, onEscape) {
+  // O callback fica num ref de propósito. Se `onEscape` entrar nas dependências do
+  // efeito abaixo, uma arrow inline (onClose={() => setOpen(false)}) vira função
+  // NOVA a cada render: o efeito roda de novo, devolve o foco pro primeiro elemento
+  // e o usuário perde o cursor a cada tecla — impossível digitar num formulário.
+  const escapeRef = useRef(onEscape);
+  useEffect(() => { escapeRef.current = onEscape; }, [onEscape]);
+
   useEffect(() => {
     if (!active || !ref.current) return;
     const node = ref.current;
@@ -21,14 +28,20 @@ export function useFocusTrap(ref, active, onEscape) {
         (el) => el.offsetWidth > 0 || el.offsetHeight > 0 || el === document.activeElement,
       );
 
-    // Foca o primeiro elemento (ou o próprio contêiner)
-    const first = focusables()[0];
-    (first || node).focus?.();
+    // Foco inicial: quem pedir explicitamente (data-autofocus), senão o primeiro
+    // elemento que não seja o "fechar" — abrir um formulário com o foco no X faz
+    // o Enter fechar a janela em vez de enviar.
+    const lista = focusables();
+    const alvo =
+      node.querySelector('[data-autofocus]') ||
+      lista.find((el) => !el.hasAttribute('data-modal-dismiss')) ||
+      lista[0];
+    (alvo || node).focus?.();
 
     function onKey(e) {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onEscape?.();
+        escapeRef.current?.();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -54,5 +67,6 @@ export function useFocusTrap(ref, active, onEscape) {
       node.removeEventListener('keydown', onKey);
       if (prevFocused && typeof prevFocused.focus === 'function') prevFocused.focus();
     };
-  }, [ref, active, onEscape]);
+    // `onEscape` fica FORA daqui de propósito — ver a nota do escapeRef acima.
+  }, [ref, active]);
 }

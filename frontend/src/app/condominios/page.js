@@ -579,7 +579,7 @@ export default function CondominiosPage() {
               Nome do condomínio <span className="text-rose-500">*</span>
             </label>
             <input
-              id="condo-nome" required autoFocus autoComplete="off"
+              id="condo-nome" required autoComplete="off" data-autofocus
               value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
               placeholder="Ex.: 480 — Cond. Ed. British"
