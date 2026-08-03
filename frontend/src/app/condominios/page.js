@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
 import { combina } from '@/lib/busca';
-import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock } from 'lucide-react';
+import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, Upload } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/utils/supabase/client';
 
@@ -16,6 +16,7 @@ import { createClient } from '@/utils/supabase/client';
 const VisualizadorConferencia = dynamic(() => import('@/components/VisualizadorConferencia'), { ssr: false });
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import Modal from '@/components/Modal';
+import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
 
 // Estilos do formulário num lugar só — antes cada campo repetia a mesma
 // sequência de classes, e mudar um espaçamento significava editar 6 linhas.
@@ -29,6 +30,7 @@ export default function CondominiosPage() {
 
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '' });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
@@ -455,12 +457,20 @@ export default function CondominiosPage() {
         </div>
 
         {canEdit && (
-          <button 
-             onClick={() => openEdit()} 
-             className="w-full md:w-auto bg-violet-500 text-slate-950 px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-violet-400 shadow-xl shadow-violet-500/20 active:scale-95 transition-all"
-          >
-            <PlusCircle className="w-5 h-5" /> NOVO CADASTRO
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+            <button
+              onClick={() => setImportOpen(true)}
+              className="w-full sm:w-auto bg-white border border-slate-200 text-slate-700 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 hover:border-violet-500/40 transition-colors"
+            >
+              <Upload className="w-4 h-4" aria-hidden="true" /> Importar
+            </button>
+            <button
+               onClick={() => openEdit()}
+               className="w-full sm:w-auto bg-violet-600 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-violet-500 shadow-xl shadow-violet-600/20 active:scale-[0.98] transition-colors"
+            >
+              <PlusCircle className="w-5 h-5" aria-hidden="true" /> Novo cadastro
+            </button>
+          </div>
         )}
       </div>
 
@@ -640,7 +650,172 @@ export default function CondominiosPage() {
           </div>
         </form>
       </Modal>
+
+      <ImportarCondominios
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onPronto={() => { setImportOpen(false); mutateCondos(); }}
+        addToast={addToast}
+      />
     </div>
+  );
+}
+
+// ── Importação em lote ────────────────────────────────────────────────────────────
+// Fluxo: cola/arquivo → prévia (o servidor simula, sem gravar) → confirmação.
+// Nunca sobrescreve condomínio existente; quem já está lá é só reportado.
+function ImportarCondominios({ open, onClose, onPronto, addToast }) {
+  const [texto, setTexto] = useState('');
+  const [previa, setPrevia] = useState(null);   // { resumo, resultados }
+  const [linhas, setLinhas] = useState([]);
+  const [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  function limpar() { setTexto(''); setPrevia(null); setLinhas([]); setErro(null); }
+
+  async function lerArquivo(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setTexto(await f.text());
+    setPrevia(null); setErro(null);
+  }
+
+  async function conferir() {
+    setErro(null);
+    const { linhas: lidas, erroGeral } = lerCondominios(texto);
+    if (erroGeral) { setErro(erroGeral); setPrevia(null); return; }
+    setLinhas(lidas);
+    setOcupado(true);
+    try {
+      const r = await apiPost('/api/condominios/importar', { itens: lidas, confirmar: false });
+      setPrevia(r);
+    } catch (e2) {
+      setErro(e2.message || 'Não consegui conferir a planilha.');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function importar() {
+    setOcupado(true);
+    try {
+      const r = await apiPost('/api/condominios/importar', { itens: linhas, confirmar: true });
+      addToast(`${r.resumo.inseridos} condomínio(s) importado(s).`, 'success');
+      limpar();
+      onPronto();
+    } catch (e2) {
+      addToast('Erro ao importar: ' + (e2.message || e2), 'error');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  function baixarModelo() {
+    // BOM na frente para o Excel abrir com acento correto
+    const blob = new Blob(['﻿' + MODELO_CSV], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'modelo-condominios.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  const COR = { novo: 'text-emerald-600', existe: 'text-slate-400', erro: 'text-rose-600' };
+
+  return (
+    <Modal open={open} onClose={() => { limpar(); onClose(); }} title="Importar condomínios" maxWidth="max-w-3xl">
+      <div className="p-5 sm:p-6 space-y-4">
+        {!previa && (
+          <>
+            <div className="text-[12px] text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
+              <p><b>No Excel:</b> selecione as células (com o cabeçalho), <b>Ctrl+C</b>, e cole abaixo.</p>
+              <p>Colunas reconhecidas: <b>Nome</b> (obrigatória), Vencimento, 2º Vencimento, CNPJ, Gerente.</p>
+              <button type="button" onClick={baixarModelo} className="text-violet-600 hover:text-violet-500 font-bold underline">
+                Baixar modelo .csv
+              </button>
+            </div>
+
+            <textarea
+              data-autofocus
+              value={texto}
+              onChange={(e) => { setTexto(e.target.value); setErro(null); }}
+              rows={8}
+              placeholder={'Nome\tVencimento\tCNPJ\n001 - Cond. Ed. Exemplo\t10\t12.345.678/0001-90'}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-mono text-slate-800 outline-none focus:border-violet-500 transition-colors"
+            />
+
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="text-[11px] font-bold text-slate-600 cursor-pointer hover:text-violet-600">
+                <input type="file" accept=".csv,.txt,text/csv" onChange={lerArquivo} className="sr-only" />
+                …ou escolher um arquivo .csv
+              </label>
+            </div>
+
+            {erro && (
+              <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">{erro}</p>
+            )}
+
+            <div className="flex flex-col-reverse sm:flex-row gap-2">
+              <button type="button" onClick={() => { limpar(); onClose(); }}
+                className="sm:w-auto px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={conferir} disabled={ocupado || !texto.trim()}
+                className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-black rounded-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                {ocupado ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
+                {ocupado ? 'Conferindo…' : 'Conferir antes de importar'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {previa && (
+          <>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+                <p className="text-2xl font-black text-emerald-600 tabular-nums">{previa.resumo.novos}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Novos</p>
+              </div>
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                <p className="text-2xl font-black text-slate-500 tabular-nums">{previa.resumo.existentes}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Já existem</p>
+              </div>
+              <div className="rounded-xl bg-rose-50 border border-rose-200 p-3">
+                <p className="text-2xl font-black text-rose-600 tabular-nums">{previa.resumo.erros}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Com erro</p>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Nada foi gravado ainda. Só os <b className="text-emerald-600">novos</b> entram — quem já existe fica intacto.
+            </p>
+
+            <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
+              {previa.resultados.map((r, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                  <span className="truncate text-slate-700 min-w-0">{r.name || <i>(sem nome)</i>}</span>
+                  <span className={`shrink-0 font-bold ${COR[r.status] || 'text-slate-400'}`}>
+                    {r.status === 'novo' ? 'novo' : r.motivo}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row gap-2">
+              <button type="button" onClick={() => setPrevia(null)}
+                className="sm:w-auto px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-colors">
+                Voltar
+              </button>
+              <button type="button" onClick={importar} disabled={ocupado || previa.resumo.novos === 0}
+                className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                {ocupado ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Upload className="w-4 h-4" aria-hidden="true" />}
+                {ocupado ? 'Importando…' : `Importar ${previa.resumo.novos} condomínio(s)`}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
   );
 }
 

@@ -1572,6 +1572,128 @@ def _dia_vencimento(v, rotulo):
     return n
 
 
+class CondoImportItem(BaseModel):
+    name: str
+    due_day: Optional[int] = None
+    due_day_2: Optional[int] = None
+    cnpj: Optional[str] = None
+    gerente: Optional[str] = None       # nome digitado na planilha
+
+
+class CondoImportPayload(BaseModel):
+    itens: List[CondoImportItem]
+    confirmar: bool = False             # False = só simula e devolve o que faria
+
+
+@router.post("/condominios/importar")
+def api_importar_condominios(data: CondoImportPayload, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Importa condomínios em lote a partir de uma planilha.
+
+    Com `confirmar=False` NADA é gravado: devolve linha a linha o que aconteceria.
+    A tela usa isso para mostrar a prévia antes de o usuário decidir. Nunca sobrescreve
+    condomínio existente — quem já está lá é só reportado como 'existe'."""
+    if user["role"] != "master":
+        raise HTTPException(403, "Apenas o master pode importar condomínios.")
+    if not data.itens:
+        raise HTTPException(400, "Nenhuma linha para importar.")
+    if len(data.itens) > 1000:
+        raise HTTPException(400, "Limite de 1000 linhas por importação. Divida a planilha.")
+
+    def _chave(s):
+        import unicodedata
+        s = unicodedata.normalize("NFD", str(s or "")).lower()
+        s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+        return " ".join(s.split())
+
+    # Existentes: para não duplicar. Uma consulta só.
+    existentes = {}
+    try:
+        for c in (db.table("condominios").select("id, name").execute().data or []):
+            existentes[_chave(c["name"])] = c["id"]
+    except Exception as e:
+        raise HTTPException(500, f"Não consegui ler os condomínios atuais: {e}")
+
+    # De-para de gerentes por nome: aceita o nome do profile e o da tabela gerentes.
+    ger_por_nome = {}
+    try:
+        gers = db.table("gerentes").select("id, nome, profile_id").execute().data or []
+        profs = db.table("profiles").select("id, full_name").execute().data or []
+        p_map = {p["id"]: p.get("full_name") for p in profs}
+        for g in gers:
+            for nome in (p_map.get(g.get("profile_id")), g.get("nome")):
+                if nome:
+                    ger_por_nome.setdefault(_chave(nome), g["id"])
+    except Exception as e:
+        print(f"[condominios/importar] de-para de gerentes indisponível: {e}")
+
+    resultados, novos = [], []
+    vistos_no_lote = set()
+    for item in data.itens:
+        nome = (item.name or "").strip()
+        linha = {"name": nome, "status": None, "motivo": None}
+
+        if not nome:
+            linha.update(status="erro", motivo="sem nome")
+            resultados.append(linha); continue
+
+        k = _chave(nome)
+        if k in existentes:
+            linha.update(status="existe", motivo="já cadastrado")
+            resultados.append(linha); continue
+        if k in vistos_no_lote:
+            linha.update(status="erro", motivo="repetido na planilha")
+            resultados.append(linha); continue
+
+        for dia, rot in ((item.due_day, "vencimento"), (item.due_day_2, "2º vencimento")):
+            if dia is not None and not 1 <= dia <= 31:
+                linha.update(status="erro", motivo=f"{rot} fora de 1–31")
+        if linha["status"] == "erro":
+            resultados.append(linha); continue
+
+        gid = None
+        if item.gerente:
+            gid = ger_por_nome.get(_chave(item.gerente))
+            if not gid:
+                linha.update(status="erro", motivo=f"gerente '{item.gerente}' não encontrado")
+                resultados.append(linha); continue
+
+        cnpj = "".join(ch for ch in (item.cnpj or "") if ch.isdigit()) or None
+        if cnpj and len(cnpj) != 14:
+            linha.update(status="erro", motivo="CNPJ não tem 14 dígitos")
+            resultados.append(linha); continue
+
+        vistos_no_lote.add(k)
+        novos.append({
+            "name": nome, "due_day": item.due_day, "due_day_2": item.due_day_2,
+            "cnpj": cnpj, "gerente_id": gid,
+        })
+        linha.update(status="novo", motivo=None)
+        resultados.append(linha)
+
+    resumo = {
+        "novos": sum(1 for r in resultados if r["status"] == "novo"),
+        "existentes": sum(1 for r in resultados if r["status"] == "existe"),
+        "erros": sum(1 for r in resultados if r["status"] == "erro"),
+    }
+
+    if not data.confirmar:
+        return {"simulacao": True, "resumo": resumo, "resultados": resultados}
+
+    inseridos = 0
+    if novos:
+        # Em blocos: um INSERT gigante estoura o tempo da função no Vercel.
+        for i in range(0, len(novos), 100):
+            bloco = novos[i:i + 100]
+            try:
+                db.table("condominios").insert(bloco).execute()
+                inseridos += len(bloco)
+            except Exception as e:
+                print(f"[condominios/importar] bloco {i}: {e}")
+                raise HTTPException(400, f"Falhou ao gravar a partir de '{bloco[0]['name']}': {e}")
+
+    return {"simulacao": False, "resumo": {**resumo, "inseridos": inseridos}, "resultados": resultados}
+
+
 def _resolver_gerente_id(db: Client, valor):
     """Devolve sempre um `gerentes.id` válido (ou None).
 
