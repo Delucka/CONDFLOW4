@@ -1539,16 +1539,19 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
 class CondoData(BaseModel):
     # Tudo que o formulário deixa em branco chega como "" — por isso é Optional aqui
     # e vira None no payload. Campo obrigatório de verdade é só o nome.
-    # `assistente` foi removido de propósito: a coluna nunca existiu no banco e o
-    # vínculo real é profiles.gerente_id (0057). Continua aceito e IGNORADO só para
-    # não quebrar um cliente antigo que ainda mande o campo.
+    #
+    # `assistente` e `fluxo` continuam aceitos e IGNORADOS: nenhuma dessas colunas
+    # existe em `condominios` (conferido em todas as migrations 0001→0079), e mandá-las
+    # fazia o PostgREST responder PGRST204 e derrubar o cadastro inteiro. O assistente
+    # real vem de profiles.gerente_id (0057); `fluxo` é coluna de `processos`.
     id: Optional[str] = None
     name: str
     due_day: Optional[str] = None
     due_day_2: Optional[str] = None
     gerente_id: Optional[str] = None
-    assistente: Optional[str] = None
-    fluxo: int = 1
+    cnpj: Optional[str] = None
+    assistente: Optional[str] = None   # ignorado
+    fluxo: Optional[int] = None        # ignorado
 
 
 def _dia_vencimento(v, rotulo):
@@ -1580,12 +1583,15 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
     if not nome:
         raise HTTPException(400, "O nome do condomínio é obrigatório.")
 
+    # SÓ colunas que existem de verdade em `condominios`. É a mesma base pela qual os
+    # 300+ condomínios entraram (0002/0023: name + due_day), mais o gerente e o que
+    # foi criado depois: due_day_2 (0054) e cnpj (0042).
     payload = {
         "name": nome,
         "due_day": _dia_vencimento(data.due_day, "1º vencimento"),
         "due_day_2": _dia_vencimento(data.due_day_2, "2º vencimento"),
         "gerente_id": (data.gerente_id or None),   # "" quebra a coluna UUID
-        "fluxo": data.fluxo or 1,
+        "cnpj": ((data.cnpj or "").strip() or None),
     }
     try:
         if data.id:

@@ -30,7 +30,7 @@ export default function CondominiosPage() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', fluxo: 1 });
+  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '' });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
   const supabase = createClient();
 
@@ -190,10 +190,10 @@ export default function CondominiosPage() {
         due_day: condo.due_day || '',
         due_day_2: condo.due_day_2 || '',
         gerente_id: condo.gerente_id || '',
-        fluxo: condo.fluxo || 1
+        cnpj: condo.cnpj || ''
       });
     } else {
-      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', fluxo: 1 });
+      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '' });
     }
     setModalOpen(true);
   }
@@ -603,9 +603,7 @@ export default function CondominiosPage() {
             <p className={AJUDA}>Opcional. O 2º só para vencimento dividido.</p>
           </div>
 
-          {/* Nível de aprovação só ao EDITAR: num condomínio novo ainda não há nada
-              para aprovar, e o fluxo é escolhido depois, na planilha de arrecadações. */}
-          <div className={`grid grid-cols-1 gap-5 ${formData.id ? 'sm:grid-cols-2' : ''}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="space-y-1.5">
               <label htmlFor="condo-gerente" className={LBL}>
                 Gerente responsável <span className="text-rose-500">*</span>
@@ -618,25 +616,16 @@ export default function CondominiosPage() {
               </select>
             </div>
 
-            {formData.id && (
-              <div className="space-y-1.5">
-                <label htmlFor="condo-fluxo" className={LBL}>Nível de aprovação</label>
-                <select id="condo-fluxo" value={formData.fluxo}
-                  onChange={e => setFormData({ ...formData, fluxo: Number(e.target.value) })}
-                  className={`${CAMPO} cursor-pointer`}>
-                  <option value={1}>Nível 1 — Fração (Gerente → Sup. Contabilidade)</option>
-                  <option value={2}>Nível 2 — Sem consumos (Supervisora direto)</option>
-                  <option value={3}>Nível 3 — Terceirizadas (Gerente → Sup. Gerentes → Sup. Contabilidade)</option>
-                </select>
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <label htmlFor="condo-cnpj" className={LBL}>CNPJ</label>
+              <input id="condo-cnpj" inputMode="numeric" autoComplete="off"
+                value={formData.cnpj}
+                onChange={e => setFormData({ ...formData, cnpj: e.target.value })}
+                placeholder="00.000.000/0001-00"
+                className={CAMPO} />
+              <p className={AJUDA}>Opcional. Pode preencher depois.</p>
+            </div>
           </div>
-
-          {!formData.id && (
-            <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
-              O nível de aprovação é definido depois, na planilha de arrecadações. Este entra no <b>Nível 1</b>.
-            </p>
-          )}
 
           <div className="flex flex-col-reverse sm:flex-row gap-2 pt-1">
             <button type="button" onClick={() => setModalOpen(false)}
