@@ -1572,6 +1572,31 @@ def _dia_vencimento(v, rotulo):
     return n
 
 
+def _resolver_gerente_id(db: Client, valor):
+    """Devolve sempre um `gerentes.id` válido (ou None).
+
+    O dropdown do cadastro é montado a partir de PROFILES (role='gerente'), mas
+    `condominios.gerente_id` é FK para `gerentes.id`. Mandar o id do profile direto
+    estourava 23503 (violates foreign key constraint). Aceitamos os dois formatos e
+    normalizamos aqui, que é o único lugar por onde a gravação passa."""
+    if not valor:
+        return None
+    try:
+        if (db.table("gerentes").select("id").eq("id", valor).limit(1).execute().data or []):
+            return valor                      # já veio como gerentes.id
+        achado = db.table("gerentes").select("id").eq("profile_id", valor).limit(1).execute().data or []
+        if achado:
+            return achado[0]["id"]            # veio o profile do gerente
+    except Exception as e:
+        print(f"[condominios/salvar] resolver gerente {valor}: {e}")
+        raise HTTPException(400, "Não consegui validar o gerente escolhido.")
+    raise HTTPException(
+        400,
+        "Esse gerente ainda não tem carteira criada. Abra Admin › Usuários e vincule-o "
+        "como gerente antes de atribuir condomínios a ele.",
+    )
+
+
 @router.post("/condominios/salvar")
 def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     # Fora do try: HTTPException também é Exception, e o except abaixo estava
@@ -1590,7 +1615,7 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
         "name": nome,
         "due_day": _dia_vencimento(data.due_day, "1º vencimento"),
         "due_day_2": _dia_vencimento(data.due_day_2, "2º vencimento"),
-        "gerente_id": (data.gerente_id or None),   # "" quebra a coluna UUID
+        "gerente_id": _resolver_gerente_id(db, (data.gerente_id or "").strip() or None),
         "cnpj": ((data.cnpj or "").strip() or None),
     }
     try:
@@ -1601,9 +1626,15 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
     except Exception as e:
         msg = str(e)
         print(f"[condominios/salvar] falhou: {msg} | payload={payload}")
-        # PGRST204 = coluna que o código manda mas não existe na tabela
+        # Traduz os erros que já morderam aqui, para a tela não mostrar erro cru do Postgres
         if "PGRST204" in msg or "schema cache" in msg:
             raise HTTPException(400, f"O banco não tem uma das colunas enviadas. Detalhe: {msg}")
+        if "23503" in msg or "foreign key" in msg:
+            raise HTTPException(400, "O gerente escolhido não existe mais. Recarregue a página e tente de novo.")
+        if "23505" in msg or "duplicate key" in msg:
+            raise HTTPException(400, "Já existe um condomínio com esse nome.")
+        if "23514" in msg or "check constraint" in msg:
+            raise HTTPException(400, "Algum valor está fora do permitido (o dia de vencimento precisa ser 1–31).")
         raise HTTPException(400, f"Não consegui salvar o condomínio: {msg}")
 
     return {"success": True}
