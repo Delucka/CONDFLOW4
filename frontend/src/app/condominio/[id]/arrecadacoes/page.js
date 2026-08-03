@@ -451,6 +451,13 @@ export default function ArrecadacoesPage() {
 
   const [nivelAprovacao, setNivelAprovacao] = useState(1);
 
+  // Reabrir a tela precisa mostrar o nível que está gravado, não o padrão 1 —
+  // senão reenviar uma conferência rebaixa silenciosamente o fluxo do processo.
+  useEffect(() => {
+    const f = parseInt(processo?.fluxo, 10);
+    if (f >= 1 && f <= 4) setNivelAprovacao(f);
+  }, [processo?.fluxo]);
+
   const handleSend = async () => {
       if (!processo) {
           addToast('Status de processo não iniciado para este semestre', 'warning');
@@ -462,15 +469,19 @@ export default function ArrecadacoesPage() {
           initialStatus = 'Aguardando Supervisora';
       }
 
-      // Salva o nível escolhido no cadastro do condomínio
-      await supabase.from('condominios').update({ fluxo: nivelAprovacao }).eq('id', condo.id);
-
-      const { error } = await supabase.from('processos').update({ 
-        status: initialStatus
+      // O nível vai para `processos`, na MESMA gravação do status. Antes ia para
+      // `condominios.fluxo` — coluna que não existe, então a escrita falhava calada
+      // (o supabase-js devolve {error}, não lança) e o nível escolhido era perdido.
+      // Quem decide o caminho da aprovação é processos.fluxo (api_routes.py, ação
+      // 'approve'): sem gravar aqui, TODO processo caía no default 1 e era aprovado
+      // direto, pulando os supervisores dos níveis 2, 3 e 4.
+      const { error } = await supabase.from('processos').update({
+        status: initialStatus,
+        fluxo: nivelAprovacao,
       }).eq('id', processo.id);
 
       if (!error) {
-          setProcesso({ ...processo, status: initialStatus });
+          setProcesso({ ...processo, status: initialStatus, fluxo: nivelAprovacao });
           setShowConfirmSend(false);
           addToast(`Conferência enviada para aprovação!`, 'success');
       } else {
