@@ -41,6 +41,16 @@ uvicorn index:app --reload --port 8001   # Local dev (requires .env with Supabas
 
 ---
 
+## Antes de escrever no banco: leia `docs/ESQUEMA-BANCO.md`
+
+Colunas reais de `condominios`, as duas **colunas fantasma** que o código cita mas
+não existem (`assistente`, `fluxo`), e três armadilhas que já custaram horas:
+escrita do `supabase-js` que falha **calada**, `gerente_id` com dois significados
+(profile × `gerentes.id`), e `edicoes_mensais` que precisa ser lida por
+condomínio **+ mês**. O `applied.txt` está desatualizado — não use como fonte.
+
+---
+
 ## Architecture
 
 ### Request Flow

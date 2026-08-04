@@ -23,3 +23,7 @@ Thumbs.db
 .vercel
 
 .env.vercel
+
+# Grafo/vault gerados pela graphify — reconstruíveis, não versionar
+graphify-out/obsidian/
+graphify-out/cache/
