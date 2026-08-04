@@ -12,8 +12,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"CondoFlow project rule: invoke the graphify-windows skill via the Skill tool right now to refresh the knowledge graph. Do this before answering questions about the codebase or making code changes. After indexing completes, proceed with the user request normally.\"}}'",
-            "statusMessage": "Lembrando do graphify-windows..."
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"CondoFlow project rule: IF the graphify-windows skill is listed as available, invoke it via the Skill tool to refresh the knowledge graph before answering questions about the codebase or making code changes, then proceed with the user request normally. IF it is not listed, skip it silently and proceed with the user request — the skill lives outside the repository, so remote and non-Windows sessions do not have it. Its absence is expected there and is not an error worth reporting.\"}}'",
+            "statusMessage": "Verificando o graphify-windows..."
           }
         ]
       }
