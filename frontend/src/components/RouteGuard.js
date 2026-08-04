@@ -38,7 +38,13 @@ export default function RouteGuard({ children, allowedRoles = null }) {
 
     if (!allowed) {
       addToast?.('Você não tem permissão para acessar esta página.', 'error');
-      router.replace('/dashboard');
+      // Só redireciona se a pessoa PUDER abrir o destino. Mandar para /dashboard
+      // quem também não tem acesso a /dashboard cria laço infinito: nega, manda,
+      // nega, manda. Sem acesso ao destino, o aviso abaixo é renderizado e a
+      // pessoa ao menos entende o que houve.
+      if (pathname !== '/dashboard' && canAccessPath(profile.role, '/dashboard')) {
+        router.replace('/dashboard');
+      }
     }
   }, [profile, loading, pathname, router, allowedRoles, addToast]);
 

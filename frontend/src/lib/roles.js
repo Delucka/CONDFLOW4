@@ -28,13 +28,19 @@ export function siglaRole(role) {
 
 export const ROUTE_ACCESS = {
   '/dashboard':           ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
-  '/condominios':         ['master','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
+  // `sindico` saiu daqui e de /consumos: a política de RLS da 0084 não lhe dá
+  // condomínio nenhum (ele não é gerente, e não existe vínculo síndico↔condomínio
+  // no banco), então estas telas abriam VAZIAS. Melhor não oferecer a porta do
+  // que oferecer uma que não leva a lugar nenhum.
+  // Continua em /dashboard de propósito: o RouteGuard manda para lá quem é
+  // negado, e tirá-lo de lá também criaria laço de redirecionamento.
+  '/condominios':         ['master','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
   '/carteiras/cobrancas': ['master','gerente','assistente'],
   '/carteiras/segundas-vias': ['master','gerente','assistente','departamento'],
   '/aprovacoes':          ['master','gerente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
   '/central-emissoes':    ['master','departamento'],
   '/correios':            ['master','departamento'],
-  '/consumos':            ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento','sindico'],
+  '/consumos':            ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
   '/admin/usuarios':      ['master'],
   '/admin/importar-gerentes': ['master'],
   '/condominio':          ['master','gerente','assistente','supervisora','supervisora_contabilidade','departamento'],
