@@ -17,6 +17,7 @@ const VisualizadorConferencia = dynamic(() => import('@/components/VisualizadorC
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import Modal from '@/components/Modal';
 import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
+import { btn, cn } from '@/lib/botoes';
 import { extrairTextoPdf, lerCondominos, exibirCnpj } from '@/lib/importarCondominos';
 const PainelMoradores = dynamic(() => import('./PainelMoradores'), { ssr: false });
 
@@ -305,14 +306,14 @@ export default function CondominiosPage() {
               <input type="datetime-local" value={dataFimLocal} onChange={e => setDataFimLocal(e.target.value)}
                 className="flex-1 min-w-[160px] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
               <button onClick={handleSavePeriodo} disabled={savingPeriodo}
-                className="px-4 py-2 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500/20 hover:text-white transition-all disabled:opacity-40 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shrink-0">
+                className={cn(btn.pequeno, 'shrink-0')}>
                 {savingPeriodo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 Salvar
               </button>
               {(dataInicioLocal || dataFimLocal) && (
                 <button onClick={() => { setDataInicioLocal(''); setDataFimLocal(''); updatePipeline({ data_inicio: null, prazo_edicao: null }); }}
                   aria-label="Limpar período de edição" title="Limpar período"
-                  className="px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 transition-colors shrink-0">
+                  className={cn(btn.icone, 'shrink-0 border-rose-200 text-rose-500 hover:text-rose-700 hover:border-rose-300')}>
                   <X className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               )}
@@ -410,7 +411,7 @@ export default function CondominiosPage() {
                 </select>
               </div>
               <button onClick={handleAbrirEdicaoMensal} disabled={forcingAll}
-                className="flex-1 min-w-[200px] px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
+                className={cn(btn.primario, 'flex-1 min-w-[200px]')}>
                 {forcingAll ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Unlock className="w-4 h-4" aria-hidden="true" />}
                 Abrir {_MESES[mesEdicao]} para {condoFilter ? '1 condomínio' : `${alvoCount} condomínio(s)`}
               </button>
@@ -447,13 +448,13 @@ export default function CondominiosPage() {
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
             <button
               onClick={() => setImportOpen(true)}
-              className="w-full sm:w-auto bg-white border border-slate-200 text-slate-700 px-5 py-4 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 hover:border-violet-500/40 transition-colors"
+              className={cn(btn.secundario, 'w-full sm:w-auto')}
             >
               <Upload className="w-4 h-4" aria-hidden="true" /> Importar
             </button>
             <button
                onClick={() => openEdit()}
-               className="w-full sm:w-auto bg-violet-600 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-violet-500 shadow-xl shadow-violet-600/20 active:scale-[0.98] transition-colors"
+               className={cn(btn.primario, 'w-full sm:w-auto')}
             >
               <PlusCircle className="w-5 h-5" aria-hidden="true" /> Novo cadastro
             </button>
@@ -626,11 +627,11 @@ export default function CondominiosPage() {
 
           <div className="flex flex-col-reverse sm:flex-row gap-2 pt-1">
             <button type="button" onClick={() => setModalOpen(false)}
-              className="sm:w-auto px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-colors">
+              className={cn(btn.discreto, 'sm:w-auto')}>
               Cancelar
             </button>
             <button type="submit" disabled={isSaving}
-              className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-black rounded-xl transition-colors uppercase tracking-widest text-xs flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed">
+              className={cn(btn.primario, 'flex-1')}>
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="w-4 h-4" aria-hidden="true" />}
               {isSaving ? 'Salvando…' : formData.id ? 'Salvar alterações' : 'Cadastrar condomínio'}
             </button>
@@ -822,11 +823,11 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
 
             <div className="flex flex-col-reverse sm:flex-row gap-2">
               <button type="button" onClick={() => { limpar(); onClose(); }}
-                className="sm:w-auto px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-colors">
+                className={cn(btn.discreto, 'sm:w-auto')}>
                 Cancelar
               </button>
               <button type="button" onClick={conferir} disabled={ocupado || (!pdf && !texto.trim())}
-                className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-black rounded-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                className={cn(btn.primario, 'flex-1')}>
                 {ocupado ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
                 {ocupado ? 'Conferindo…' : 'Conferir antes de importar'}
               </button>
@@ -893,12 +894,12 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
 
             <div className="flex flex-col-reverse sm:flex-row gap-2">
               <button type="button" onClick={() => setPrevia(null)}
-                className="sm:w-auto px-5 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-colors">
+                className={cn(btn.discreto, 'sm:w-auto')}>
                 Voltar
               </button>
               <button type="button" onClick={importar}
                 disabled={ocupado || (previa.resumo.novos === 0 && !(pdf && previa.resumo.atualizados > 0))}
-                className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                className={cn(btn.primario, 'flex-1')}>
                 {ocupado ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Upload className="w-4 h-4" aria-hidden="true" />}
                 {ocupado ? 'Importando…'
                   : pdf ? `Importar ${previa.resumo.novos + previa.resumo.atualizados} registro(s)`
@@ -953,25 +954,28 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores }) {
            </div>
         </div>
 
+        {/* Navegação é NEUTRA: os quatro levam a lugares, nenhum é mais urgente
+            que o outro. Antes um era azul preenchido e os outros cinza, sugerindo
+            uma hierarquia que não existe. */}
         <div className="pt-6 border-t border-slate-200 flex gap-2">
            <button
              onClick={() => onQuickView(c.id)}
              aria-label={`Ver última emissão de ${c.name}`}
              title="Ver última emissão"
-             className="tap inline-flex items-center justify-center bg-violet-500/10 hover:bg-violet-600 text-violet-500 hover:text-white rounded-xl transition-colors border border-violet-500/20">
+             className={btn.icone}>
              <Eye className="w-4 h-4" aria-hidden="true" />
            </button>
            <Link href={`/condominio/${c.id}/arrecadacoes`}
              aria-label={`Abrir planilha de ${c.name}`}
-             className="flex-1 py-3 text-center bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-500 hover:text-slate-900 rounded-xl uppercase tracking-widest transition-colors">Planilha</Link>
+             className={cn(btn.pequeno, 'flex-1')}>Planilha</Link>
            <Link href={`/carteiras/cobrancas?condo=${c.id}`}
              aria-label={`Abrir cobranças extras de ${c.name}`}
-             className="flex-1 py-3 text-center bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-500 hover:text-slate-900 rounded-xl uppercase tracking-widest transition-colors">Cobranças</Link>
+             className={cn(btn.pequeno, 'flex-1')}>Cobranças</Link>
            {canEdit && (
              <button onClick={() => onMoradores(c)}
                aria-label={`Ver moradores de ${c.name}`}
                title="Moradores, CPFs e teste do WhatsApp"
-               className="tap inline-flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-900 rounded-xl transition-colors">
+               className={btn.icone}>
                <Users className="w-4 h-4" aria-hidden="true" />
              </button>
            )}

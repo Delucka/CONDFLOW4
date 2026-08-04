@@ -228,6 +228,25 @@ html.dark {
 .dark .text-amber-400   { color:#fbbf24 !important; }
 .dark .text-rose-400    { color:#fb7185 !important; }
 
+/* Tons SÓLIDOS (500/600/700) no escuro — 825 usos que ficavam sem tratamento.
+   A saturação cheia do tema claro sobre o fundo #0b1120 vibra e cansa a vista;
+   estes valores são dessaturados e clareados só o bastante para o contraste
+   continuar passando. É o "chamativo sem necessidade" do modo escuro. */
+.dark .text-emerald-500, .dark .text-emerald-600, .dark .text-emerald-700 { color:#34d399 !important; }
+.dark .text-amber-500,   .dark .text-amber-600,   .dark .text-amber-700   { color:#fbbf24 !important; }
+.dark .text-rose-500,    .dark .text-rose-600,    .dark .text-rose-700    { color:#fb7185 !important; }
+
+.dark .bg-emerald-500 { background-color:#0f766e !important; }
+.dark .bg-emerald-600 { background-color:#115e59 !important; }
+.dark .bg-amber-500   { background-color:#b45309 !important; }
+.dark .bg-amber-600   { background-color:#92400e !important; }
+.dark .bg-rose-500    { background-color:#be123c !important; }
+.dark .bg-rose-600    { background-color:#9f1239 !important; }
+
+.dark .border-emerald-200, .dark .border-emerald-300 { border-color:#115e59 !important; }
+.dark .border-amber-200,   .dark .border-amber-300   { border-color:#92400e !important; }
+.dark .border-rose-200,    .dark .border-rose-300    { border-color:#9f1239 !important; }
+
 /* ============================================================
    ACESSIBILIDADE — base global
    ============================================================ */
