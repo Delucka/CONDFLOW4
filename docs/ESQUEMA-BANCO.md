@@ -80,6 +80,36 @@ aparecerem no lugar do mês exibido. Sempre indexe por **condomínio + mês**.
 
 ---
 
+## Armadilha 4 — política de RLS existir NÃO quer dizer que ela vale
+
+`CREATE POLICY` numa tabela com RLS desligado é decorativo: o Postgres nem
+consulta a política. Foi o que aconteceu com `processos` — a 0001 criou políticas
+boas, a **0018 desligou o RLS** de sete tabelas, e a 0033 criou
+`processos_all_authenticated` **sem reabilitar**. Ler a 0033 sozinha dá a impressão
+de que a tabela está protegida; ela está aberta desde a 0018.
+
+Desligadas pela 0018: `profiles`, `gerentes`, `condominios`, `processos`,
+`arrecadacoes`, `cobrancas_extras`, `aprovacoes`. A 0073 religou os rateios; a
+0081/0082 religaram `cobrancas_extras` e `processos`. As demais continuam abertas.
+
+**Nunca confie no `CREATE POLICY`. Confira o interruptor:**
+
+```sql
+SELECT relname, relrowsecurity FROM pg_class
+ WHERE relnamespace = 'public'::regnamespace AND relkind = 'r' AND NOT relrowsecurity;
+```
+
+Vale lembrar o que o RLS protege e o que não: o backend usa **service-role**, que
+ignora RLS por definição. O RLS existe para o que o navegador faz **direto** no
+Supabase com a chave `anon` — e várias telas escrevem assim.
+
+Funções de apoio em `0080_rls_helpers.sql`: `papel_atual()` e
+`condominios_da_carteira()`. Use-as em vez de repetir o JOIN da carteira, e
+lembre que elas precisam ser `SECURITY DEFINER` — sem isso, uma política em
+`profiles` que chame função que lê `profiles` entra em recursão infinita.
+
+---
+
 ## Dados pessoais (LGPD)
 
 `condominos` (0071) guarda nome, CPF, telefone e e-mail de morador. A tabela tem
