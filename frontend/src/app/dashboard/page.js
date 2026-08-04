@@ -653,9 +653,9 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex gap-1 justify-end">
-                            <Link href={`/condominio/${c.id}/arrecadacoes`} className={btn.iconeDiscreto} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-3.5 h-3.5" aria-hidden="true" /></Link>
-                            <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className={btn.iconeDiscreto} title="Cobranças" aria-label="Cobranças"><Receipt className="w-3.5 h-3.5" aria-hidden="true" /></Link>
-                            <button onClick={() => handleQuickView(c.id)}   className={btn.iconeDiscreto} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-3.5 h-3.5" aria-hidden="true" /></button>
+                            <Link href={`/condominio/${c.id}/arrecadacoes`} className={btn.iconeDiscreto} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-4 h-4" aria-hidden="true" /></Link>
+                            <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className={btn.iconeDiscreto} title="Cobranças" aria-label="Cobranças"><Receipt className="w-4 h-4" aria-hidden="true" /></Link>
+                            <button onClick={() => handleQuickView(c.id)}   className={btn.iconeDiscreto} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-4 h-4" aria-hidden="true" /></button>
                           </div>
                         </td>
                       </tr>

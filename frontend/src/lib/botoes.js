@@ -44,11 +44,12 @@ export const btn = {
   // Só ícone: 44px de alvo (WCAG 2.5.5) via .tap. Exige aria-label.
   icone: 'tap inline-flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-colors disabled:opacity-40',
 
-  // Ícone para tabelas densas: fundo leve SEM borda. Três botões com borda por
-  // linha × 300 linhas viravam 900 caixas competindo com o conteúdo; sem nada,
-  // ficavam fracos demais para serem notados. O fundo dá presença ao alvo e o
-  // ícone em slate-500 (não 400) mantém legibilidade.
-  iconeDiscreto: 'inline-flex items-center justify-center rounded-lg w-9 h-9 bg-slate-50 text-slate-500 hover:bg-violet-50 hover:text-violet-600 transition-colors disabled:opacity-40',
+  // Ícone de ação em tabela densa. Duas tentativas antes desta erraram a mão:
+  // primeiro com borda (900 molduras numa lista de 300 linhas), depois com
+  // bg-slate-50 sobre painel branco — contraste quase nulo, sumia.
+  // Agora: fundo cinza que se destaca do branco, ícone escuro, e hover que
+  // preenche com a cor da marca para não restar dúvida de que é clicável.
+  iconeDiscreto: 'inline-flex items-center justify-center rounded-lg w-9 h-9 bg-slate-100 border border-slate-200 text-slate-700 hover:bg-violet-600 hover:border-violet-600 hover:text-white transition-colors disabled:opacity-40',
 };
 
 // Junta classes ignorando falsy — evita `className={`${a} ${b || ''}`}` espalhado.
