@@ -262,6 +262,12 @@ DECLARE
   parecer        text;
   achou          boolean := false;
 BEGIN
+  -- Sem o papel `authenticated` não há como imitar o navegador, e o ensaio
+  -- mediria como dono (que ignora RLS) — daria um falso "está tudo bem".
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    RAISE EXCEPTION 'ENSAIO ABORTADO: o papel "authenticated" não existe neste banco. Sem ele o teste mediria como dono da tabela, que ignora RLS.';
+  END IF;
+
   SELECT relrowsecurity INTO rls_cob  FROM pg_class
    WHERE relnamespace='public'::regnamespace AND relname='cobrancas_extras';
   SELECT relrowsecurity INTO rls_proc FROM pg_class
@@ -276,17 +282,26 @@ BEGIN
 
   -- CRÍTICO: o dono da tabela IGNORA RLS. Sem virar `authenticated` de verdade,
   -- tudo pareceria liberado e este ensaio daria um falso "está tudo bem".
+  -- Parênteses obrigatórios em cada ramo: no Postgres o LIMIT pertence ao
+  -- conjunto do UNION, não ao SELECT individual. Sem eles dá
+  -- "syntax error at or near UNION".
   FOR c IN
-      SELECT 'master'::text AS papel, p.id, p.full_name FROM public.profiles p
-       WHERE p.role::text='master' LIMIT 1
+      (SELECT 'master'::text AS papel, p.id, p.full_name
+         FROM public.profiles p
+        WHERE p.role::text='master'
+        LIMIT 1)
     UNION ALL
-      SELECT 'gerente', p.id, p.full_name
-        FROM public.profiles p JOIN public.gerentes g ON g.profile_id=p.id
-       WHERE p.role::text='gerente'
-         AND EXISTS (SELECT 1 FROM public.condominios x WHERE x.gerente_id=g.id) LIMIT 1
+      (SELECT 'gerente'::text, p.id, p.full_name
+         FROM public.profiles p
+         JOIN public.gerentes g ON g.profile_id = p.id
+        WHERE p.role::text='gerente'
+          AND EXISTS (SELECT 1 FROM public.condominios x WHERE x.gerente_id = g.id)
+        LIMIT 1)
     UNION ALL
-      SELECT 'assistente', p.id, p.full_name FROM public.profiles p
-       WHERE p.role::text='assistente' AND p.gerente_id IS NOT NULL LIMIT 1
+      (SELECT 'assistente'::text, p.id, p.full_name
+         FROM public.profiles p
+        WHERE p.role::text='assistente' AND p.gerente_id IS NOT NULL
+        LIMIT 1)
   LOOP
     achou := true;
     PERFORM set_config('request.jwt.claims',
