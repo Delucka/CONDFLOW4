@@ -199,16 +199,19 @@ export default function DashboardPage() {
     revalidateOnFocus: false, dedupingInterval: 30000, keepPreviousData: true,
   });
   const EDI_TO_PROC = { em_edicao: 'Em edição', edicao_finalizada: 'Edição finalizada', reabertura_solicitada: 'Solicitar alteração' };
-  const edicaoByCondo = useMemo(() => {
+  // Indexado por condomínio + MÊS. Antes pegava só a edição mais recente do condomínio,
+  // qualquer que fosse o mês: quem adiantou a previsão de nov/dez e liberou aparecia como
+  // "Edição finalizada" mesmo com o painel mostrando setembro — meses que nem chegaram.
+  const edicaoByCondoMes = useMemo(() => {
     const m = {};
-    // rows já vêm ordenados por ano/mes/aberto_em desc → 1º por condo = mais recente
     for (const e of (edicoesData?.edicoes || [])) {
-      if (!(e.condominio_id in m)) m[e.condominio_id] = e.status;
+      const k = `${e.condominio_id}|${e.mes_referencia}`;
+      if (!(k in m)) m[k] = e.status;   // rows já vêm desc por aberto_em → 1ª = mais recente do mês
     }
     return m;
   }, [edicoesData]);
-  // Status efetivo da Planilha = edição mensal (se houver) senão o semestral
-  const statusPlanilha = (condoId) => EDI_TO_PROC[edicaoByCondo[condoId]] || null;
+  // Status efetivo da Planilha DO MÊS EXIBIDO; sem edição no mês, cai no semestral.
+  const statusPlanilha = (condoId) => EDI_TO_PROC[edicaoByCondoMes[`${condoId}|${mesEmissao}`]] || null;
 
   // Realtime: invalida o cache SWR quando emissoes_pacotes muda
   useEffect(() => {

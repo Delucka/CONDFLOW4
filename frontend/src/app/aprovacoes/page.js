@@ -99,9 +99,14 @@ export default function AprovacoesPage() {
   const { data: filaData, error: filaError, isLoading: filaLoading, mutate: mutateF } =
     useSWR('/api/aprovacoes', apiFetcher, { refreshInterval: 60000 });
 
-  // ── Edicoes Mensais: escopo do ciclo-alvo (não traz meses passados) ──
+  // Mês em foco. A tela só enxergava M+1, então quem adiantava a previsão de
+  // out/nov/dez ficava invisível aqui — e sem como liberar ou reabrir.
+  const [mesFoco, setMesFoco] = useState(mesAlvo);
+  const [anoFoco, setAnoFoco] = useState(anoAlvo);
+
+  // ── Edicoes Mensais do mês em foco ──
   const { data: edicoesData, isLoading: edicoesLoading, mutate: mutateE } =
-    useSWR(`/api/edicoes-mensais?mes=${mesAlvo}&ano=${anoAlvo}`, apiFetcher, { revalidateOnFocus: false, refreshInterval: 60000 });
+    useSWR(`/api/edicoes-mensais?mes=${mesFoco}&ano=${anoFoco}`, apiFetcher, { revalidateOnFocus: false, refreshInterval: 60000 });
   const edicoes = edicoesData?.edicoes || [];
   const edicoesEmEdicao    = edicoes.filter(e => e.status === 'em_edicao');
   const edicoesFinalizadas = edicoes.filter(e => e.status === 'edicao_finalizada');
@@ -126,10 +131,14 @@ export default function AprovacoesPage() {
   }
   async function handleLiberarTodos() {
     if (edicoesEmEdicao.length === 0) return;
-    if (!confirm(`Liberar todos os ${edicoesEmEdicao.length} condomínios deste mês?`)) return;
+    if (!confirm(`Liberar os ${edicoesEmEdicao.length} condomínios de ${MESES[mesFoco]}/${anoFoco}?`)) return;
     setExecutandoEdicao('all');
     try {
-      const res = await apiPost('/api/edicoes-mensais/liberar-todos', {});
+      // Mês/ano EXPLÍCITOS: mandando {} o backend escolhia o mês padrão dele, que
+      // podia não ser o que está na tela — liberava um mês que ninguém pediu.
+      const res = await apiPost('/api/edicoes-mensais/liberar-todos', {
+        ids: edicoesEmEdicao.map(e => e.id), mes: mesFoco, ano: anoFoco,
+      });
       addToast(`${res.liberados} condomínios liberados`, 'success');
       mutateE();
     } catch (e) {
@@ -395,10 +404,28 @@ export default function AprovacoesPage() {
         <div className="space-y-6">
           {/* Cabecalho do periodo + botão liberar todos (gerente) */}
           <div className="glass-panel p-5 rounded-[2rem] border border-slate-200 flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-violet-400 mb-1">Ciclo atual</p>
-              <h3 className="text-xl font-black text-slate-900">{MESES[mesAlvo]} / {anoAlvo}</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Edições mensais em andamento</p>
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <label htmlFor="apr-mes" className="text-[10px] font-black uppercase tracking-widest text-violet-400 mb-1 block">
+                  Planilhas de
+                </label>
+                <div className="flex items-center gap-2">
+                  <select id="apr-mes" value={mesFoco} onChange={(e) => setMesFoco(Number(e.target.value))}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-violet-500 cursor-pointer">
+                    {MESES.slice(1).map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+                  </select>
+                  <select value={anoFoco} onChange={(e) => setAnoFoco(Number(e.target.value))} aria-label="Ano"
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-violet-500 cursor-pointer">
+                    {[anoAlvo - 1, anoAlvo, anoAlvo + 1].map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {mesFoco === mesAlvo && anoFoco === anoAlvo
+                    ? 'Ciclo atual'
+                    : <span className="text-amber-600 font-bold">Fora do ciclo atual ({MESES[mesAlvo]}/{anoAlvo})</span>}
+                  {' · '}{edicoes.length} planilha(s)
+                </p>
+              </div>
             </div>
             {isGerente && edicoesEmEdicao.length > 0 && (
               <button
