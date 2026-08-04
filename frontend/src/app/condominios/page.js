@@ -128,6 +128,10 @@ export default function CondominiosPage() {
   const [forcarReabertura, setForcarReabertura] = useState(false);
 
   const handleForceAll = async (status) => {
+    // Escrita em massa no status semestral: sem confirmação, um clique marcava
+    // centenas de condomínios como finalizados — sem desfazer.
+    const verbo = status === 'Edição finalizada' ? 'FINALIZAR a edição' : 'ABRIR a edição';
+    if (!confirm(`${verbo} de ${alvoLabel}?\n\nIsto muda o processo SEMESTRAL de ${pipelineAno}, não o ciclo mensal.`)) return;
     setForcingAll(true);
     try {
       const sem = new Date().getMonth() < 6 ? 1 : 2;
@@ -183,6 +187,16 @@ export default function CondominiosPage() {
   // condos[].gerente_id é gerentes.id; o dropdown usa o id do PROFILE — então casamos pela carteira por NOME
   const selGerenteNome = gerentes.find(g => g.id === gerenteFilter)?.full_name || null;
   const condosDaSelecao = gerenteFilter ? condos.filter(c => (c.gerente_name || '') === selGerenteNome) : condos;
+
+  // Quantos condomínios a ação em massa vai atingir, e como descrever isso.
+  // Fica AQUI, depois de condosDaSelecao — declarar antes dava ReferenceError
+  // (temporal dead zone), que o lint não acusa e só quebra em tempo de execução.
+  const alvoCount = condoFilter ? 1 : condosDaSelecao.length;
+  const alvoLabel = condoFilter
+    ? (condos.find(c => c.id === condoFilter)?.name || 'este condomínio')
+    : gerenteFilter
+    ? `a carteira de ${selGerenteNome || 'um gerente'} (${alvoCount})`
+    : `TODOS os ${alvoCount} condomínios`;
 
   const canEdit = user?.role === 'master';
   const filtered = condos.filter(c => combina(search, c.name, c.gerente_name));
@@ -384,11 +398,13 @@ export default function CondominiosPage() {
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Aplicar para</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <select value={gerenteFilter} onChange={e => { setGerenteFilter(e.target.value); setCondoFilter(''); }}
+                aria-label="Restringir a um gerente"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all">
                 <option value="">Todos os Gerentes</option>
                 {gerentes.map(g => (<option key={g.id} value={g.id}>{g.full_name}</option>))}
               </select>
               <select value={condoFilter} onChange={e => setCondoFilter(e.target.value)}
+                aria-label="Restringir a um condomínio"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all">
                 <option value="">{gerenteFilter ? 'Todos da carteira' : 'Todos os condomínios'}</option>
                 {condosDaSelecao.map(c => (
@@ -403,46 +419,73 @@ export default function CondominiosPage() {
             </p>
           </div>
 
-          {/* Ações globais */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <button onClick={() => handleForceAll('Em edição')} disabled={forcingAll}
-              className="py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 hover:text-white disabled:opacity-40 flex items-center justify-center gap-2">
-              {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unlock className="w-3.5 h-3.5" />}
-              Abrir Edição a Todos
-            </button>
-            <button onClick={() => handleForceAll('Edição finalizada')} disabled={forcingAll}
-              className="py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 hover:text-white disabled:opacity-40 flex items-center justify-center gap-2">
-              {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
-              Finalizar Edição a Todos
-            </button>
-          </div>
-
-          {/* Ciclo mensal — abre/REABRE edicoes_mensais de QUALQUER mês (resolve "não reabre") */}
-          <div className="mt-3 p-3 rounded-xl bg-violet-500/5 border border-violet-500/20">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div>
-                  <p className="text-[10px] font-black text-violet-300 uppercase tracking-widest">Ciclo mensal · {pipelineAno}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Abre o mês p/ os gerentes editarem · o que já foi <b>liberado</b> continua liberado</p>
-                </div>
-                <select value={mesEdicao} onChange={e => setMesEdicao(Number(e.target.value))}
-                  className="bg-white border border-violet-200 rounded-lg px-2.5 py-2 text-xs font-bold text-slate-800 outline-none focus:border-violet-500/50">
-                  {_MESES.slice(1).map((nome, i) => (<option key={i + 1} value={i + 1}>{nome}</option>))}
+          {/* ── AÇÃO PRINCIPAL: ciclo mensal ──────────────────────────────────
+              Promovido acima do semestral de propósito. São os dois fluxos
+              paralelos do sistema (ver CLAUDE.md) e a tela os mostrava com o
+              mesmo peso, como se fossem a mesma coisa — origem da confusão de
+              "edição finalizada" em mês que nem chegou. */}
+          <div className="rounded-2xl bg-violet-500/5 border border-violet-500/25 p-4 space-y-3">
+            <div>
+              <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Ciclo mensal · o dia a dia</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Abre o mês para os gerentes preencherem. O que já foi <b>liberado</b> continua liberado.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <label htmlFor="ciclo-mes" className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Mês</label>
+                <select id="ciclo-mes" value={mesEdicao} onChange={e => setMesEdicao(Number(e.target.value))}
+                  className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-violet-500 cursor-pointer">
+                  {_MESES.slice(1).map((nome, i) => (<option key={i + 1} value={i + 1}>{nome}/{pipelineAno}</option>))}
                 </select>
-                <label className="flex items-center gap-2 text-[10px] font-bold text-slate-600 cursor-pointer select-none"
-                  title="Por padrão, abrir o mês NÃO desfaz o que o gerente já liberou. Marque para reabrir mesmo assim.">
-                  <input type="checkbox" checked={forcarReabertura} onChange={e => setForcarReabertura(e.target.checked)}
-                    className="rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
-                  Reabrir também os já liberados
-                </label>
               </div>
               <button onClick={handleAbrirEdicaoMensal} disabled={forcingAll}
-                className="px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-violet-500 hover:bg-violet-400 text-white disabled:opacity-50 flex items-center gap-2">
-                {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unlock className="w-3.5 h-3.5" />}
-                Abrir / Reabrir mês
+                className="flex-1 min-w-[200px] px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
+                {forcingAll ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Unlock className="w-4 h-4" aria-hidden="true" />}
+                Abrir {_MESES[mesEdicao]} para {condoFilter ? '1 condomínio' : `${alvoCount} condomínio(s)`}
               </button>
             </div>
+            <label className="flex items-start gap-2 text-[11px] text-slate-600 cursor-pointer select-none">
+              <input type="checkbox" checked={forcarReabertura} onChange={e => setForcarReabertura(e.target.checked)}
+                className="mt-0.5 rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
+              <span>
+                <b>Reabrir também os já liberados</b>
+                <span className="block text-slate-400">
+                  Desmarcado, a previsão que o gerente já entregou fica de pé. Marque só para forçar todo mundo a revisar.
+                </span>
+              </span>
+            </label>
           </div>
+
+          {/* ── Ação secundária: processo semestral ── */}
+          {/* <details> de propósito: já vem com teclado (Enter/Espaço no summary),
+              estado exposto ao leitor de tela e sem JS. Só a seta precisa girar. */}
+          <details className="group rounded-2xl border border-slate-200 bg-slate-50/60 overflow-hidden">
+            <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between gap-3 hover:bg-slate-100/60 transition-colors">
+              <span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Processo semestral · raramente usado</span>
+                <span className="text-[11px] text-slate-400">Muda o status do semestre inteiro — outro fluxo, não o mensal</span>
+              </span>
+              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 transition-transform group-open:rotate-90" aria-hidden="true" />
+            </summary>
+            <div className="px-4 pb-4 pt-1 space-y-2">
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                Estas ações atingem <b>{alvoLabel}</b> de uma vez e não têm desfazer.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button onClick={() => handleForceAll('Em edição')} disabled={forcingAll}
+                  className="py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 flex items-center justify-center gap-2">
+                  {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Unlock className="w-3.5 h-3.5" aria-hidden="true" />}
+                  Abrir edição do semestre
+                </button>
+                <button onClick={() => handleForceAll('Edição finalizada')} disabled={forcingAll}
+                  className="py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 disabled:opacity-40 flex items-center justify-center gap-2">
+                  {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Lock className="w-3.5 h-3.5" aria-hidden="true" />}
+                  Finalizar edição do semestre
+                </button>
+              </div>
+            </div>
+          </details>
 
         </div>
       )}
