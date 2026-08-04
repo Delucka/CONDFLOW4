@@ -127,30 +127,6 @@ export default function CondominiosPage() {
   // Marcar aqui força a reabertura mesmo assim.
   const [forcarReabertura, setForcarReabertura] = useState(false);
 
-  const handleForceAll = async (status) => {
-    // Escrita em massa no status semestral: sem confirmação, um clique marcava
-    // centenas de condomínios como finalizados — sem desfazer.
-    const verbo = status === 'Edição finalizada' ? 'FINALIZAR a edição' : 'ABRIR a edição';
-    if (!confirm(`${verbo} de ${alvoLabel}?\n\nIsto muda o processo SEMESTRAL de ${pipelineAno}, não o ciclo mensal.`)) return;
-    setForcingAll(true);
-    try {
-      const sem = new Date().getMonth() < 6 ? 1 : 2;
-      const payload = { status, ano: pipelineAno, semestre: sem };
-      if (condoFilter) payload.condominio_id = condoFilter;
-      else if (gerenteFilter) payload.gerente_id = gerenteFilter;
-      const res = await apiPost('/api/pipeline/force-all', payload);
-      const alvo = condoFilter
-        ? (condos.find(c => c.id === condoFilter)?.name || 'condomínio')
-        : gerenteFilter
-        ? (gerentes.find(g => g.id === gerenteFilter)?.full_name || 'gerente')
-        : 'todos';
-      addToast(`"${status}" aplicado a ${res.updated} condomínios (${alvo})!`, 'success');
-    } catch (err) {
-      addToast('Erro: ' + err.message, 'error');
-    } finally {
-      setForcingAll(false);
-    }
-  };
 
   // Edicao mensal — abre o ciclo para o mes seguinte
   const _now = new Date();
@@ -192,11 +168,6 @@ export default function CondominiosPage() {
   // Fica AQUI, depois de condosDaSelecao — declarar antes dava ReferenceError
   // (temporal dead zone), que o lint não acusa e só quebra em tempo de execução.
   const alvoCount = condoFilter ? 1 : condosDaSelecao.length;
-  const alvoLabel = condoFilter
-    ? (condos.find(c => c.id === condoFilter)?.name || 'este condomínio')
-    : gerenteFilter
-    ? `a carteira de ${selGerenteNome || 'um gerente'} (${alvoCount})`
-    : `TODOS os ${alvoCount} condomínios`;
 
   const canEdit = user?.role === 'master';
   const filtered = condos.filter(c => combina(search, c.name, c.gerente_name));
@@ -420,10 +391,9 @@ export default function CondominiosPage() {
           </div>
 
           {/* ── AÇÃO PRINCIPAL: ciclo mensal ──────────────────────────────────
-              Promovido acima do semestral de propósito. São os dois fluxos
-              paralelos do sistema (ver CLAUDE.md) e a tela os mostrava com o
-              mesmo peso, como se fossem a mesma coisa — origem da confusão de
-              "edição finalizada" em mês que nem chegou. */}
+              A tela também tinha as ações do processo SEMESTRAL aqui, com o
+              mesmo peso visual — origem da confusão de "edição finalizada" em
+              mês que nem chegou. Foram removidas: o trabalho é todo mensal. */}
           <div className="rounded-2xl bg-violet-500/5 border border-violet-500/25 p-4 space-y-3">
             <div>
               <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Ciclo mensal · o dia a dia</p>
@@ -457,35 +427,6 @@ export default function CondominiosPage() {
             </label>
           </div>
 
-          {/* ── Ação secundária: processo semestral ── */}
-          {/* <details> de propósito: já vem com teclado (Enter/Espaço no summary),
-              estado exposto ao leitor de tela e sem JS. Só a seta precisa girar. */}
-          <details className="group rounded-2xl border border-slate-200 bg-slate-50/60 overflow-hidden">
-            <summary className="px-4 py-3 cursor-pointer list-none flex items-center justify-between gap-3 hover:bg-slate-100/60 transition-colors">
-              <span>
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Processo semestral · raramente usado</span>
-                <span className="text-[11px] text-slate-400">Muda o status do semestre inteiro — outro fluxo, não o mensal</span>
-              </span>
-              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 transition-transform group-open:rotate-90" aria-hidden="true" />
-            </summary>
-            <div className="px-4 pb-4 pt-1 space-y-2">
-              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                Estas ações atingem <b>{alvoLabel}</b> de uma vez e não têm desfazer.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button onClick={() => handleForceAll('Em edição')} disabled={forcingAll}
-                  className="py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40 flex items-center justify-center gap-2">
-                  {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Unlock className="w-3.5 h-3.5" aria-hidden="true" />}
-                  Abrir edição do semestre
-                </button>
-                <button onClick={() => handleForceAll('Edição finalizada')} disabled={forcingAll}
-                  className="py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 disabled:opacity-40 flex items-center justify-center gap-2">
-                  {forcingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> : <Lock className="w-3.5 h-3.5" aria-hidden="true" />}
-                  Finalizar edição do semestre
-                </button>
-              </div>
-            </div>
-          </details>
 
         </div>
       )}

@@ -175,17 +175,23 @@ export default function ArrecadacoesPage() {
     return { liberadoEm, registradoEm, expedidoEm };
   }, [edicoesCondo, pacotesDatas]);
 
-  async function liberarEdicaoMensal(edicao) {
+  async function liberarEdicaoMensal(edicao, forcar = false) {
     setEdicaoLoading(true);
     try {
       // Salva as alterações da planilha ANTES de finalizar (senão o gerente perderia o que editou)
       const ok = await handleSave(true);
       if (!ok) { addToast('Não consegui salvar as alterações — corrija e tente de novo.', 'error'); return; }
-      await apiPost(`/api/edicoes-mensais/${edicao.id}/liberar`, {});
-      addToast(`Salvo e liberado: ${edicao.condominios?.name || 'mês'} - ${String(edicao.mes_referencia).padStart(2,'0')}/${edicao.ano_referencia}`, 'success');
+      await apiPost(`/api/edicoes-mensais/${edicao.id}/liberar`, { forcar });
+      addToast(`Salvo e liberado: ${edicao.condominios?.name || 'mês'} - ${String(edicao.mes_referencia).padStart(2,'0')}/${edicao.ano_referencia}. A emissão foi avisada.`, 'success');
       await fetchEdicoes();
     } catch (e) {
-      addToast(e.message || 'Erro ao liberar', 'error');
+      // 422 = planilha do mês está em branco. Pergunta antes de recusar de vez.
+      const msg = e.message || 'Erro ao liberar';
+      if (/em branco|sem nenhum valor|valor preenchido/i.test(msg)) {
+        if (confirm(`${msg}\n\nLiberar assim mesmo?`)) { await liberarEdicaoMensal(edicao, true); return; }
+      } else {
+        addToast(msg, 'error');
+      }
     } finally {
       setEdicaoLoading(false);
     }
@@ -197,20 +203,33 @@ export default function ArrecadacoesPage() {
     [edicoesCondo],
   );
   const [showLiberarTodos, setShowLiberarTodos] = useState(false);
-  async function liberarTodosMesesAbertos() {
+  async function liberarTodosMesesAbertos(forcar = false) {
     setEdicaoLoading(true);
     try {
       // Salva antes de liberar (mesmo cuidado do "Liberar este mês")
       const ok = await handleSave(true);
       if (!ok) { addToast('Não consegui salvar as alterações — corrija e tente de novo.', 'error'); return; }
       const ids = mesesAbertos.map(e => e.id);
-      const res = await apiPost('/api/edicoes-mensais/liberar-todos', { ids });
+      const res = await apiPost('/api/edicoes-mensais/liberar-todos', { ids, forcar });
       const n = res?.liberados ?? ids.length;
-      addToast(`${n} ${n === 1 ? 'mês liberado' : 'meses liberados'} — não precisa confirmar de novo.`, 'success');
+      const pulados = res?.pulados_em_branco || [];
+      if (pulados.length) {
+        // Meses vazios ficam de fora e são nomeados: o gerente vê o que falta preencher.
+        addToast(`${n} liberado(s). Ficaram de fora por estarem em branco: ${pulados.join(', ')}.`, 'warning');
+      } else {
+        addToast(`${n} ${n === 1 ? 'mês liberado' : 'meses liberados'} — não precisa confirmar de novo. A emissão foi avisada.`, 'success');
+      }
       setShowLiberarTodos(false);
       await fetchEdicoes();
     } catch (e) {
-      addToast(e.message || 'Erro ao liberar', 'error');
+      // 422 = tudo em branco. Pergunta em vez de só recusar.
+      const msg = e.message || 'Erro ao liberar';
+      if (/em branco|sem nenhum valor|valor preenchido/i.test(msg)) {
+        if (confirm(`${msg}\n\nLiberar assim mesmo?`)) { await liberarTodosMesesAbertos(true); return; }
+        setShowLiberarTodos(false);
+      } else {
+        addToast(msg, 'error');
+      }
     } finally {
       setEdicaoLoading(false);
     }

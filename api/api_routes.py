@@ -3980,8 +3980,14 @@ def api_listar_edicoes(
     return {"edicoes": res.data or []}
 
 
+class LiberarSchema(BaseModel):
+    # Marcado pelo gerente quando ele confirma que a planilha vazia é intencional.
+    forcar: bool = False
+
+
 @router.post("/edicoes-mensais/{edicao_id}/liberar")
-def api_liberar_edicao(edicao_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+def api_liberar_edicao(edicao_id: str, data: Optional[LiberarSchema] = None,
+                       user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     """Gerente finaliza a edicao de UM condominio."""
     role = user.get("role")
     if role not in ("master", "gerente"):
@@ -4000,11 +4006,18 @@ def api_liberar_edicao(edicao_id: str, user: dict = Depends(get_current_user), d
     if edi["status"] != "em_edicao":
         raise HTTPException(400, f"Status atual nao permite liberacao: {edi['status']}")
 
+    # Qualidade: não deixa sair planilha em branco (a menos que o gerente insista).
+    if not (data and data.forcar) and _meses_em_branco(db, [edi]):
+        mes_lbl = f"{_MES_NOME[edi['mes_referencia']]}/{edi['ano_referencia']}"
+        raise HTTPException(422, f"A planilha de {mes_lbl} está sem nenhum valor preenchido. "
+                                 "Preencha antes de liberar, ou confirme que é intencional.")
+
     from datetime import datetime, timezone
     db.table("edicoes_mensais").update({
         "status": "edicao_finalizada",
         "liberado_em": datetime.now(timezone.utc).isoformat(),
     }).eq("id", edicao_id).execute()
+    _notificar_emissao_liberacao(db, [edi], user.get("full_name") or "Um gerente")
     return {"ok": True}
 
 
@@ -4012,6 +4025,7 @@ class LiberarTodosSchema(BaseModel):
     mes: Optional[int] = None
     ano: Optional[int] = None
     ids: Optional[List[str]] = None   # libera exatamente estas edições (vários MESES de uma vez)
+    forcar: bool = False              # ignora a trava de planilha em branco
 
 
 @router.post("/edicoes-mensais/liberar-todos")
@@ -4026,21 +4040,35 @@ def api_liberar_todos(data: LiberarTodosSchema, user: dict = Depends(get_current
     # Modo "vários meses": o gerente manda as edições abertas que quer liberar de uma vez
     # (a previsão que ele preencheu), em vez de confirmar mês a mês.
     if data.ids:
-        q = db.table("edicoes_mensais").select("id, gerente_id, status").in_("id", data.ids)
+        q = db.table("edicoes_mensais").select(
+            "id, gerente_id, status, condominio_id, mes_referencia, ano_referencia"
+        ).in_("id", data.ids)
         if role == "gerente":
             g_id = get_gerente_id(db, user["id"])
             if not g_id:
                 return {"ok": True, "liberados": 0}
             q = q.eq("gerente_id", g_id)
-        rows = q.execute().data or []
-        ids = [e["id"] for e in rows if e.get("status") == "em_edicao"]
-        if not ids:
+        rows = [e for e in (q.execute().data or []) if e.get("status") == "em_edicao"]
+        if not rows:
             return {"ok": True, "liberados": 0}
+
+        # Qualidade: mês sem nenhum valor não sai junto no bolo. Fica de fora e é
+        # devolvido nomeado, para o gerente ver exatamente qual precisa preencher.
+        em_branco = set() if data.forcar else _meses_em_branco(db, rows)
+        liberar = [e for e in rows
+                   if (e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) not in em_branco]
+        pulados = [f"{_MES_NOME[e['mes_referencia']]}/{e['ano_referencia']}"
+                   for e in rows
+                   if (e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) in em_branco]
+        if not liberar:
+            raise HTTPException(422, "Nenhum mês tinha valor preenchido: " + ", ".join(sorted(set(pulados))))
+
         db.table("edicoes_mensais").update({
             "status": "edicao_finalizada",
             "liberado_em": datetime.now(timezone.utc).isoformat(),
-        }).in_("id", ids).execute()
-        return {"ok": True, "liberados": len(ids)}
+        }).in_("id", [e["id"] for e in liberar]).execute()
+        _notificar_emissao_liberacao(db, liberar, user.get("full_name") or "Um gerente")
+        return {"ok": True, "liberados": len(liberar), "pulados_em_branco": sorted(set(pulados))}
 
     mes_padrao, ano_padrao = _mes_alvo_padrao()
     mes = data.mes or mes_padrao
@@ -4105,6 +4133,96 @@ def api_solicitar_reabertura(edicao_id: str, data: SolicitarReaberturaSchema, us
 
 class ResponderReaberturaSchema(BaseModel):
     aprovar: bool
+
+
+_MES_NOME = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+             'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+
+def _meses_em_branco(db, edicoes):
+    """Dentre as edições, quais têm a planilha do mês SEM NENHUM valor preenchido.
+
+    Liberar um mês em branco é o erro caro: a emissão só descobre quando vai
+    montar o boleto, já fora do prazo. Aqui é uma checagem em 3 consultas, não
+    uma por condomínio — o gerente pode liberar vários meses de uma vez.
+    """
+    if not edicoes:
+        return set()
+    condo_ids = list({e["condominio_id"] for e in edicoes})
+    anos = list({e["ano_referencia"] for e in edicoes})
+    try:
+        procs = db.table("processos").select("id, condominio_id, year") \
+            .in_("condominio_id", condo_ids).in_("year", anos).execute().data or []
+        if not procs:
+            return {(e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) for e in edicoes}
+        proc_por_id = {p["id"]: p for p in procs}
+        cfgs = db.table("rateios_config").select("id, processo_id") \
+            .in_("processo_id", list(proc_por_id)).execute().data or []
+        if not cfgs:
+            return {(e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) for e in edicoes}
+        cfg_por_id = {c["id"]: c for c in cfgs}
+        vals = db.table("rateios_valores").select("rateio_id, month, valor") \
+            .in_("rateio_id", list(cfg_por_id)).execute().data or []
+    except Exception as e:
+        print(f"[liberar] checagem de preenchimento indisponível: {type(e).__name__}")
+        return set()   # na dúvida não bloqueia o gerente
+
+    # (condominio, ano, mes) que têm ao menos um valor com conteúdo
+    preenchidos = set()
+    for v in vals:
+        cfg = cfg_por_id.get(v.get("rateio_id"))
+        proc = proc_por_id.get((cfg or {}).get("processo_id"))
+        if not proc:
+            continue
+        bruto = (v.get("valor") or "").strip()
+        if not bruto or bruto in ("0", "0.00", "0,00", "R$ 0,00"):
+            continue
+        preenchidos.add((proc["condominio_id"], proc["year"], v.get("month")))
+
+    return {
+        (e["condominio_id"], e["ano_referencia"], e["mes_referencia"])
+        for e in edicoes
+        if (e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) not in preenchidos
+    }
+
+
+def _notificar_emissao_liberacao(db, edicoes, autor_nome):
+    """Avisa a emissão (master + departamento) que planilhas foram liberadas.
+
+    Antes disso ninguém era avisado: a emissão só descobria abrindo a tela e
+    reparando que o status tinha mudado."""
+    if not edicoes:
+        return
+    try:
+        nomes = {}
+        for c in (db.table("condominios").select("id, name")
+                  .in_("id", list({e["condominio_id"] for e in edicoes})).execute().data or []):
+            nomes[c["id"]] = c["name"]
+
+        meses = sorted({(e["ano_referencia"], e["mes_referencia"]) for e in edicoes})
+        rotulo_meses = " · ".join(f"{_MES_NOME[m]}/{a}" for a, m in meses[:4])
+        if len(meses) > 4:
+            rotulo_meses += f" (+{len(meses) - 4})"
+
+        condos = sorted({nomes.get(e["condominio_id"], "condomínio") for e in edicoes})
+        if len(condos) == 1:
+            titulo = f"Planilha liberada · {condos[0]}"
+        else:
+            titulo = f"{len(condos)} planilhas liberadas"
+        mensagem = f"{autor_nome} liberou {rotulo_meses}."
+        if len(condos) > 1:
+            mensagem += f" Condomínios: {', '.join(condos[:3])}{'…' if len(condos) > 3 else ''}"
+
+        alvos = db.table("profiles").select("id").in_("role", ["master", "departamento"]).execute().data or []
+        for p in alvos:
+            db.table("notificacoes").insert({
+                "user_id": p["id"], "tipo": "planilha_liberada",
+                "titulo": titulo[:120], "mensagem": mensagem[:240],
+                "link": "/aprovacoes",
+            }).execute()
+    except Exception as e:
+        # Notificação nunca pode derrubar a liberação em si.
+        print(f"[liberar] notificação falhou: {type(e).__name__}")
 
 
 @router.post("/edicoes-mensais/{edicao_id}/responder-reabertura")
