@@ -1,0 +1,96 @@
+name: Publicar na Vercel
+
+# GATILHO MANUAL, de propósito.
+#
+# Um workflow em `push` transferiria para o merge a decisão de quando a produção
+# muda — hoje essa decisão é sua. Aqui você aperta o botão: Actions → "Publicar
+# na Vercel" → Run workflow. Se um dia quiser automático, é trocar este bloco
+# por `on: push: branches: [main]`.
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: 'Onde publicar'
+        type: choice
+        options:
+          - previa      # URL temporária, NÃO mexe em produção — comece por aqui
+          - producao    # emissaonline.com
+        default: previa
+      origem:
+        description: 'De onde publicar (veja docs/DEPLOY.md antes de mudar)'
+        type: choice
+        options:
+          - frontend    # espelha o `cd frontend && npx vercel --prod` do CLAUDE.md
+          - raiz        # usa o vercel.json da raiz — publica o FastAPI JUNTO
+        default: frontend
+
+# Uma publicação por vez: dois deploys simultâneos na mesma origem podem
+# aterrissar fora de ordem e a produção acabar com o build mais antigo.
+concurrency:
+  group: vercel-${{ inputs.ambiente }}
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Falha cedo e explicando, em vez de estourar lá na frente com erro de
+      # autenticação que não diz o que fazer.
+      - name: Conferir os segredos
+        env:
+          TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          ORG: ${{ secrets.VERCEL_ORG_ID }}
+          PROJ: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          faltando=""
+          [ -n "$TOKEN" ] || faltando="$faltando VERCEL_TOKEN"
+          [ -n "$ORG" ]   || faltando="$faltando VERCEL_ORG_ID"
+          [ -n "$PROJ" ]  || faltando="$faltando VERCEL_PROJECT_ID"
+          if [ -n "$faltando" ]; then
+            echo "::error::Faltam segredos do repositório:$faltando"
+            echo "Cadastre em Settings → Secrets and variables → Actions."
+            echo "Como obter cada um: docs/DEPLOY.md"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependências
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      # Barra código quebrado ANTES de chegar na Vercel. Sem isto, um erro de
+      # build só aparece no fim, depois do upload.
+      - name: Verificar o build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Publicar
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          # A origem decide o artefato: de `frontend/` o vercel.json da raiz NÃO
+          # se aplica; da raiz, ele publica frontend + api/index.py juntos.
+          if [ "${{ inputs.origem }}" = "raiz" ]; then dir="."; else dir="frontend"; fi
+          # Espelha o comando manual do CLAUDE.md: fonte enviada, build na Vercel.
+          if [ "${{ inputs.ambiente }}" = "producao" ]; then prod="--prod"; else prod=""; fi
+
+          echo "Publicando de '$dir' em ${{ inputs.ambiente }}"
+          url=$(npx --yes vercel@latest deploy "$dir" $prod --yes --token="$TOKEN")
+          echo "$url"
+          {
+            echo "### Publicado em \`${{ inputs.ambiente }}\`"
+            echo ""
+            echo "- origem: \`$dir\`"
+            echo "- URL: $url"
+          } >> "$GITHUB_STEP_SUMMARY"

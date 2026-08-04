@@ -32,6 +32,14 @@ npx vercel --prod --yes
 ```
 `git push` alone does NOT trigger Vercel. Always use the CLI command above.
 
+Alternativa sem depender da máquina local: Actions → **Publicar na Vercel** (gatilho
+manual; `git push` continua não publicando). Exige 3 segredos no repositório.
+
+⚠️ Antes de publicar pela raiz, leia **`docs/DEPLOY.md`**: o `vercel.json` da raiz
+declara dois builds (Next **+** `api/index.py`), enquanto o comando acima roda de
+dentro de `frontend/`, onde esse arquivo não se aplica. São artefatos diferentes —
+qual deles está em produção depende do *Root Directory* configurado no projeto.
+
 ### API (FastAPI)
 
 ```bash
