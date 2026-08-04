@@ -22,6 +22,7 @@ import FilaOcorrencias from '@/app/central-emissoes/components/FilaOcorrencias';
 import { SkeletonTable } from '@/components/Skeleton';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { btn, cn } from '@/lib/botoes';
+import { tipo, raio } from '@/lib/tipografia';
 
 // Trabalhamos 1 mês à frente: o padrão das telas é o mês VIGENTE (M+1).
 // O cálculo fica DENTRO do componente (useState), não aqui no escopo do módulo:
@@ -308,7 +309,7 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center p-20 text-center glass-panel rounded-3xl">
         <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
-        <h3 className="text-xl font-bold text-slate-900 mb-2">Erro de Conexão</h3>
+        <h3 className={`${tipo.titulo} mb-2`}>Erro de conexão</h3>
         <p className="text-slate-400 mb-6">Não foi possível carregar os dados do painel. O servidor pode estar iniciando — tente de novo em alguns segundos.</p>
         <button onClick={() => mutate()} className={btn.primario}>Tentar novamente</button>
       </div>
@@ -457,11 +458,11 @@ export default function DashboardPage() {
                   {/* Status */}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3 pl-[26px]">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Planilha</span>
+                      <span className={tipo.rotulo}>Planilha</span>
                       {procStatus ? <StatusBadge status={procStatus} flow="processo" /> : <span className="text-[10px] text-slate-400 font-bold">—</span>}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Emissão</span>
+                      <span className={tipo.rotulo}>Emissão</span>
                       {emissaoStatus ? <StatusBadge status={emissaoStatus} flow="emissao" /> : <span className="text-[10px] text-slate-400 font-bold">—</span>}
                     </div>
                   </div>
@@ -505,60 +506,74 @@ export default function DashboardPage() {
 
         {/* Tabela de Condomínios (Esquerda - 2/3) */}
         <div className="lg:col-span-2 glass-panel rounded-xl overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-            <div className="border-l-2 border-violet-500 pl-3">
-              <h3 className="text-xs font-black text-slate-900 leading-none uppercase tracking-tight">Situação Semestral</h3>
-              <p className="text-[9px] uppercase tracking-widest text-violet-400 font-bold mt-1">
-                {data?.year || vigente.ano} · {data?.semester === 1 ? '1º' : '2º'} Semestre
+          {/* Cabeçalho + busca. Antes eram três controles do mesmo tamanho lado a
+              lado, o placeholder cortava no meio ("Buscar condomínio (código ou no…")
+              e nada dizia quantos resultados sobraram. Agora a BUSCA é larga e
+              sozinha na linha; mês e gerente ficam abaixo, menores, com o total. */}
+          <div className="px-4 py-3.5 border-b border-slate-200 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h3 className={tipo.secao}>Condomínios</h3>
+                <p className={tipo.auxiliar}>
+                  Planilha e emissão de {MESES[mesEmissao]}/{vigente.ano}
+                </p>
+              </div>
+              <p className={tipo.auxiliar}>
+                <span className="tabular-nums font-medium text-slate-600">{condosOrdenados.length}</span>
+                {condosOrdenados.length !== condos.length && (
+                  <span className="tabular-nums"> de {condos.length}</span>
+                )} {condosOrdenados.length === 1 ? 'condomínio' : 'condomínios'}
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full sm:w-auto">
-              {/* Busca por condomínio (código ou nome) ou gerente */}
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                <input
-                  value={buscaCondo}
-                  onChange={(e) => setBuscaCondo(e.target.value)}
-                  placeholder="Buscar condomínio (código ou nome) ou gerente…"
-                  aria-label="Buscar condomínio"
-                  className="w-full text-xs bg-white border border-slate-200 rounded-xl pl-8 pr-8 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all"
-                />
-                {buscaCondo && (
-                  <button onClick={() => setBuscaCondo('')} aria-label="Limpar busca"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-              {/* Mês da emissão */}
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter shrink-0">Emissão de:</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" aria-hidden="true" />
+              <input
+                value={buscaCondo}
+                onChange={(e) => setBuscaCondo(e.target.value)}
+                placeholder="Buscar por código, nome ou gerente"
+                aria-label="Buscar condomínio"
+                className={`w-full text-sm bg-white border border-slate-200 ${raio.controle} pl-9 pr-9 py-2.5 text-slate-800 outline-none focus:border-violet-500 transition-colors`}
+              />
+              {buscaCondo && (
+                <button onClick={() => setBuscaCondo('')} aria-label="Limpar busca"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={mesEmissao}
+                onChange={(e) => setMesEmissao(Number(e.target.value))}
+                aria-label="Mês de referência"
+                className={`text-[13px] bg-white border border-slate-200 ${raio.controle} px-2.5 py-1.5 text-slate-700 outline-none focus:border-violet-500 cursor-pointer`}
+              >
+                {MESES.slice(1).map((m, i) => (
+                  <option key={i + 1} value={i + 1}>{m}/{vigente.ano}</option>
+                ))}
+              </select>
+
+              {user?.role !== 'gerente' && (
                 <select
-                  value={mesEmissao}
-                  onChange={(e) => setMesEmissao(Number(e.target.value))}
-                  className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer flex-1 min-w-0 max-w-full sm:flex-none"
+                  value={filtroGerente}
+                  onChange={(e) => setFiltroGerente(e.target.value)}
+                  aria-label="Filtrar por gerente"
+                  className={`text-[13px] bg-white border ${filtroGerente ? 'border-violet-400 text-violet-700' : 'border-slate-200 text-slate-700'} ${raio.controle} px-2.5 py-1.5 outline-none focus:border-violet-500 cursor-pointer max-w-[190px]`}
                 >
-                  {MESES.slice(1).map((m, i) => (
-                    <option key={i + 1} value={i + 1}>{m}/{vigente.ano}</option>
+                  <option value="">Todos os gerentes</option>
+                  {gerentes.map((g) => (
+                    <option key={g.id} value={g.id}>{g.profiles?.full_name || g.nome || '—'}{!g.profile_id && !g.profiles && g.nome ? ' (sem login)' : ''}</option>
                   ))}
                 </select>
-              </div>
-              {/* Filtro por gerente (oculto pro próprio gerente) */}
-              {user?.role !== 'gerente' && (
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-tighter shrink-0">Gerente:</label>
-                  <select
-                    value={filtroGerente}
-                    onChange={(e) => setFiltroGerente(e.target.value)}
-                    className="text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-800 outline-none focus:border-violet-500 transition-all cursor-pointer flex-1 min-w-0 max-w-full sm:flex-none"
-                  >
-                    <option value="">TODOS</option>
-                    {gerentes.map((g) => (
-                      <option key={g.id} value={g.id}>{g.profiles?.full_name || g.nome || '—'}{!g.profile_id && !g.profiles && g.nome ? ' (sem login)' : ''}</option>
-                    ))}
-                  </select>
-                </div>
+              )}
+
+              {(filtroGerente || buscaCondo) && (
+                <button onClick={() => { setFiltroGerente(''); setBuscaCondo(''); }}
+                  className="text-[13px] text-slate-500 hover:text-violet-600 underline underline-offset-2">
+                  Limpar filtros
+                </button>
               )}
             </div>
           </div>
@@ -586,13 +601,13 @@ export default function DashboardPage() {
             <div className="hidden md:block overflow-x-auto flex-1">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-slate-200 text-[9px] uppercase tracking-widest font-black text-slate-500">
+                  <tr className="border-b border-slate-200 text-xs font-medium text-slate-500">
                     <th className="px-4 py-2.5">
                       <button onClick={() => setOrdemAsc(v => !v)}
-                        className="inline-flex items-center gap-1 hover:text-violet-600 transition-colors uppercase tracking-widest"
+                        className="inline-flex items-center gap-1 hover:text-violet-600 transition-colors"
                         title={ordemAsc ? 'Ordem: menor → maior (clique para inverter)' : 'Ordem: maior → menor (clique para inverter)'}>
                         Condomínio <ArrowUpDown className="w-3 h-3" />
-                        <span className="text-[8px] text-violet-500 font-black">{ordemAsc ? '↑' : '↓'}</span>
+                        <span className="text-[11px] text-violet-600">{ordemAsc ? '↑' : '↓'}</span>
                       </button>
                     </th>
                     <th className="px-3 py-2.5">Planilha</th>
@@ -616,8 +631,8 @@ export default function DashboardPage() {
                               : <Unlock  className="w-3 h-3 text-emerald-500/50 shrink-0" />
                             }
                             <div>
-                              <p className="font-bold text-slate-800 group-hover:text-violet-400 transition-colors uppercase tracking-tight text-[11px]">{c.name}</p>
-                              <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap">
+                              <p className={`${tipo.item} group-hover:text-violet-600 transition-colors truncate`}>{c.name}</p>
+                              <p className={`${tipo.apoio} flex items-center gap-1.5 flex-wrap`}>
                                 <span>{gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}</span>
                                 {c.due_day && <span className="text-slate-400">· venc. dia {c.due_day}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>}
                               </p>
@@ -664,8 +679,8 @@ export default function DashboardPage() {
                         ? <Lock className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-1" />
                         : <Unlock className="w-3.5 h-3.5 text-emerald-500/50 shrink-0 mt-1" />}
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-slate-800 uppercase tracking-tight text-[13px] break-words">{c.name}</p>
-                        <p className="text-[11px] text-slate-500 font-medium">
+                        <p className={`${tipo.item} break-words`}>{c.name}</p>
+                        <p className={tipo.apoio}>
                           {gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}
                           {c.due_day && <span className="text-slate-400"> · venc. dia {c.due_day}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>}
                         </p>
@@ -678,11 +693,11 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2 pl-6">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Planilha</span>
+                        <span className={tipo.rotulo}>Planilha</span>
                         {procStatus ? <StatusBadge status={procStatus} flow="processo" /> : <span className="text-[10px] text-slate-400 font-bold">—</span>}
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Emissão</span>
+                        <span className={tipo.rotulo}>Emissão</span>
                         {emissaoStatus ? <StatusBadge status={emissaoStatus} flow="emissao" /> : <span className="text-[10px] text-slate-400 font-bold">—</span>}
                       </div>
                     </div>
@@ -718,7 +733,7 @@ export default function DashboardPage() {
       <div className="space-y-3">
         <div className="flex items-center gap-2 px-2">
           <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Emissões em Andamento</h4>
+          <h4 className={tipo.secao}>Emissões em andamento</h4>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatsCard title="Com o Gerente"    value={emissaoStats.gerente}           icon={User}       color="indigo" loading={isLoading} />
