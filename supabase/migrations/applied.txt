@@ -1,6 +1,27 @@
 # Migrations aplicadas em produção (Supabase).
 # Adicione uma linha por migration depois de rodar no SQL Editor.
 # Formato: NNNN_nome.sql
+#
+# ⚠️ ESTE ARQUIVO NÃO É FONTE DE VERDADE.
+#
+# Ele ficou parado no 0051 por meses enquanto o banco seguia até a 0082. Em
+# 04/08/2026 isso custou horas: o código citava colunas (`assistente`, `fluxo`)
+# que a gente supunha existirem porque "a migration está no repositório", e o
+# cadastro de condomínio quebrava com PGRST204 sem ninguém entender.
+#
+# A FONTE DE VERDADE É O BANCO. Para saber se uma coluna existe:
+#
+#   SELECT column_name FROM information_schema.columns
+#    WHERE table_schema='public' AND table_name='<tabela>';
+#
+# Para saber quais tabelas estão com RLS desligado:
+#
+#   SELECT relname FROM pg_class
+#    WHERE relnamespace='public'::regnamespace AND relkind='r'
+#      AND NOT relrowsecurity;
+#
+# As linhas 0052–0079 nunca foram registradas aqui. Várias FORAM aplicadas — não
+# dá para saber quais só por este arquivo. Confira no banco antes de confiar.
 
 0001_schema.sql
 0002_seed_condos.sql
@@ -54,3 +75,10 @@
 0049_email_notificacoes.sql
 0050_email_via_backend_smtp.sql
 0051_notificacao_email_todos.sql
+
+# ── 04/08/2026 — aplicadas com o resultado conferido na tela ──
+# (o ensaio rodou antes, e o interruptor foi confirmado depois:
+#  cobrancas_extras=true, processos=true)
+0080_rls_helpers.sql
+0081_rls_cobrancas_extras.sql
+0082_rls_processos.sql
