@@ -3960,24 +3960,41 @@ def api_listar_edicoes(
     db: Client = Depends(get_db),
 ):
     """Lista edicoes. Gerente ve so as suas. Master/emissor/supervisor veem tudo."""
-    q = db.table("edicoes_mensais").select("*, condominios(name)")
-    if status:
-        q = q.eq("status", status)
-    if ano:
-        q = q.eq("ano_referencia", ano)
-    if mes:
-        q = q.eq("mes_referencia", mes)
+    # O gerente vem embutido porque quem supervisiona ve a fila INTEIRA — sem o nome
+    # nao da para saber de quem e cada planilha. `edicoes_mensais.gerente_id` tem FK
+    # real para `gerentes` (0034), entao sai na mesma consulta, sem chamada extra.
+    SEL_COM_GERENTE = "*, condominios(name), gerentes(id, nome, profiles!gerentes_profile_id_fkey(full_name))"
+    SEL_SIMPLES = "*, condominios(name)"
 
-    role = user.get("role")
-    if role == "gerente":
-        g_id = get_gerente_id(db, user["id"])
-        if not g_id:
-            return {"edicoes": []}
-        q = q.eq("gerente_id", g_id)
+    def _montar(selecao):
+        q = db.table("edicoes_mensais").select(selecao)
+        if status:
+            q = q.eq("status", status)
+        if ano:
+            q = q.eq("ano_referencia", ano)
+        if mes:
+            q = q.eq("mes_referencia", mes)
 
-    q = q.order("ano_referencia", desc=True).order("mes_referencia", desc=True).order("aberto_em", desc=True)
-    res = q.execute()
-    return {"edicoes": res.data or []}
+        if user.get("role") == "gerente":
+            g_id = get_gerente_id(db, user["id"])
+            if not g_id:
+                return None
+            q = q.eq("gerente_id", g_id)
+
+        return q.order("ano_referencia", desc=True) \
+                .order("mes_referencia", desc=True) \
+                .order("aberto_em", desc=True)
+
+    q = _montar(SEL_COM_GERENTE)
+    if q is None:
+        return {"edicoes": []}
+    try:
+        return {"edicoes": q.execute().data or []}
+    except Exception as e:
+        # O nome do gerente e um conforto: se o embed falhar, a fila ainda carrega.
+        print(f"[edicoes-mensais] embed de gerente falhou (segue sem): {type(e).__name__}")
+        q = _montar(SEL_SIMPLES)
+        return {"edicoes": (q.execute().data or []) if q is not None else []}
 
 
 class LiberarSchema(BaseModel):

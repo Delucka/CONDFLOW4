@@ -4,6 +4,8 @@ import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { apiFetcher, apiPost } from '@/lib/api';
 import { btn, cn } from '@/lib/botoes';
+import { tipo, raio } from '@/lib/tipografia';
+import { combina } from '@/lib/busca';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import {
@@ -108,10 +110,56 @@ export default function AprovacoesPage() {
   // ── Edicoes Mensais do mês em foco ──
   const { data: edicoesData, isLoading: edicoesLoading, mutate: mutateE } =
     useSWR(`/api/edicoes-mensais?mes=${mesFoco}&ano=${anoFoco}`, apiFetcher, { revalidateOnFocus: false, refreshInterval: 60000 });
-  const edicoes = edicoesData?.edicoes || [];
-  const edicoesEmEdicao    = edicoes.filter(e => e.status === 'em_edicao');
-  const edicoesFinalizadas = edicoes.filter(e => e.status === 'edicao_finalizada');
-  const edicoesReaberturas = edicoes.filter(e => e.status === 'reabertura_solicitada');
+  // Memoizado porque `?? []` cria um array novo a cada render, o que faria os
+  // useMemo abaixo recalcularem sempre — filtrar 300 planilhas à toa.
+  const edicoes = useMemo(() => edicoesData?.edicoes || [], [edicoesData]);
+
+  // ── Quem é o responsável ──
+  // Quem supervisiona vê a fila INTEIRA (32 planilhas de vários gerentes em setembro),
+  // e o cartão só dizia o condomínio. Mesma cadeia de fallback do Painel Central:
+  // o nome do login manda; `gerentes.nome` cobre o gerente-fantasma (0024), que não
+  // tem profile; nulo acontece porque a FK é ON DELETE SET NULL.
+  const nomeGerente = (e) => e.gerentes?.profiles?.full_name || e.gerentes?.nome || null;
+
+  // Função, não componente: chamada como {linhaGerente(e)} não remonta a cada render.
+  // Escondida do gerente — a fila dele já é toda dele, repetir o nome é ruído.
+  const linhaGerente = (e) => {
+    if (isGerente) return null;
+    const nome = nomeGerente(e);
+    return (
+      <p className={cn('text-xs truncate flex items-center gap-1 mt-0.5',
+        nome ? 'text-slate-500' : 'text-slate-400 italic')}>
+        <User className="w-3 h-3 shrink-0" aria-hidden="true" />
+        {nome || 'Sem gerente'}
+      </p>
+    );
+  };
+
+  // ── Busca e filtro da fila ──
+  // O gerente não precisa filtrar por gerente: a fila dele já é só dele.
+  const [buscaFila, setBuscaFila] = useState('');
+  const [filtroGerenteFila, setFiltroGerenteFila] = useState('');
+
+  // Opções do dropdown saem dos próprios registros do mês — sem requisição extra, e
+  // sem poluir a lista com gerente que não tem nada nesta fila.
+  const gerentesDaFila = useMemo(() => {
+    const m = new Map();
+    for (const e of edicoes) {
+      if (e.gerente_id && !m.has(e.gerente_id)) m.set(e.gerente_id, nomeGerente(e) || 'Sem nome');
+    }
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
+  }, [edicoes]);
+
+  // Filtra ANTES de separar por status, para as três seções e a contagem lerem a mesma lista.
+  const edicoesVisiveis = useMemo(() => edicoes.filter(e => {
+    if (filtroGerenteFila && e.gerente_id !== filtroGerenteFila) return false;
+    return combina(buscaFila, e.condominios?.name, nomeGerente(e));
+  }), [edicoes, buscaFila, filtroGerenteFila]);
+
+  const filtroAtivo = Boolean(buscaFila || filtroGerenteFila);
+  const edicoesEmEdicao    = edicoesVisiveis.filter(e => e.status === 'em_edicao');
+  const edicoesFinalizadas = edicoesVisiveis.filter(e => e.status === 'edicao_finalizada');
+  const edicoesReaberturas = edicoesVisiveis.filter(e => e.status === 'reabertura_solicitada');
 
   // Modal de motivo de reabertura
   const [showReaberturaModal, setShowReaberturaModal] = useState(null); // edicao obj
@@ -132,7 +180,13 @@ export default function AprovacoesPage() {
   }
   async function handleLiberarTodos() {
     if (edicoesEmEdicao.length === 0) return;
-    if (!confirm(`Liberar os ${edicoesEmEdicao.length} condomínios de ${MESES[mesFoco]}/${anoFoco}?`)) return;
+    // Age sobre o que está VISÍVEL. Sem isto o gerente filtra 3 condomínios, clica
+    // e libera os 32 do mês — a mesma armadilha de ação em massa que a 4d8d974
+    // corrigiu no Painel de Controle, por isso a confirmação nomeia o recorte.
+    const recorte = filtroAtivo ? ' (filtro ativo)' : '';
+    if (!confirm(
+      `Liberar ${edicoesEmEdicao.length} condomínio(s) de ${MESES[mesFoco]}/${anoFoco}${recorte}?`
+    )) return;
     setExecutandoEdicao('all');
     try {
       // Mês/ano EXPLÍCITOS: mandando {} o backend escolhia o mês padrão dele, que
@@ -424,7 +478,10 @@ export default function AprovacoesPage() {
                   {mesFoco === mesAlvo && anoFoco === anoAlvo
                     ? 'Ciclo atual'
                     : <span className="text-amber-600 font-bold">Fora do ciclo atual ({MESES[mesAlvo]}/{anoAlvo})</span>}
-                  {' · '}{edicoes.length} planilha(s)
+                  {' · '}
+                  <span className="tabular-nums">{edicoesVisiveis.length}</span>
+                  {filtroAtivo && <span className="tabular-nums"> de {edicoes.length}</span>}
+                  {' '}planilha(s)
                 </p>
               </div>
             </div>
@@ -434,10 +491,78 @@ export default function AprovacoesPage() {
                 disabled={executandoEdicao === 'all'}
                 className={btn.aprovar}
               >
-                {executandoEdicao === 'all' ? 'Liberando…' : `Liberar todos (${edicoesEmEdicao.length})`}
+                {/* O rótulo diz o alcance REAL: com filtro ativo, "todos" mentiria. */}
+                {executandoEdicao === 'all'
+                  ? 'Liberando…'
+                  : filtroAtivo
+                    ? `Liberar ${edicoesEmEdicao.length} visível(is)`
+                    : `Liberar todos (${edicoesEmEdicao.length})`}
               </button>
             )}
           </div>
+
+          {/* Busca da fila. Quem supervisiona vê a fila inteira e não tinha como achar
+              um condomínio nem juntar o que é de cada gerente — a aba não tinha busca
+              nenhuma. Mesmo desenho do Painel Central: busca larga sozinha na linha,
+              filtro menor abaixo. `combina` resolve acento, ordem das palavras e zero
+              à esquerda ("2" acha "482"). */}
+          {edicoes.length > 0 && (
+          <div className="glass-panel p-4 rounded-[2rem] border border-slate-200 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" aria-hidden="true" />
+              <input
+                value={buscaFila}
+                onChange={(e) => setBuscaFila(e.target.value)}
+                placeholder={isGerente ? 'Buscar por código ou nome' : 'Buscar por código, nome ou gerente'}
+                aria-label="Buscar planilha na fila"
+                className={`w-full text-sm bg-white border border-slate-200 ${raio.controle} pl-9 pr-9 py-2.5 text-slate-800 outline-none focus:border-violet-500 transition-colors`}
+              />
+              {buscaFila && (
+                <button onClick={() => setBuscaFila('')} aria-label="Limpar busca"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            {(!isGerente && gerentesDaFila.length > 1) || filtroAtivo ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {!isGerente && gerentesDaFila.length > 1 && (
+                  <select
+                    value={filtroGerenteFila}
+                    onChange={(e) => setFiltroGerenteFila(e.target.value)}
+                    aria-label="Filtrar por gerente"
+                    className={`text-[13px] bg-white border ${filtroGerenteFila ? 'border-violet-400 text-violet-700' : 'border-slate-200 text-slate-700'} ${raio.controle} px-2.5 py-1.5 outline-none focus:border-violet-500 cursor-pointer max-w-[220px]`}
+                  >
+                    <option value="">Todos os gerentes</option>
+                    {gerentesDaFila.map(([id, nome]) => (
+                      <option key={id} value={id}>{nome}</option>
+                    ))}
+                  </select>
+                )}
+                {filtroAtivo && (
+                  <button onClick={() => { setBuscaFila(''); setFiltroGerenteFila(''); }}
+                    className="text-[13px] text-slate-500 hover:text-violet-600 underline underline-offset-2">
+                    Limpar filtros
+                  </button>
+                )}
+              </div>
+            ) : null}
+          </div>
+          )}
+
+          {/* Busca sem resultado — evita a fila sumir sem explicação.
+              Exige edicoes.length > 0 para não colidir com o "nenhuma edição em
+              andamento" lá embaixo, que trata o mês sem período aberto. */}
+          {!edicoesLoading && filtroAtivo && edicoes.length > 0 && edicoesVisiveis.length === 0 && (
+            <div className="text-center py-12 glass-panel rounded-[2rem] border border-slate-200">
+              <Search className="w-8 h-8 text-slate-300 mx-auto mb-2" aria-hidden="true" />
+              <p className="text-sm font-semibold text-slate-700">
+                Nenhuma planilha encontrada{buscaFila && <> para &ldquo;{buscaFila}&rdquo;</>}
+              </p>
+              <p className={cn(tipo.auxiliar, 'mt-1')}>em {MESES[mesFoco]}/{anoFoco}</p>
+            </div>
+          )}
 
           {/* Reaberturas pendentes (master/emissor) */}
           {(isMaster || isDepartamento) && edicoesReaberturas.length > 0 && (
@@ -450,6 +575,7 @@ export default function AprovacoesPage() {
                   <div key={e.id} className="flex flex-wrap items-center justify-between gap-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
                     <div className="flex-1 min-w-[150px]">
                       <p className="text-sm font-bold text-slate-900">{e.condominios?.name}</p>
+                      {linhaGerente(e)}
                       <p className="text-[11px] text-slate-400">{MESES[e.mes_referencia]}/{e.ano_referencia} · motivo: {e.reabertura_motivo}</p>
                     </div>
                     <div className="flex gap-2">
@@ -477,6 +603,7 @@ export default function AprovacoesPage() {
                     <div className="min-w-0">
                       <h3 className="text-base font-semibold text-slate-900 truncate">{e.condominios?.name}</h3>
                       <p className="text-xs font-medium text-violet-400">{MESES[e.mes_referencia]} / {e.ano_referencia}</p>
+                      {linhaGerente(e)}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -506,6 +633,7 @@ export default function AprovacoesPage() {
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-slate-700 truncate">{e.condominios?.name}</p>
+                      {linhaGerente(e)}
                       <p className="text-[10px] text-slate-600 ">{MESES[e.mes_referencia]}/{e.ano_referencia} · liberado {e.liberado_em ? new Date(e.liberado_em).toLocaleDateString('pt-BR') : ''}</p>
                     </div>
                   </div>
