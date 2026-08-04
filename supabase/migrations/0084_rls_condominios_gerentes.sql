@@ -33,17 +33,18 @@
 --   ALTER TABLE public.gerentes    DISABLE ROW LEVEL SECURITY;
 -- ============================================================
 
--- ── Limpa o inerte (a 0018 desligou o RLS; as policies ficaram decorativas) ──
-DROP POLICY IF EXISTS "condominios_all_authenticated" ON public.condominios;
-DROP POLICY IF EXISTS "Allow all auth users"          ON public.condominios;
-DROP POLICY IF EXISTS "Master gerencia condominios"   ON public.condominios;
-DROP POLICY IF EXISTS "Gerente ve seus condominios"   ON public.condominios;
-DROP POLICY IF EXISTS "condominios_leitura"           ON public.condominios;
-DROP POLICY IF EXISTS "condominios_escrita"           ON public.condominios;
-
-DROP POLICY IF EXISTS "gerentes_all_authenticated"    ON public.gerentes;
-DROP POLICY IF EXISTS "Allow all auth users"          ON public.gerentes;
-DROP POLICY IF EXISTS "gerentes_leitura"              ON public.gerentes;
+-- ── Limpa TODAS as policies existentes destas duas tabelas ──
+-- Sem adivinhar nome: policies antigas com nome inesperado foram a causa de uma
+-- recursão que só apareceu no ensaio.
+DO $limpa$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT tablename, policyname FROM pg_policies
+            WHERE schemaname='public' AND tablename IN ('condominios','gerentes')
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
+  END LOOP;
+END $limpa$;
 
 ALTER TABLE public.condominios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gerentes    ENABLE ROW LEVEL SECURITY;

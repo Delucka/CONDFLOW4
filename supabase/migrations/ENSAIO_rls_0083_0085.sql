@@ -1,14 +1,21 @@
 -- ============================================================
--- ENSAIO 0083 → 0085 (v2) — NÃO É MIGRATION
+-- ENSAIO 0083 → 0085 (v3) — NÃO É MIGRATION
 -- ============================================================
--- A v1 estourou com "42P17 infinite recursion detected in policy for relation
--- profiles". Corrigido nas duas fontes: a política de `condominios` não chama
--- mais condominios_da_carteira() (que relia a própria tabela), e a de `profiles`
--- não chama função nenhuma.
+-- A v1 e a v2 estouraram com 42P17 infinite recursion. A causa foi encontrada
+-- consultando pg_policies: existiam policies de 2001-era, adormecidas desde que
+-- a 0018 desligou o RLS, que leem a PRÓPRIA tabela de dentro da política dela:
+--
+--   profiles · "Master override all profiles"
+--       EXISTS (SELECT 1 FROM profiles p WHERE p.id=auth.uid() AND p.role='master')
+--   profiles · "View profiles by all authenticated"
+--       (auth.uid() = id) OR EXISTS (SELECT 1 FROM profiles)
+--
+-- Ligar o RLS as acorda, e elas chamam a si mesmas. Meus DROPs erravam porque
+-- eu adivinhava os nomes. Agora as migrations apagam TODAS as policies das
+-- tabelas que tocam, lendo de pg_policies.
 --
 -- ⚠️ RESULTADO EM VERMELHO é o formato do relatório, não falha.
---
--- OLHE A COLUNA `PROPRIO`: 1 em todos os papéis = login seguro.
+-- OLHE A COLUNA `PROPRIO`: 1 em todos = login seguro.
 -- ============================================================
 
 -- ─────────── 0083_rls_backend_only.sql ───────────
@@ -107,17 +114,18 @@ ALTER TABLE public.arrecadacoes ENABLE ROW LEVEL SECURITY;
 --   ALTER TABLE public.gerentes    DISABLE ROW LEVEL SECURITY;
 -- ============================================================
 
--- ── Limpa o inerte (a 0018 desligou o RLS; as policies ficaram decorativas) ──
-DROP POLICY IF EXISTS "condominios_all_authenticated" ON public.condominios;
-DROP POLICY IF EXISTS "Allow all auth users"          ON public.condominios;
-DROP POLICY IF EXISTS "Master gerencia condominios"   ON public.condominios;
-DROP POLICY IF EXISTS "Gerente ve seus condominios"   ON public.condominios;
-DROP POLICY IF EXISTS "condominios_leitura"           ON public.condominios;
-DROP POLICY IF EXISTS "condominios_escrita"           ON public.condominios;
-
-DROP POLICY IF EXISTS "gerentes_all_authenticated"    ON public.gerentes;
-DROP POLICY IF EXISTS "Allow all auth users"          ON public.gerentes;
-DROP POLICY IF EXISTS "gerentes_leitura"              ON public.gerentes;
+-- ── Limpa TODAS as policies existentes destas duas tabelas ──
+-- Sem adivinhar nome: policies antigas com nome inesperado foram a causa de uma
+-- recursão que só apareceu no ensaio.
+DO $limpa$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT tablename, policyname FROM pg_policies
+            WHERE schemaname='public' AND tablename IN ('condominios','gerentes')
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
+  END LOOP;
+END $limpa$;
 
 ALTER TABLE public.condominios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gerentes    ENABLE ROW LEVEL SECURITY;
@@ -217,11 +225,18 @@ CREATE POLICY "gerentes_leitura" ON public.gerentes
 --   GRANT UPDATE ON public.profiles TO authenticated;
 -- ============================================================
 
-DROP POLICY IF EXISTS "profiles_all_authenticated"  ON public.profiles;
-DROP POLICY IF EXISTS "Allow all auth users"        ON public.profiles;
-DROP POLICY IF EXISTS "Usuario ve o proprio perfil" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_leitura"            ON public.profiles;
-DROP POLICY IF EXISTS "profiles_escrita"            ON public.profiles;
+-- Apaga TODAS as policies existentes, sem depender de adivinhar nome.
+-- Adivinhar foi o que causou a segunda recursão: sobrou uma política antiga em
+-- `profiles`, com nome que eu não previ, chamando algo que relia a tabela.
+DO $limpa$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT policyname FROM pg_policies
+            WHERE schemaname='public' AND tablename='profiles'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.profiles', r.policyname);
+  END LOOP;
+END $limpa$;
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
@@ -255,8 +270,7 @@ GRANT  UPDATE (must_change_password, password_changed_at)
 
 DO $ensaio$
 DECLARE
-  c              RECORD;
-  papel_original text := current_user;
+  c RECORD; papel_original text := current_user;
   tot_cond bigint; tot_prof bigint;
   n_cond bigint; n_ger bigint; n_prof bigint; n_proprio bigint;
   linhas text := ''; parecer text; achou boolean := false;
@@ -313,6 +327,6 @@ BEGIN
 
   IF NOT achou THEN linhas := linhas || E'  INCONCLUSIVO - nenhum usuario para testar.\n'; END IF;
 
-  RAISE EXCEPTION E'\n=== VEREDITO 0083-0085 v2 (nada foi gravado) ===\n%\nPROPRIO=1 em todos = login seguro.', linhas;
+  RAISE EXCEPTION E'\n=== VEREDITO 0083-0085 v3 (nada foi gravado) ===\n%\nPROPRIO=1 em todos = login seguro.', linhas;
 END
 $ensaio$;

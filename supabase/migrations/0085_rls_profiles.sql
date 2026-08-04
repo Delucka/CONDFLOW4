@@ -46,11 +46,18 @@
 --   GRANT UPDATE ON public.profiles TO authenticated;
 -- ============================================================
 
-DROP POLICY IF EXISTS "profiles_all_authenticated"  ON public.profiles;
-DROP POLICY IF EXISTS "Allow all auth users"        ON public.profiles;
-DROP POLICY IF EXISTS "Usuario ve o proprio perfil" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_leitura"            ON public.profiles;
-DROP POLICY IF EXISTS "profiles_escrita"            ON public.profiles;
+-- Apaga TODAS as policies existentes, sem depender de adivinhar nome.
+-- Adivinhar foi o que causou a segunda recursão: sobrou uma política antiga em
+-- `profiles`, com nome que eu não previ, chamando algo que relia a tabela.
+DO $limpa$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT policyname FROM pg_policies
+            WHERE schemaname='public' AND tablename='profiles'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.profiles', r.policyname);
+  END LOOP;
+END $limpa$;
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
