@@ -1,76 +1,83 @@
 -- ============================================================
--- 0085 — Fecha `profiles`  ⚠️ A MAIS PERIGOSA DAS SEIS
+-- 0085 — Fecha `profiles` — ESCALAÇÃO DE PRIVILÉGIO
 -- ============================================================
--- LEIA ANTES DE RODAR. Esta é a única migration desta série que, se estiver
--- errada, TRANCA VOCÊ PARA FORA DO SISTEMA.
+-- O BURACO: com o RLS desligado (desde a 0018), qualquer usuário logado pode,
+-- pelo DevTools com a chave anon:
 --
--- Motivo: `profiles` é lida no login (lib/auth.js:16, `select * where id = uid`).
--- Se a política negar essa leitura, o AuthProvider não resolve o papel, o
--- RouteGuard não libera nada, e ninguém entra — nem o master. E o rollback
--- exige o SQL Editor, não a aplicação.
+--     UPDATE profiles SET role = 'master' WHERE id = <o próprio>;
 --
--- Por isso: rode com o SQL Editor ABERTO NOUTRA ABA, com a linha de rollback já
--- colada e pronta para executar. Não rode com gerente trabalhando.
+-- Ou seja: qualquer gerente, assistente ou síndico vira master em uma linha, e
+-- daí alcança tudo. É a falha mais grave desta série inteira — pior que apagar
+-- cobrança, porque dá acesso a todo o resto.
 --
--- ── O que a aplicação faz com esta tabela ──
---   lib/auth.js:16          SELECT * WHERE id = <o próprio>     ← LOGIN
---   reset-password:42       UPDATE must_change_password         ← o próprio
---   FilaOcorrencias:59      SELECT (nomes, para exibir)
---   backend                 service-role — ignora RLS, não afetado
+-- ── Por que a leitura fica ABERTA (e não é preguiça) ──
+-- A primeira versão desta migration restringia a leitura por papel, chamando
+-- papel_atual(). Estourou no ensaio com:
 --
--- ── Modelo ──
---   leitura  todo usuário logado lê a PRÓPRIA linha, sempre. Master,
---            departamento e supervisores leem todas (as telas mostram nome de
---            gerente e de assistente). Gerente lê também os assistentes ligados
---            a ele (profiles.gerente_id = o profile dele), que é o que a tela de
---            carteira precisa.
---   escrita  a própria linha (é o que o reset-password faz) e master (que
---            administra usuários em /admin/usuarios).
+--     42P17: infinite recursion detected in policy for relation "profiles"
 --
--- A leitura da própria linha vem PRIMEIRO na condição e não depende de função
--- nenhuma — é `id = auth.uid()`, puro. Assim, mesmo que papel_atual() falhe por
--- qualquer motivo, o login continua de pé.
+-- E é insolúvel por esse caminho: para saber se você PODE ler profiles, a
+-- política precisa saber o seu papel — que está em profiles. A política chama a
+-- si mesma. SECURITY DEFINER não resolveu na prática.
 --
--- Não usamos papel_atual() aqui por precaução extra: ela é SECURITY DEFINER e lê
--- `profiles`. Com RLS ligado nesta tabela, o DEFINER quebra o ciclo — mas manter
--- a regra do próprio usuário independente de função elimina a dúvida de vez.
+-- Então: leitura liberada a quem está logado. É o mesmo nível de exposição de
+-- hoje (nome, e-mail e papel de colegas — que a própria interface já exibe nas
+-- telas de carteira e auditoria), e nenhuma linha de proteção é perdida em
+-- relação ao estado atual.
 --
--- ⚠️ ROLLBACK — DEIXE ESTA LINHA COLADA E PRONTA ANTES DE RODAR:
+-- ── O que MUDA de verdade ──
+-- A escrita, que é onde estava o perigo:
+--
+--   INSERT / DELETE     negados (nenhuma policy os cobre)
+--   UPDATE              só a PRÓPRIA linha (RLS)
+--                       e só as DUAS COLUNAS do reset de senha (GRANT de coluna)
+--
+-- RLS não filtra coluna — por isso o GRANT de coluna entra junto. Sem ele,
+-- "atualizar a própria linha" ainda permitiria trocar o próprio `role`, e o
+-- buraco continuaria aberto.
+--
+-- Conferido antes de escrever: o navegador só escreve em profiles no
+-- reset-password (must_change_password + password_changed_at, no próprio
+-- registro). /admin/usuarios administra pelo BACKEND, com service-role, que
+-- ignora RLS e não é afetado.
+--
+-- ⚠️ ROLLBACK — DEIXE COLADO NOUTRA ABA ANTES DE RODAR:
 --   ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+--   GRANT UPDATE ON public.profiles TO authenticated;
 -- ============================================================
 
-DROP POLICY IF EXISTS "profiles_all_authenticated" ON public.profiles;
-DROP POLICY IF EXISTS "Allow all auth users"       ON public.profiles;
+DROP POLICY IF EXISTS "profiles_all_authenticated"  ON public.profiles;
+DROP POLICY IF EXISTS "Allow all auth users"        ON public.profiles;
 DROP POLICY IF EXISTS "Usuario ve o proprio perfil" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_leitura"           ON public.profiles;
-DROP POLICY IF EXISTS "profiles_escrita"           ON public.profiles;
+DROP POLICY IF EXISTS "profiles_leitura"            ON public.profiles;
+DROP POLICY IF EXISTS "profiles_escrita"            ON public.profiles;
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- ══════════════ Leitura ══════════════
+-- Sem chamada de função: é o que evita a recursão.
 CREATE POLICY "profiles_leitura" ON public.profiles
   FOR SELECT TO authenticated
-  USING (
-    id = auth.uid()                              -- o próprio: garante o LOGIN
-    OR public.papel_atual() IN (
-         'master', 'departamento',
-         'supervisora', 'supervisora_contabilidade', 'supervisor_gerentes'
-       )
-    OR gerente_id = auth.uid()                   -- gerente lê seus assistentes
-  );
+  USING (true);
 
--- ══════════════ Escrita ══════════════
-CREATE POLICY "profiles_escrita" ON public.profiles
-  FOR ALL TO authenticated
-  USING      (id = auth.uid() OR public.papel_atual() = 'master')
-  WITH CHECK (id = auth.uid() OR public.papel_atual() = 'master');
+-- ══════════════ Atualização — só a própria linha ══════════════
+-- Sem policy de INSERT/DELETE: ambos ficam negados pela chave anon.
+CREATE POLICY "profiles_atualiza_o_proprio" ON public.profiles
+  FOR UPDATE TO authenticated
+  USING      (id = auth.uid())
+  WITH CHECK (id = auth.uid());
+
+-- ══════════════ Trava de coluna — o que fecha a escalação ══════════════
+-- RLS diz QUAIS LINHAS; isto diz QUAIS COLUNAS. Sem esta parte, o usuário ainda
+-- trocaria o próprio `role` na própria linha.
+REVOKE UPDATE ON public.profiles FROM authenticated;
+GRANT  UPDATE (must_change_password, password_changed_at)
+  ON public.profiles TO authenticated;
 
 -- ── Conferência ──
--- ANTES de fechar a aba, teste NESTA ORDEM:
---   1. Recarregue o site com Ctrl+Shift+R. Ainda entra?  ← se não, ROLLBACK JÁ
---   2. Saia e entre de novo (logout + login completo)
---   3. Abra /admin/usuarios — a lista de usuários carrega?
---   4. Painel Central — os nomes de gerente aparecem nas linhas?
---
--- Só considere aplicada depois do passo 2. O passo 1 pode passar com a sessão
--- em cache e esconder o problema.
+-- 1. Recarregue com Ctrl+Shift+R — ainda entra?
+-- 2. LOGOUT e login completo (o passo 1 pode passar com sessão em cache)
+-- 3. /admin/usuarios — a lista carrega? (é leitura; a escrita é pelo backend)
+-- 4. A prova de que fechou — logado como NÃO-master, no console do navegador:
+--       await supabase.from('profiles').update({role:'master'}).eq('id', <seu id>)
+--    Tem de falhar. Antes desta migration, funcionava.

@@ -49,6 +49,10 @@ ALTER TABLE public.condominios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gerentes    ENABLE ROW LEVEL SECURITY;
 
 -- ══════════════ condominios · leitura ══════════════
+-- ⚠️ NÃO use condominios_da_carteira() AQUI. Ela faz SELECT FROM condominios, e
+-- chamá-la de dentro da política desta mesma tabela dispara a política de novo:
+-- 42P17 infinite recursion detected. Aconteceu no ensaio.
+-- Dentro da política de `condominios`, o vínculo é olhado DIRETO por gerente_id.
 CREATE POLICY "condominios_leitura" ON public.condominios
   FOR SELECT TO authenticated
   USING (
@@ -56,7 +60,14 @@ CREATE POLICY "condominios_leitura" ON public.condominios
       'master', 'departamento',
       'supervisora', 'supervisora_contabilidade', 'supervisor_gerentes'
     )
-    OR id IN (SELECT condominio_id FROM public.condominios_da_carteira())
+    -- gerente: a própria carteira
+    OR gerente_id IN (SELECT g.id FROM public.gerentes g WHERE g.profile_id = auth.uid())
+    -- assistente: a carteira do gerente ao qual está vinculado (0057)
+    OR gerente_id IN (
+         SELECT g.id FROM public.gerentes g
+          JOIN public.profiles p ON p.gerente_id = g.profile_id
+         WHERE p.id = auth.uid()
+       )
   );
 
 -- ══════════════ condominios · escrita ══════════════
