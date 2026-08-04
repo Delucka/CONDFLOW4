@@ -23,7 +23,7 @@ const PainelMoradores = dynamic(() => import('./PainelMoradores'), { ssr: false 
 
 // Estilos do formulário num lugar só — antes cada campo repetia a mesma
 // sequência de classes, e mudar um espaçamento significava editar 6 linhas.
-const LBL = 'block text-[10px] text-slate-500 font-black uppercase tracking-[0.15em]';
+const LBL = 'block text-[10px] text-slate-500 font-medium';
 const CAMPO = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-800 outline-none focus:border-violet-500 transition-colors';
 const AJUDA = 'text-[11px] text-slate-400 leading-snug';
 
@@ -278,7 +278,7 @@ export default function CondominiosPage() {
                 <Globe className="w-4 h-4 text-violet-400" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Painel de Controle Global</p>
+                <p className="text-[10px] font-semibold text-slate-500 ">Painel de Controle Global</p>
                 <p className="text-xs font-bold text-slate-900">Período de Edição da Gerência</p>
               </div>
             </div>
@@ -287,7 +287,7 @@ export default function CondominiosPage() {
                 className="text-slate-400 hover:text-slate-900 transition-colors">
                 <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
-              <span className="text-xs font-black text-slate-800 min-w-[40px] text-center tabular-nums" aria-live="polite">{pipelineAno}</span>
+              <span className="text-xs font-semibold text-slate-800 min-w-[40px] text-center tabular-nums" aria-live="polite">{pipelineAno}</span>
               <button onClick={() => setPipelineAno(a => a + 1)} aria-label="Próximo ano"
                 className="text-slate-400 hover:text-slate-900 transition-colors">
                 <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -297,12 +297,12 @@ export default function CondominiosPage() {
 
           {/* Programação De / Até */}
           <div className="space-y-2">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Programar Período de Edição</p>
+            <p className="text-[10px] font-semibold text-slate-500 ">Programar Período de Edição</p>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-6">De</span>
+              <span className="text-[10px] font-semibold text-slate-500  w-6">De</span>
               <input type="datetime-local" value={dataInicioLocal} onChange={e => setDataInicioLocal(e.target.value)}
                 className="flex-1 min-w-[160px] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest w-6">Até</span>
+              <span className="text-[10px] font-semibold text-slate-500  w-6">Até</span>
               <input type="datetime-local" value={dataFimLocal} onChange={e => setDataFimLocal(e.target.value)}
                 className="flex-1 min-w-[160px] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
               <button onClick={handleSavePeriodo} disabled={savingPeriodo}
@@ -331,7 +331,7 @@ export default function CondominiosPage() {
                 <>
                   <Lock className="w-4 h-4 text-rose-400 shrink-0" />
                   <div>
-                    <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Período Encerrado</p>
+                    <p className="text-[10px] font-semibold text-rose-400 ">Período Encerrado</p>
                     <p className="text-[10px] text-slate-500">Edição da gerência finalizada</p>
                   </div>
                 </>
@@ -339,13 +339,13 @@ export default function CondominiosPage() {
                 <>
                   <Timer className={`w-4 h-4 shrink-0 animate-pulse ${countdown.fase === 'agendado' ? 'text-violet-400' : 'text-emerald-400'}`} />
                   <div className="flex-1">
-                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${countdown.fase === 'agendado' ? 'text-violet-400' : 'text-emerald-400'}`}>
+                    <p className={`text-xs font-medium mb-1 ${countdown.fase === 'agendado' ? 'text-violet-400' : 'text-emerald-400'}`}>
                       {countdown.fase === 'agendado' ? 'Abre em' : 'Fecha em'}
                     </p>
                     <div className="flex gap-3">
                       {[{ v: countdown.d, l: 'd' }, { v: countdown.h, l: 'h' }, { v: countdown.m, l: 'm' }, { v: countdown.s, l: 's' }].map(({ v, l }) => (
                         <div key={l} className="flex items-baseline gap-0.5">
-                          <span className="text-sm font-black text-slate-900 tabular-nums">{String(v).padStart(2,'0')}</span>
+                          <span className="text-sm font-semibold text-slate-900 tabular-nums">{String(v).padStart(2,'0')}</span>
                           <span className="text-[9px] text-slate-500 font-bold">{l}</span>
                         </div>
                       ))}
@@ -367,7 +367,7 @@ export default function CondominiosPage() {
 
           {/* Aplicar para: todos · por gerente · 1-a-1 por condomínio */}
           <div className="space-y-2">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Aplicar para</p>
+            <p className="text-[10px] font-semibold text-slate-500 ">Aplicar para</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <select value={gerenteFilter} onChange={e => { setGerenteFilter(e.target.value); setCondoFilter(''); }}
                 aria-label="Restringir a um gerente"
@@ -397,14 +397,14 @@ export default function CondominiosPage() {
               mês que nem chegou. Foram removidas: o trabalho é todo mensal. */}
           <div className="rounded-2xl bg-violet-500/5 border border-violet-500/25 p-4 space-y-3">
             <div>
-              <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Ciclo mensal · o dia a dia</p>
+              <p className="text-[10px] font-semibold text-violet-600 ">Ciclo mensal · o dia a dia</p>
               <p className="text-[11px] text-slate-500 mt-0.5">
                 Abre o mês para os gerentes preencherem. O que já foi <b>liberado</b> continua liberado.
               </p>
             </div>
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
-                <label htmlFor="ciclo-mes" className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Mês</label>
+                <label htmlFor="ciclo-mes" className="text-[10px] font-semibold text-slate-500  block">Mês</label>
                 <select id="ciclo-mes" value={mesEdicao} onChange={e => setMesEdicao(Number(e.target.value))}
                   className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-violet-500 cursor-pointer">
                   {_MESES.slice(1).map((nome, i) => (<option key={i + 1} value={i + 1}>{nome}/{pipelineAno}</option>))}
@@ -467,13 +467,13 @@ export default function CondominiosPage() {
         <div className="flex items-center gap-4 animate-fade-in">
           <button
             onClick={() => setSelectedGerente(null)}
-            className="flex items-center gap-1.5 text-xs font-black text-slate-500 hover:text-violet-600 uppercase tracking-widest transition-colors"
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-violet-600  transition-colors"
           >
             <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             Voltar para gerentes
           </button>
           <div className="h-4 w-px bg-slate-200"></div>
-          <span className="text-xs font-black text-violet-600 uppercase tracking-[0.2em]">
+          <span className="text-xs font-semibold text-violet-600 uppercase tracking-[0.2em]">
             Carteira: {selectedGerente}
           </span>
         </div>
@@ -483,7 +483,7 @@ export default function CondominiosPage() {
       {loadingCondos ? (
         <div className="p-24 text-center">
            <div className="w-10 h-10 border-4 border-violet-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
-           <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Sincronizando base…</p>
+           <p className="text-[10px] font-semibold text-slate-600 ">Sincronizando base…</p>
         </div>
       ) : (
         <div className="space-y-12">
@@ -513,15 +513,15 @@ export default function CondominiosPage() {
                            <User className="w-7 h-7 text-violet-400 group-hover:text-violet-400" />
                         </div>
                         <div>
-                          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-2 leading-tight group-hover:text-violet-400 transition-colors">
+                          <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-2 leading-tight group-hover:text-violet-400 transition-colors">
                             {gName}
                           </h3>
                           <div className="flex items-center gap-2 text-slate-500">
                              <Building className="w-3 h-3" />
-                             <span className="text-[10px] font-bold uppercase tracking-widest">{condos.length} Condomínios</span>
+                             <span className="text-xs font-medium">{condos.length} Condomínios</span>
                           </div>
                         </div>
-                        <div className="mt-auto pt-4 flex items-center gap-2 text-violet-500/50 group-hover:text-violet-400 text-[10px] font-black uppercase tracking-widest transition-colors">
+                        <div className="mt-auto pt-4 flex items-center gap-2 text-violet-500/50 group-hover:text-violet-400 text-xs font-medium transition-colors">
                           Acessar Carteira <PlusCircle className="w-3 h-3" />
                         </div>
                       </button>
@@ -766,7 +766,7 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
               /* ── Modo PDF: Relação de Condôminos de um condomínio ── */
               <div className="space-y-3">
                 <div className="rounded-xl bg-violet-500/5 border border-violet-500/25 p-4 space-y-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Relação de condôminos lida</p>
+                  <p className="text-xs font-medium text-violet-600">Relação de condôminos lida</p>
                   <div className="space-y-1.5">
                     <label htmlFor="imp-nome" className={LBL}>Nome do condomínio</label>
                     <input id="imp-nome" value={nomeCondo} onChange={(e) => setNomeCondo(e.target.value)} className={CAMPO} />
@@ -848,11 +848,11 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
 
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
-                <p className="text-2xl font-black text-emerald-600 tabular-nums">{previa.resumo.novos}</p>
+                <p className="text-2xl font-semibold text-emerald-600 tabular-nums">{previa.resumo.novos}</p>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Novos</p>
               </div>
               <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-                <p className="text-2xl font-black text-slate-500 tabular-nums">
+                <p className="text-2xl font-semibold text-slate-500 tabular-nums">
                   {pdf ? previa.resumo.atualizados : previa.resumo.existentes}
                 </p>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -860,7 +860,7 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
                 </p>
               </div>
               <div className="rounded-xl bg-rose-50 border border-rose-200 p-3">
-                <p className="text-2xl font-black text-rose-600 tabular-nums">{previa.resumo.erros}</p>
+                <p className="text-2xl font-semibold text-rose-600 tabular-nums">{previa.resumo.erros}</p>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Com erro</p>
               </div>
             </div>
@@ -933,7 +933,7 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores }) {
               )}
            </div>
            
-           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-6 leading-tight group-hover:text-violet-400 transition-colors">
+           <h3 className="text-xl font-semibold text-slate-900 uppercase tracking-tight mb-6 leading-tight group-hover:text-violet-400 transition-colors">
               {c.name}
            </h3>
            

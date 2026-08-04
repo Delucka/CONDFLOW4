@@ -285,7 +285,7 @@ export default function AprovacoesPage() {
       {/* ── Header ── */}
       <div className="glass-panel p-7 rounded-[2rem] border border-slate-200 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter italic">Aprovações & Auditoria</h1>
+          <h1 className="text-3xl font-semibold text-slate-900 uppercase tracking-tighter italic">Aprovações & Auditoria</h1>
           <p className="text-slate-500 text-xs font-bold tracking-widest mt-1 uppercase">
             Aprovação de planilhas semestrais + Histórico completo do sistema
           </p>
@@ -297,15 +297,15 @@ export default function AprovacoesPage() {
         </div>
         <div className="flex gap-3">
           <div className="bg-slate-50 border border-slate-200 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
-            <p className="text-2xl font-black text-slate-900 leading-none">{pendentes.length}</p>
+            <p className="text-2xl font-semibold text-slate-900 leading-none">{pendentes.length}</p>
             <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Pendentes</p>
           </div>
           <div className="bg-slate-50 border border-slate-200 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
-            <p className="text-2xl font-black text-violet-400 leading-none">{totalLogs}</p>
+            <p className="text-2xl font-semibold text-violet-400 leading-none">{totalLogs}</p>
             <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Total logs</p>
           </div>
           <div className="bg-slate-50 border border-slate-200 px-5 py-3 rounded-2xl text-center shadow-inner min-w-[80px]">
-            <p className="text-2xl font-black text-violet-400 leading-none">{hojeCount}</p>
+            <p className="text-2xl font-semibold text-violet-400 leading-none">{hojeCount}</p>
             <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Hoje</p>
           </div>
         </div>
@@ -322,9 +322,9 @@ export default function AprovacoesPage() {
                   <FileUp className="w-6 h-6 text-violet-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-violet-400">Aprovação de emissões</p>
+                  <p className="text-xs font-medium text-violet-400">Aprovação de emissões</p>
                   <p className="text-slate-900 font-bold mt-0.5">
-                    <span className="text-2xl font-black text-violet-300">{minhasPendenciasEmissao}</span>
+                    <span className="text-2xl font-semibold text-violet-300">{minhasPendenciasEmissao}</span>
                     <span className="ml-2 text-sm">pacote{minhasPendenciasEmissao !== 1 ? 's' : ''} esperando você em Meus Pacotes</span>
                   </p>
                 </div>
@@ -343,9 +343,9 @@ export default function AprovacoesPage() {
                   <FileUp className="w-6 h-6 text-violet-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-violet-400">Aprovação de emissões</p>
+                  <p className="text-xs font-medium text-violet-400">Aprovação de emissões</p>
                   <p className="text-slate-900 font-bold mt-0.5">
-                    <span className="text-2xl font-black text-violet-300">{minhasPendenciasEmissao}</span>
+                    <span className="text-2xl font-semibold text-violet-300">{minhasPendenciasEmissao}</span>
                     <span className="ml-2 text-sm">pacote{minhasPendenciasEmissao !== 1 ? 's' : ''} esperando você no Painel de Gestão</span>
                   </p>
                 </div>
@@ -367,12 +367,12 @@ export default function AprovacoesPage() {
           { id: 'auditoria', label: 'Histórico de Atividades',  icon: History, show: true,           badge: 0 },
         ].filter(t => t.show).map(({ id, label, icon: Icon, badge }) => (
           <button key={id} onClick={() => setAba(id)}
-            className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+            className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-medium transition-all ${
               aba === id ? 'bg-violet-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'
             }`}>
             <Icon className="w-3.5 h-3.5" />{label}
             {badge > 0 && (
-              <span className="ml-1 bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center ">
+              <span className="ml-1 bg-rose-500 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center ">
                 {badge}
               </span>
             )}
@@ -407,7 +407,7 @@ export default function AprovacoesPage() {
           <div className="glass-panel p-5 rounded-[2rem] border border-slate-200 flex items-center justify-between flex-wrap gap-4">
             <div className="flex flex-wrap items-end gap-4">
               <div>
-                <label htmlFor="apr-mes" className="text-[10px] font-black uppercase tracking-widest text-violet-400 mb-1 block">
+                <label htmlFor="apr-mes" className="text-xs font-medium text-violet-400 mb-1 block">
                   Planilhas de
                 </label>
                 <div className="flex items-center gap-2">
@@ -442,7 +442,7 @@ export default function AprovacoesPage() {
           {/* Reaberturas pendentes (master/emissor) */}
           {(isMaster || isDepartamento) && edicoesReaberturas.length > 0 && (
             <div className="glass-panel p-5 rounded-[2rem] border border-amber-500/30">
-              <h4 className="text-sm font-black uppercase tracking-widest text-amber-400 mb-3 flex items-center gap-2">
+              <h4 className="text-sm font-medium text-amber-400 mb-3 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" /> Reaberturas pendentes ({edicoesReaberturas.length})
               </h4>
               <div className="space-y-2">
@@ -454,9 +454,9 @@ export default function AprovacoesPage() {
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => handleResponderReabertura(e, true)} disabled={executandoEdicao === e.id}
-                        className="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-black uppercase">Aprovar</button>
+                        className="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-semibold uppercase">Aprovar</button>
                       <button onClick={() => handleResponderReabertura(e, false)} disabled={executandoEdicao === e.id}
-                        className="px-3 py-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-[10px] font-black uppercase">Negar</button>
+                        className="px-3 py-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-[10px] font-semibold uppercase">Negar</button>
                     </div>
                   </div>
                 ))}
@@ -467,7 +467,7 @@ export default function AprovacoesPage() {
           {/* Em edicao (acoes do gerente) */}
           {edicoesEmEdicao.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-2">Em edição</h4>
+              <h4 className="text-xs font-medium text-slate-400 px-2">Em edição</h4>
               {edicoesEmEdicao.map(e => (
                 <div key={e.id} className="glass-panel p-5 rounded-[1.5rem] border border-violet-500/20 flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-4 min-w-0">
@@ -475,13 +475,13 @@ export default function AprovacoesPage() {
                       <Building2 className="w-5 h-5 text-violet-400" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-base font-black text-slate-900 truncate">{e.condominios?.name}</h3>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-violet-400">{MESES[e.mes_referencia]} / {e.ano_referencia}</p>
+                      <h3 className="text-base font-semibold text-slate-900 truncate">{e.condominios?.name}</h3>
+                      <p className="text-xs font-medium text-violet-400">{MESES[e.mes_referencia]} / {e.ano_referencia}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Link href={`/condominio/${e.condominio_id}/arrecadacoes?ano=${e.ano_referencia}&mes=${e.mes_referencia}&edicao=${e.id}`}
-                      className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-700 hover:text-slate-900 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                      className="px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-700 hover:text-slate-900 text-xs font-medium flex items-center gap-2">
                       <FileText className="w-3.5 h-3.5" /> Ver planilha
                     </Link>
                     {(isGerente || isMaster) && (
@@ -499,14 +499,14 @@ export default function AprovacoesPage() {
           {/* Finalizadas (gerente pode pedir reabertura) */}
           {edicoesFinalizadas.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-2">Finalizadas</h4>
+              <h4 className="text-xs font-medium text-slate-500 px-2">Finalizadas</h4>
               {edicoesFinalizadas.map(e => (
                 <div key={e.id} className="p-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-3 min-w-0">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-slate-700 truncate">{e.condominios?.name}</p>
-                      <p className="text-[10px] text-slate-600 uppercase tracking-widest">{MESES[e.mes_referencia]}/{e.ano_referencia} · liberado {e.liberado_em ? new Date(e.liberado_em).toLocaleDateString('pt-BR') : ''}</p>
+                      <p className="text-[10px] text-slate-600 ">{MESES[e.mes_referencia]}/{e.ano_referencia} · liberado {e.liberado_em ? new Date(e.liberado_em).toLocaleDateString('pt-BR') : ''}</p>
                     </div>
                   </div>
                   {isGerente && (
@@ -523,7 +523,7 @@ export default function AprovacoesPage() {
           {/* Aguardando resposta da reabertura */}
           {isGerente && edicoesReaberturas.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 px-2">Reabertura solicitada (aguardando)</h4>
+              <h4 className="text-xs font-medium text-amber-500 px-2">Reabertura solicitada (aguardando)</h4>
               {edicoesReaberturas.map(e => (
                 <div key={e.id} className="p-4 rounded-[1.5rem] border border-amber-500/20 bg-amber-500/5">
                   <p className="text-sm font-bold text-slate-900">{e.condominios?.name}</p>
@@ -537,7 +537,7 @@ export default function AprovacoesPage() {
           {!edicoesLoading && edicoes.length === 0 && (
             <div className="text-center py-20 glass-panel rounded-[2.5rem] border border-slate-200">
               <CheckCircle2 className="w-12 h-12 text-slate-700 mx-auto mb-4" />
-              <h3 className="text-lg font-black text-slate-400 uppercase tracking-tighter">Nenhuma edição em andamento</h3>
+              <h3 className="text-lg font-semibold text-slate-400 uppercase tracking-tighter">Nenhuma edição em andamento</h3>
               <p className="text-slate-600 text-xs mt-2">O master ainda não abriu o período deste mês.</p>
             </div>
           )}
@@ -545,7 +545,7 @@ export default function AprovacoesPage() {
           {/* Processos legados (mostra se houver) */}
           {pendentes.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-2">Processos legados</h4>
+              <h4 className="text-xs font-medium text-slate-500 px-2">Processos legados</h4>
               {/* legacy code abaixo */}
             </div>
           )}
@@ -558,12 +558,12 @@ export default function AprovacoesPage() {
           {filaLoading ? (
             <div className="p-24 text-center glass-panel rounded-[2rem]">
               <div className="w-10 h-10 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Carregando fila...</p>
+              <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-[0.2em]">Carregando fila...</p>
             </div>
           ) : pendentes.length === 0 ? (
             <div className="text-center py-24 glass-panel rounded-[2.5rem] border border-slate-200">
               <CheckCircle2 className="w-16 h-16 text-slate-800 mx-auto mb-6" />
-              <h3 className="text-xl font-black text-slate-400 uppercase tracking-tighter">Fila Vazia</h3>
+              <h3 className="text-xl font-semibold text-slate-400 uppercase tracking-tighter">Fila Vazia</h3>
               <p className="text-slate-600 text-sm">Todos os processos foram validados com sucesso.</p>
             </div>
           ) : (
@@ -576,10 +576,10 @@ export default function AprovacoesPage() {
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-3 mb-1.5">
-                      <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">{item.condominios?.name}</h3>
+                      <h3 className="text-lg font-semibold text-slate-900 uppercase tracking-tight">{item.condominios?.name}</h3>
                       <StatusBadge status={item.status} />
                     </div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.year} — {item.semester === 1 ? '1º Semestre' : '2º Semestre'}</p>
+                    <p className="text-[10px] font-semibold text-slate-500 ">{item.year} — {item.semester === 1 ? '1º Semestre' : '2º Semestre'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -616,16 +616,16 @@ export default function AprovacoesPage() {
           {/* Sub-abas: Atividade x Erros */}
           <div className="flex items-center gap-2">
             <button onClick={() => setAuditView('atividade')}
-              className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${auditView === 'atividade' ? 'bg-violet-600 text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
+              className={`px-4 py-2 rounded-xl text-xs font-medium transition-all ${auditView === 'atividade' ? 'bg-violet-600 text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
               Atividade
             </button>
             <button onClick={() => setAuditView('erros')}
-              className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${auditView === 'erros' ? 'bg-rose-600 text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
+              className={`px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 ${auditView === 'erros' ? 'bg-rose-600 text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
               <AlertTriangle className="w-3.5 h-3.5" /> Erros
               {errosHoje > 0 && <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${auditView === 'erros' ? 'bg-white/20' : 'bg-rose-500 text-white'}`}>{errosHoje} hoje</span>}
             </button>
             <button onClick={() => setAuditView('relatorios')}
-              className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${auditView === 'relatorios' ? 'bg-violet-600 text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
+              className={`px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 ${auditView === 'relatorios' ? 'bg-violet-600 text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
               <BarChart3 className="w-3.5 h-3.5" /> Relatórios
             </button>
           </div>
@@ -646,10 +646,10 @@ export default function AprovacoesPage() {
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-500 font-black uppercase">De</span>
+                <span className="text-[10px] text-slate-500 font-semibold uppercase">De</span>
                 <input type="date" value={filtroDate.from} onChange={e => setFiltroDate(p => ({...p, from: e.target.value}))}
                   className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
-                <span className="text-[10px] text-slate-500 font-black uppercase">Até</span>
+                <span className="text-[10px] text-slate-500 font-semibold uppercase">Até</span>
                 <input type="date" value={filtroDate.to} onChange={e => setFiltroDate(p => ({...p, to: e.target.value}))}
                   className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none focus:border-violet-500/50 transition-all" />
               </div>
@@ -672,7 +672,7 @@ export default function AprovacoesPage() {
               <div className="flex flex-wrap gap-1.5">
                 {['', 'Arrecadação', 'Emissão', 'Arquivo', 'Edição', 'Conferência'].map(et => (
                   <button key={et || 'todas'} onClick={() => setFiltroEtapa(et)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${filtroEtapa === et ? 'bg-violet-600 text-white' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${filtroEtapa === et ? 'bg-violet-600 text-white' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
                     {et || 'Todas'}
                   </button>
                 ))}
@@ -684,7 +684,7 @@ export default function AprovacoesPage() {
           {(auditView === 'erros' ? errosLoading : auditLoading) && (auditView === 'erros' ? errosList.length === 0 : logs.length === 0) ? (
             <div className="p-24 text-center glass-panel rounded-[2rem]">
               <div className="w-10 h-10 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Carregando...</p>
+              <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-[0.2em]">Carregando...</p>
             </div>
           ) : auditView === 'erros' ? (
             errosList.length === 0 ? (
@@ -735,10 +735,10 @@ export default function AprovacoesPage() {
                     <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${st.dot}`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${st.chip} ${st.text}`}>{ev.etapa}</span>
+                        <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded ${st.chip} ${st.text}`}>{ev.etapa}</span>
                         <span className="text-[12px] font-bold text-slate-800">{ev.acao}</span>
                         {ev.ref && <span className="text-[10px] text-slate-500">· {ev.ref}</span>}
-                        {ev.status && <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{ev.status}</span>}
+                        {ev.status && <span className="text-[8px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{ev.status}</span>}
                       </div>
                       {ev.motivo && <p className="text-[11px] text-slate-500 italic mt-0.5 line-clamp-2">&ldquo;{ev.motivo}&rdquo;</p>}
                       {ev.arquivo_nome && (
@@ -770,10 +770,10 @@ export default function AprovacoesPage() {
             <button onClick={() => setShowReaberturaModal(null)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-900">
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-xl font-black text-slate-900 mb-2">Solicitar reabertura</h3>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">Solicitar reabertura</h3>
             <p className="text-sm text-slate-400 mb-1">{showReaberturaModal.condominios?.name}</p>
-            <p className="text-[10px] uppercase tracking-widest text-rose-400/80 mb-5">{MESES[showReaberturaModal.mes_referencia]}/{showReaberturaModal.ano_referencia}</p>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+            <p className="text-[10px]  text-rose-400/80 mb-5">{MESES[showReaberturaModal.mes_referencia]}/{showReaberturaModal.ano_referencia}</p>
+            <label className="text-xs font-medium text-slate-400 block mb-2">
               Motivo da reabertura <span className="text-rose-400">*</span>
             </label>
             <textarea
@@ -810,15 +810,15 @@ export default function AprovacoesPage() {
                 <MessageSquare className="w-6 h-6 text-rose-400" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Solicitar Correção</h3>
-                <p className="text-[10px] text-rose-400 font-black uppercase tracking-widest mt-0.5">{showRejectModal.condominios?.name}</p>
+                <h3 className="text-xl font-semibold text-slate-900 uppercase tracking-tighter">Solicitar Correção</h3>
+                <p className="text-[10px] text-rose-400 font-medium mt-0.5">{showRejectModal.condominios?.name}</p>
               </div>
             </div>
             <textarea autoFocus value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={4}
               className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm text-slate-800 focus:border-rose-500 outline-none transition-all placeholder:text-slate-700 mb-6 shadow-inner"
               placeholder="Descreva o que precisa ser corrigido..." />
             <div className="flex gap-3">
-              <button onClick={() => setShowRejectModal(null)} className="flex-1 py-3.5 text-xs font-black text-slate-600 uppercase tracking-widest hover:text-slate-900 transition-colors">Cancelar</button>
+              <button onClick={() => setShowRejectModal(null)} className="flex-1 py-3.5 text-xs font-semibold text-slate-600  hover:text-slate-900 transition-colors">Cancelar</button>
               <button disabled={!rejectReason || processing}
                 onClick={() => handleAction(showRejectModal.id, 'reject', rejectReason)}
                 className={cn(btn.primario, "flex-1 bg-rose-600 hover:bg-rose-500")}>

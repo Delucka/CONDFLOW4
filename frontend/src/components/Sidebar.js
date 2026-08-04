@@ -76,7 +76,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
 
           <div className={`flex items-center gap-2.5 px-4 mb-6 mt-1 ${isCollapsed ? 'justify-center px-0' : ''}`}>
             <LogoMark size={36} className="shrink-0" />
-            {!isCollapsed && <h1 className="text-lg font-black tracking-tight text-slate-900">Condo<span className="text-violet-600">Flow</span></h1>}
+            {!isCollapsed && <h1 className="text-lg font-semibold tracking-tight text-slate-900">Condo<span className="text-violet-600">Flow</span></h1>}
             <button type="button" onClick={onCloseMobile} aria-label="Fechar menu"
               className="lg:hidden tap ml-auto inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors">
               <X className="w-5 h-5" aria-hidden="true" />
@@ -92,7 +92,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
                 {!isCollapsed && (
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-slate-800 truncate">{profile.full_name}</p>
-                    <p className="text-[9px] uppercase font-bold text-violet-600 truncate tracking-widest">{roleLabel}</p>
+                    <p className="text-[11px] font-medium text-violet-600 truncate">{roleLabel}</p>
                   </div>
                 )}
               </div>
@@ -100,7 +100,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
           )}
 
           <nav aria-label="Menu principal" className="flex-1 overflow-y-auto px-3 space-y-1 overflow-x-hidden relative z-10">
-            {visibleNav.length > 0 && <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 pl-2">Menu Principal</div>}
+            {visibleNav.length > 0 && <div className="text-[11px] font-medium text-slate-400 mb-2 pl-2">Menu Principal</div>}
             {visibleNav.map((item) => {
               const active = isActive(item.href);
               const showBadge = item.showBadge && pendingCount > 0;
@@ -113,7 +113,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
                   {!isCollapsed && (
                     <div className="flex-1 flex justify-between items-center">
                       <span>{item.label}</span>
-                      {showBadge && <span className="bg-rose-500 text-white text-[9px] font-black px-1 py-0 rounded-full min-w-[16px] text-center leading-tight" aria-label={`${pendingCount} pendências`}>{pendingCount}</span>}
+                      {showBadge && <span className="bg-rose-500 text-white text-[10px] font-semibold px-1.5 py-0 rounded-full min-w-[18px] text-center leading-tight" aria-label={`${pendingCount} pendências`}>{pendingCount}</span>}
                     </div>
                   )}
                   {isCollapsed && showBadge && <span className="absolute top-1 right-1 bg-rose-500 w-2 h-2 rounded-full" aria-label={`${pendingCount} pendências`} />}
@@ -123,7 +123,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
 
             {visibleAdmin.length > 0 && (
               <>
-                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-6 mb-2 pl-2">Configurações</div>
+                <div className="text-[11px] font-medium text-slate-400 mt-6 mb-2 pl-2">Configurações</div>
                 {visibleAdmin.map((item) => {
                   const active = isActive(item.href);
                   return (

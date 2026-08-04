@@ -53,7 +53,7 @@ export default function CentralEmissoesPage() {
         <button
           key={tab.id}
           onClick={() => setActiveView(tab.id)}
-          className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+          className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center gap-2 ${
             activeView === tab.id ? tab.activeClass : 'bg-slate-50 text-slate-500 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >

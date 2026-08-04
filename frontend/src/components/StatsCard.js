@@ -16,10 +16,10 @@ export default function StatsCard({ title, value, icon: Icon, color, loading = f
         {Icon ? <Icon className="w-4 h-4" /> : null}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{title}</p>
+        <p className="text-xs font-medium text-slate-500 truncate">{title}</p>
         {loading
           ? <span className="mt-1 block h-5 w-12 rounded bg-slate-200 animate-pulse" aria-label="Carregando…" />
-          : <p className="text-xl font-black text-slate-900 leading-tight tabular-nums">{value}</p>}
+          : <p className="text-2xl font-semibold text-slate-900 leading-tight tabular-nums">{value}</p>}
       </div>
     </div>
   );

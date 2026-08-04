@@ -330,8 +330,8 @@ export default function RegistroEmissoes({ profile }) {
             <Lock className="w-6 h-6 text-emerald-400" />
           </div>
           <div>
-            <p className="text-3xl font-black text-slate-900">{pacotes.length}</p>
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Emissões Expedidas</p>
+            <p className="text-3xl font-semibold text-slate-900">{pacotes.length}</p>
+            <p className="text-[11px] font-medium text-slate-500">Emissões Expedidas</p>
           </div>
         </div>
         <div className="p-6 border border-slate-200 rounded-3xl bg-white flex items-center gap-4">
@@ -339,8 +339,8 @@ export default function RegistroEmissoes({ profile }) {
             <RefreshCw className="w-6 h-6 text-amber-400" />
           </div>
           <div>
-            <p className="text-3xl font-black text-slate-900">{pacotes.filter(p => p.eh_retificacao).length}</p>
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Retificações</p>
+            <p className="text-3xl font-semibold text-slate-900">{pacotes.filter(p => p.eh_retificacao).length}</p>
+            <p className="text-[11px] font-medium text-slate-500">Retificações</p>
           </div>
         </div>
       </div>
@@ -349,7 +349,7 @@ export default function RegistroEmissoes({ profile }) {
       <div className="border border-slate-200 rounded-3xl bg-slate-50 p-6">
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Buscar Condomínio</label>
+            <label className="block text-[10px] font-semibold text-slate-500  mb-2">Buscar Condomínio</label>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input value={busca} onChange={e => { setBusca(e.target.value); setPagina(1); }}
@@ -358,7 +358,7 @@ export default function RegistroEmissoes({ profile }) {
             </div>
           </div>
           <div className="min-w-[160px]">
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Competência</label>
+            <label className="block text-[10px] font-semibold text-slate-500  mb-2">Competência</label>
             <select value={competencia} onChange={e => { setCompetencia(e.target.value); setPagina(1); }}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-500 transition-all appearance-none">
               <option value="" className="bg-white">Todas</option>
@@ -377,13 +377,13 @@ export default function RegistroEmissoes({ profile }) {
       <div className="border border-slate-200 rounded-3xl bg-slate-50 overflow-hidden shadow-2xl">
         <div className="p-6 border-b border-slate-200 flex items-center gap-4 flex-wrap">
           <Archive className="w-5 h-5 text-emerald-400" />
-          <h3 className="font-black text-slate-900 text-lg">Registro de Emissões Expedidas</h3>
-          <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+          <h3 className="font-semibold text-slate-900 text-lg">Registro de Emissões Expedidas</h3>
+          <span className="text-[10px] font-semibold text-emerald-400  bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
             {pacotesFiltrados.length} registro{pacotesFiltrados.length !== 1 ? 's' : ''}
           </span>
           {pacotes.length > 0 && (
             <button onClick={() => { setExtCondo(''); setExtComp(''); setShowExtrairModal(true); }}
-              className="ml-auto px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg transition-all">
+              className="ml-auto px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium flex items-center gap-2 shadow-lg transition-all">
               <FileDown className="w-4 h-4" /> Extrair emissão
             </button>
           )}
@@ -392,14 +392,14 @@ export default function RegistroEmissoes({ profile }) {
         {loading ? (
           <div className="flex flex-col items-center justify-center p-16 gap-3">
             <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Carregando registros...</p>
+            <p className="text-xs text-slate-500 font-medium">Carregando registros...</p>
           </div>
         ) : pacotesFiltrados.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-20 text-center">
             <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-4 border border-slate-200">
               <Archive className="w-8 h-8 text-slate-400" />
             </div>
-            <h4 className="text-slate-900 font-black text-lg">Nenhum registro encontrado</h4>
+            <h4 className="text-slate-900 font-semibold text-lg">Nenhum registro encontrado</h4>
             <p className="text-xs text-slate-500 max-w-[250px] mt-2">
               {temFiltros ? 'Tente ajustar os filtros.' : 'Emissões registradas aparecerão aqui.'}
             </p>
@@ -409,7 +409,7 @@ export default function RegistroEmissoes({ profile }) {
             {/* Header da tabela */}
             <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-3 border-b border-slate-200 bg-slate-50">
               {['Condomínio', 'Competência', 'Expedida em', 'Status', 'Ações'].map(h => (
-                <span key={h} className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{h}</span>
+                <span key={h} className="text-[9px] font-semibold text-slate-500 ">{h}</span>
               ))}
             </div>
 
@@ -433,11 +433,11 @@ export default function RegistroEmissoes({ profile }) {
                       {p.lacrada_em ? new Date(p.lacrada_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).replace(',', ' às') : '—'}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+                      <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-semibold text-emerald-400  flex items-center gap-1">
                         <Lock className="w-3 h-3" /> Expedida
                       </span>
                       {p.eh_retificacao && (
-                        <span className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[9px] font-black text-amber-400 uppercase tracking-widest">Retif.</span>
+                        <span className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[9px] font-semibold text-amber-400 ">Retif.</span>
                       )}
                     </div>
                     <div className="flex gap-2">
@@ -473,7 +473,7 @@ export default function RegistroEmissoes({ profile }) {
             {/* Paginação */}
             {totalPaginas > 1 && (
               <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                <span className="text-[10px] font-bold text-slate-500 ">
                   Página {pagina} de {totalPaginas}
                 </span>
                 <div className="flex gap-2">
@@ -498,8 +498,8 @@ export default function RegistroEmissoes({ profile }) {
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-8 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-lg font-black text-slate-900">{arqPacote.condominios?.name}</h3>
-                <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest">
+                <h3 className="text-lg font-semibold text-slate-900">{arqPacote.condominios?.name}</h3>
+                <p className="text-[10px] text-emerald-400 font-medium">
                   {String(arqPacote.mes_referencia).padStart(2,'0')}/{arqPacote.ano_referencia} • Lacrada
                 </p>
               </div>
@@ -542,8 +542,8 @@ export default function RegistroEmissoes({ profile }) {
                 <RefreshCw className="w-6 h-6 text-amber-400" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-slate-900">Solicitar Retificação</h3>
-                <p className="text-[10px] text-amber-400 font-black uppercase tracking-widest mt-1">
+                <h3 className="text-xl font-semibold text-slate-900">Solicitar Retificação</h3>
+                <p className="text-[10px] text-amber-400 font-medium mt-1">
                   {retifPacote.condominios?.name} — {String(retifPacote.mes_referencia).padStart(2,'0')}/{retifPacote.ano_referencia}
                 </p>
               </div>
@@ -558,7 +558,7 @@ export default function RegistroEmissoes({ profile }) {
 
             <div className="space-y-5">
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Motivo</label>
+                <label className="block text-[10px] font-semibold text-slate-500  mb-2">Motivo</label>
                 <select value={retifMotivo} onChange={e => setRetifMotivo(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-amber-500 transition-all appearance-none">
                   <option value="" className="bg-white">Selecione o motivo...</option>
@@ -570,7 +570,7 @@ export default function RegistroEmissoes({ profile }) {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Descrição Detalhada</label>
+                <label className="block text-[10px] font-semibold text-slate-500  mb-2">Descrição Detalhada</label>
                 <textarea value={retifDescricao} onChange={e => setRetifDescricao(e.target.value)} rows={4}
                   placeholder="Descreva detalhadamente o que precisa ser retificado..."
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-900 outline-none focus:border-amber-500 transition-all placeholder:text-slate-400" />
@@ -580,11 +580,11 @@ export default function RegistroEmissoes({ profile }) {
 
             <div className="flex gap-3 mt-6">
               <button onClick={() => { setShowRetifModal(false); setRetifPacote(null); }}
-                className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+                className="flex-1 py-3 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
                 Cancelar
               </button>
               <button onClick={handleSolicitarRetif} disabled={retifSubmitting || !retifMotivo || retifDescricao.length < 30}
-                className="flex-[2] py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all disabled:opacity-30 flex items-center justify-center gap-2">
+                className="flex-[2] py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs shadow-lg transition-all disabled:opacity-30 flex items-center justify-center gap-2">
                 {retifSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                 Solicitar Retificação
               </button>
@@ -598,12 +598,12 @@ export default function RegistroEmissoes({ profile }) {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-8 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2"><FileDown className="w-5 h-5 text-violet-500" /> Extrair emissão</h3>
+              <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2"><FileDown className="w-5 h-5 text-violet-500" /> Extrair emissão</h3>
               <button onClick={() => setShowExtrairModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 hover:text-slate-900 transition-colors"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Condomínio</label>
+                <label className="block text-[10px] font-semibold text-slate-500  mb-2">Condomínio</label>
                 <select value={extCondo} onChange={e => { setExtCondo(e.target.value); setExtComp(''); }}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-violet-500">
                   <option value="">Selecione…</option>
@@ -611,7 +611,7 @@ export default function RegistroEmissoes({ profile }) {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Emissão (mês/ano)</label>
+                <label className="block text-[10px] font-semibold text-slate-500  mb-2">Emissão (mês/ano)</label>
                 <select value={extComp} onChange={e => setExtComp(e.target.value)} disabled={!extCondo}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-violet-500 disabled:opacity-50">
                   <option value="">{extCondo ? 'Selecione a competência…' : 'Escolha o condomínio primeiro'}</option>
@@ -619,12 +619,12 @@ export default function RegistroEmissoes({ profile }) {
                 </select>
               </div>
               <button onClick={() => extrairDoModal('zip')} disabled={!extCondo || !extComp}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-black uppercase tracking-widest text-[11px] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium text-[11px] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                 title="Baixa os arquivos originais separados, sem reprocessar (melhor fidelidade)">
                 <Archive className="w-4 h-4" /> Originais (ZIP)
               </button>
               <button onClick={() => extrairDoModal('pdf')} disabled={!extCondo || !extComp}
-                className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all disabled:opacity-40 flex items-center justify-center gap-2">
+                className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium text-xs shadow-lg transition-all disabled:opacity-40 flex items-center justify-center gap-2">
                 <FileDown className="w-4 h-4" /> Extrair tudo em um PDF
               </button>
               <p className="text-[10px] text-slate-400 text-center leading-relaxed">
@@ -640,7 +640,7 @@ export default function RegistroEmissoes({ profile }) {
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 shadow-2xl text-center max-w-xs">
             <Loader2 className="w-8 h-8 text-violet-500 animate-spin mx-auto mb-3" />
-            <p className="text-sm font-black text-slate-900">Montando o arquivo da emissão…</p>
+            <p className="text-sm font-semibold text-slate-900">Montando o arquivo da emissão…</p>
             <p className="text-xs text-slate-500 mt-1 truncate">{extProg.i}/{extProg.n} · {extProg.nome}</p>
           </div>
         </div>

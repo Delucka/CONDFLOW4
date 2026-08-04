@@ -354,7 +354,7 @@ export default function ArrecadacoesPage() {
       const currentLabel = startNum + (m - mesIni);
       if (currentLabel > 0 && currentLabel <= total) {
         return (
-          <span className="inline-block text-[8px] font-black text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-1.5 mt-0.5">
+          <span className="inline-block text-[8px] font-semibold text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-1.5 mt-0.5">
             {String(currentLabel).padStart(2, '0')}/{String(total).padStart(2, '0')}
           </span>
         );
@@ -512,7 +512,7 @@ export default function ArrecadacoesPage() {
     return (
       <div className="flex flex-col items-center justify-center p-20 animate-pulse">
         <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Carregando Planilha...</p>
+        <p className="text-slate-400 text-xs font-medium">Carregando Planilha...</p>
       </div>
     );
   }
@@ -582,7 +582,7 @@ export default function ArrecadacoesPage() {
         {/* Cabeçalho do condomínio */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-lg font-black text-slate-900 uppercase tracking-tight leading-tight break-words">{condo?.name}</h1>
+            <h1 className="text-lg font-semibold text-slate-900 uppercase tracking-tight leading-tight break-words">{condo?.name}</h1>
             <p className="text-[11px] text-slate-500 font-medium mt-0.5">
               Gerente: {condo?.gerente_name} · venc. dia {condo?.due_day}{condo?.due_day_2 ? ` e ${condo.due_day_2}` : ''}
             </p>
@@ -592,7 +592,7 @@ export default function ArrecadacoesPage() {
             value={selectedYear}
             onChange={(e) => router.push(`/condominio/${condoId}/arrecadacoes?ano=${e.target.value}`)}
             aria-label="Ano de referência"
-            className="shrink-0 text-xs font-black bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-violet-500"
+            className="shrink-0 text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-violet-500"
           >
             {[...Array(6)].map((_, i) => <option key={i} value={2024 + i}>{2024 + i}</option>)}
           </select>
@@ -629,10 +629,10 @@ export default function ArrecadacoesPage() {
         {/* Timeline do emissor */}
         {isEmissor && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Emissor:</span>
+            <span className="text-[9px] font-semibold uppercase text-slate-400 tracking-widest">Emissor:</span>
             {['Em edição', 'Edição finalizada'].map(st => (
               <button key={st} onClick={() => handleForceStatus(st)}
-                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${processo?.status === st ? (st === 'Edição finalizada' ? 'bg-rose-500 text-white' : 'bg-violet-600 text-white') : 'bg-slate-100 text-slate-500'}`}>
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${processo?.status === st ? (st === 'Edição finalizada' ? 'bg-rose-500 text-white' : 'bg-violet-600 text-white') : 'bg-slate-100 text-slate-500'}`}>
                 {st}
               </button>
             ))}
@@ -659,7 +659,7 @@ export default function ArrecadacoesPage() {
         <div className="flex items-center justify-between bg-violet-50 rounded-2xl px-4 py-3">
           <div className="min-w-0">
             <p className="text-[11px] font-bold text-violet-600">Total de {MESES[m]}</p>
-            <p className="text-xl font-black text-violet-700 tabular-nums truncate">{formatBRL(totalMes)}</p>
+            <p className="text-xl font-semibold text-violet-700 tabular-nums truncate">{formatBRL(totalMes)}</p>
           </div>
           <span className="text-[11px] text-slate-500 font-bold shrink-0 ml-2">{rateios.length} verba{rateios.length !== 1 ? 's' : ''}</span>
         </div>
@@ -684,7 +684,7 @@ export default function ArrecadacoesPage() {
                     <div className="flex-1 min-w-0">
                       <input value={r.nome || ''} onChange={e => handleRateioChange(r.id, 'nome', e.target.value)} disabled={!canEdit}
                         placeholder="Nome da verba"
-                        className="w-full bg-transparent border-none p-0 text-[13px] font-black uppercase text-slate-800 placeholder:text-slate-400 focus:ring-0 disabled:cursor-default" />
+                        className="w-full bg-transparent border-none p-0 text-[13px] font-semibold uppercase text-slate-800 placeholder:text-slate-400 focus:ring-0 disabled:cursor-default" />
                       <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">
                         CT. {r.conta_contabil || '—'}{r.conta_nome ? ` · ${r.conta_nome}` : ''}{parc && <span className="text-violet-500"> · parcela {parc}</span>}
                       </p>
@@ -700,7 +700,7 @@ export default function ArrecadacoesPage() {
                       onChange={isPlanilhaSpecial ? (e) => handleValueChange(r.id, m, e.target.value) : (e) => handleCurrencyInput(r.id, m, e.target.value)}
                       onFocus={isPlanilhaSpecial ? undefined : handleCurrencyFocus} disabled={cellDisabled} placeholder="R$ 0,00"
                       aria-label={`Valor de ${r.nome || 'verba'} em ${MESES[m]}`}
-                      className={`flex-1 min-w-0 text-right bg-slate-50 border rounded-xl text-base font-black px-3 py-2.5 outline-none transition-colors focus:border-violet-500
+                      className={`flex-1 min-w-0 text-right bg-slate-50 border rounded-xl text-base font-semibold px-3 py-2.5 outline-none transition-colors focus:border-violet-500
                         ${isPlanilhaSpecial ? 'text-violet-500 text-center' : 'text-slate-800'}
                         ${mesTravado ? 'border-rose-200 text-rose-400' : 'border-slate-200'}
                         ${cellDisabled ? 'opacity-60 cursor-not-allowed' : ''}`} />
@@ -727,21 +727,21 @@ export default function ArrecadacoesPage() {
 
         {/* Adicionar verba */}
         {canEdit && (
-          <button onClick={handleAddNew} className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-2xl text-[11px] font-black text-slate-500 uppercase tracking-widest active:opacity-70">
+          <button onClick={handleAddNew} className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-2xl text-[11px] font-semibold text-slate-500  active:opacity-70">
             <PlusCircle className="w-4 h-4" aria-hidden="true" /> Adicionar verba
           </button>
         )}
 
         {/* Alterações (AGO/AGE) do mês */}
         {canEdit && (
-          <button onClick={() => setModalAlteracoesMes(m)} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-50 text-amber-600 text-[11px] font-black uppercase tracking-widest active:opacity-70">
+          <button onClick={() => setModalAlteracoesMes(m)} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-50 text-amber-600 text-xs font-medium active:opacity-70">
             <FileWarning className="w-4 h-4" aria-hidden="true" /> Alterações de {MESES[m]} (AGO/AGE)
           </button>
         )}
 
         {/* Observações */}
         <div>
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+          <label className="text-[10px] font-semibold text-slate-400  flex items-center gap-1.5 mb-1.5">
             <Info className="w-3.5 h-3.5 text-violet-400" aria-hidden="true" /> Observações para o emissor
           </label>
           <textarea value={obsEmissao} onChange={e => setObsEmissao(e.target.value)} disabled={!canEdit} rows={3}
@@ -753,17 +753,17 @@ export default function ArrecadacoesPage() {
         {canEdit && (
           <div className="flex gap-2 pt-1">
             <button onClick={() => handleSave()} disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs font-black text-slate-900 uppercase tracking-widest active:opacity-70 disabled:opacity-50">
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-900  active:opacity-70 disabled:opacity-50">
               <Save className="w-4 h-4 text-violet-500" aria-hidden="true" /> {saving ? 'Salvando...' : 'Salvar'}
             </button>
             {podeLiberarMensal ? (
               <button onClick={() => liberarEdicaoMensal(edicaoAberta)} disabled={edicaoLoading}
-                className="flex-[1.3] flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-500 text-white text-xs font-black uppercase tracking-widest active:opacity-70 disabled:opacity-50">
+                className="flex-[1.3] flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-500 text-white text-xs font-medium active:opacity-70 disabled:opacity-50">
                 <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> Liberar {MESES[edicaoAberta.mes_referencia].slice(0, 3)}
               </button>
             ) : edicoesCondo.length === 0 && (
               <button onClick={() => setShowConfirmSend(true)}
-                className="flex-[1.3] flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-violet-600 text-white text-xs font-black uppercase tracking-widest active:opacity-70">
+                className="flex-[1.3] flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-violet-600 text-white text-xs font-medium active:opacity-70">
                 <Send className="w-4 h-4" aria-hidden="true" /> Enviar
               </button>
             )}
@@ -781,8 +781,8 @@ export default function ArrecadacoesPage() {
               <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm animate-fade-in" onClick={() => setAplicarMesesFor(null)} />
               <div className="relative bg-white rounded-t-3xl px-5 pt-3 animate-slide-up" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
                 <div className="mx-auto w-10 h-1.5 rounded-full bg-slate-300 mb-4" aria-hidden="true" />
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Aplicar valor</p>
-                <p className="text-2xl font-black text-slate-900 mb-1 tabular-nums">{formatBRL(aplicarMesesFor.valor)}</p>
+                <p className="text-xs font-medium text-slate-400">Aplicar valor</p>
+                <p className="text-2xl font-semibold text-slate-900 mb-1 tabular-nums">{formatBRL(aplicarMesesFor.valor)}</p>
                 <p className="text-xs text-slate-500 font-medium mb-5">A partir de <strong className="text-slate-700">{MESES[start]}</strong>, em quantos meses aplicar?</p>
 
                 <div className="flex items-center justify-center gap-5 mb-4">
@@ -791,8 +791,8 @@ export default function ArrecadacoesPage() {
                     <Minus className="w-5 h-5" aria-hidden="true" />
                   </button>
                   <div className="text-center min-w-[64px]">
-                    <p className="text-4xl font-black text-violet-600 tabular-nums leading-none">{aplicarCount}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{aplicarCount > 1 ? 'meses' : 'mês'}</p>
+                    <p className="text-4xl font-semibold text-violet-600 tabular-nums leading-none">{aplicarCount}</p>
+                    <p className="text-[10px] font-bold text-slate-400  mt-1">{aplicarCount > 1 ? 'meses' : 'mês'}</p>
                   </div>
                   <button onClick={() => setAplicarCount(c => Math.min(maxCount, c + 1))} disabled={aplicarCount >= maxCount}
                     className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 disabled:opacity-40 active:opacity-70" aria-label="Mais um mês">
@@ -806,9 +806,9 @@ export default function ArrecadacoesPage() {
                 </p>
 
                 <div className="flex gap-2">
-                  <button onClick={() => setAplicarMesesFor(null)} className="flex-1 py-3.5 rounded-2xl bg-slate-100 text-xs font-black text-slate-600 uppercase tracking-widest active:opacity-70">Cancelar</button>
+                  <button onClick={() => setAplicarMesesFor(null)} className="flex-1 py-3.5 rounded-2xl bg-slate-100 text-xs font-semibold text-slate-600  active:opacity-70">Cancelar</button>
                   <button onClick={() => aplicarValorMeses(aplicarMesesFor.rid, aplicarMesesFor.valor, aplicarCount)}
-                    className="flex-[1.5] py-3.5 rounded-2xl bg-violet-600 text-white text-xs font-black uppercase tracking-widest active:opacity-70">Aplicar</button>
+                    className="flex-[1.5] py-3.5 rounded-2xl bg-violet-600 text-white text-xs font-medium active:opacity-70">Aplicar</button>
                 </div>
               </div>
             </div>
@@ -829,7 +829,7 @@ export default function ArrecadacoesPage() {
         <div className="mb-4 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 animate-fade-in">
           <Lock className="w-4 h-4 shrink-0" />
           <div className="flex-1">
-            <p className="text-xs font-black uppercase tracking-widest">
+            <p className="text-xs font-medium">
               {prazoExpirado ? 'Prazo de devolução encerrado' : 'Planilha não disponível para edição'}
             </p>
             <p className="text-[11px] text-rose-400/80">
@@ -858,7 +858,7 @@ export default function ArrecadacoesPage() {
           <Timer className="w-4 h-4 shrink-0" />
           <p className="text-[11px]">
             Prazo para devolução da planilha:{' '}
-            <span className="font-black">{prazoFim.toLocaleString('pt-BR')}</span>
+            <span className="font-semibold">{prazoFim.toLocaleString('pt-BR')}</span>
           </p>
         </div>
       )}
@@ -873,19 +873,19 @@ export default function ArrecadacoesPage() {
                 <div>
                     {/* Deixa explícito que esta tela é a PLANILHA (etapa 1), não a EMISSÃO (etapa 2) */}
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-violet-600 text-white">
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-violet-600 text-white">
                             Etapa 1 · Planilha (previsão)
                         </span>
                         <span className="text-[10px] text-slate-500">
                             Aqui você define os <b className="text-slate-700">valores</b>. Conferir/aprovar o documento da <b className="text-slate-700">emissão</b> é a etapa seguinte, em Aprovações.
                         </span>
                     </div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase leading-none">{condo?.name}</h1>
+                    <h1 className="text-2xl font-semibold text-slate-900 tracking-tight uppercase leading-none">{condo?.name}</h1>
                     <div className="flex items-center gap-3 mt-2">
-                        <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest flex items-center gap-1 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
+                        <span className="text-[10px] font-semibold text-violet-400  flex items-center gap-1 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
                             Gerente: <span className="text-slate-900">{condo?.gerente_name}</span>
                         </span>
-                        <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest flex items-center gap-1 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
+                        <span className="text-[10px] font-semibold text-violet-400  flex items-center gap-1 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20">
                             Vencimento: <span className="text-slate-900">DIA {condo?.due_day}{condo?.due_day_2 ? ` E ${condo.due_day_2}` : ''}</span>
                         </span>
                     </div>
@@ -894,11 +894,11 @@ export default function ArrecadacoesPage() {
 
             <div className="flex items-center gap-3">
                 <div className="flex flex-col items-end">
-                    <span className="text-[9px] font-black text-slate-500 uppercase mb-1">Referência Anual</span>
+                    <span className="text-[9px] font-semibold text-slate-500 uppercase mb-1">Referência Anual</span>
                     <select 
                         value={selectedYear}
                         onChange={(e) => router.push(`/condominio/${condoId}/arrecadacoes?ano=${e.target.value}`)}
-                        className="bg-white border-slate-200 text-sm font-black text-slate-900 px-4 py-2 rounded-xl focus:ring-1 focus:ring-violet-500 outline-none"
+                        className="bg-white border-slate-200 text-sm font-semibold text-slate-900 px-4 py-2 rounded-xl focus:ring-1 focus:ring-violet-500 outline-none"
                     >
                         {[...Array(6)].map((_, i) => (
                             <option key={i} value={2024 + i}>{2024 + i}</option>
@@ -918,7 +918,7 @@ export default function ArrecadacoesPage() {
                   Você tem <b>{mesesAbertos.length} meses</b> de planilha abertos. Pode liberar todos de uma vez.
                 </p>
                 <button onClick={() => setShowLiberarTodos(true)} disabled={edicaoLoading}
-                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 disabled:opacity-50 shrink-0">
+                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-medium shadow-lg shadow-emerald-500/20 disabled:opacity-50 shrink-0">
                   Liberar todos os meses abertos ({mesesAbertos.length})
                 </button>
               </div>
@@ -931,13 +931,13 @@ export default function ArrecadacoesPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-2.5 h-2.5 rounded-full bg-violet-400 animate-pulse" />
                       <div>
-                        <p className="text-sm font-black text-slate-900">Planilha de {mesNome}/{ed.ano_referencia} · em edição (não liberada)</p>
+                        <p className="text-sm font-semibold text-slate-900">Planilha de {mesNome}/{ed.ano_referencia} · em edição (não liberada)</p>
                         <p className="text-[11px] text-violet-300/80">Revise os valores e libere para finalizar.</p>
                       </div>
                     </div>
                     {(profile?.role === 'gerente' || profile?.role === 'master') && (
                       <button onClick={() => liberarEdicaoMensal(ed)} disabled={edicaoLoading}
-                        className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 disabled:opacity-50">
+                        className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-medium shadow-lg shadow-emerald-500/20 disabled:opacity-50">
                         Liberar este mês
                       </button>
                     )}
@@ -969,10 +969,10 @@ export default function ArrecadacoesPage() {
         <div className="flex justify-between items-end border-t border-slate-200 pt-4 mt-2">
             <div className="flex flex-col gap-4">
                 <div className="flex gap-4">
-                    <button className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-violet-500 text-white ">
+                    <button className="text-xs font-medium px-4 py-2 rounded-lg bg-violet-500 text-white ">
                         Arrecadações
                     </button>
-                    <Link href={`/condominio/${condoId}/emissoes`} className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+                    <Link href={`/condominio/${condoId}/emissoes`} className="text-xs font-medium px-4 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
                         Emissões (Arquivos)
                     </Link>
                 </div>
@@ -980,12 +980,12 @@ export default function ArrecadacoesPage() {
                 {/* HUD EMISSOR MOVIDO PARA O TOPO */}
                 {isEmissor && (
                     <div className="flex items-center gap-2 bg-white p-2 rounded-full border border-slate-200 shadow-inner w-max">
-                        <span className="text-[9px] font-black uppercase text-slate-500 mr-2 ml-2">Timeline (Emissor):</span>
+                        <span className="text-[9px] font-semibold uppercase text-slate-500 mr-2 ml-2">Timeline (Emissor):</span>
                         {['Em edição', 'Edição finalizada'].map(st => (
                             <button
                                 key={st}
                                 onClick={() => handleForceStatus(st)}
-                                className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${
+                                className={`px-4 py-2 text-xs font-medium rounded-full transition-all ${
                                   processo?.status === st
                                     ? st === 'Edição finalizada'
                                       ? 'bg-rose-500 text-white '
@@ -1009,10 +1009,10 @@ export default function ArrecadacoesPage() {
             <table className="w-full border-collapse">
                 <thead className="bg-slate-100">
                     <tr>
-                        <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-200 min-w-[200px] sticky left-0 z-30 bg-slate-50 backdrop-blur-md">
+                        <th className="px-4 py-4 text-left text-[10px] font-semibold text-slate-400  border-r border-slate-200 min-w-[200px] sticky left-0 z-30 bg-slate-50 backdrop-blur-md">
                             Conta Contábil
                         </th>
-                        <th className="px-4 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-200 min-w-[220px] sticky left-[200px] z-30 bg-slate-50 backdrop-blur-md">
+                        <th className="px-4 py-4 text-left text-[10px] font-semibold text-slate-400  border-r border-slate-200 min-w-[220px] sticky left-[200px] z-30 bg-slate-50 backdrop-blur-md">
                             Verbas / Descritivo
                         </th>
                         {months.map(m => {
@@ -1020,7 +1020,7 @@ export default function ArrecadacoesPage() {
                             const temPrevista = altList.some(a => a.status === 'prevista');
                             const totalAlts = altList.length;
                             return (
-                                <th key={m} className="px-2 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-200 min-w-[120px] bg-slate-100 relative">
+                                <th key={m} className="px-2 py-3 text-center text-[10px] font-semibold text-slate-400  border-r border-slate-200 min-w-[120px] bg-slate-100 relative">
                                     <div className="flex items-center justify-center gap-1.5">
                                         <span>{MESES[m]} / {String(selectedYear).slice(-2)}</span>
                                     </div>
@@ -1031,7 +1031,7 @@ export default function ArrecadacoesPage() {
                                             ? `${totalAlts} alteração${totalAlts > 1 ? 'ões' : ''} ${temPrevista ? '(há previstas)' : 'registrada(s)'}`
                                             : 'Marcar alteração (AGO/AGE/Reunião)'
                                         }
-                                        className={`mt-1.5 mx-auto flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${
+                                        className={`mt-1.5 mx-auto flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
                                           totalAlts === 0
                                             ? 'bg-slate-50 hover:bg-amber-500/10 border border-slate-200 hover:border-amber-500/40 text-slate-500 hover:text-amber-400'
                                             : temPrevista
@@ -1054,10 +1054,10 @@ export default function ArrecadacoesPage() {
                             {/* COL: CONTA */}
                             <td className="p-2 border-r border-slate-200 sticky left-0 z-20 bg-white backdrop-blur-sm group-hover:bg-slate-100 transition-colors shadow-xl relative">
                                 <div className="w-full text-left p-2 rounded-lg text-xs">
-                                    <div className="text-[10px] font-black text-violet-400 mb-0.5 truncate" title="Conta Contábil e Nome">
+                                    <div className="text-[10px] font-semibold text-violet-400 mb-0.5 truncate" title="Conta Contábil e Nome">
                                         CT. {r.conta_contabil || '—'} {r.conta_nome ? `- ${r.conta_nome}` : ''}
                                     </div>
-                                    <div className="text-[9px] font-black text-violet-400 mb-0.5" title="Análise Financeira">
+                                    <div className="text-[9px] font-semibold text-violet-400 mb-0.5" title="Análise Financeira">
                                         AN. {r.conta_analise_fin || '—'}
                                     </div>
                                 </div>
@@ -1071,7 +1071,7 @@ export default function ArrecadacoesPage() {
                                             value={r.nome}
                                             onChange={e => handleRateioChange(r.id, 'nome', e.target.value)}
                                             disabled={!canEdit}
-                                            className="w-full bg-transparent border-none p-0 text-xs font-black uppercase text-slate-800 placeholder:text-slate-600 focus:ring-0 disabled:cursor-default"
+                                            className="w-full bg-transparent border-none p-0 text-xs font-semibold uppercase text-slate-800 placeholder:text-slate-600 focus:ring-0 disabled:cursor-default"
                                             placeholder="Ex: Fundo de Obras"
                                         />
                                         <div className="text-[9px] font-bold text-slate-500 truncate mt-1 max-w-[150px]">{r.conta_nome || 'Conta não vinculada'}</div>
@@ -1083,7 +1083,7 @@ export default function ArrecadacoesPage() {
                                     )}
                                 </div>
                                 {r.is_parcelado && (
-                                    <div className="flex items-center gap-1 mt-2 text-[8px] font-black uppercase tracking-wider text-slate-400">
+                                    <div className="flex items-center gap-1 mt-2 text-[8px] font-medium text-slate-400">
                                         <Layers className="w-3 h-3 text-violet-500" />
                                         Parcelado ({r.parcela_inicio}/{r.parcela_total}) a partir do Mês {r.mes_inicio}
                                     </div>
@@ -1119,13 +1119,13 @@ export default function ArrecadacoesPage() {
                                             disabled={cellDisabled}
                                             placeholder="R$ 0,00"
                                             className={`w-full text-right bg-transparent border-none text-xs font-bold px-2 py-2 focus:bg-slate-50 transition-colors focus:ring-0
-                                                ${isPlanilhaSpecial ? 'text-violet-400 font-black text-center' : isZero ? 'text-slate-600' : 'text-slate-800'}
+                                                ${isPlanilhaSpecial ? 'text-violet-400 font-semibold text-center' : isZero ? 'text-slate-600' : 'text-slate-800'}
                                                 ${cellDisabled ? 'opacity-50 cursor-not-allowed' : ''}
                                                 ${mesTravado ? 'text-rose-300/70' : ''}
                                             `}
                                         />
                                         {mesTravado && (
-                                          <span className="absolute top-0.5 right-1 text-[8px] font-black uppercase tracking-tighter text-rose-400/70 pointer-events-none">
+                                          <span className="absolute top-0.5 right-1 text-[8px] font-medium text-rose-400/70 pointer-events-none">
                                             <Lock className="w-2.5 h-2.5" />
                                           </span>
                                         )}
@@ -1151,7 +1151,7 @@ export default function ArrecadacoesPage() {
                     {canEdit && (
                         <tr>
                             <td colSpan={15} className="p-4 bg-slate-100">
-                                <button onClick={handleAddNew} className="flex items-center gap-2 px-6 py-2 border-2 border-dashed border-slate-200 hover:border-violet-500/50 rounded-xl text-[10px] font-black text-slate-500 hover:text-violet-400 transition-all uppercase tracking-widest mx-auto group">
+                                <button onClick={handleAddNew} className="flex items-center gap-2 px-6 py-2 border-2 border-dashed border-slate-200 hover:border-violet-500/50 rounded-xl text-[10px] font-semibold text-slate-500 hover:text-violet-400 transition-all  mx-auto group">
                                     <PlusCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
                                     Adicionar Nova Verba (Rateio)
                                 </button>
@@ -1169,7 +1169,7 @@ export default function ArrecadacoesPage() {
             <div className="mb-10">
                 <div className="flex items-center gap-2 mb-4">
                     <Info className="w-4 h-4 text-violet-400" />
-                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Observações de Emissão</span>
+                    <span className="text-[11px] font-semibold text-slate-400 ">Observações de Emissão</span>
                 </div>
                 <textarea 
                     value={obsEmissao}
@@ -1186,11 +1186,11 @@ export default function ArrecadacoesPage() {
                 <div className="text-center group">
                     <div className="w-full h-[1px] bg-slate-700 group-hover:bg-violet-500 transition-colors mb-6 relative">
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-3">
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Gerente de Carteira</span>
+                            <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.2em]">Gerente de Carteira</span>
                         </div>
                     </div>
-                    <div className="text-lg font-black text-slate-900 uppercase tracking-tighter">{condo?.gerente_name}</div>
-                    <div className="text-[8px] font-black text-slate-600 mt-1 uppercase tracking-widest italic">Responsável Direto</div>
+                    <div className="text-lg font-semibold text-slate-900 uppercase tracking-tighter">{condo?.gerente_name}</div>
+                    <div className="text-[8px] font-semibold text-slate-600 mt-1  italic">Responsável Direto</div>
                     {assinaturas.liberadoEm && (
                       <div className="text-[9px] font-bold text-emerald-600 mt-1.5">
                         ✓ Liberado em {new Date(assinaturas.liberadoEm).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).replace(',', ' às')}
@@ -1201,10 +1201,10 @@ export default function ArrecadacoesPage() {
                 <div className="text-center group">
                     <div className="w-full h-[1px] bg-slate-700 group-hover:bg-violet-500 transition-colors mb-6 relative">
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-3">
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Validação Administrativa</span>
+                            <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.2em]">Validação Administrativa</span>
                         </div>
                     </div>
-                    <div className={`text-xs font-black uppercase tracking-widest italic mt-2 ${assinaturas.registradoEm ? 'text-slate-800' : 'text-slate-500'}`}>
+                    <div className={`text-xs font-medium italic mt-2 ${assinaturas.registradoEm ? 'text-slate-800' : 'text-slate-500'}`}>
                       Visto em {assinaturas.registradoEm ? new Date(assinaturas.registradoEm).toLocaleDateString('pt-BR') : '___/___/___'}
                     </div>
                 </div>
@@ -1212,13 +1212,13 @@ export default function ArrecadacoesPage() {
                 <div className="text-center group">
                     <div className="w-full h-[1px] bg-slate-700 group-hover:bg-emerald-500 transition-colors mb-6 relative">
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-white px-3">
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Entrega / Expedição</span>
+                            <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.2em]">Entrega / Expedição</span>
                         </div>
                     </div>
                     <div className="flex justify-center gap-2">
                         {(() => {
                           const exp = assinaturas.expedidoEm ? new Date(assinaturas.expedidoEm) : null;
-                          const cls = `glass-panel rounded-lg flex items-center justify-center font-black text-xs ${exp ? 'text-slate-900 border-emerald-300 bg-emerald-50' : 'text-slate-500 border-slate-200'}`;
+                          const cls = `glass-panel rounded-lg flex items-center justify-center font-semibold text-xs ${exp ? 'text-slate-900 border-emerald-300 bg-emerald-50' : 'text-slate-500 border-slate-200'}`;
                           return (<>
                             <div className={`w-10 h-10 ${cls}`}>{exp ? String(exp.getDate()).padStart(2,'0') : '/'}</div>
                             <div className={`w-10 h-10 ${cls}`}>{exp ? String(exp.getMonth()+1).padStart(2,'0') : '/'}</div>
@@ -1231,7 +1231,7 @@ export default function ArrecadacoesPage() {
 
             {/* ACÕES FINAIS */}
             <div className="flex flex-wrap justify-between items-center gap-4 mt-20 pt-8 border-t border-slate-200">
-                <button type="button" onClick={tentarSair} className="text-xs font-black text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-widest flex items-center gap-2">
+                <button type="button" onClick={tentarSair} className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors  flex items-center gap-2">
                     <ArrowLeft className="w-4 h-4" /> Voltar ao Painel
                 </button>
 
@@ -1246,7 +1246,7 @@ export default function ArrecadacoesPage() {
                             <button
                                 onClick={() => handleSave()}
                                 disabled={saving}
-                                className="px-8 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-black text-slate-900 rounded-xl uppercase tracking-widest transition-all shadow-xl flex items-center gap-2"
+                                className="px-8 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl  transition-all shadow-xl flex items-center gap-2"
                             >
                                 <Save className="w-4 h-4 text-violet-400" />
                                 {saving || autoSaveState === 'saving' ? 'SALVANDO...'
@@ -1258,7 +1258,7 @@ export default function ArrecadacoesPage() {
                             {edicoesCondo.length === 0 && (
                               <button
                                   onClick={() => setShowConfirmSend(true)}
-                                  className="px-10 py-3 bg-violet-500 hover:bg-violet-400 text-slate-950 text-xs font-black rounded-xl uppercase tracking-widest transition-all  shadow-violet-500/20 flex items-center gap-2 active:scale-95"
+                                  className="px-10 py-3 bg-violet-500 hover:bg-violet-400 text-slate-950 text-xs font-semibold rounded-xl  transition-all  shadow-violet-500/20 flex items-center gap-2 active:scale-95"
                               >
                                   <Send className="w-4 h-4" /> ENVIAR CONFERÊNCIA
                               </button>
@@ -1276,7 +1276,7 @@ export default function ArrecadacoesPage() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowLiberarTodos(false)} />
           <div className="relative w-full max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-2xl">
-            <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">Liberar {mesesAbertos.length} meses</h4>
+            <h4 className="text-sm font-semibold text-slate-900  mb-2">Liberar {mesesAbertos.length} meses</h4>
             <p className="text-xs text-slate-500 mb-4">
               Estes meses da planilha serão salvos e liberados de uma vez. Depois disso <b className="text-slate-700">não voltam pra você</b>, a não ser que a administração reabra.
             </p>
@@ -1290,9 +1290,9 @@ export default function ArrecadacoesPage() {
             </ul>
             <div className="flex gap-3">
               <button onClick={() => setShowLiberarTodos(false)}
-                className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">Cancelar</button>
+                className="flex-1 py-2.5 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">Cancelar</button>
               <button onClick={liberarTodosMesesAbertos} disabled={edicaoLoading}
-                className="flex-[2] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black uppercase tracking-widest text-xs disabled:opacity-50">
+                className="flex-[2] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-medium text-xs disabled:opacity-50">
                 {edicaoLoading ? 'Liberando…' : 'Salvar e liberar todos'}
               </button>
             </div>
@@ -1305,7 +1305,7 @@ export default function ArrecadacoesPage() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setAvisoSaida(false)} />
           <div className="relative w-full max-w-md bg-white border border-slate-200 p-6 rounded-2xl shadow-2xl">
-            <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">Você ainda não liberou</h4>
+            <h4 className="text-sm font-semibold text-slate-900  mb-2">Você ainda não liberou</h4>
             <p className="text-xs text-slate-500 mb-4">
               {mesesAbertos.length === 1
                 ? <>A planilha de <b className="text-slate-700">{MESES[mesesAbertos[0].mes_referencia]}/{mesesAbertos[0].ano_referencia}</b> está preenchida mas <b className="text-slate-700">não foi liberada</b>. Enquanto não liberar, ela continua pendente com você.</>
@@ -1314,10 +1314,10 @@ export default function ArrecadacoesPage() {
             </p>
             <div className="flex gap-3">
               <button onClick={() => { setAvisoSaida(false); router.push('/dashboard'); }}
-                className="flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">Sair mesmo assim</button>
+                className="flex-1 py-2.5 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">Sair mesmo assim</button>
               <button onClick={async () => { setAvisoSaida(false); if (mesesAbertos.length === 1) { await liberarEdicaoMensal(mesesAbertos[0]); } else { setShowLiberarTodos(true); } }}
                 disabled={edicaoLoading}
-                className="flex-[2] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black uppercase tracking-widest text-xs disabled:opacity-50">
+                className="flex-[2] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-medium text-xs disabled:opacity-50">
                 Liberar agora
               </button>
             </div>
@@ -1333,7 +1333,7 @@ export default function ArrecadacoesPage() {
              {rateios.filter(r => r.id === editingRateioId).map(r => (
                  <div key={r.id} className="relative w-full max-w-2xl bg-white border border-slate-700 p-8 rounded-2xl shadow-2xl">
                      <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-200 pr-12">
-                         <h4 className="flex items-center gap-2 text-sm font-black text-slate-900 uppercase tracking-widest">
+                         <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-900 ">
                             <Settings className="w-5 h-5 text-violet-400" />
                             Configurações da Verba
                          </h4>
@@ -1353,13 +1353,13 @@ export default function ArrecadacoesPage() {
                      <div className="grid grid-cols-12 gap-6 mb-6">
                          {/* CONTA CONTABIL */}
                          <div className="col-span-12 md:col-span-8 space-y-1">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Conta contábil</label>
+                             <label className="text-[10px] font-semibold text-slate-400 ">Conta contábil</label>
                              <div className="flex gap-2">
                                 <div className="w-1/3">
                                     <input 
                                         value={r.conta_contabil || ''}
                                         onChange={e => handleRateioChange(r.id, 'conta_contabil', e.target.value)}
-                                        className="w-full bg-slate-100 border border-slate-700 rounded-lg p-2.5 text-sm text-violet-400 font-black outline-none focus:border-violet-500" 
+                                        className="w-full bg-slate-100 border border-slate-700 rounded-lg p-2.5 text-sm text-violet-400 font-semibold outline-none focus:border-violet-500" 
                                     />
                                 </div>
                                 <div className="w-2/3 relative flex items-center">
@@ -1380,13 +1380,13 @@ export default function ArrecadacoesPage() {
                          
                          {/* CTA ANALISE FINANCEIRA */}
                          <div className="col-span-12 md:col-span-8 space-y-1">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cta. análise financ.</label>
+                             <label className="text-[10px] font-semibold text-slate-400 ">Cta. análise financ.</label>
                              <div className="flex gap-2">
                                 <div className="w-1/3">
                                     <input 
                                         value={r.conta_analise_fin || ''}
                                         onChange={e => handleRateioChange(r.id, 'conta_analise_fin', e.target.value)}
-                                        className="w-full bg-slate-100 border border-slate-700 rounded-lg p-2.5 text-sm text-violet-400 font-black outline-none focus:border-violet-500" 
+                                        className="w-full bg-slate-100 border border-slate-700 rounded-lg p-2.5 text-sm text-violet-400 font-semibold outline-none focus:border-violet-500" 
                                     />
                                 </div>
                                 <div className="w-2/3">
@@ -1401,17 +1401,17 @@ export default function ArrecadacoesPage() {
 
                          {/* HISTORICO */}
                          <div className="col-span-12 space-y-1">
-                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Histórico / Descritivo (Verba)</label>
+                             <label className="text-[10px] font-semibold text-slate-400 ">Histórico / Descritivo (Verba)</label>
                              <input 
                                  value={r.nome || ''}
                                  onChange={e => handleRateioChange(r.id, 'nome', e.target.value)}
-                                 className="w-full bg-slate-100 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 font-black uppercase outline-none focus:border-violet-500" 
+                                 className="w-full bg-slate-100 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-900 font-semibold uppercase outline-none focus:border-violet-500" 
                              />
                          </div>
                      </div>
 
                      <div className="pt-6 border-t border-slate-200">
-                         <h5 className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-4">Configuração de Parcelamento</h5>
+                         <h5 className="text-[11px] font-semibold text-slate-500  mb-4">Configuração de Parcelamento</h5>
                          
                          <label className="flex items-center gap-2 cursor-pointer w-max mb-4">
                             <input 
@@ -1426,26 +1426,26 @@ export default function ArrecadacoesPage() {
                          {r.is_parcelado && (
                              <div className="flex flex-wrap gap-4 items-end bg-slate-100 p-4 rounded-xl border border-slate-200">
                                  <div>
-                                     <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Parcela Atual/Inicial</label>
+                                     <label className="block text-[9px] font-semibold text-slate-500  mb-1">Parcela Atual/Inicial</label>
                                      <input 
                                         type="number" min="1"
                                         value={r.parcela_inicio} 
                                         onChange={e => handleRateioChange(r.id, 'parcela_inicio', e.target.value)} 
-                                        className="w-24 bg-slate-100 border border-slate-700 rounded p-2 text-sm text-violet-400 font-black outline-none focus:border-violet-500" 
+                                        className="w-24 bg-slate-100 border border-slate-700 rounded p-2 text-sm text-violet-400 font-semibold outline-none focus:border-violet-500" 
                                      />
                                  </div>
                                  <span className="text-xl font-light text-slate-600 self-center pb-2">/</span>
                                  <div>
-                                     <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total de Parcelas</label>
+                                     <label className="block text-[9px] font-semibold text-slate-500  mb-1">Total de Parcelas</label>
                                      <input 
                                         type="number" min="1"
                                         value={r.parcela_total} 
                                         onChange={e => handleRateioChange(r.id, 'parcela_total', e.target.value)} 
-                                        className="w-24 bg-slate-100 border border-slate-700 rounded p-2 text-sm text-violet-400 font-black outline-none focus:border-violet-500" 
+                                        className="w-24 bg-slate-100 border border-slate-700 rounded p-2 text-sm text-violet-400 font-semibold outline-none focus:border-violet-500" 
                                      />
                                  </div>
                                  <div className="ml-0 md:ml-4 flex-1">
-                                     <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Iniciando no Mês</label>
+                                     <label className="block text-[9px] font-semibold text-slate-500  mb-1">Iniciando no Mês</label>
                                      <select 
                                         value={r.mes_inicio} 
                                         onChange={e => handleRateioChange(r.id, 'mes_inicio', e.target.value)}
@@ -1461,7 +1461,7 @@ export default function ArrecadacoesPage() {
                      </div>
 
                      <div className="mt-8 flex justify-end gap-3">
-                         <button onClick={() => setEditingRateioId(null)} className="px-6 py-2.5 text-xs font-black text-white bg-violet-500 hover:bg-violet-400 rounded-lg uppercase tracking-widest transition-colors shadow-lg shadow-violet-500/20">
+                         <button onClick={() => setEditingRateioId(null)} className="px-6 py-2.5 text-xs font-semibold text-white bg-violet-500 hover:bg-violet-400 rounded-lg  transition-colors shadow-lg shadow-violet-500/20">
                              Concluído
                          </button>
                      </div>
@@ -1500,7 +1500,7 @@ export default function ArrecadacoesPage() {
                         <Send className="w-8 h-8 text-violet-400" />
                     </div>
                     <div>
-                        <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Enviar para Aprovação</h3>
+                        <h3 className="text-2xl font-semibold text-slate-900 uppercase tracking-tight">Enviar para Aprovação</h3>
                         <p className="text-slate-400 text-sm font-medium">Escolha o fluxo de validação deste condomínio.</p>
                     </div>
                   </div>
@@ -1518,7 +1518,7 @@ export default function ArrecadacoesPage() {
                           {nivelAprovacao === 1 && <div className="w-2 h-2 rounded-full bg-violet-500" />}
                         </div>
                         <div>
-                          <p className="text-sm font-black text-slate-900">Nível 1 - Fração</p>
+                          <p className="text-sm font-semibold text-slate-900">Nível 1 - Fração</p>
                           <p className="text-[10px] text-slate-500">Passa por Gerente ➔ Supervisora da Contabilidade</p>
                         </div>
                       </button>
@@ -1535,7 +1535,7 @@ export default function ArrecadacoesPage() {
                           {nivelAprovacao === 2 && <div className="w-2 h-2 rounded-full bg-violet-500" />}
                         </div>
                         <div>
-                          <p className="text-sm font-black text-slate-900">Nível 2 - Sem consumos</p>
+                          <p className="text-sm font-semibold text-slate-900">Nível 2 - Sem consumos</p>
                           <p className="text-[10px] text-slate-500">Passa direto para a Supervisora</p>
                         </div>
                       </button>
@@ -1552,7 +1552,7 @@ export default function ArrecadacoesPage() {
                           {nivelAprovacao === 3 && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
                         </div>
                         <div>
-                          <p className="text-sm font-black text-slate-900">Nível 3 - Com empresas terceirizadas</p>
+                          <p className="text-sm font-semibold text-slate-900">Nível 3 - Com empresas terceirizadas</p>
                           <p className="text-[10px] text-slate-500">Passa por Gerente ➔ Supervisor dos Gerentes ➔ Supervisora</p>
                         </div>
                       </button>
@@ -1561,23 +1561,23 @@ export default function ArrecadacoesPage() {
                   <div className="flex gap-3">
                       <button 
                         onClick={() => setShowConfirmSend(false)}
-                        className="flex-1 py-4 text-xs font-black text-slate-500 uppercase tracking-widest hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
+                        className="flex-1 py-4 text-xs font-semibold text-slate-500  hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
                       >
                           Cancelar
                       </button>
                       <button 
                         onClick={() => handleSend()}
-                        className="flex-[2] py-4 bg-violet-500 hover:bg-violet-400 text-slate-950 font-black uppercase tracking-widest rounded-xl transition-all  active:scale-95"
+                        className="flex-[2] py-4 bg-violet-500 hover:bg-violet-400 text-slate-950 font-medium rounded-xl transition-all  active:scale-95"
                       >
                           Confirmar Envio
                       </button>
                   </div>
 
                   <div className="flex justify-between items-center pt-6 border-t border-slate-200 mt-6">
-                      <p className="text-[10px] text-rose-400/80 font-bold uppercase tracking-widest max-w-[250px]">
+                      <p className="text-[10px] text-rose-400/80 font-medium max-w-[250px]">
                         * A planilha será bloqueada para edição após o envio.
                       </p>
-                      <button onClick={() => setShowConfirmSend(false)} className="px-6 py-2 text-xs font-black text-slate-500 uppercase tracking-widest hover:text-slate-900 transition-colors">Voltar</button>
+                      <button onClick={() => setShowConfirmSend(false)} className="px-6 py-2 text-xs font-semibold text-slate-500  hover:text-slate-900 transition-colors">Voltar</button>
                   </div>
               </div>
           </div>

@@ -163,7 +163,7 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
             <Droplet className="w-5 h-5 text-violet-400" />
             <div>
               <h3 className="text-lg font-bold text-slate-900">{isEdicao ? 'Editar fatura' : 'Nova fatura de consumo'}</h3>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest">{condoNome}</p>
+              <p className="text-[10px] text-slate-500 ">{condoNome}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-900"><X className="w-5 h-5" /></button>
@@ -173,7 +173,7 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
           {/* Concessionária + período */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Concessionária</label>
+              <label className="text-xs font-medium text-slate-500">Concessionária</label>
               <select value={form.concessionaria} onChange={e => setForm({...form, concessionaria: e.target.value})}
                 className="w-full mt-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500">
                 {CONCESSIONARIAS.map(c => <option key={c} value={c}>{c}</option>)}
@@ -185,14 +185,14 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
               )}
             </div>
             <div className="md:col-span-4">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mês de referência</label>
+              <label className="text-xs font-medium text-slate-500">Mês de referência</label>
               <select value={form.mes_referencia} onChange={e => setForm({...form, mes_referencia: e.target.value})}
                 className="w-full mt-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500">
                 {Array.from({length:12},(_,i)=>i+1).map(m => <option key={m} value={m}>{MESES_LONG[m]}</option>)}
               </select>
             </div>
             <div className="md:col-span-3">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ano</label>
+              <label className="text-xs font-medium text-slate-500">Ano</label>
               <input type="number" value={form.ano_referencia} onChange={e => setForm({...form, ano_referencia: e.target.value})}
                 className="w-full mt-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500" />
             </div>
@@ -201,17 +201,17 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
           {/* Datas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Leitura atual</label>
+              <label className="text-xs font-medium text-slate-500">Leitura atual</label>
               <input type="date" value={form.leitura_atual} onChange={e => setForm({...form, leitura_atual: e.target.value})}
                 className="w-full mt-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500" />
             </div>
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Próxima leitura</label>
+              <label className="text-xs font-medium text-slate-500">Próxima leitura</label>
               <input type="date" value={form.proxima_leitura} onChange={e => setForm({...form, proxima_leitura: e.target.value})}
                 className="w-full mt-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500" />
             </div>
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Vencimento</label>
+              <label className="text-xs font-medium text-slate-500">Vencimento</label>
               <input type="date" value={form.vencimento} onChange={e => setForm({...form, vencimento: e.target.value})}
                 className="w-full mt-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500" />
             </div>
@@ -220,12 +220,12 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
           {/* Valor + descrição */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Valor (R$)</label>
+              <label className="text-xs font-medium text-slate-500">Valor (R$)</label>
               <input value={form.valor} onChange={e => setForm({...form, valor: e.target.value})} placeholder="0,00"
                 className="w-full mt-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500 font-mono text-right" />
             </div>
             <div className="md:col-span-2">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Descrição (opcional)</label>
+              <label className="text-xs font-medium text-slate-500">Descrição (opcional)</label>
               <input value={form.descricao} onChange={e => setForm({...form, descricao: e.target.value})}
                 placeholder="Anotações sobre essa fatura"
                 className="w-full mt-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500" />
@@ -234,7 +234,7 @@ function ModalFatura({ condoId, condoNome, fatura, preFatura, onClose, onSaved, 
 
           {/* Arquivo */}
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">PDF da fatura {isEdicao && fatura?.arquivo_url && '(opcional — só se quiser substituir)'}</label>
+            <label className="text-xs font-medium text-slate-500">PDF da fatura {isEdicao && fatura?.arquivo_url && '(opcional — só se quiser substituir)'}</label>
             {/* Botão abrir PDF atual se existir */}
             {isEdicao && fatura?.arquivo_url && (
               <button type="button"
@@ -306,13 +306,13 @@ function FaturaCard({ fatura, onEdit, onDuplicar, onAnexar, onDelete, onAbrir, p
     <div className={`rounded-xl border p-4 ${isAnexada ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${
+          <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded ${
             isAnexada ? 'bg-emerald-500/20 text-emerald-700' : 'bg-amber-500/20 text-amber-700'
           }`}>
             {fatura.concessionaria}
           </span>
           {fatura.marcada_repetida && (
-            <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-700 flex items-center gap-1">
+            <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-700 flex items-center gap-1">
               <RefreshCw className="w-2.5 h-2.5" /> Repetida
             </span>
           )}
@@ -352,7 +352,7 @@ function FaturaCard({ fatura, onEdit, onDuplicar, onAnexar, onDelete, onAbrir, p
           </button>
         )}
         {!isAnexada && podeAnexar && (
-          <button onClick={() => onAnexar(fatura)} className="ml-auto px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-black uppercase tracking-widest">
+          <button onClick={() => onAnexar(fatura)} className="ml-auto px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-medium">
             Anexar (final)
           </button>
         )}
@@ -725,16 +725,16 @@ export default function ConsumosPage() {
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0"><Droplet className="w-5 h-5 text-violet-500" aria-hidden="true" /></div>
           <div className="min-w-0">
-            <h2 className="text-lg font-black text-slate-900 leading-tight">Consumos</h2>
+            <h2 className="text-lg font-semibold text-slate-900 leading-tight">Consumos</h2>
             <p className="text-[11px] text-slate-500">Água, gás e energia por condomínio</p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
-          <div className="rounded-2xl bg-slate-100 p-3"><p className="text-2xl font-black text-slate-800 leading-none tabular-nums">{stats.processadas}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Processadas</p></div>
-          <div className="rounded-2xl bg-amber-50 p-3"><p className="text-2xl font-black text-amber-600 leading-none tabular-nums">{anomalias}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Anomalias</p></div>
-          <div className="rounded-2xl bg-rose-50 p-3"><p className="text-2xl font-black text-rose-500 leading-none tabular-nums">{stats.duplicatas}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Duplicatas</p></div>
-          <div className="rounded-2xl bg-violet-50 p-3"><p className="text-2xl font-black text-violet-600 leading-none tabular-nums">{stats.pendentes}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Pendentes</p></div>
+          <div className="rounded-2xl bg-slate-100 p-3"><p className="text-2xl font-semibold text-slate-800 leading-none tabular-nums">{stats.processadas}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Processadas</p></div>
+          <div className="rounded-2xl bg-amber-50 p-3"><p className="text-2xl font-semibold text-amber-600 leading-none tabular-nums">{anomalias}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Anomalias</p></div>
+          <div className="rounded-2xl bg-rose-50 p-3"><p className="text-2xl font-semibold text-rose-500 leading-none tabular-nums">{stats.duplicatas}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Duplicatas</p></div>
+          <div className="rounded-2xl bg-violet-50 p-3"><p className="text-2xl font-semibold text-violet-600 leading-none tabular-nums">{stats.pendentes}</p><p className="text-[10px] font-bold text-slate-500 mt-1.5">Pendentes</p></div>
         </div>
 
         <div className="flex gap-2">
@@ -752,11 +752,11 @@ export default function ConsumosPage() {
         {podeAdicionar && (
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => { setEditFatura(null); setPreFatura(null); setShowNovaModal(true); }} disabled={!condoSel}
-              className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-black active:opacity-80 disabled:opacity-40">
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-600 text-white text-xs font-semibold active:opacity-80 disabled:opacity-40">
               <Plus className="w-4 h-4" /> Nova fatura
             </button>
             <button onClick={() => setShowAddCondoModal(true)}
-              className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 text-xs font-black active:opacity-80">
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold active:opacity-80">
               <Building2 className="w-4 h-4" /> Add condomínio
             </button>
           </div>
@@ -783,7 +783,7 @@ export default function ConsumosPage() {
               <div className="space-y-4">
                 {gruposFiltrados.map(g => (
                   <div key={`${g.ano}-${g.mes}`}>
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 px-0.5">{MESES_LONG[g.mes]} / {g.ano}</p>
+                    <p className="text-xs font-medium text-slate-400 mb-2 px-0.5">{MESES_LONG[g.mes]} / {g.ano}</p>
                     <div className="space-y-2.5">
                       {g.faturas.map(f => (
                         <FaturaCard key={f.id} fatura={f} profile={profile}
@@ -798,13 +798,13 @@ export default function ConsumosPage() {
 
             {relatoriosDoCondo.length > 0 && (
               <div>
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 px-0.5 flex items-center gap-1.5"><Droplet className="w-3.5 h-3.5 text-violet-500" /> Relatórios de leitura</p>
+                <p className="text-xs font-medium text-slate-400 mb-2 px-0.5 flex items-center gap-1.5"><Droplet className="w-3.5 h-3.5 text-violet-500" /> Relatórios de leitura</p>
                 <div className="space-y-2">
                   {relatoriosDoCondo.map(r => (
                     <button key={r.id} onClick={() => abrirUnidades({ id: r.id, nome: condoNomeSel, empresa: r.empresa_leitura, mes: r.mes_referencia, servico: r.tipo_servico, origem: r.origem_emissao_arquivo_id, arquivo_url: r.arquivo_url })}
                       className="w-full text-left bg-white rounded-2xl border border-slate-200 p-3 active:opacity-80">
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-violet-50 text-violet-600">{r.empresa_leitura}</span>
+                        <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-violet-50 text-violet-600">{r.empresa_leitura}</span>
                         <span className="text-[11px] text-slate-500">{r.tipo_servico === 'gas' ? '🔥 gás' : '💧 água'} · {MESES[r.mes_referencia]}/{r.ano_referencia}</span>
                         <ExternalLink className="w-3.5 h-3.5 text-violet-400 ml-auto" />
                       </div>
@@ -835,7 +835,7 @@ export default function ConsumosPage() {
             <Droplet className="w-7 h-7 text-violet-400" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Consumos</h2>
+            <h2 className="text-xl font-semibold text-slate-900 uppercase tracking-tight">Consumos</h2>
             <p className="text-xs text-slate-500 mt-1">Faturas de SABESP, COMGAS, ENEL e outras concessionárias · por condomínio e mês</p>
           </div>
         </div>
@@ -866,12 +866,12 @@ export default function ConsumosPage() {
           <div key={lbl} className={`group glass-panel rounded-2xl border border-slate-200 p-4 relative overflow-hidden transition-all hover:shadow-md ${bd}`}>
             <span className={`absolute left-0 top-0 bottom-0 w-1 ${bar}`} />
             <div className="flex items-center justify-between mb-2 pl-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{lbl}</p>
+              <p className="text-xs font-medium text-slate-500">{lbl}</p>
               <span className={`w-7 h-7 rounded-lg ${chip} flex items-center justify-center transition-transform group-hover:scale-110`}>
                 <Icon className={`w-4 h-4 ${icon}`} />
               </span>
             </div>
-            <p className={`text-3xl font-black tabular-nums pl-1 ${num}`}>{val}</p>
+            <p className={`text-3xl font-semibold tabular-nums pl-1 ${num}`}>{val}</p>
             <p className="text-[11px] text-slate-500 pl-1 mt-0.5">{sub}</p>
           </div>
         ))}
@@ -880,7 +880,7 @@ export default function ConsumosPage() {
       {/* ─── Banner de alertas (só se houver) ─── */}
       {alertasList.length > 0 && (
         <div className="glass-panel rounded-2xl border border-amber-500/20 bg-amber-500/[0.03] p-4 order-last">
-          <p className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-2 flex items-center gap-2">
+          <p className="text-xs font-medium text-amber-400 mb-2 flex items-center gap-2">
             <AlertTriangle className="w-3.5 h-3.5" /> Atenção · {alertasList.length} {alertasList.length === 1 ? 'item' : 'itens'}
           </p>
           <div className="space-y-1.5 max-h-44 overflow-y-auto">
@@ -894,7 +894,7 @@ export default function ConsumosPage() {
                 <span className="text-slate-500">· {a.label}</span>
                 {a.tipo === 'anomalia'
                   ? <span className={`ml-auto font-mono font-bold ${a.pct >= 0 ? 'text-rose-700' : 'text-emerald-700'}`}>Δ {a.pct >= 0 ? '+' : ''}{a.pct.toFixed(0)}%</span>
-                  : <span className="ml-auto text-[10px] font-black uppercase tracking-widest text-rose-700" title={a.motivo || ''}>repetida</span>}
+                  : <span className="ml-auto text-xs font-medium text-rose-700" title={a.motivo || ''}>repetida</span>}
               </button>
             ))}
           </div>
@@ -904,7 +904,7 @@ export default function ConsumosPage() {
       {/* ─── Feed das últimas anexações ─── */}
       {feed.length > 0 && (
         <div className="glass-panel rounded-2xl border border-slate-200 p-4 order-last">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-2">
+          <p className="text-xs font-medium text-slate-400 mb-2 flex items-center gap-2">
             <FileText className="w-3.5 h-3.5 text-emerald-400" /> Últimas anexações
           </p>
           <div className="space-y-1">
@@ -916,7 +916,7 @@ export default function ConsumosPage() {
                 title={clicavel ? 'Ver leitura por unidade' : undefined}
                 className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12px] ${clicavel ? 'cursor-pointer hover:bg-violet-500/10' : 'hover:bg-slate-100'}`}>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className={`text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${x.kind === 'relatorio' ? 'bg-violet-500/20 text-violet-700' : 'bg-emerald-500/20 text-emerald-700'}`}>{x.empresa}</span>
+                <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded shrink-0 ${x.kind === 'relatorio' ? 'bg-violet-500/20 text-violet-700' : 'bg-emerald-500/20 text-emerald-700'}`}>{x.empresa}</span>
                 <span className="font-bold text-slate-800 truncate">{x.nome || '—'}</span>
                 <span className="text-slate-500 hidden sm:inline">· {MESES[x.mes]}</span>
                 {clicavel && <ExternalLink className="w-3 h-3 text-violet-400/70 shrink-0" />}
@@ -938,7 +938,7 @@ export default function ConsumosPage() {
           { id: 'ENEL',   label: 'ENEL',   color: 'text-rose-600',  active: 'bg-rose-500 text-white' },
         ].map(t => (
           <button key={t.id} onClick={() => setFiltroConc(t.id)}
-            className={`px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+            className={`px-5 py-2 rounded-xl text-xs font-medium transition-all ${
               filtroConc === t.id
                 ? (t.active || 'bg-violet-600 text-white shadow-lg')
                 : `${t.color} hover:bg-slate-100`
@@ -976,7 +976,7 @@ export default function ConsumosPage() {
 
       {/* Legenda */}
       <div className="flex flex-wrap items-center gap-3 px-1 text-[10px] text-slate-500">
-        <span className="font-bold uppercase tracking-widest">Legenda:</span>
+        <span className="font-medium">Legenda:</span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500/40" /> Anexada
         </span>
@@ -1000,7 +1000,7 @@ export default function ConsumosPage() {
       {/* Matriz mensal — Faturas */}
       <div className="glass-panel rounded-2xl border border-slate-200 overflow-hidden flex-1 min-w-0 w-full">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
-          <p className="text-xs font-black text-slate-600 uppercase tracking-widest flex items-center gap-2 min-w-0">
+          <p className="text-xs font-semibold text-slate-600  flex items-center gap-2 min-w-0">
             <span className="w-6 h-6 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0"><FileText className="w-3.5 h-3.5 text-violet-500" /></span>
             <span className="shrink-0">Faturas {anoSel}</span>
             <span className="text-slate-400 font-bold normal-case tracking-normal truncate">· {condosFiltrados.length} de {condosComFaturas.length} condomínios</span>
@@ -1037,12 +1037,12 @@ export default function ConsumosPage() {
             <table className="w-full text-xs border-collapse">
               <thead className="sticky top-0 bg-slate-50 backdrop-blur z-10">
                 <tr>
-                  <th className="text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 sticky left-0 bg-slate-50 z-20 min-w-[220px]">Condomínio</th>
-                  <th className="text-center px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[50px]">Venc</th>
-                  <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[120px]">Gerente</th>
-                  <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[80px]">Conta</th>
+                  <th className="text-left px-3 py-2 text-[11px] font-medium text-slate-500 sticky left-0 bg-slate-50 z-20 min-w-[220px]">Condomínio</th>
+                  <th className="text-center px-2 py-2 text-[11px] font-medium text-slate-500 min-w-[50px]">Venc</th>
+                  <th className="text-left px-2 py-2 text-[11px] font-medium text-slate-500 min-w-[120px]">Gerente</th>
+                  <th className="text-left px-2 py-2 text-[11px] font-medium text-slate-500 min-w-[80px]">Conta</th>
                   {Array.from({length:12}, (_,i)=>i+1).map(m => (
-                    <th key={m} scope="col" data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">vigente</span> : null}</th>
+                    <th key={m} scope="col" data-mes={m} className={`text-center px-1 py-2 text-xs font-medium min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">vigente</span> : null}</th>
                   ))}
                 </tr>
               </thead>
@@ -1064,7 +1064,7 @@ export default function ConsumosPage() {
                           <td rowSpan={concs.length} className="px-2 py-2 align-top text-slate-400 truncate max-w-[120px] border-r border-slate-200" title={c.gerente_nome || '—'}>{c.gerente_nome || '—'}</td>
                         </>
                       ) : null}
-                      <td className={`px-2 py-2 font-black text-[10px] uppercase tracking-widest border-r border-slate-200 ${
+                      <td className={`px-2 py-2 font-semibold text-[10px]  border-r border-slate-200 ${
                         conc === 'SABESP' ? 'text-violet-400'
                         : conc === 'COMGAS' ? 'text-amber-400'
                         : conc === 'ENEL' ? 'text-rose-400'
@@ -1105,7 +1105,7 @@ export default function ConsumosPage() {
                                 }`}
                                 title={tooltipParts.join(' · ')}>
                                 {algumValor ? `R$ ${fmtBRL(valorMes)}` : (todasAnexadas ? '✓' : '·')}
-                                {n > 1 && (<span className="absolute -top-1 -left-1 bg-violet-600 text-white text-[8px] font-black min-w-[14px] h-[14px] px-0.5 rounded-full flex items-center justify-center leading-none border border-white">{n}</span>)}
+                                {n > 1 && (<span className="absolute -top-1 -left-1 bg-violet-600 text-white text-[8px] font-semibold min-w-[14px] h-[14px] px-0.5 rounded-full flex items-center justify-center leading-none border border-white">{n}</span>)}
                                 {isRepetida && (<span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full border border-slate-950" />)}
                                 {!isRepetida && anomaliaGrave && (<span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full border border-slate-950 animate-pulse" />)}
                               </button>
@@ -1137,7 +1137,7 @@ export default function ConsumosPage() {
       {condosComRelatorios.length > 0 && (
         <div className="glass-panel rounded-2xl border border-slate-200 overflow-hidden flex-1 min-w-0 w-full">
           <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
-            <p className="text-xs font-black text-slate-600 uppercase tracking-widest flex items-center gap-2 min-w-0">
+            <p className="text-xs font-semibold text-slate-600  flex items-center gap-2 min-w-0">
               <span className="w-6 h-6 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0"><Droplet className="w-3.5 h-3.5 text-violet-500" /></span>
               <span className="shrink-0">Relatórios de leitura {anoSel}</span>
               <span className="text-slate-400 font-bold normal-case tracking-normal truncate">· {condosComRelatorios.length} {condosComRelatorios.length === 1 ? 'condomínio' : 'condomínios'}</span>
@@ -1148,10 +1148,10 @@ export default function ConsumosPage() {
             <table className="w-full text-xs border-collapse">
               <thead className="sticky top-0 bg-slate-50 z-10">
                 <tr>
-                  <th className="text-left px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 sticky left-0 bg-slate-50 z-20 min-w-[220px]">Condomínio</th>
-                  <th className="text-left px-2 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 min-w-[140px] border-r border-slate-200">Empresa · Serviço</th>
+                  <th className="text-left px-3 py-2 text-[11px] font-medium text-slate-500 sticky left-0 bg-slate-50 z-20 min-w-[220px]">Condomínio</th>
+                  <th className="text-left px-2 py-2 text-[11px] font-medium text-slate-500 min-w-[140px] border-r border-slate-200">Empresa · Serviço</th>
                   {Array.from({length:12}, (_,i)=>i+1).map(m => (
-                    <th key={m} scope="col" data-mes={m} className={`text-center px-1 py-2 text-[10px] font-black uppercase tracking-widest min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">vigente</span> : null}</th>
+                    <th key={m} scope="col" data-mes={m} className={`text-center px-1 py-2 text-xs font-medium min-w-[74px] ${m === mesAtual ? 'text-violet-700 bg-violet-500/10' : 'text-slate-500'}`}>{MESES[m]}{m === mesAtual ? <span className="block text-[8px] font-bold normal-case tracking-normal text-violet-500">vigente</span> : null}</th>
                   ))}
                 </tr>
               </thead>
@@ -1168,7 +1168,7 @@ export default function ConsumosPage() {
                           </td>
                         )}
                         <td className="px-2 py-2 border-r border-slate-200">
-                          <span className="font-black text-[10px] uppercase tracking-widest text-violet-400">{empresa}</span>
+                          <span className="font-semibold text-[10px]  text-violet-400">{empresa}</span>
                           <span className="ml-1.5 text-[9px] text-slate-400">{servico === 'gas' ? '🔥 gás' : '💧 água'}</span>
                         </td>
                         {Array.from({length:12}, (_,i)=>i+1).map(m => {
@@ -1258,7 +1258,7 @@ export default function ConsumosPage() {
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-slate-900">{multiModal.conc} · {MESES_LONG[multiModal.mes]}</h3>
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest">{multiModal.nome} · {multiModal.faturas.length} {multiModal.faturas.length === 1 ? 'conta' : 'contas'}</p>
+                <p className="text-[10px] text-slate-500 ">{multiModal.nome} · {multiModal.faturas.length} {multiModal.faturas.length === 1 ? 'conta' : 'contas'}</p>
               </div>
               <button onClick={() => setMultiModal(null)} className="text-slate-500 hover:text-slate-900"><X className="w-5 h-5" /></button>
             </div>
@@ -1362,7 +1362,7 @@ function RelatorioUnidadesModal({ info, onClose, podeExcluir, onDeleted }) {
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900">{nome || 'Relatório'}</h3>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+              <p className="text-[10px] text-slate-500 ">
                 {empresa} · {servico === 'gas' ? 'Gás' : 'Água'} · {MESES_LONG[mes]} · leitura por unidade
               </p>
             </div>
@@ -1387,9 +1387,9 @@ function RelatorioUnidadesModal({ info, onClose, podeExcluir, onDeleted }) {
         {/* Resumo */}
         {!loading && !erro && lista.length > 0 && (
           <div className="px-6 py-3 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center shrink-0">
-            <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Unidades</p><p className="text-lg font-black text-slate-900">{lista.length}</p></div>
-            <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Consumo total</p><p className="text-lg font-black text-violet-700">{somaM3.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} m³</p></div>
-            <div><p className="text-[10px] text-slate-500 uppercase tracking-widest">Valor total</p><p className="text-lg font-black text-emerald-700">R$ {fmtBRL(somaValor)}</p></div>
+            <div><p className="text-[10px] text-slate-500 ">Unidades</p><p className="text-lg font-semibold text-slate-900">{lista.length}</p></div>
+            <div><p className="text-[10px] text-slate-500 ">Consumo total</p><p className="text-lg font-semibold text-violet-700">{somaM3.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} m³</p></div>
+            <div><p className="text-[10px] text-slate-500 ">Valor total</p><p className="text-lg font-semibold text-emerald-700">R$ {fmtBRL(somaValor)}</p></div>
           </div>
         )}
 
@@ -1424,7 +1424,7 @@ function RelatorioUnidadesModal({ info, onClose, podeExcluir, onDeleted }) {
           ) : (
             <table className="w-full text-xs border-collapse">
               <thead className="sticky top-0 bg-white">
-                <tr className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+                <tr className="text-[11px] font-medium text-slate-500">
                   <th className="text-left px-2 py-2">Apto</th>
                   <th className="text-left px-2 py-2">Leituras (ant → atual)</th>
                   <th className="text-right px-2 py-2">Consumo m³</th>

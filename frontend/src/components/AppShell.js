@@ -52,7 +52,7 @@ export default function AppShell({ children }) {
           <div className="w-16 h-16 bg-violet-600 rounded-2xl flex items-center justify-center ">
             <Loader2 className="w-8 h-8 text-white animate-spin" />
           </div>
-          <p className="text-sm font-bold tracking-widest uppercase text-violet-400 opacity-80 mt-2">AUTENTICANDO...</p>
+          <p className="text-sm font-medium text-slate-500 mt-2">Autenticando…</p>
         </div>
       </div>
     );
@@ -105,7 +105,7 @@ export default function AppShell({ children }) {
               className="lg:hidden tap shrink-0 -ml-1 inline-flex items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
               <Menu className="w-5 h-5" aria-hidden="true" />
             </button>
-            <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-tight truncate">{pageTitle}</h2>
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 tracking-tight truncate">{pageTitle}</h2>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
@@ -113,7 +113,7 @@ export default function AppShell({ children }) {
             <div className="hidden sm:flex items-center gap-2">
               <div className="text-right">
                 <p className="text-xs font-bold text-slate-700 leading-tight">Painel de Acesso</p>
-                <p className="text-[9px] uppercase font-bold text-violet-600 tracking-wider">Alto Fluxo API</p>
+                <p className="text-[11px] font-medium text-violet-600">Alto Fluxo API</p>
               </div>
             </div>
           </div>

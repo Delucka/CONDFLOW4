@@ -265,7 +265,7 @@ export default function VisaoGerente({ profile }) {
 
       {/* Deixa explícito que aqui é a EMISSÃO (etapa 2), não a planilha (etapa 1) */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-emerald-600 text-white">
+        <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-emerald-600 text-white">
           Etapa 2 · Emissão
         </span>
         <span className="text-[10px] text-slate-500">
@@ -280,7 +280,7 @@ export default function VisaoGerente({ profile }) {
             <button
               key={value}
               onClick={() => setFiltroStatus(value)}
-              className={`relative px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+              className={`relative px-4 py-2.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
                 filtroStatus === value
                   ? 'bg-violet-600 text-white '
                   : 'bg-slate-50 text-slate-500 hover:text-slate-900 hover:bg-slate-100'
@@ -288,7 +288,7 @@ export default function VisaoGerente({ profile }) {
             >
               {label}
               {counts[value] > 0 && (
-                <span className={`ml-2 text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                <span className={`ml-2 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
                   filtroStatus === value ? 'bg-slate-100 text-slate-700' : 'bg-violet-500/20 text-violet-400'
                 }`}>
                   {counts[value]}
@@ -340,8 +340,8 @@ export default function VisaoGerente({ profile }) {
                       <Package className="w-5 h-5 text-violet-400" />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="font-black text-slate-900 text-sm truncate">{pacote.condominios?.name || '—'}</h4>
-                      <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">
+                      <h4 className="font-semibold text-slate-900 text-sm truncate">{pacote.condominios?.name || '—'}</h4>
+                      <p className="text-[10px] font-bold text-violet-400 ">
                         {String(pacote.mes_referencia).padStart(2, '0')}/{pacote.ano_referencia}
                         {' • '}{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}
                       </p>
@@ -394,7 +394,7 @@ export default function VisaoGerente({ profile }) {
                 {s === 'solicitar_correcao' && pacote.comentario_correcao && (
                   <div className="px-5 py-3 bg-rose-500/5 border-t border-rose-500/10 space-y-2">
                     <p className="text-xs text-rose-400">
-                      <span className="font-black">Correção:</span> {pacote.comentario_correcao}
+                      <span className="font-semibold">Correção:</span> {pacote.comentario_correcao}
                     </p>
                     {pacote.correcao_arquivo_url && (
                       <button
@@ -419,8 +419,8 @@ export default function VisaoGerente({ profile }) {
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 shadow-2xl">
-            <h3 className="text-xl font-black text-slate-900 mb-1">Solicitar Correção</h3>
-            <p className="text-xs text-slate-500 mb-5 font-bold uppercase tracking-widest">
+            <h3 className="text-xl font-semibold text-slate-900 mb-1">Solicitar Correção</h3>
+            <p className="text-xs text-slate-500 mb-5 font-medium">
               {currentPacote?.condominios?.name} — {String(currentPacote?.mes_referencia).padStart(2,'0')}/{currentPacote?.ano_referencia}
             </p>
             <textarea
@@ -430,10 +430,10 @@ export default function VisaoGerente({ profile }) {
               onChange={e => setComment(e.target.value)}
             />
             <div className="flex items-center gap-3 justify-end">
-              <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+              <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
                 Cancelar
               </button>
-              <button onClick={confirmarCorrecao} className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest bg-rose-500 text-white hover:bg-rose-400 transition-colors">
+              <button onClick={confirmarCorrecao} className="px-5 py-2.5 rounded-xl text-xs font-medium bg-rose-500 text-white hover:bg-rose-400 transition-colors">
                 Confirmar
               </button>
             </div>
