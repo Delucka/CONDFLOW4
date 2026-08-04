@@ -25,20 +25,20 @@ npm run build     # Production build (use to verify before deploy)
 npm run lint      # ESLint check
 ```
 
-**Deploy to Vercel** — the project uses CLI deploy, NOT GitHub auto-deploy:
+**Deploy to Vercel** — CLI deploy, **da raiz do repositório**, NOT GitHub auto-deploy:
 ```bash
-cd frontend
-npx vercel --prod --yes
+npx vercel --prod --yes      # na RAIZ, não em frontend/
 ```
-`git push` alone does NOT trigger Vercel. Always use the CLI command above.
+`git push` alone does NOT trigger Vercel (integração Git desligada, verificado).
+
+⚠️ **Publique da raiz.** Verificado em 04/08/2026 com `vercel project inspect`: o
+*Root Directory* do projeto é `.`, então o `vercel.json` da raiz vale e publica
+**Next + FastAPI juntos**. Rodar `cd frontend && npx vercel --prod` sobe só o front
+e **tira a API do ar** (`/api/dashboard`, `/api/condominios`…). Detalhes em
+**`docs/DEPLOY.md`**.
 
 Alternativa sem depender da máquina local: Actions → **Publicar na Vercel** (gatilho
 manual; `git push` continua não publicando). Exige 3 segredos no repositório.
-
-⚠️ Antes de publicar pela raiz, leia **`docs/DEPLOY.md`**: o `vercel.json` da raiz
-declara dois builds (Next **+** `api/index.py`), enquanto o comando acima roda de
-dentro de `frontend/`, onde esse arquivo não se aplica. São artefatos diferentes —
-qual deles está em produção depende do *Root Directory* configurado no projeto.
 
 ### API (FastAPI)
 

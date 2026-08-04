@@ -28,8 +28,8 @@ Duas escolhas na hora de rodar:
 |---|---|---|
 | `ambiente` | `previa` | URL temporária. **Não toca em produção.** Comece sempre por aqui. |
 | | `producao` | Publica em emissaonline.com |
-| `origem` | `frontend` | Espelha o comando manual acima |
-| | `raiz` | Usa o `vercel.json` da raiz — publica o **FastAPI junto** |
+| `origem` | `raiz` | **Use este.** O `vercel.json` da raiz vale, e publica Next **+** FastAPI |
+| | `frontend` | Só o Next — a API **não** sobe. Ver a seção abaixo antes de escolher |
 
 ### Antes da primeira vez: 3 segredos
 
@@ -46,10 +46,18 @@ tocar em produção.
 
 ---
 
-## ⚠️ Resolver antes de usar `origem: raiz`
+## Publique da RAIZ, não de `frontend/`
 
-**Não sabemos o que o deploy de hoje realmente publica.** O `vercel.json` da raiz
-declara dois builds:
+Isto estava em aberto e foi **verificado** em 04/08/2026 com
+`npx vercel project inspect condominios`:
+
+```
+Root Directory     .          <- raiz, não "frontend"
+Framework Preset   Other
+```
+
+Como o Root Directory é a raiz, o `vercel.json` de lá **vale**, e ele declara
+dois builds:
 
 ```json
 "builds": [
@@ -58,20 +66,23 @@ declara dois builds:
 ]
 ```
 
-Mas o comando manual roda de dentro de `frontend/`, onde esse arquivo **não se
-aplica**. São artefatos diferentes: um sobe só o Next, o outro sobe Next + FastAPI.
+Ou seja: **publicar da raiz sobe o Next e o FastAPI juntos.** Publicar de dentro
+de `frontend/` sobe só o front — e a API sai do ar, derrubando `/api/dashboard`,
+`/api/condominios` e o resto.
 
-Confira no painel: projeto `condominios` → Settings → General → **Root Directory**.
+O comando que está em produção hoje roda **da raiz**:
 
-- Vazio (raiz) → hoje a API sobe junto → use `origem: raiz`
-- `frontend` → hoje sobe só o front → use `origem: frontend` (o padrão)
+```bash
+npx vercel --prod --yes      # na raiz do repositório
+```
 
-Enquanto não confirmar, **fique no padrão `frontend`**, que é o que o comando
-manual faz há tempo e o que está documentado no `CLAUDE.md`.
+> O `CLAUDE.md` traz `cd frontend && npx vercel --prod --yes`. Com o Root
+> Directory na raiz, esse comando publica um artefato **sem a API**. Prefira o
+> comando acima até o `CLAUDE.md` ser corrigido.
 
-Confira também Settings → **Git**: se a integração com o repositório estiver
-**ligada**, então `git push` já publica sozinho, o `CLAUDE.md` está desatualizado
-e este workflow é redundante — nesse caso corrija o `CLAUDE.md` em vez de usar CI.
+**Integração Git:** desligada. O projeto não tem repositório conectado, e
+commits empurrados não disparam publicação — confere com o que o `CLAUDE.md`
+diz. O workflow do GitHub não é redundante.
 
 ---
 

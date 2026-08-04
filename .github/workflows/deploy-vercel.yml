@@ -20,9 +20,12 @@ on:
         description: 'De onde publicar (veja docs/DEPLOY.md antes de mudar)'
         type: choice
         options:
-          - frontend    # espelha o `cd frontend && npx vercel --prod` do CLAUDE.md
-          - raiz        # usa o vercel.json da raiz — publica o FastAPI JUNTO
-        default: frontend
+          # Verificado em 04/08/2026: o Root Directory do projeto é `.`, então o
+          # vercel.json da raiz VALE e publica Next + FastAPI juntos. Publicar de
+          # `frontend/` sobe só o front e tira a API do ar.
+          - raiz        # padrão correto — Next + FastAPI
+          - frontend    # só o Next; a API NÃO sobe
+        default: raiz
 
 # Uma publicação por vez: dois deploys simultâneos na mesma origem podem
 # aterrissar fora de ordem e a produção acabar com o build mais antigo.
