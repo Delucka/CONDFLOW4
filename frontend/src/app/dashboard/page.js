@@ -638,9 +638,9 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex gap-1 justify-end">
-                            <Link href={`/condominio/${c.id}/arrecadacoes`} className={cn(btn.icone, 'w-8 h-8 min-w-0 min-h-0')} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-3.5 h-3.5" aria-hidden="true" /></Link>
-                            <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className={cn(btn.icone, 'w-8 h-8 min-w-0 min-h-0')} title="Cobranças" aria-label="Cobranças"><Receipt className="w-3.5 h-3.5" aria-hidden="true" /></Link>
-                            <button onClick={() => handleQuickView(c.id)}   className={cn(btn.icone, 'w-8 h-8 min-w-0 min-h-0')} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-3.5 h-3.5" aria-hidden="true" /></button>
+                            <Link href={`/condominio/${c.id}/arrecadacoes`} className={btn.iconeDiscreto} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-3.5 h-3.5" aria-hidden="true" /></Link>
+                            <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className={btn.iconeDiscreto} title="Cobranças" aria-label="Cobranças"><Receipt className="w-3.5 h-3.5" aria-hidden="true" /></Link>
+                            <button onClick={() => handleQuickView(c.id)}   className={btn.iconeDiscreto} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-3.5 h-3.5" aria-hidden="true" /></button>
                           </div>
                         </td>
                       </tr>

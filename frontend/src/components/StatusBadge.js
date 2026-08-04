@@ -22,10 +22,19 @@ const EMISSAO_STATUS = {
   'expedida':                  { label: 'Expedida',             classes: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
 };
 
+// Código de cores (uma regra só, para a lista de 300 linhas ser lida de relance):
+//   âmbar    = em andamento, alguém ainda vai mexer
+//   cinza    = entregue, nada a fazer
+//   verde    = aprovado / concluído
+//   VERMELHO = SÓ quando alguém precisa agir sobre um problema
+//
+// "Edição finalizada" era vermelha. Mas ela quer dizer que o gerente ENTREGOU —
+// estado bom. Pintada de vermelho ao lado de "Correção solicitada", fazia uma
+// coluna inteira parecer erro quando o trabalho estava em dia.
 const PROCESSO_STATUS = {
   'em edição':            { label: 'Em edição',           classes: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
-  'edição finalizada':    { label: 'Edição finalizada',   classes: 'bg-rose-50 text-rose-700 border-rose-200',    dot: 'bg-rose-500' },
-  'em processo':          { label: 'Edição finalizada',   classes: 'bg-rose-50 text-rose-700 border-rose-200',    dot: 'bg-rose-500' },
+  'edição finalizada':    { label: 'Entregue',            classes: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400' },
+  'em processo':          { label: 'Entregue',            classes: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400' },
   'enviado':              { label: 'Enviado',             classes: 'bg-emerald-50 text-emerald-700 border-emerald-200',    dot: 'bg-emerald-500' },
   'em aprovação':         { label: 'Em aprovação',        classes: 'bg-violet-50 text-violet-700 border-violet-200', dot: 'bg-violet-500' },
   'aprovado':             { label: 'Aprovado',            classes: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
@@ -49,8 +58,11 @@ export default function StatusBadge({ status, flow }) {
   const map = f === 'processo' ? PROCESSO_STATUS : EMISSAO_STATUS;
   const config = map[key] || EMISSAO_STATUS[key] || PROCESSO_STATUS[key] || { ...FALLBACK, label: status || '—' };
 
+  // Peso reduzido de propósito: este selo se repete 300 vezes numa tela. Em
+  // font-black + caixa alta + tracking largo, 300 deles competiam com o nome do
+  // condomínio — que é o que a pessoa está procurando.
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${config.classes}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-semibold ${config.classes}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${config.dot}`} />
       {config.label}
     </span>
