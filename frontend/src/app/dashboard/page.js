@@ -21,6 +21,7 @@ import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import FilaOcorrencias from '@/app/central-emissoes/components/FilaOcorrencias';
 import { SkeletonTable } from '@/components/Skeleton';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { btn, cn } from '@/lib/botoes';
 
 // Trabalhamos 1 mês à frente: o padrão das telas é o mês VIGENTE (M+1).
 // O cálculo fica DENTRO do componente (useState), não aqui no escopo do módulo:
@@ -309,7 +310,7 @@ export default function DashboardPage() {
         <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
         <h3 className="text-xl font-bold text-slate-900 mb-2">Erro de Conexão</h3>
         <p className="text-slate-400 mb-6">Não foi possível carregar os dados do painel. O servidor pode estar iniciando — tente de novo em alguns segundos.</p>
-        <button onClick={() => mutate()} className="px-6 py-2 bg-violet-600 text-white rounded-xl font-bold">TENTAR NOVAMENTE</button>
+        <button onClick={() => mutate()} className={btn.primario}>Tentar novamente</button>
       </div>
     );
   }
@@ -464,15 +465,15 @@ export default function DashboardPage() {
                       {emissaoStatus ? <StatusBadge status={emissaoStatus} flow="emissao" /> : <span className="text-[10px] text-slate-400 font-bold">—</span>}
                     </div>
                   </div>
-                  {/* Ações */}
+                  {/* Ações — navegação é neutra: os três só levam a lugares */}
                   <div className="grid grid-cols-3 gap-2">
-                    <Link href={`/condominio/${c.id}/arrecadacoes`} className="flex items-center justify-center gap-1 py-2.5 rounded-xl bg-violet-50 text-violet-600 text-[11px] font-black active:opacity-70 transition-opacity">
+                    <Link href={`/condominio/${c.id}/arrecadacoes`} className={cn(btn.pequeno, 'py-2.5')}>
                       <Layers className="w-3.5 h-3.5" aria-hidden="true" /> Planilha
                     </Link>
-                    <Link href={`/carteiras/cobrancas?condo=${c.id}`} className="flex items-center justify-center gap-1 py-2.5 rounded-xl bg-amber-50 text-amber-600 text-[11px] font-black active:opacity-70 transition-opacity">
+                    <Link href={`/carteiras/cobrancas?condo=${c.id}`} className={cn(btn.pequeno, 'py-2.5')}>
                       <Receipt className="w-3.5 h-3.5" aria-hidden="true" /> Cobranças
                     </Link>
-                    <button onClick={() => handleQuickView(c.id)} className="flex items-center justify-center gap-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-[11px] font-black active:opacity-70 transition-opacity">
+                    <button onClick={() => handleQuickView(c.id)} className={cn(btn.pequeno, 'py-2.5')}>
                       <Eye className="w-3.5 h-3.5" aria-hidden="true" /> Ver
                     </button>
                   </div>
@@ -637,9 +638,9 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex gap-1 justify-end">
-                            <Link href={`/condominio/${c.id}/arrecadacoes`} className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-slate-950 transition-all" title="Arrecadações"><Layers className="w-3 h-3" /></Link>
-                            <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-slate-950 transition-all" title="Cobranças"><Receipt className="w-3 h-3" /></Link>
-                            <button onClick={() => handleQuickView(c.id)}   className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-slate-950 transition-all" title="Ver Info"><Eye className="w-3 h-3" /></button>
+                            <Link href={`/condominio/${c.id}/arrecadacoes`} className={cn(btn.icone, 'w-8 h-8 min-w-0 min-h-0')} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-3.5 h-3.5" aria-hidden="true" /></Link>
+                            <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className={cn(btn.icone, 'w-8 h-8 min-w-0 min-h-0')} title="Cobranças" aria-label="Cobranças"><Receipt className="w-3.5 h-3.5" aria-hidden="true" /></Link>
+                            <button onClick={() => handleQuickView(c.id)}   className={cn(btn.icone, 'w-8 h-8 min-w-0 min-h-0')} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-3.5 h-3.5" aria-hidden="true" /></button>
                           </div>
                         </td>
                       </tr>
@@ -670,9 +671,9 @@ export default function DashboardPage() {
                         </p>
                       </div>
                       <div className="flex gap-1.5 shrink-0">
-                        <Link href={`/condominio/${c.id}/arrecadacoes`} className="tap flex items-center justify-center rounded-lg bg-violet-500/10 text-violet-500" title="Arrecadações"><Layers className="w-4 h-4" /></Link>
-                        <Link href={`/carteiras/cobrancas?condo=${c.id}`} className="tap flex items-center justify-center rounded-lg bg-amber-500/10 text-amber-500" title="Cobranças"><Receipt className="w-4 h-4" /></Link>
-                        <button onClick={() => handleQuickView(c.id)} className="tap flex items-center justify-center rounded-lg bg-violet-500/10 text-violet-500" title="Ver Info"><Eye className="w-4 h-4" /></button>
+                        <Link href={`/condominio/${c.id}/arrecadacoes`} className={btn.icone} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-4 h-4" aria-hidden="true" /></Link>
+                        <Link href={`/carteiras/cobrancas?condo=${c.id}`} className={btn.icone} title="Cobranças" aria-label="Cobranças"><Receipt className="w-4 h-4" aria-hidden="true" /></Link>
+                        <button onClick={() => handleQuickView(c.id)} className={btn.icone} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-4 h-4" aria-hidden="true" /></button>
                       </div>
                     </div>
                     <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2 pl-6">

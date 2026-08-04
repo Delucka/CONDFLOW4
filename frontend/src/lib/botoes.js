@@ -33,6 +33,14 @@ export const btn = {
   // Menor, para barras densas.
   pequeno: `${BASE} px-3.5 py-2 text-[10px] bg-transparent border border-slate-300 text-slate-700 hover:bg-slate-50`,
 
+  // SEMÂNTICO — só onde a cor carrega informação, não decoração.
+  // Aprovar/liberar numa tela de aprovação: ali o verde É o significado, e a ação
+  // é a principal da tela. Fora desse contexto, use `primario`.
+  aprovar: `${BASE} ${ALTURA} bg-emerald-600 hover:bg-emerald-500 text-white`,
+  // Recusar fica em contorno: preenchido vermelho só na confirmação final,
+  // senão duas ações opostas competem com o mesmo peso.
+  recusar: `${BASE} ${ALTURA} bg-transparent border border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400`,
+
   // Só ícone: 44px de alvo (WCAG 2.5.5) via .tap. Exige aria-label.
   icone: 'tap inline-flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-colors disabled:opacity-40',
 };
