@@ -262,37 +262,37 @@ CREATE POLICY "processos_escrita" ON public.processos
 --   UPDATE processos SET fluxo = 1 WHERE id = '<qualquer>';   -- 0 linhas
 
 
--- ══ 2. Escolhe cobaias reais: um gerente e um assistente que existam ══
-CREATE TEMP TABLE _cobaias ON COMMIT DROP AS
-SELECT 'gerente' AS papel, p.id, p.full_name
+-- ══ 2. Cobaias, totais de referência e placar ══
+-- Tabelas NORMAIS, não TEMP. O SQL Editor do Supabase não manteve as temporárias
+-- entre os comandos ("relation _cobaias does not exist"); como tudo aqui termina
+-- em ROLLBACK, tabela comum some do mesmo jeito e sem essa esquisitice de escopo.
+DROP TABLE IF EXISTS _ensaio_cobaias, _ensaio_antes, _ensaio_resultado;
+
+CREATE TABLE _ensaio_cobaias AS
+SELECT 'gerente'::text AS papel, p.id, p.full_name
   FROM public.profiles p
   JOIN public.gerentes g ON g.profile_id = p.id
  WHERE p.role::text = 'gerente'
    AND EXISTS (SELECT 1 FROM public.condominios c WHERE c.gerente_id = g.id)
  LIMIT 1;
 
-INSERT INTO _cobaias
+INSERT INTO _ensaio_cobaias
 SELECT 'assistente', p.id, p.full_name
   FROM public.profiles p
  WHERE p.role::text = 'assistente' AND p.gerente_id IS NOT NULL
  LIMIT 1;
 
-INSERT INTO _cobaias
+INSERT INTO _ensaio_cobaias
 SELECT 'master', p.id, p.full_name
   FROM public.profiles p WHERE p.role::text = 'master' LIMIT 1;
 
-SELECT papel, full_name AS quem_sera_testado FROM _cobaias;
-
--- ══ 3. Totais SEM RLS, para servir de referência ══
-CREATE TEMP TABLE _antes ON COMMIT DROP AS
+CREATE TABLE _ensaio_antes AS
 SELECT (SELECT count(*) FROM public.condominios)      AS condominios,
        (SELECT count(*) FROM public.cobrancas_extras) AS cobrancas,
        (SELECT count(*) FROM public.processos)        AS processos;
 
-SELECT 'TOTAL NO BANCO (sem RLS)' AS referencia, * FROM _antes;
-
--- ══ 4. Mede o que CADA papel passaria a enxergar ══
-CREATE TEMP TABLE _resultado (papel text, quem text, cobrancas bigint, processos bigint, carteira bigint) ON COMMIT DROP;
+-- ══ 3. Mede o que cada papel enxergaria ══
+CREATE TABLE _ensaio_resultado (papel text, quem text, cobrancas bigint, processos bigint, carteira bigint);
 
 -- CRÍTICO: o DONO da tabela ignora RLS por definição no Postgres. No SQL Editor
 -- você roda como superusuário/dono, então SEM trocar para `authenticated` tudo
@@ -304,7 +304,7 @@ DECLARE
   n_cob bigint; n_proc bigint; n_cart bigint;
   papel_original text := current_user;   -- pode ser postgres, supabase_admin…
 BEGIN
-  FOR c IN SELECT * FROM _cobaias LOOP
+  FOR c IN SELECT * FROM _ensaio_cobaias LOOP
     PERFORM set_config('request.jwt.claims',
                        json_build_object('sub', c.id, 'role', 'authenticated')::text, true);
     EXECUTE 'SET LOCAL ROLE authenticated';
@@ -314,48 +314,76 @@ BEGIN
     SELECT count(*) INTO n_cart FROM public.condominios_da_carteira();
 
     EXECUTE format('SET LOCAL ROLE %I', papel_original);
-    INSERT INTO _resultado VALUES (c.papel, c.full_name, n_cob, n_proc, n_cart);
+    INSERT INTO _ensaio_resultado VALUES (c.papel, c.full_name, n_cob, n_proc, n_cart);
   END LOOP;
 
-  -- Prova de que a troca de papel funcionou: como `authenticated`, o dono não
-  -- manda mais e o RLS vale. Se der erro de permissão aqui, o resultado acima
-  -- não é confiável — pare e me avise.
-  PERFORM set_config('request.jwt.claims', NULL, true);
+  PERFORM set_config('request.jwt.claims', '', true);
 EXCEPTION WHEN OTHERS THEN
+  -- A falha vai para a TABELA, não só para NOTICE: o editor do Supabase pode não
+  -- mostrar notices, e você veria "0 linhas" achando que não há nada a ver, em
+  -- vez de "o teste não rodou".
   EXECUTE format('SET LOCAL ROLE %I', papel_original);
-  RAISE NOTICE 'ENSAIO FALHOU ao imitar usuário: %  — não aplique as migrations sem entender isto.', SQLERRM;
+  INSERT INTO _ensaio_resultado
+    VALUES ('ERRO', 'não consegui imitar o usuário: ' || SQLERRM, -1, -1, -1);
 END $$;
 
--- ══ 5. VEREDITO ══
+-- ══ 4. VEREDITO ══
+-- Precisa ser a ÚLTIMA consulta que devolve linhas: o editor do Supabase mostra
+-- só o último resultado. Por isso a checagem do interruptor virou uma linha
+-- daqui, em vez de um SELECT separado no fim.
+--
 -- Leia assim:
---   master      → deve ver TUDO (igual ao total do passo 3)
---   gerente     → deve ver MENOS que o total, e mais que zero
+--   master      → vê TUDO (o mesmo total de "de N")
+--   gerente     → vê MENOS que o total, e mais que zero
 --   assistente  → idem (a carteira do gerente dele)
---   ZERO em gerente/assistente = a política está estreita demais e a tela vai
---   parar de salvar. NÃO aplique se aparecer zero.
-SELECT r.papel,
-       r.quem,
-       r.carteira                         AS condominios_da_carteira,
-       r.cobrancas || ' de ' || a.cobrancas AS cobrancas_visiveis,
-       r.processos || ' de ' || a.processos AS processos_visiveis,
-       CASE
-         WHEN r.papel = 'master'
-              AND r.cobrancas = a.cobrancas AND r.processos = a.processos THEN 'OK — vê tudo'
-         WHEN r.papel <> 'master' AND r.carteira = 0                     THEN 'ATENÇÃO — carteira vazia; confira o vínculo antes'
-         WHEN r.papel <> 'master' AND r.cobrancas = 0 AND a.cobrancas > 0 THEN 'SUSPEITO — não vê nenhuma cobrança'
-         WHEN r.papel <> 'master' AND r.processos = 0 AND a.processos > 0 THEN 'SUSPEITO — não vê nenhum processo'
-         ELSE 'OK'
-       END AS veredito
-  FROM _resultado r CROSS JOIN _antes a
- ORDER BY CASE r.papel WHEN 'master' THEN 1 WHEN 'gerente' THEN 2 ELSE 3 END;
+--   ZERO em gerente/assistente = política estreita demais; a tela para de
+--   salvar. NÃO aplique nesse caso — me mande esta saída.
+SELECT ordem, papel, quem, condominios_da_carteira, cobrancas_visiveis, processos_visiveis, veredito
+FROM (
+  -- Interruptor: prova que o RLS ficaria LIGADO nas duas tabelas
+  SELECT 0 AS ordem,
+         'RLS' AS papel,
+         string_agg(relname || '=' || relrowsecurity::text, '  ') AS quem,
+         NULL::bigint AS condominios_da_carteira,
+         NULL::text AS cobrancas_visiveis,
+         NULL::text AS processos_visiveis,
+         CASE WHEN bool_and(relrowsecurity) THEN 'OK — ligado nas duas'
+              ELSE 'ATENÇÃO — não ligou' END AS veredito
+    FROM pg_class
+   WHERE relnamespace = 'public'::regnamespace
+     AND relname IN ('cobrancas_extras', 'processos')
 
--- ══ 6. Confirma que o interruptor ficaria ligado ══
-SELECT relname AS tabela, relrowsecurity AS rls_ligado
-  FROM pg_class
- WHERE relnamespace = 'public'::regnamespace
-   AND relname IN ('cobrancas_extras', 'processos');
+  UNION ALL
 
--- ══ 7. DESFAZ TUDO ══
+  SELECT CASE r.papel WHEN 'master' THEN 1 WHEN 'gerente' THEN 2 WHEN 'ERRO' THEN 9 ELSE 3 END,
+         r.papel,
+         r.quem,
+         r.carteira,
+         r.cobrancas || ' de ' || a.cobrancas,
+         r.processos || ' de ' || a.processos,
+         CASE
+           WHEN r.papel = 'ERRO'                                          THEN 'FALHOU — não confie neste ensaio'
+           WHEN r.papel = 'master'
+                AND r.cobrancas = a.cobrancas AND r.processos = a.processos THEN 'OK — vê tudo'
+           WHEN r.papel <> 'master' AND r.carteira = 0                     THEN 'ATENÇÃO — carteira vazia; confira o vínculo'
+           WHEN r.papel <> 'master' AND r.cobrancas = 0 AND a.cobrancas > 0 THEN 'SUSPEITO — não vê nenhuma cobrança'
+           WHEN r.papel <> 'master' AND r.processos = 0 AND a.processos > 0 THEN 'SUSPEITO — não vê nenhum processo'
+           ELSE 'OK'
+         END
+    FROM _ensaio_resultado r CROSS JOIN _ensaio_antes a
+
+  UNION ALL
+
+  -- Rede de segurança: sem nenhuma cobaia, o resultado sairia vazio e pareceria
+  -- "nada a ver" em vez de "o teste não rodou".
+  SELECT 8, 'SEM COBAIA',
+         'não achei gerente/assistente/master para testar', NULL, NULL, NULL,
+         'INCONCLUSIVO — confira os vínculos em profiles/gerentes'
+   WHERE NOT EXISTS (SELECT 1 FROM _ensaio_resultado)
+) v
+ORDER BY ordem;
+
+-- ══ 5. DESFAZ TUDO ══
 -- Nada acima persiste: políticas, funções e o RLS voltam como estavam.
 ROLLBACK;
 
