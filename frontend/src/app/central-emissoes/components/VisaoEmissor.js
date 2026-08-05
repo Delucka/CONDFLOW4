@@ -100,6 +100,8 @@ export default function VisaoEmissor({ profile }) {
 
   // Mapa de etapas de preparação { `${condoId}_${mes}_${ano}`: { etapa, data_fatura, data_relatorio, ... } }
   const [preparacaoMap, setPreparacaoMap] = useState({});
+  // Liberação mensal do gerente (edicoes_mensais) por `${condo}_${mes}_${ano}`
+  const [edicoesMap, setEdicoesMap] = useState({});
   const [modalPrepCondo, setModalPrepCondo] = useState(null);
 
   // Mapa de alterações prevista: { `${condoId}_${mes}_${ano}`: [alteracoes...] }
@@ -269,6 +271,7 @@ export default function VisaoEmissor({ profile }) {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'processos' }, fetchProcessos)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_preparacao' }, () => fetchPreparacao())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'edicoes_mensais' }, () => fetchEdicoes())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'alteracoes_rateio' }, () => fetchAlteracoes())
       .subscribe();
 
@@ -276,7 +279,7 @@ export default function VisaoEmissor({ profile }) {
   }, []);
 
   // Refaz a busca de preparacao quando mes/ano mudam
-  useEffect(() => { fetchPreparacao(); fetchAlteracoes(); }, [mes, ano]);
+  useEffect(() => { fetchPreparacao(); fetchAlteracoes(); fetchEdicoes(); }, [mes, ano]);
 
   // Carrega a referência do gerente (planilha do mês + cobranças extras) ao abrir um pacote
   useEffect(() => {
@@ -303,6 +306,46 @@ export default function VisaoEmissor({ profile }) {
     })();
     return () => { cancel = true; };
   }, [activePacote?.id]);
+
+  // ── Conferência de pendências, DENTRO da emissão ──
+  // Antes isto era porteiro: sem marcar "pronto p/ emitir" a emissão nem abria.
+  // Virou lista de conferência: abre-se a emissão assim que o gerente libera e
+  // confere-se o que falta aqui, olhando os anexos que já estão na tela — que é
+  // a hora em que dá para saber de verdade.
+  const [salvandoPrep, setSalvandoPrep] = useState(null);
+
+  async function marcarPendencia(campo, valor) {
+    if (!activePacote) return;
+    const chave = `${activePacote.condominio_id}_${activePacote.mes_referencia}_${activePacote.ano_referencia}`;
+    const atual = preparacaoMap[chave];
+    setSalvandoPrep(campo);
+    try {
+      const payload = {
+        condominio_id: activePacote.condominio_id,
+        mes_referencia: activePacote.mes_referencia,
+        ano_referencia: activePacote.ano_referencia,
+        [campo]: valor,
+        atualizado_por: user?.id || null,   // mesmo campo que o ModalPreparacao grava
+        atualizado_em: new Date().toISOString(),
+      };
+      // A etapa acompanha o que foi conferido — deixou de ser digitada à mão.
+      const temFatura    = campo === 'data_fatura'    ? !!valor : !!atual?.data_fatura;
+      const temRelatorio = campo === 'data_relatorio' ? !!valor : !!atual?.data_relatorio;
+      payload.etapa = temFatura && temRelatorio ? 'pronto_para_emitir'
+                    : temFatura ? 'aguardando_relatorio'
+                    : 'aguardando_fatura';
+
+      const { error } = atual?.id
+        ? await supabase.from('emissoes_preparacao').update(payload).eq('id', atual.id)
+        : await supabase.from('emissoes_preparacao').insert(payload);
+      if (error) throw error;
+      await fetchPreparacao();
+    } catch (e) {
+      addToast('Não consegui salvar a conferência: ' + (e.message || e), 'error');
+    } finally {
+      setSalvandoPrep(null);
+    }
+  }
 
   // Marca/desmarca uma cobrança e persiste a seleção no pacote
   async function toggleCobranca(id) {
@@ -354,6 +397,30 @@ export default function VisaoEmissor({ profile }) {
       data.forEach(p => { map[`${p.condominio_id}_${p.mes_referencia}_${p.ano_referencia}`] = p; });
       setPreparacaoMap(map);
     }
+  }
+
+  // Liberação do gerente por condomínio+mês (0034). É ela que destrava a emissão:
+  // enquanto o gerente está mexendo na planilha, montar a emissão em cima de
+  // números que ainda vão mudar é retrabalho garantido.
+  //
+  // SEM registro = mês nunca aberto para o gerente = nada pendente, pode emitir.
+  // Tratar "sem registro" como bloqueio travaria a base inteira, porque a maioria
+  // dos meses nunca passou pela abertura.
+  async function fetchEdicoes() {
+    const { data } = await supabase
+      .from('edicoes_mensais')
+      .select('condominio_id, mes_referencia, ano_referencia, status, liberado_em')
+      .eq('mes_referencia', mes)
+      .eq('ano_referencia', ano);
+    const map = {};
+    (data || []).forEach(e => { map[`${e.condominio_id}_${e.mes_referencia}_${e.ano_referencia}`] = e; });
+    setEdicoesMap(map);
+  }
+
+  // O gerente está com a planilha na mão? Só isso trava.
+  function gerenteEditando(condoIdAlvo) {
+    const st = edicoesMap[`${condoIdAlvo}_${mes}_${ano}`]?.status;
+    return st === 'em_edicao' || st === 'reabertura_solicitada';
   }
 
   async function fetchProcessos() {
@@ -483,10 +550,11 @@ export default function VisaoEmissor({ profile }) {
       addToast(`Não é possível criar emissão para ${String(mes).padStart(2,'0')}/${ano} — mês já encerrado.`, 'error');
       return;
     } else {
-      // Só permite CRIAR pacote novo se a preparação estiver "pronto para emitir"
-      const prep = preparacaoMap[`${condoId}_${mes}_${ano}`];
-      if (prep?.etapa !== 'pronto_para_emitir') {
-        addToast('Só é possível abrir o pacote quando a preparação está "Pronto p/ emitir". Defina a etapa na lista por carteira.', 'warning');
+      // A trava é a planilha estar na mão do gerente, não uma etapa marcada à mão.
+      // Liberou, abre a emissão — o que falta (fatura, relatório) se confere
+      // DENTRO dela, na lista de conferência, antes de mandar para aprovação.
+      if (gerenteEditando(condoId)) {
+        addToast('O gerente ainda está com a planilha deste mês. A emissão abre quando ele liberar.', 'warning');
         return;
       }
       const { data: novo, error } = await supabase
@@ -1212,6 +1280,57 @@ export default function VisaoEmissor({ profile }) {
             </button>
           </div>
 
+          {/* Conferência de pendências — o que antes era a "etapa de preparação" */}
+          {(() => {
+            const chave = `${activePacote.condominio_id}_${activePacote.mes_referencia}_${activePacote.ano_referencia}`;
+            const prep = preparacaoMap[chave];
+            const hoje = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+            const itens = [
+              { campo: 'data_fatura',    rotulo: 'Fatura recebida',    data: prep?.data_fatura },
+              { campo: 'data_relatorio', rotulo: 'Relatório recebido', data: prep?.data_relatorio },
+            ];
+            const faltam = itens.filter(i => !i.data).length;
+            return (
+              <div className={`mb-6 rounded-2xl border overflow-hidden ${faltam ? 'border-amber-300 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+                <div className="px-4 py-2.5 flex items-center gap-2 flex-wrap">
+                  <ClipboardCheck className={`w-4 h-4 ${faltam ? 'text-amber-700' : 'text-emerald-700'}`} />
+                  <h4 className={`text-[11px] font-black uppercase tracking-widest ${faltam ? 'text-amber-900' : 'text-emerald-900'}`}>
+                    {faltam ? `Falta conferir ${faltam} item${faltam > 1 ? 's' : ''}` : 'Tudo conferido'}
+                  </h4>
+                  <span className="text-[11px] text-slate-600">
+                    {faltam
+                      ? 'Dá para montar a emissão mesmo assim — mas confira antes de mandar para aprovação.'
+                      : 'Fatura e relatório recebidos.'}
+                  </span>
+                </div>
+                <div className="px-4 pb-3 flex flex-wrap gap-2">
+                  {itens.map(i => (
+                    <button
+                      key={i.campo}
+                      type="button"
+                      disabled={salvandoPrep === i.campo}
+                      onClick={() => marcarPendencia(i.campo, i.data ? null : hoje)}
+                      title={i.data ? 'Clique para desmarcar' : 'Marcar como recebido hoje'}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-colors disabled:opacity-50 ${
+                        i.data
+                          ? 'border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100'
+                          : 'border-amber-300 bg-white text-amber-800 hover:bg-amber-100'
+                      }`}
+                    >
+                      {i.data ? <Check className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                      {i.rotulo}
+                      {i.data && (
+                        <span className="font-mono font-normal text-slate-500">
+                          {new Date(i.data + 'T00:00:00').toLocaleDateString('pt-BR')}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Referência do gerente: planilha do mês + cobranças extras a incluir */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white overflow-hidden">
             <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
@@ -1800,12 +1919,15 @@ export default function VisaoEmissor({ profile }) {
                     const listaPacotes = pacotesPorCondo[key] || [];
                     const pacote = listaPacotes[0];   // existe? (o resto vem da lista)
                     const prep = preparacaoMap[`${condo.id}_${mes}_${ano}`];
-                    const isPronto = prep?.etapa === 'pronto_para_emitir';
                     // Alterações previstas (AGO/AGE/Reunião) BLOQUEIAM criação do pacote
                     const altsPrevistas = alteracoesPrevMap[`${condo.id}_${mes}_${ano}`] || [];
                     const temAltPrevista = altsPrevistas.length > 0;
-                    // Gate: só pode criar pacote depois de marcar como pronto p/ emitir E sem alteração pendente
-                    const canCreate = !temAltPrevista && (isPronto || !!pacote);
+                    // Gate: a planilha estar na mão do gerente. A etapa de preparação
+                    // deixou de travar — virou registro do que falta, conferido dentro
+                    // da emissão. Abrir cedo não faz mal: o que impede de MANDAR para
+                    // aprovação é a conferência lá dentro, não a porta de entrada.
+                    const editandoAgora = gerenteEditando(condo.id);
+                    const canCreate = !temAltPrevista && (!editandoAgora || !!pacote);
 
                     return (
                       <div key={condo.id} className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-3 border-b border-slate-200 last:border-b-0 transition-colors ${
@@ -1935,13 +2057,21 @@ export default function VisaoEmissor({ profile }) {
                                         )}
                                       </span>
                                     )}
+                                    {/* Quem manda agora é a liberação do gerente. */}
+                                    {editandoAgora && (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 text-amber-800 text-[10px] font-bold"
+                                            title="A emissão abre assim que o gerente liberar o mês">
+                                        <Lock className="w-3 h-3" />
+                                        Gerente ainda editando
+                                      </span>
+                                    )}
                                     <button
                                       onClick={() => setModalPrepCondo(condo)}
-                                      title={etapa ? 'Editar etapa de preparação' : 'Definir etapa de preparação'}
-                                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-lg text-[10px] font-black text-amber-400 uppercase tracking-widest transition-all"
+                                      title="Anotar o que falta (fatura, relatório) e abrir/reabrir o mês para o gerente"
+                                      className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-[10px] font-black text-slate-600 uppercase tracking-widest transition-all"
                                     >
                                       <ClipboardCheck className="w-3 h-3" />
-                                      {etapa ? 'Etapa' : 'Definir etapa'}
+                                      {etapa ? 'Pendências' : 'Anotar'}
                                     </button>
                                   </>
                                 );
@@ -1956,7 +2086,7 @@ export default function VisaoEmissor({ profile }) {
                                     return;
                                   }
                                   if (!canCreate) {
-                                    addToast('Marque a etapa como "Pronto p/ emitir" antes de criar o pacote.', 'warning');
+                                    addToast('O gerente ainda está com a planilha deste mês. A emissão abre quando ele liberar.', 'warning');
                                     setModalPrepCondo(condo);
                                     return;
                                   }
@@ -1966,7 +2096,7 @@ export default function VisaoEmissor({ profile }) {
                                 title={
                                   temAltPrevista
                                     ? `BLOQUEADO: alteração prevista (${altsPrevistas[0].tipo}). Gerente precisa marcar como realizada/cancelada.`
-                                    : !canCreate ? 'Conclua a preparação antes de criar o pacote' : 'Criar pacote de emissão'
+                                    : !canCreate ? 'O gerente ainda está editando a planilha deste mês' : 'Criar pacote de emissão'
                                 }
                                 className={`px-3 py-1.5 border rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
                                   canCreate
