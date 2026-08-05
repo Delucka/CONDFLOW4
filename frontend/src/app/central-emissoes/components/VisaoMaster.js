@@ -16,6 +16,8 @@ import { useAuth } from '@/lib/auth';
 import { isPendingForRole } from '@/lib/usePendingCount';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
 import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
+import { podeRegistrar, carregarConjunto, arrastadasPelaRecusa, devolverConjunto, anexarGrupos } from '@/lib/conjuntoEmissao';
+import SeloGrupo from './SeloGrupo';
 import { safeStorageName } from '@/lib/storage';
 import { Inbox } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -178,7 +180,8 @@ export default function VisaoMaster() {
         const aprMap = {};
         (aprs || []).forEach(a => { (aprMap[a.pacote_id] = aprMap[a.pacote_id] || []).push(a); });
 
-        setPacotes(data.map(p => ({ ...p, arquivos: arqMap[p.id] || [], aprovacoes: aprMap[p.id] || [] })));
+        const comGrupo = await anexarGrupos(supabase, data);
+        setPacotes(comGrupo.map(p => ({ ...p, arquivos: arqMap[p.id] || [], aprovacoes: aprMap[p.id] || [] })));
 
         const { data: orphanData } = await supabase
           .from('emissoes_arquivos')
@@ -322,6 +325,18 @@ export default function VisaoMaster() {
     const selectedDate = new Date(dataRegistro);
     if (selectedDate < new Date(Date.now() - 60000)) return addToast('Não é permitido registrar no passado', 'error');
 
+    // Conjunto: nada é registrado enquanto todas as emissões do condomínio+mês
+    // não estiverem aprovadas (ver lib/conjuntoEmissao.js).
+    const { ok, pendentes, error: errConj } = await podeRegistrar(supabase, activePacote);
+    if (errConj) return addToast('Não consegui conferir as outras emissões do mês: ' + errConj.message, 'error');
+    if (!ok) {
+      return addToast(
+        `Faltam ${pendentes.length} emissão(ões) deste condomínio em ${String(activePacote.mes_referencia).padStart(2,'0')}/${activePacote.ano_referencia} para aprovar. ` +
+        `Os boletos do mês saem juntos.`,
+        'warning',
+      );
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     const planilha_snapshot = await fetchSnapshot(activePacote, session?.access_token);
     const cobrancas_snapshot = await fetchCobrancasSnapshot(activePacote);
@@ -459,15 +474,42 @@ export default function VisaoMaster() {
   }
 
   async function handleRejeitar(pacote) {
+    // Avisa ANTES de pedir o motivo: a recusa pode arrastar as irmãs do mês, e
+    // quem clica precisa saber disso antes de escrever qualquer coisa.
+    const { pacotes: doMes } = await carregarConjunto(supabase, pacote);
+    const irmas = arrastadasPelaRecusa(doMes, pacote.id);
+    if (irmas.length && !window.confirm(
+      `Este condomínio tem mais ${irmas.length} emissão(ões) em ` +
+      `${String(pacote.mes_referencia).padStart(2, '0')}/${pacote.ano_referencia}.\n\n` +
+      `Recusar esta devolve TODAS elas para correção — os boletos do mês saem juntos.\n\nContinuar?`
+    )) return;
+
     const reason = prompt('Motivo da correção:');
     if (!reason) return;
-    await supabase.from('emissoes_pacotes')
-      .update({ status: 'solicitar_correcao', comentario_correcao: reason, atualizado_em: new Date().toISOString(),
+
+    const agora = new Date().toISOString();
+    const { data, error } = await supabase.from('emissoes_pacotes')
+      .update({ status: 'solicitar_correcao', comentario_correcao: reason, atualizado_em: agora,
         correcao_por_nome: user?.full_name || user?.email || null,
-        correcao_em: new Date().toISOString() })
-      .eq('id', pacote.id);
+        correcao_em: agora })
+      .eq('id', pacote.id)
+      .select('id');
+    if (error) return addToast('Falha ao solicitar correção: ' + error.message, 'error');
+    if (!data?.length) return addToast('Correção bloqueada pelas regras de acesso (0 linhas).', 'error');
+
+    // Marca o ciclo: as aprovações anteriores deixam de valer.
+    await supabase.from('emissoes_pacotes_aprovacoes').insert({
+      pacote_id: pacote.id, acao: 'correcao', role: user?.role || null,
+      usuario_nome: user?.full_name || null, usuario_email: user?.email || null,
+    });
+
+    const { devolvidas, error: errConj } = await devolverConjunto(supabase, pacote, { comentario: reason, user });
+    if (errConj) addToast('A emissão voltou, mas não consegui devolver as irmãs: ' + errConj.message, 'error');
+
     fetchPacotes();
-    addToast('Correção solicitada.', 'info');
+    addToast(devolvidas
+      ? `Correção solicitada — ${devolvidas + 1} emissões do mês voltaram juntas.`
+      : 'Correção solicitada.', 'info');
   }
 
   const handleDelete = async (e, id) => {
@@ -644,6 +686,7 @@ export default function VisaoMaster() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-black text-slate-900 text-sm break-words leading-tight">{pacote.condominios?.name}</p>
+                      <SeloGrupo pacote={pacote} className="mt-1" />
                       <p className="text-[10px] text-slate-500 mt-0.5">
                         {String(pacote.mes_referencia).padStart(2, '0')}/{pacote.ano_referencia} • {numArq} arquivo{numArq !== 1 ? 's' : ''}
                         {isRegistrado && pacote.planilha_snapshot && <span className="text-violet-500"> • 🔒</span>}
@@ -858,7 +901,10 @@ export default function VisaoMaster() {
                       <Package className={`w-5 h-5 ${isRegistrado ? 'text-violet-400' : 'text-violet-400'}`} />
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 text-sm">{pacote.condominios?.name}</p>
+                      <p className="font-bold text-slate-900 text-sm flex items-center gap-2 flex-wrap">
+                        {pacote.condominios?.name}
+                        <SeloGrupo pacote={pacote} />
+                      </p>
                       <p className="text-[10px] text-slate-500">
                         {String(pacote.mes_referencia).padStart(2,'0')}/{pacote.ano_referencia} • {numArq} arquivo{numArq !== 1 ? 's' : ''}
                         {isRegistrado && pacote.planilha_snapshot && (

@@ -166,6 +166,30 @@ recursões sem tocar em produção.
 
 ---
 
+## Armadilha 6 — `maybeSingle()` por condomínio+mês virou mentira
+
+A 0086 derrubou o `UNIQUE(condominio_id, mes_referencia, ano_referencia)` de
+`emissoes_pacotes`: um condomínio de dois vencimentos tem **duas** emissões no
+mesmo mês. Todo código que supunha "uma por mês" passou a estar errado, e o
+sintoma depende da forma:
+
+| Forma | O que acontece com 2 linhas |
+|---|---|
+| `.maybeSingle()` | estoura `PGRST116` — barulhento, fácil de achar |
+| `.find(...)` / `map[key] = p` | pega **a primeira** e esconde a outra — calado |
+
+O calado é o perigoso: no `VisaoEmissor` o mapa por condomínio sobrescrevia, e a
+segunda emissão simplesmente não aparecia na lista da carteira — ninguém ia
+saber que faltava montá-la.
+
+Ao ler `emissoes_pacotes` por condomínio+mês, **assuma lista**. A regra do
+conjunto (nada é registrado enquanto todas do mês não estiverem aprovadas) mora
+em `frontend/src/lib/conjuntoEmissao.js` e, a partir da 0087, também num
+trigger — porque o front escreve com a chave `anon` e checagem de tela é
+conselho, não trava.
+
+---
+
 ## Dados pessoais (LGPD)
 
 `condominos` (0071) guarda nome, CPF, telefone e e-mail de morador. A tabela tem

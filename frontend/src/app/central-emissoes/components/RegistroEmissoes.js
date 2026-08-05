@@ -10,6 +10,8 @@ import { saveAs } from 'file-saver';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { ordenarParaExtracao, montarPdfEmissao, montarZipEmissao } from '@/lib/extrairEmissao';
 import { apiFetch, apiPost } from '@/lib/api';
+import { anexarGrupos } from '@/lib/conjuntoEmissao';
+import SeloGrupo from './SeloGrupo';
 
 export default function RegistroEmissoes({ profile }) {
   const supabase = createClient();
@@ -43,6 +45,7 @@ export default function RegistroEmissoes({ profile }) {
   const [showExtrairModal, setShowExtrairModal] = useState(false);
   const [extCondo, setExtCondo] = useState('');
   const [extComp, setExtComp] = useState('');
+  const [extGrupo, setExtGrupo] = useState('');   // id do pacote, quando o mês tem mais de um
 
   async function fetchRegistradas() {
     setLoading(true);
@@ -90,7 +93,8 @@ export default function RegistroEmissoes({ profile }) {
         });
       }
 
-      setPacotes((data || []).map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
+      const comGrupo = await anexarGrupos(supabase, data);
+      setPacotes(comGrupo.map(p => ({ ...p, arquivos: arqMap[p.id] || [] })));
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }
 
@@ -113,6 +117,24 @@ export default function RegistroEmissoes({ profile }) {
     pacotes.filter(p => p.condominio_id === extCondo).forEach(p => s.add(`${String(p.mes_referencia).padStart(2,'0')}/${p.ano_referencia}`));
     return Array.from(s).sort().reverse();
   }, [pacotes, extCondo]);
+
+  // As emissões do condomínio+competência escolhidos. Mais de uma = dois grupos.
+  const pacotesDoExt = useMemo(() => {
+    if (!extCondo || !extComp) return [];
+    const [mes, ano] = extComp.split('/');
+    return pacotes
+      .filter(p => p.condominio_id === extCondo
+        && String(p.mes_referencia).padStart(2, '0') === mes
+        && String(p.ano_referencia) === ano)
+      .sort((a, b) => (a.grupo_due_day ?? 99) - (b.grupo_due_day ?? 99));
+  }, [pacotes, extCondo, extComp]);
+
+  // Derivado, não sincronizado por efeito: trocar de condomínio/mês deixa
+  // `extGrupo` apontando para um pacote que não está mais na lista, e aí o
+  // seletor cai sozinho no primeiro do mês novo.
+  const extGrupoEfetivo = pacotesDoExt.some(p => p.id === extGrupo)
+    ? extGrupo
+    : (pacotesDoExt[0]?.id || '');
 
   const pacotesFiltrados = useMemo(() => {
     return pacotes.filter(p => {
@@ -314,8 +336,7 @@ export default function RegistroEmissoes({ profile }) {
 
   function extrairDoModal(formato = 'pdf') {
     if (!extCondo || !extComp) return;
-    const [mes, ano] = extComp.split('/');
-    const pacote = pacotes.find(p => p.condominio_id === extCondo && String(p.mes_referencia).padStart(2, '0') === mes && String(p.ano_referencia) === ano);
+    const pacote = pacotesDoExt.find(p => p.id === extGrupoEfetivo);
     if (!pacote) { addToast('Emissão não encontrada.', 'error'); return; }
     setShowExtrairModal(false);
     handleExtrair(pacote, formato);
@@ -424,7 +445,10 @@ export default function RegistroEmissoes({ profile }) {
                         <Building className="w-4 h-4 text-emerald-400" />
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 text-sm">{p.condominios?.name}</p>
+                        <p className="font-bold text-slate-900 text-sm flex items-center gap-2 flex-wrap">
+                          {p.condominios?.name}
+                          <SeloGrupo pacote={p} />
+                        </p>
                         <p className="text-[10px] text-slate-500">1 emissão • {numArq} arquivo{numArq !== 1 ? 's' : ''}</p>
                       </div>
                     </div>
@@ -618,6 +642,24 @@ export default function RegistroEmissoes({ profile }) {
                   {compsDoExtCondo.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
+              {/* Condomínio de dois vencimentos tem duas emissões no mesmo mês.
+                  Sem escolher, `find` pegava a primeira e a outra nunca saía. */}
+              {pacotesDoExt.length > 1 && (
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 mb-2">Grupo de emissão</label>
+                  <select value={extGrupoEfetivo} onChange={e => setExtGrupo(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-violet-500">
+                    {pacotesDoExt.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.grupo_nome || 'Sem grupo'}{p.grupo_due_day ? ` — vence dia ${p.grupo_due_day}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-[10px] text-slate-500">
+                    Este mês tem {pacotesDoExt.length} emissões. Extraia uma de cada vez.
+                  </p>
+                </div>
+              )}
               <button onClick={() => extrairDoModal('zip')} disabled={!extCondo || !extComp}
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 font-medium text-[11px] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                 title="Baixa os arquivos originais separados, sem reprocessar (melhor fidelidade)">

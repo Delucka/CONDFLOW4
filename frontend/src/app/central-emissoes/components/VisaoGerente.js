@@ -5,6 +5,8 @@ import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle }
 import StatusBadge from './StatusBadge';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
 import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
+import { devolverConjunto, anexarGrupos } from '@/lib/conjuntoEmissao';
+import SeloGrupo from './SeloGrupo';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
@@ -82,7 +84,8 @@ export default function VisaoGerente({ profile }) {
         const aprMap = {};
         (aprovacoes || []).forEach(a => { (aprMap[a.pacote_id] = aprMap[a.pacote_id] || []).push(a); });
 
-        setPacotes(pacotesData.map(p => ({
+        const comGrupo = await anexarGrupos(supabase, pacotesData);
+        setPacotes(comGrupo.map(p => ({
           ...p,
           condominios: p.condominios || { name: p.condo_name },
           arquivos: arqMap[p.id] || [],
@@ -164,7 +167,16 @@ export default function VisaoGerente({ profile }) {
         pacote_id: currentPacote.id, acao: 'correcao', role: user?.role || null,
         usuario_nome: user?.full_name || null, usuario_email: user?.email || null,
       });
-      addToast('Correção solicitada. As aprovações anteriores foram retiradas.', 'success');
+
+      // O conjunto volta junto: se este condomínio emite em dois vencimentos,
+      // deixar um lado aprovado e o outro em correção manda meio mês de boleto.
+      const { devolvidas, error: errConj } =
+        await devolverConjunto(supabase, currentPacote, { comentario: comment, user });
+      if (errConj) addToast('A emissão voltou, mas não consegui devolver as outras do mês: ' + errConj.message, 'error');
+
+      addToast(devolvidas
+        ? `Correção solicitada. As ${devolvidas + 1} emissões do mês voltaram juntas, sem aprovação anterior.`
+        : 'Correção solicitada. As aprovações anteriores foram retiradas.', 'success');
       setShowModal(false);
       fetchPacotes();
     }
@@ -341,6 +353,7 @@ export default function VisaoGerente({ profile }) {
                     </div>
                     <div className="min-w-0">
                       <h4 className="font-semibold text-slate-900 text-sm truncate">{pacote.condominios?.name || '—'}</h4>
+                      <SeloGrupo pacote={pacote} className="my-1" />
                       <p className="text-[10px] font-bold text-violet-400 ">
                         {String(pacote.mes_referencia).padStart(2, '0')}/{pacote.ano_referencia}
                         {' • '}{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}

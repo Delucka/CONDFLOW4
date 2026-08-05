@@ -14,6 +14,8 @@ import { ocrFileToText, parseFaturaOcr, decodeBoletoValor } from '@/lib/ocrClien
 import ModalPreparacao from './ModalPreparacao';
 import { mesVigente, anoVigente } from '@/lib/mesVigente';
 import { combina } from '@/lib/busca';
+import { podeRegistrar, anexarGrupos } from '@/lib/conjuntoEmissao';
+import SeloGrupo from './SeloGrupo';
 import { FileWarning } from 'lucide-react';
 
 export default function VisaoEmissor({ profile }) {
@@ -39,12 +41,43 @@ export default function VisaoEmissor({ profile }) {
   const [mes, setMes] = useState(mesVigente());   // trabalhamos 1 mês à frente
   const [ano, setAno] = useState(anoVigente());
 
+  // Grupos de emissão do condomínio escolhido (0086). Um condomínio com dois
+  // vencimentos tem dois grupos, e cada emissão pertence a um deles.
+  const [gruposCondo, setGruposCondo] = useState([]);
+  const [grupoId, setGrupoId] = useState('');
+  const grupoDesejadoRef = useRef(null);   // grupo do pacote que acabou de ser aberto
+
   // Persiste mês/ano: mantém ao sair/voltar; só muda quando o usuário troca
   useEffect(() => {
     const m = parseInt(localStorage.getItem('emissor_mes') || '', 10); if (m >= 1 && m <= 12) setMes(m);
     const a = parseInt(localStorage.getItem('emissor_ano') || '', 10); if (a > 2000) setAno(a);
   }, []);
   useEffect(() => { try { localStorage.setItem('emissor_mes', String(mes)); localStorage.setItem('emissor_ano', String(ano)); } catch {} }, [mes, ano]);
+
+  // Grupos do condomínio escolhido. Trocar de condomínio zera a escolha: um
+  // grupo do condomínio A não vale no B.
+  useEffect(() => {
+    let vivo = true;
+    setGrupoId('');
+    if (!condoId) { setGruposCondo([]); return; }
+    (async () => {
+      const { data } = await supabase
+        .from('condominio_grupos')
+        .select('id, nome, due_day, ordem')
+        .eq('condominio_id', condoId)
+        .eq('ativo', true)
+        .order('ordem');
+      if (!vivo) return;
+      const gs = data || [];
+      setGruposCondo(gs);
+      const desejado = grupoDesejadoRef.current;
+      grupoDesejadoRef.current = null;
+      if (desejado && gs.some(g => g.id === desejado)) setGrupoId(desejado);
+      else if (gs.length) setGrupoId(gs[0].id);
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [condoId]);
   
   // Modal de conclusão
   const [showConcluirModal, setShowConcluirModal] = useState(false);
@@ -364,7 +397,8 @@ export default function VisaoEmissor({ profile }) {
         countMap[a.pacote_id] = (countMap[a.pacote_id] || 0) + 1;
       });
       
-      setPacotes(data.map(p => ({ ...p, numArquivos: countMap[p.id] || 0 })));
+      const comGrupo = await anexarGrupos(supabase, data);
+      setPacotes(comGrupo.map(p => ({ ...p, numArquivos: countMap[p.id] || 0 })));
     }
   }
 
@@ -424,14 +458,22 @@ export default function VisaoEmissor({ profile }) {
     e?.preventDefault?.();
     if (!condoId) return addToast('Selecione um condomínio', 'error');
 
-    // Tentar buscar pacote existente
-    const { data: existing } = await supabase
+    // Desde a 0086 pode haver MAIS DE UM pacote no mesmo condomínio+mês (um por
+    // grupo/vencimento). `maybeSingle()` estourava PGRST116 assim que o segundo
+    // aparecia — por isso a busca traz a lista e escolhe pelo grupo.
+    const { data: doMes, error: errBusca } = await supabase
       .from('emissoes_pacotes')
       .select('*')
       .eq('condominio_id', condoId)
       .eq('mes_referencia', mes)
-      .eq('ano_referencia', ano)
-      .maybeSingle();
+      .eq('ano_referencia', ano);
+    if (errBusca) return addToast('Erro ao procurar pacote: ' + errBusca.message, 'error');
+
+    const lista = doMes || [];
+    // Grupo escolhido, ou o único que existe. Pacote antigo tem grupo_id NULL e
+    // conta como o primeiro grupo (o "Geral" do backfill).
+    const alvo = grupoId || gruposCondo[0]?.id || null;
+    const existing = lista.find(p => (p.grupo_id || gruposCondo[0]?.id || null) === alvo) || null;
 
     if (existing) {
       setActivePacote(existing);
@@ -454,7 +496,8 @@ export default function VisaoEmissor({ profile }) {
           mes_referencia: mes,
           ano_referencia: ano,
           status: 'rascunho',
-          uploaded_by: profile.id
+          uploaded_by: profile.id,
+          ...(alvo ? { grupo_id: alvo } : {}),
         })
         .select()
         .single();
@@ -836,6 +879,19 @@ export default function VisaoEmissor({ profile }) {
       return addToast('Não é permitido registrar no passado', 'error');
     }
 
+    // O conjunto sai junto: registrar só esta deixaria o condômino com metade
+    // dos boletos. Num condomínio de vencimento único o conjunto tem uma só e
+    // isto nunca bloqueia.
+    const { ok, pendentes, error: errConj } = await podeRegistrar(supabase, activePacote);
+    if (errConj) return addToast('Não consegui conferir as outras emissões do mês: ' + errConj.message, 'error');
+    if (!ok) {
+      return addToast(
+        `Faltam ${pendentes.length} emissão(ões) deste condomínio em ${String(activePacote.mes_referencia).padStart(2,'0')}/${activePacote.ano_referencia} para aprovar. ` +
+        `Os boletos do mês saem juntos — registre quando todas estiverem aprovadas.`,
+        'warning',
+      );
+    }
+
     // Capturar snapshot da planilha para congelar os valores no momento da emissão
     const { data: { session } } = await supabase.auth.getSession();
     let planilha_snapshot = null;
@@ -1053,6 +1109,13 @@ export default function VisaoEmissor({ profile }) {
     setCondoId(pacote.condominio_id);
     setMes(pacote.mes_referencia);
     setAno(pacote.ano_referencia);
+    // O grupo do pacote vai no ref, não no state: o efeito de condoId recarrega
+    // os grupos de forma assíncrona e sobrescreveria um setGrupoId feito aqui.
+    // Abrir a emissão do dia 10 tem de mostrar o dia 10, não o primeiro grupo.
+    // Os dois: o state resolve quando o condomínio não mudou (o efeito não
+    // dispara), o ref resolve quando mudou (o efeito zera e depois restaura).
+    grupoDesejadoRef.current = pacote.grupo_id || null;
+    if (pacote.grupo_id) setGrupoId(pacote.grupo_id);
     fetchArquivosDoPacote(pacote.id);
   }
 
@@ -1085,12 +1148,21 @@ export default function VisaoEmissor({ profile }) {
   );
 
   // Mapa de pacotes por condomínio (mês/ano atual)
+  // LISTA por condomínio+mês, não um só. Antes era `map[key] = p`: com duas
+  // emissões no mesmo mês (0086) a segunda sobrescrevia a primeira e sumia da
+  // tela — o emissor nunca veria que faltava montar a do outro vencimento.
   const pacotesPorCondo = useMemo(() => {
     const map = {};
     pacotes.forEach(p => {
       const key = `${p.condominio_id}_${p.mes_referencia}_${p.ano_referencia}`;
-      map[key] = p;
+      (map[key] = map[key] || []).push(p);
     });
+    // Ordem estável: por dia de vencimento, depois pelo nome do grupo.
+    for (const k of Object.keys(map)) {
+      map[k].sort((a, b) =>
+        (a.grupo_due_day ?? 99) - (b.grupo_due_day ?? 99) ||
+        String(a.grupo_nome || '').localeCompare(String(b.grupo_nome || '')));
+    }
     return map;
   }, [pacotes]);
 
@@ -1584,6 +1656,32 @@ export default function VisaoEmissor({ profile }) {
                 {periodoPassado ? 'Apenas Abrir' : 'Abrir Pacote'}
               </button>
             </div>
+
+            {/* Só aparece em condomínio com mais de um vencimento (26 de 303). Nos
+                demais o grupo é único e escolher não faz sentido. */}
+            {gruposCondo.length > 1 && (
+              <div className="md:col-span-4">
+                <label htmlFor="emissao-grupo" className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                  Grupo de emissão
+                </label>
+                <select
+                  id="emissao-grupo"
+                  value={grupoId}
+                  onChange={e => setGrupoId(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-violet-500"
+                >
+                  {gruposCondo.map(g => (
+                    <option key={g.id} value={g.id}>
+                      {g.nome}{g.due_day ? ` — vence dia ${g.due_day}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Este condomínio tem {gruposCondo.length} vencimentos. Cada grupo gera a sua emissão —
+                  e nenhuma é registrada enquanto todas do mês não estiverem aprovadas.
+                </p>
+              </div>
+            )}
           </form>
           {periodoPassado && (
             <div className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px]">
@@ -1655,8 +1753,8 @@ export default function VisaoEmissor({ profile }) {
                 <div className="border-t border-slate-200">
                   {condos.map(condo => {
                     const key = `${condo.id}_${mes}_${ano}`;
-                    const pacote = pacotesPorCondo[key];
-                    const numArquivos = pacote?.numArquivos || 0;
+                    const listaPacotes = pacotesPorCondo[key] || [];
+                    const pacote = listaPacotes[0];   // existe? (o resto vem da lista)
                     const prep = preparacaoMap[`${condo.id}_${mes}_${ano}`];
                     const isPronto = prep?.etapa === 'pronto_para_emitir';
                     // Alterações previstas (AGO/AGE/Reunião) BLOQUEIAM criação do pacote
@@ -1684,45 +1782,80 @@ export default function VisaoEmissor({ profile }) {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+                        <div className={`flex flex-wrap gap-2 sm:justify-end ${listaPacotes.length > 1 ? 'flex-col items-stretch sm:items-end' : 'items-center'}`}>
                           {pacote ? (
-                            <>
-                              <span className="text-[10px] font-bold text-slate-500">{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}</span>
-                              <StatusBadge status={pacote.status} />
-                              {((pacote.status || '').toLowerCase() === 'rascunho' || (pacote.status || '').toLowerCase() === 'solicitar_correcao') && (
-                                <button
-                                  onClick={() => handleConcluirRapido(pacote)}
-                                  className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-emerald-400 transition-all"
-                                  title="Enviar para Aprovação"
-                                >
-                                  <Send className="w-3 h-3" />
-                                </button>
-                              )}
-                              {(() => {
-                                const statusLower = (pacote.status || '').toLowerCase();
-                                const podeRegistrar = statusLower === 'aprovado';
-                                const roleAutorizado = profile?.role === 'master' || profile?.role === 'departamento';
-                                
-                                if (!podeRegistrar || !roleAutorizado) return null;
-
-                                return (
+                            // Uma faixa de ações por emissão. Com um vencimento só
+                            // (a maioria) é exatamente a linha de antes.
+                            listaPacotes.map(p => (
+                              <div key={p.id} className="flex items-center gap-2 flex-wrap sm:justify-end">
+                                <SeloGrupo pacote={p} />
+                                <span className="text-[10px] font-bold text-slate-500">{p.numArquivos || 0} arquivo{(p.numArquivos || 0) !== 1 ? 's' : ''}</span>
+                                <StatusBadge status={p.status} />
+                                {((p.status || '').toLowerCase() === 'rascunho' || (p.status || '').toLowerCase() === 'solicitar_correcao') && (
                                   <button
-                                    onClick={() => handleRegistrar(pacote)}
-                                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-600 text-white transition-all shadow-lg shadow-emerald-500/20 font-black text-[9px] uppercase tracking-widest border border-slate-200"
+                                    onClick={() => handleConcluirRapido(p)}
+                                    className="p-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-emerald-400 transition-all"
+                                    title="Enviar para Aprovação"
                                   >
-                                    <FileCheck className="w-3.5 h-3.5" />
-                                    <span>Registrar</span>
+                                    <Send className="w-3 h-3" />
                                   </button>
-                                );
-                              })()}
-                              <button
-                                onClick={() => abrirPacote(pacote)}
-                                className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-[10px] font-black text-violet-400 uppercase tracking-widest transition-all"
-                              >
-                                Abrir
-                              </button>
-                            </>
-                          ) : periodoPassado ? (
+                                )}
+                                {(() => {
+                                  const statusLower = (p.status || '').toLowerCase();
+                                  const estaAprovado = statusLower === 'aprovado';
+                                  const roleAutorizado = profile?.role === 'master' || profile?.role === 'departamento';
+                                  if (!estaAprovado || !roleAutorizado) return null;
+
+                                  // O conjunto sai junto: com uma irmã ainda em fluxo o
+                                  // botão fica desligado, em vez de o clique ser recusado.
+                                  const faltam = listaPacotes.filter(
+                                    o => o.id !== p.id && !['aprovado', 'registrado', 'expedida'].includes((o.status || '').toLowerCase())
+                                  ).length;
+
+                                  return (
+                                    <button
+                                      onClick={() => handleRegistrar(p)}
+                                      disabled={faltam > 0}
+                                      title={faltam > 0
+                                        ? `Aguardando ${faltam} emissão(ões) deste mês — os boletos saem juntos`
+                                        : 'Registrar emissão'}
+                                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all font-black text-[9px] uppercase tracking-widest border ${
+                                        faltam > 0
+                                          ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                          : 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 border-slate-200'
+                                      }`}
+                                    >
+                                      <FileCheck className="w-3.5 h-3.5" />
+                                      <span>{faltam > 0 ? 'Aguardando conjunto' : 'Registrar'}</span>
+                                    </button>
+                                  );
+                                })()}
+                                <button
+                                  onClick={() => abrirPacote(p)}
+                                  className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-[10px] font-black text-violet-400 uppercase tracking-widest transition-all"
+                                >
+                                  Abrir
+                                </button>
+                              </div>
+                            ))
+                          ) : null}
+
+                          {/* Condomínio de dois vencimentos com uma emissão só: sem
+                              este aviso, a do segundo grupo simplesmente é esquecida —
+                              não há nada na lista que a cobre. */}
+                          {pacote && condo.due_day_2 && listaPacotes.length < 2 && !periodoPassado && (
+                            <button
+                              type="button"
+                              onClick={() => { setCondoId(condo.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                              title={`Este condomínio também vence dia ${condo.due_day_2}. Abrir o formulário para criar a emissão desse grupo.`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 text-amber-800 text-[10px] font-bold hover:bg-amber-100 transition-all"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Falta a emissão do dia {condo.due_day_2}
+                            </button>
+                          )}
+
+                          {!pacote && (periodoPassado ? (
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">— sem pacote —</span>
                           ) : (
                             <>
@@ -1800,7 +1933,7 @@ export default function VisaoEmissor({ profile }) {
                                 + Criar
                               </button>
                             </>
-                          )}
+                          ))}
                         </div>
                       </div>
                     );
