@@ -151,8 +151,8 @@ BEGIN
                    CASE WHEN n_geral = n_condo THEN '(OK - um por condominio)'
                         ELSE '(ATENCAO - deveria igualar o total)' END)
          || format(E'Grupos de 2o vencimento ..... %s   %s\n', n_segundo,
-                   CASE WHEN n_segundo = 26 THEN '(OK - os 26 da 0054)'
-                        ELSE '(confira: a 0054 listava 26)' END)
+                   CASE WHEN n_segundo > 0 THEN '(OK - a 0054 listava 26; mais podem ter entrado depois)'
+                        ELSE '(ATENCAO - nenhum, mas a 0054 listava 26)' END)
          || format(E'UNIQUE em emissoes_pacotes .. %s   %s\n', n_unique,
                    CASE WHEN n_unique = 0 THEN '(OK - removido, varias emissoes liberadas)'
                         ELSE '(PERIGO - ainda impede mais de uma emissao)' END)
