@@ -4160,46 +4160,48 @@ def _meses_em_branco(db, edicoes):
     """Dentre as edições, quais têm a planilha do mês SEM NENHUM valor preenchido.
 
     Liberar um mês em branco é o erro caro: a emissão só descobre quando vai
-    montar o boleto, já fora do prazo. Aqui é uma checagem em 3 consultas, não
-    uma por condomínio — o gerente pode liberar vários meses de uma vez.
+    montar o boleto, já fora do prazo.
+
+    ⚠️ A primeira versão desta função ia de `processos` para `rateios_config` por
+    `processo_id` — coluna REMOVIDA na 0011, que trocou a chave para
+    `condominio_id`. A consulta estourava, o except engolia, e a trava respondia
+    "está tudo preenchido" para todo mundo: nunca bloqueou nada. É a Armadilha 1
+    do docs/ESQUEMA-BANCO.md, cometida no mesmo dia em que foi escrita.
+    Agora vai direto por condominio_id — duas consultas, sem passar por processos.
     """
     if not edicoes:
         return set()
     condo_ids = list({e["condominio_id"] for e in edicoes})
-    anos = list({e["ano_referencia"] for e in edicoes})
     try:
-        procs = db.table("processos").select("id, condominio_id, year") \
-            .in_("condominio_id", condo_ids).in_("year", anos).execute().data or []
-        if not procs:
-            return {(e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) for e in edicoes}
-        proc_por_id = {p["id"]: p for p in procs}
-        cfgs = db.table("rateios_config").select("id, processo_id") \
-            .in_("processo_id", list(proc_por_id)).execute().data or []
+        cfgs = db.table("rateios_config").select("id, condominio_id") \
+            .in_("condominio_id", condo_ids).execute().data or []
         if not cfgs:
+            # Nenhuma verba configurada = planilha vazia por definição.
             return {(e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) for e in edicoes}
-        cfg_por_id = {c["id"]: c for c in cfgs}
+        cfg_condo = {c["id"]: c["condominio_id"] for c in cfgs}
         vals = db.table("rateios_valores").select("rateio_id, month, valor") \
-            .in_("rateio_id", list(cfg_por_id)).execute().data or []
+            .in_("rateio_id", list(cfg_condo)).execute().data or []
     except Exception as e:
-        print(f"[liberar] checagem de preenchimento indisponível: {type(e).__name__}")
+        print(f"[liberar] checagem de preenchimento indisponível: {type(e).__name__}: {e}")
         return set()   # na dúvida não bloqueia o gerente
 
-    # (condominio, ano, mes) que têm ao menos um valor com conteúdo
+    # (condominio, mes) que têm ao menos um valor com conteúdo.
+    # rateios_valores guarda só `month` — a verba vale para o ano corrente da
+    # planilha, então o ano não entra na chave.
     preenchidos = set()
     for v in vals:
-        cfg = cfg_por_id.get(v.get("rateio_id"))
-        proc = proc_por_id.get((cfg or {}).get("processo_id"))
-        if not proc:
+        cid = cfg_condo.get(v.get("rateio_id"))
+        if not cid:
             continue
         bruto = (v.get("valor") or "").strip()
         if not bruto or bruto in ("0", "0.00", "0,00", "R$ 0,00"):
             continue
-        preenchidos.add((proc["condominio_id"], proc["year"], v.get("month")))
+        preenchidos.add((cid, v.get("month")))
 
     return {
         (e["condominio_id"], e["ano_referencia"], e["mes_referencia"])
         for e in edicoes
-        if (e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) not in preenchidos
+        if (e["condominio_id"], e["mes_referencia"]) not in preenchidos
     }
 
 
