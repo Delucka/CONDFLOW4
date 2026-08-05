@@ -21,6 +21,7 @@ import { useLockedMonths, reasonLabel } from '@/lib/useLockedMonths';
 import { mesVigente } from '@/lib/mesVigente';
 import { useAlteracoesRateio } from '@/lib/useAlteracoesRateio';
 import ModalAlteracoesRateio from '@/components/ModalAlteracoesRateio';
+import { proporAgrupamento } from '@/lib/agruparVerbas';
 
 const MESES = {
     1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
@@ -75,6 +76,40 @@ export default function ArrecadacoesPage() {
   const [grupos, setGrupos] = useState([]);
   const [editandoGrupo, setEditandoGrupo] = useState(null);   // { id, nome, due_day }
   const [salvandoGrupo, setSalvandoGrupo] = useState(false);
+  const [previaAgrupar, setPreviaAgrupar] = useState(null);   // { propostas, semSinal }
+  const [aplicandoAgrupar, setAplicandoAgrupar] = useState(false);
+
+  // Aplica a proposta do dedutor. Um UPDATE por grupo de destino em vez de um
+  // por verba: 2 idas ao banco no lugar de 10.
+  async function aplicarAgrupamento() {
+    const propostas = previaAgrupar?.propostas || [];
+    if (!propostas.length) return;
+    setAplicandoAgrupar(true);
+    try {
+      const porDestino = new Map();
+      for (const p of propostas) {
+        const lista = porDestino.get(p.grupoNovo.id) || [];
+        lista.push(p.rateio.id);
+        porDestino.set(p.grupoNovo.id, lista);
+      }
+      for (const [grupoId, ids] of porDestino) {
+        // supabase-js DEVOLVE {error}, não lança — Armadilha 1 do ESQUEMA-BANCO.
+        const { error } = await supabase.from('rateios_config')
+          .update({ grupo_id: grupoId }).in('id', ids);
+        if (error) throw error;
+      }
+      setRateios(prev => prev.map(r => {
+        const p = propostas.find(x => x.rateio.id === r.id);
+        return p ? { ...r, grupo_id: p.grupoNovo.id } : r;
+      }));
+      setPreviaAgrupar(null);
+      addToast(`${propostas.length} verba${propostas.length !== 1 ? 's' : ''} organizada${propostas.length !== 1 ? 's' : ''} por vencimento.`, 'success');
+    } catch (e) {
+      addToast('Não consegui mover as verbas: ' + (e.message || e), 'error');
+    } finally {
+      setAplicandoAgrupar(false);
+    }
+  }
 
   async function salvarGrupo() {
     const nome = (editandoGrupo?.nome || '').trim();
@@ -1056,6 +1091,27 @@ export default function ArrecadacoesPage() {
         </div>
       </div>
 
+      {/* Só faz sentido com mais de um grupo — e só quando há algo a mover. */}
+      {canEdit && grupos.length > 1 && (() => {
+        const { propostas } = proporAgrupamento(rateios, grupos);
+        if (!propostas.length) return null;
+        return (
+          <div className="mb-4 flex items-center justify-between gap-3 flex-wrap rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-900">
+              <strong>{propostas.length} verba{propostas.length !== 1 ? 's' : ''}</strong> {propostas.length !== 1 ? 'parecem' : 'parece'} ser de outro vencimento —
+              dá para ler isso no próprio nome delas.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPreviaAgrupar(proporAgrupamento(rateios, grupos))}
+              className="shrink-0 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-700"
+            >
+              Organizar por vencimento
+            </button>
+          </div>
+        );
+      })()}
+
       {/* ─── GRID SPREADSHEET ─── */}
       <div className="glass-panel rounded-2xl overflow-hidden border-slate-200 relative shadow-2xl">
         <div className="overflow-x-auto overflow-y-visible scrollbar-thin">
@@ -1400,6 +1456,71 @@ export default function ArrecadacoesPage() {
                 disabled={edicaoLoading}
                 className="flex-[2] py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-medium text-xs disabled:opacity-50">
                 Liberar agora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Prévia do agrupamento automático — nada é gravado antes de confirmar */}
+      {previaAgrupar && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setPreviaAgrupar(null)} />
+          <div className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900">Organizar verbas por vencimento</h4>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Lido do nome de cada verba. Confira antes — nada foi gravado ainda.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Verba</th>
+                    <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Vai para</th>
+                    <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Porquê</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previaAgrupar.propostas.map(p => (
+                    <tr key={p.rateio.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2 text-slate-800">{p.rateio.nome}</td>
+                      <td className="px-3 py-2">
+                        <span className="inline-flex items-center rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-xs font-semibold text-violet-700">
+                          {p.grupoNovo?.nome}{p.grupoNovo?.due_day ? ` · dia ${p.grupoNovo.due_day}` : ''}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-slate-500">{p.motivo}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {previaAgrupar.semSinal.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                <p className="text-xs font-semibold text-slate-600 mb-1">
+                  Estas ficam onde estão — o nome não diz o vencimento:
+                </p>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  {previaAgrupar.semSinal.map(r => r.nome).join(' · ')}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Se alguma dessas for de outro vencimento, mova pela engrenagem da verba — chutar aqui mandaria boleto na data errada.
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={() => setPreviaAgrupar(null)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-medium text-slate-500 hover:bg-slate-100 transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={aplicarAgrupamento} disabled={aplicandoAgrupar}
+                className="flex-[2] py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium text-xs disabled:opacity-50 transition-colors">
+                {aplicandoAgrupar ? 'Movendo…' : `Mover ${previaAgrupar.propostas.length} verba${previaAgrupar.propostas.length !== 1 ? 's' : ''}`}
               </button>
             </div>
           </div>
