@@ -3167,9 +3167,13 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
     year = datetime.now().year
     meses = [{'mes':m,'mes_nome':MESES_PT[m],'condominio':0.0,'fundo_reserva':0.0,'total':0.0} for m in range(1,13)]
     total_condo = total_fundo = total_geral = 0.0
+    # Definidos ANTES do try: se a primeira consulta falhar, o `except` segue e o
+    # `return` lá embaixo referenciava nome inexistente — NameError virando 500 no
+    # lugar da planilha vazia que o front sabe tratar.
+    rateios, colunas = [], ["Condomínio", "Fundo Reserva"]
 
     try:
-        rateios = db.table("rateios_config").select("id,nome,ordem").eq("condominio_id", condo_id).order("ordem").execute().data or []
+        rateios = db.table("rateios_config").select("id,nome,ordem,grupo_id").eq("condominio_id", condo_id).order("ordem").execute().data or []
         if rateios:
             r_ids = [r["id"] for r in rateios]
             colunas = [r["nome"] for r in rateios]
@@ -3247,11 +3251,31 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
         # Loga o erro real em vez de engolir silenciosamente
         print(f"[CONFERENCIA] Erro cobrancas_extras: {e}"); traceback.print_exc()
 
+    # Grupos de emissão (0086). Um condomínio de dois vencimentos separa as verbas
+    # em grupos, e tanto a conferência quanto o painel da emissão precisam mostrar
+    # isso — senão "CASA ZELADOR VENC 10" fica solta no meio das outras, que é
+    # exatamente o problema que os grupos vieram resolver.
+    grupos, colunas_grupo = [], {}
+    try:
+        grupos = db.table("condominio_grupos").select("id, nome, due_day, ordem") \
+            .eq("condominio_id", condo_id).eq("ativo", True).order("ordem").execute().data or []
+        if grupos:
+            # Verba sem grupo pertence ao primeiro (o "Geral" do backfill da 0086).
+            padrao = grupos[0]["id"]
+            for r in (rateios or []):
+                colunas_grupo[r["nome"]] = r.get("grupo_id") or padrao
+    except Exception as e:
+        # 0086 não aplicada: a tela cai no modo antigo, sem faixas.
+        print(f"[CONFERENCIA] grupos indisponíveis: {type(e).__name__}: {e}")
+        grupos, colunas_grupo = [], {}
+
     return {
         'planilha': {
             'ano': year,
             'colunas': colunas,
             'meses': meses,
+            'grupos': grupos,
+            'colunas_grupo': colunas_grupo,
             'totais': {'total': round(total_geral, 2)}
         },
         'cobrancas_extras': cobrancas,

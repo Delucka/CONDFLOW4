@@ -1242,6 +1242,34 @@ export default function VisaoEmissor({ profile }) {
                   const nomeMesAnt = ['','janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][mesAtual - 1] || 'mês anterior';
                   if (!colunas.length) return <p className="text-xs text-slate-400 py-2">{confLoading ? 'Carregando…' : 'Sem planilha para este mês.'}</p>;
                   const nMudou = colunas.filter(mudouCol).length;
+
+                  // Uma linha de verba. Sai igual dentro ou fora de faixa.
+                  const linhaVerba = col => {
+                    const atual = Number(valores[col] || 0);
+                    const ant = valoresAnt ? Number(valoresAnt[col] || 0) : null;
+                    const mudou = mudouCol(col);
+                    return (
+                      <div key={col} className={`flex items-center justify-between text-xs py-1 last:border-0 ${mudou ? 'bg-amber-50 -mx-1 px-1.5 py-1.5 rounded-md border border-amber-200' : 'border-b border-slate-100'}`}>
+                        <span className={`truncate pr-2 ${mudou ? 'text-amber-900 font-bold' : 'text-slate-600'}`}>
+                          {col}
+                          {mudou && <span className="ml-1.5 text-[8px] font-black uppercase tracking-wider text-white bg-amber-500 px-1 py-0.5 rounded align-middle">alterado</span>}
+                        </span>
+                        <span className="shrink-0 text-right whitespace-nowrap">
+                          {mudou && <span className="font-mono text-[10px] text-amber-400 line-through mr-1.5" title={`${nomeMesAnt}`}>{fmt(ant)}</span>}
+                          <span className={`font-mono font-bold ${mudou ? 'text-amber-700' : 'text-slate-800'}`}>R$ {fmt(atual)}</span>
+                        </span>
+                      </div>
+                    );
+                  };
+
+                  // Faixas por grupo (0086). Só quando há mais de um: num condomínio
+                  // de vencimento único a faixa seria ruído.
+                  const grupos = confData?.planilha?.grupos || [];
+                  const colGrupo = confData?.planilha?.colunas_grupo || {};
+                  const porGrupo = grupos.length > 1
+                    ? grupos.map(g => ({ g, cols: colunas.filter(c => colGrupo[c] === g.id) })).filter(x => x.cols.length)
+                    : null;
+
                   return (
                     <div className="space-y-1">
                       {nMudou > 0 && (
@@ -1250,25 +1278,38 @@ export default function VisaoEmissor({ profile }) {
                           {nMudou} {nMudou > 1 ? 'verbas mudaram' : 'verba mudou'} de valor vs {nomeMesAnt} — destacadas em amarelo.
                         </p>
                       )}
-                      {colunas.map(col => {
-                        const atual = Number(valores[col] || 0);
-                        const ant = valoresAnt ? Number(valoresAnt[col] || 0) : null;
-                        const mudou = mudouCol(col);
+
+                      {porGrupo ? porGrupo.map(({ g, cols }) => {
+                        // O grupo DESTA emissão vem marcado: quem monta precisa saber
+                        // quais verbas entram neste boleto, e quais são do outro.
+                        const ehDaEmissao = activePacote.grupo_id
+                          ? g.id === activePacote.grupo_id
+                          : g.id === grupos[0].id;
+                        const totalGrupo = cols.reduce((s, c) => s + Number(valores[c] || 0), 0);
                         return (
-                          <div key={col} className={`flex items-center justify-between text-xs py-1 last:border-0 ${mudou ? 'bg-amber-50 -mx-1 px-1.5 py-1.5 rounded-md border border-amber-200' : 'border-b border-slate-100'}`}>
-                            <span className={`truncate pr-2 ${mudou ? 'text-amber-900 font-bold' : 'text-slate-600'}`}>
-                              {col}
-                              {mudou && <span className="ml-1.5 text-[8px] font-black uppercase tracking-wider text-white bg-amber-500 px-1 py-0.5 rounded align-middle">alterado</span>}
-                            </span>
-                            <span className="shrink-0 text-right whitespace-nowrap">
-                              {mudou && <span className="font-mono text-[10px] text-amber-400 line-through mr-1.5" title={`${nomeMesAnt}`}>{fmt(ant)}</span>}
-                              <span className={`font-mono font-bold ${mudou ? 'text-amber-700' : 'text-slate-800'}`}>R$ {fmt(atual)}</span>
-                            </span>
+                          <div key={g.id} className={`rounded-lg border mb-2 ${ehDaEmissao ? 'border-violet-300 bg-violet-50/40' : 'border-slate-200 bg-slate-50/60'}`}>
+                            <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-inherit">
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <span className={`text-[10px] font-black uppercase tracking-widest truncate ${ehDaEmissao ? 'text-violet-700' : 'text-slate-500'}`}>
+                                  {g.nome}{g.due_day ? ` · vence dia ${g.due_day}` : ''}
+                                </span>
+                                {ehDaEmissao && (
+                                  <span className="shrink-0 text-[8px] font-black uppercase tracking-wider text-white bg-violet-600 px-1.5 py-0.5 rounded">
+                                    esta emissão
+                                  </span>
+                                )}
+                              </span>
+                              <span className={`font-mono text-[11px] font-bold shrink-0 ${ehDaEmissao ? 'text-violet-700' : 'text-slate-500'}`}>
+                                R$ {fmt(totalGrupo)}
+                              </span>
+                            </div>
+                            <div className="px-2 py-1">{cols.map(linhaVerba)}</div>
                           </div>
                         );
-                      })}
+                      }) : colunas.map(linhaVerba)}
+
                       <div className="flex items-center justify-between text-xs pt-2 mt-1">
-                        <span className="font-black uppercase tracking-widest text-[10px] text-slate-500">Total do mês</span>
+                        <span className="font-black uppercase tracking-widest text-[10px] text-slate-500">Total do mês{porGrupo ? ' (todos os grupos)' : ''}</span>
                         <span className="font-mono font-black text-emerald-600">R$ {fmt(mesObj?.total)}</span>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import useSWR from 'swr';
 import { apiFetcher } from '@/lib/api';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
@@ -59,6 +59,37 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   // conferencia pula as 'processada', então reconstruímos direto da tabela (abaixo) —
   // senão os documentos de cobrança (salão de festas etc.) somem após a emissão.
   const cobrancas = isSnapshot ? cobrancasSnap : (data?.cobrancas_extras || []);
+
+  // Colunas AGRUPADAS por grupo de emissão (0086). A tabela tem uma coluna por
+  // verba; sem reordenar, as colunas do dia 10 ficam espalhadas entre as do dia 7
+  // e o colSpan da faixa não fecharia. Com um grupo só (a maioria dos
+  // condomínios) devolve a ordem original e nenhuma faixa — nada muda na tela.
+  //
+  // Snapshot antigo não traz `grupos`: emissão registrada antes da 0086 continua
+  // exibida do jeito que foi congelada, sem faixa. É o correto — a planilha
+  // daquela emissão não tinha grupos.
+  const { colunas: colunasOrdenadas, faixas } = useMemo(() => {
+    const cols = planilha?.colunas || [];
+    const grupos = planilha?.grupos || [];
+    const colGrupo = planilha?.colunas_grupo || {};
+    if (grupos.length <= 1) return { colunas: cols, faixas: null };
+
+    const ordenadas = [];
+    const faixasG = [];
+    for (const g of grupos) {
+      const doGrupo = cols.filter(c => colGrupo[c] === g.id);
+      if (!doGrupo.length) continue;
+      faixasG.push({ id: g.id, nome: g.nome, due_day: g.due_day, span: doGrupo.length });
+      ordenadas.push(...doGrupo);
+    }
+    // Verba que não caiu em grupo nenhum (dado torto) não pode sumir da tabela.
+    const orfas = cols.filter(c => !ordenadas.includes(c));
+    if (orfas.length) {
+      faixasG.push({ id: '__sem__', nome: 'Sem grupo', due_day: null, span: orfas.length });
+      ordenadas.push(...orfas);
+    }
+    return { colunas: ordenadas, faixas: faixasG };
+  }, [planilha]);
 
   useEffect(() => {
     if (arquivo) setCurrentFile(arquivo);
@@ -620,9 +651,22 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   </div>
                 : <div className="overflow-x-auto"><table className="w-full text-sm">
                     <thead>
+                      {faixas && (
+                        <tr className="bg-violet-50">
+                          <th className="px-3 py-1.5" />
+                          {faixas.map(f => (
+                            <th key={f.id} colSpan={f.span}
+                              className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-violet-700 border-l border-violet-200 text-center whitespace-nowrap"
+                              title={f.due_day ? `Boletos deste grupo vencem dia ${f.due_day}` : undefined}>
+                              {f.nome}{f.due_day ? ` · dia ${f.due_day}` : ''}
+                            </th>
+                          ))}
+                          <th className="px-3 py-1.5" />
+                        </tr>
+                      )}
                       <tr className="bg-slate-50">
                         <th className="text-left px-3 py-2 text-[10px] font-bold uppercase text-slate-500">Mês</th>
-                        {(planilha?.colunas || []).map(col => (
+                        {colunasOrdenadas.map(col => (
                           <th key={col} className="text-right px-3 py-2 text-[10px] font-bold uppercase text-slate-500 whitespace-nowrap" title={col}>
                             {col}
                           </th>
@@ -636,7 +680,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                           className={`border-t border-slate-800 transition-colors ${!isSnapshot ? 'cursor-pointer hover:bg-violet-50' : ''}`}
                           title={!isSnapshot ? `Abrir a emissão de ${m.mes_nome}` : undefined}>
                           <td className="px-3 py-2 text-xs font-bold text-slate-400 uppercase">{m.mes_nome}</td>
-                          {(planilha?.colunas || []).map(col => (
+                          {colunasOrdenadas.map(col => (
                             <td key={col} className="text-right px-3 py-2 text-xs text-slate-700 font-mono whitespace-nowrap">
                               {fmt(m.valores?.[col])}
                             </td>
@@ -647,7 +691,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                       {planilha?.totais && planilha.totais.total > 0 && (
                         <tr className="border-t border-emerald-500/30 bg-emerald-500/10">
                           <td className="px-3 py-2 text-xs font-bold text-emerald-400">Total</td>
-                          {(planilha?.colunas || []).map(col => (
+                          {colunasOrdenadas.map(col => (
                             <td key={`tot-${col}`} className="text-right px-3 py-2 text-xs text-emerald-400 font-mono font-bold">
                               {fmt(planilha.totais?.[col])}
                             </td>
