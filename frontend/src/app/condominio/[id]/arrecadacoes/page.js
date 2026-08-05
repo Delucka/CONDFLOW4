@@ -73,6 +73,32 @@ export default function ArrecadacoesPage() {
   const [rateios, setRateios] = useState([]);
   // Grupos de emissão (0086): condomínio com dois vencimentos tem dois.
   const [grupos, setGrupos] = useState([]);
+  const [editandoGrupo, setEditandoGrupo] = useState(null);   // { id, nome, due_day }
+  const [salvandoGrupo, setSalvandoGrupo] = useState(false);
+
+  async function salvarGrupo() {
+    const nome = (editandoGrupo?.nome || '').trim();
+    if (!nome) { addToast('Dê um nome ao grupo.', 'error'); return; }
+    const dia = editandoGrupo.due_day === '' ? null : parseInt(editandoGrupo.due_day, 10);
+    if (dia !== null && (Number.isNaN(dia) || dia < 1 || dia > 31)) {
+      addToast('O dia de vencimento precisa ser entre 1 e 31.', 'error'); return;
+    }
+    setSalvandoGrupo(true);
+    try {
+      // Confere o erro: o supabase-js DEVOLVE {error}, não lança. Sem isto a
+      // gravação falharia calada — Armadilha 1 do docs/ESQUEMA-BANCO.md.
+      const { error } = await supabase.from('condominio_grupos')
+        .update({ nome, due_day: dia }).eq('id', editandoGrupo.id);
+      if (error) throw error;
+      setGrupos(prev => prev.map(g => g.id === editandoGrupo.id ? { ...g, nome, due_day: dia } : g));
+      setEditandoGrupo(null);
+      addToast('Grupo atualizado.', 'success');
+    } catch (e) {
+      addToast('Não consegui salvar o grupo: ' + (e.message || e), 'error');
+    } finally {
+      setSalvandoGrupo(false);
+    }
+  }
   const [rateiosVals, setRateiosVals] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -440,7 +466,8 @@ export default function ArrecadacoesPage() {
           parcela_total: parseInt(r.parcela_total) || 1,
           parcela_inicio: parseInt(r.parcela_inicio) || 1,
           mes_inicio: parseInt(r.mes_inicio) || 1,
-          ordem: r.ordem
+          ordem: r.ordem,
+          grupo_id: r.grupo_id || null,   // 0086 — em qual vencimento a verba entra
         }).eq('id', r.id)
       );
 
@@ -1089,6 +1116,15 @@ export default function ArrecadacoesPage() {
                                     <span className="text-xs text-slate-400">
                                       {item.qtd} verba{item.qtd !== 1 ? 's' : ''}
                                     </span>
+                                    {canEdit && (
+                                      <button
+                                        onClick={() => setEditandoGrupo({ id: item.g.id, nome: item.g.nome, due_day: item.g.due_day ?? '' })}
+                                        aria-label={`Renomear o grupo ${item.g.nome}`}
+                                        title="Renomear grupo / mudar vencimento"
+                                        className="p-1 rounded-md text-slate-400 hover:text-violet-600 hover:bg-white transition-colors">
+                                        <Settings className="w-3.5 h-3.5" aria-hidden="true" />
+                                      </button>
+                                    )}
                                 </span>
                             </td>
                         </tr>
@@ -1370,6 +1406,50 @@ export default function ArrecadacoesPage() {
         </div>
       )}
 
+      {/* Renomear grupo / mudar vencimento */}
+      {editandoGrupo && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setEditandoGrupo(null)} />
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 space-y-4">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900">Grupo de emissão</h4>
+              <p className="text-xs text-slate-500 mt-0.5">
+                O nome aparece na faixa da planilha e no cartão da emissão.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="grp-nome" className="text-xs font-medium text-slate-600 block">Nome</label>
+              <input id="grp-nome" data-autofocus value={editandoGrupo.nome}
+                onChange={e => setEditandoGrupo(g => ({ ...g, nome: e.target.value }))}
+                placeholder="Ex.: Zelador, Bloco B, Lojas"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="grp-venc" className="text-xs font-medium text-slate-600 block">Dia de vencimento</label>
+              <input id="grp-venc" type="number" inputMode="numeric" min="1" max="31"
+                value={editandoGrupo.due_day ?? ''}
+                onChange={e => setEditandoGrupo(g => ({ ...g, due_day: e.target.value }))}
+                placeholder="Ex.: 10"
+                className="w-full max-w-[140px] bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500" />
+              <p className="text-xs text-slate-400">É o vencimento dos boletos das verbas deste grupo.</p>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row gap-2 pt-1">
+              <button type="button" onClick={() => setEditandoGrupo(null)}
+                className="sm:w-auto px-5 py-2.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={salvarGrupo} disabled={salvandoGrupo}
+                className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-40">
+                {salvandoGrupo ? 'Salvando…' : 'Salvar grupo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── MODAL EDIÇÃO AVANÇADA DE VERBA ─── */}
       {editingRateioId && (
          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 animate-fade-in">
@@ -1395,6 +1475,30 @@ export default function ArrecadacoesPage() {
                          </button>
                      </div>
                      
+                     {/* GRUPO — só aparece quando o condomínio tem mais de um */}
+                     {grupos.length > 1 && (
+                       <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                         <label htmlFor="verba-grupo" className="text-xs font-medium text-slate-600 block mb-1.5">
+                           Grupo de emissão
+                         </label>
+                         <select
+                           id="verba-grupo"
+                           value={r.grupo_id || (grupos[0]?.id ?? '')}
+                           onChange={e => handleRateioChange(r.id, 'grupo_id', e.target.value)}
+                           className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500 cursor-pointer"
+                         >
+                           {grupos.map(g => (
+                             <option key={g.id} value={g.id}>
+                               {g.nome}{g.due_day ? ` — vence dia ${g.due_day}` : ''}
+                             </option>
+                           ))}
+                         </select>
+                         <p className="text-xs text-slate-400 mt-1.5">
+                           Define em qual vencimento esta verba entra, e em qual emissão ela sai.
+                         </p>
+                       </div>
+                     )}
+
                      <div className="grid grid-cols-12 gap-6 mb-6">
                          {/* CONTA CONTABIL */}
                          <div className="col-span-12 md:col-span-8 space-y-1">
