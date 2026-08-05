@@ -203,6 +203,22 @@ html.dark {
 .dark .bg-amber-50   { background-color: rgba(245,158,11,.14) !important; }
 .dark .bg-rose-50    { background-color: rgba(244,63,94,.14) !important; }
 
+/* Bordas suaves de acento. A rampa escura só redefine violet 300–700: as
+   claras (50/100/200) continuam com o valor CLARO e viravam borda leitosa
+   sobre o fundo escuro — foi o "cinza estranho" das faixas de grupo. */
+.dark .border-violet-100 { border-color: rgba(79,124,239,.24) !important; }
+.dark .border-violet-200 { border-color: rgba(79,124,239,.38) !important; }
+.dark .border-violet-300 { border-color: rgba(79,124,239,.55) !important; }
+.dark .border-emerald-200 { border-color: rgba(16,185,129,.34) !important; }
+.dark .border-amber-200   { border-color: rgba(245,158,11,.34) !important; }
+.dark .border-amber-300   { border-color: rgba(245,158,11,.48) !important; }
+.dark .border-rose-200    { border-color: rgba(244,63,94,.34) !important; }
+
+/* Texto de acento forte: no claro é navy quase preto (#172554), pensado para
+   chip claro. No escuro tem de clarear, igual ao que já se faz com
+   emerald/amber/rose logo abaixo — sem isto some no fundo. */
+.dark .text-violet-500, .dark .text-violet-600, .dark .text-violet-700 { color: var(--color-violet-300) !important; }
+
 /* Hovers */
 .dark .hover\:bg-slate-100:hover { background-color: var(--color-surface-sunken) !important; }
 .dark .hover\:bg-slate-50:hover  { background-color: var(--color-surface-2) !important; }

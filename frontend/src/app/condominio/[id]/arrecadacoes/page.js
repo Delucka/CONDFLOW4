@@ -1160,8 +1160,13 @@ export default function ArrecadacoesPage() {
                 <tbody className="divide-y divide-slate-200">
                     {linhasDaTabela.map((item) => item.tipo === 'faixa' ? (
                         <tr key={`faixa-${item.g.id}`}>
+                            {/* Tinta de acento, não cinza de fundo: no escuro o
+                                `bg-slate-100` vira a cor "afundada" e a faixa lia
+                                como uma laje cinza solta. `bg-violet-50` tem
+                                override de tema e fica sutil nos dois modos —
+                                igual à faixa do painel de emissão. */}
                             <td colSpan={3 + months.length}
-                                className="sticky left-0 z-30 bg-slate-100 border-y border-slate-200 px-4 py-2">
+                                className="sticky left-0 z-30 bg-violet-50 border-y border-violet-200 px-4 py-2">
                                 <span className="flex items-center gap-2.5 flex-wrap">
                                     <span className="text-sm font-semibold text-slate-800">{item.g.nome}</span>
                                     {item.g.due_day && (

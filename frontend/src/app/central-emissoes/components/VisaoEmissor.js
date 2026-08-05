@@ -1287,8 +1287,11 @@ export default function VisaoEmissor({ profile }) {
                           : g.id === grupos[0].id;
                         const totalGrupo = cols.reduce((s, c) => s + Number(valores[c] || 0), 0);
                         return (
-                          <div key={g.id} className={`rounded-lg border mb-2 ${ehDaEmissao ? 'border-violet-300 bg-violet-50/40' : 'border-slate-200 bg-slate-50/60'}`}>
-                            <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-inherit">
+                          // Sem modificador de opacidade nas cores: `bg-violet-50/40`
+                          // vira outra classe e escapa do override de tema escuro do
+                          // globals.css, ficando um bloco claro no fundo escuro.
+                          <div key={g.id} className={`rounded-lg border mb-2 ${ehDaEmissao ? 'border-violet-300 bg-violet-50' : 'border-slate-200 bg-slate-50'}`}>
+                            <div className={`flex items-center justify-between gap-2 px-2 py-1.5 border-b ${ehDaEmissao ? 'border-violet-200' : 'border-slate-200'}`}>
                               <span className="flex items-center gap-1.5 min-w-0">
                                 <span className={`text-[10px] font-black uppercase tracking-widest truncate ${ehDaEmissao ? 'text-violet-700' : 'text-slate-500'}`}>
                                   {g.nome}{g.due_day ? ` · vence dia ${g.due_day}` : ''}
