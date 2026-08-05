@@ -2476,7 +2476,17 @@ def api_get_arrecadacoes(condo_id: str, ano: int, user: dict = Depends(get_curre
                     rateios_vals[v["rateio_id"]] = {}
                 rateios_vals[v["rateio_id"]][v["month"]] = v["valor"]
                 
-        return {"condo": condo, "processo": processo, "rateios": rateios, "rateios_vals": rateios_vals}
+        # Grupos de emissão (0086). Um condomínio comum tem só o "Geral" e a tela
+        # nem desenha a faixa; os 27 com dois vencimentos têm dois.
+        try:
+            grupos = db.table("condominio_grupos").select("id, nome, due_day, ordem") \
+                .eq("condominio_id", condo_id).eq("ativo", True).order("ordem").execute().data or []
+        except Exception as e:
+            print(f"[arrecadacoes] grupos indisponíveis: {type(e).__name__}: {e}")
+            grupos = []   # 0086 ainda não aplicada — a tela cai no modo antigo
+
+        return {"condo": condo, "processo": processo, "rateios": rateios,
+                "rateios_vals": rateios_vals, "grupos": grupos}
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -4179,15 +4189,15 @@ def _meses_em_branco(db, edicoes):
             # Nenhuma verba configurada = planilha vazia por definição.
             return {(e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) for e in edicoes}
         cfg_condo = {c["id"]: c["condominio_id"] for c in cfgs}
-        vals = db.table("rateios_valores").select("rateio_id, month, valor") \
-            .in_("rateio_id", list(cfg_condo)).execute().data or []
+        anos = list({e["ano_referencia"] for e in edicoes})
+        vals = db.table("rateios_valores").select("rateio_id, month, ano, valor") \
+            .in_("rateio_id", list(cfg_condo)).in_("ano", anos).execute().data or []
     except Exception as e:
         print(f"[liberar] checagem de preenchimento indisponível: {type(e).__name__}: {e}")
         return set()   # na dúvida não bloqueia o gerente
 
-    # (condominio, mes) que têm ao menos um valor com conteúdo.
-    # rateios_valores guarda só `month` — a verba vale para o ano corrente da
-    # planilha, então o ano não entra na chave.
+    # (condominio, ano, mes) com ao menos um valor preenchido. O ano entra na
+    # chave: sem ele, valor de 2025 faria o mês de 2026 passar por preenchido.
     preenchidos = set()
     for v in vals:
         cid = cfg_condo.get(v.get("rateio_id"))
@@ -4196,12 +4206,12 @@ def _meses_em_branco(db, edicoes):
         bruto = (v.get("valor") or "").strip()
         if not bruto or bruto in ("0", "0.00", "0,00", "R$ 0,00"):
             continue
-        preenchidos.add((cid, v.get("month")))
+        preenchidos.add((cid, v.get("ano"), v.get("month")))
 
     return {
         (e["condominio_id"], e["ano_referencia"], e["mes_referencia"])
         for e in edicoes
-        if (e["condominio_id"], e["mes_referencia"]) not in preenchidos
+        if (e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) not in preenchidos
     }
 
 

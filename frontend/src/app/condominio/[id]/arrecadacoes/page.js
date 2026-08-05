@@ -71,6 +71,8 @@ export default function ArrecadacoesPage() {
   const [condo, setCondo] = useState(null);
   const [processo, setProcesso] = useState(null);
   const [rateios, setRateios] = useState([]);
+  // Grupos de emissão (0086): condomínio com dois vencimentos tem dois.
+  const [grupos, setGrupos] = useState([]);
   const [rateiosVals, setRateiosVals] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -117,6 +119,7 @@ export default function ArrecadacoesPage() {
       setProcesso(payload.processo);
       setObsEmissao(payload.processo?.issue_notes || payload.condo?.obs_emissao || '');
       setRateios(payload.rateios || []);
+      setGrupos(payload.grupos || []);
       setRateiosVals(payload.rateios_vals || {});
       
     } catch (err) {
@@ -234,6 +237,29 @@ export default function ArrecadacoesPage() {
       setEdicaoLoading(false);
     }
   }
+
+  // Intercala as faixas de grupo entre as verbas. Só monta faixa quando há MAIS
+  // DE UM grupo: num condomínio de vencimento único (a maioria) a tela fica
+  // exatamente como era, sem ganhar ruído por uma divisão que não existe.
+  const linhasDaTabela = useMemo(() => {
+    if (grupos.length <= 1) return rateios.map(r => ({ tipo: 'verba', r }));
+    const porGrupo = new Map(grupos.map(g => [g.id, []]));
+    const semGrupo = [];
+    for (const r of rateios) {
+      if (r.grupo_id && porGrupo.has(r.grupo_id)) porGrupo.get(r.grupo_id).push(r);
+      else semGrupo.push(r);
+    }
+    // Verba sem grupo pertence ao primeiro (o "Geral" do backfill).
+    if (semGrupo.length && grupos[0]) porGrupo.get(grupos[0].id).unshift(...semGrupo);
+
+    const out = [];
+    for (const g of grupos) {
+      const verbas = porGrupo.get(g.id) || [];
+      out.push({ tipo: 'faixa', g, qtd: verbas.length });
+      verbas.forEach(r => out.push({ tipo: 'verba', r }));
+    }
+    return out;
+  }, [rateios, grupos]);
 
   // ── Aviso ao sair com mês preenchido e NÃO liberado (avisa, não trava) ──
   const [avisoSaida, setAvisoSaida] = useState(false);
@@ -1049,7 +1075,25 @@ export default function ArrecadacoesPage() {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                    {rateios.map((r) => (
+                    {linhasDaTabela.map((item) => item.tipo === 'faixa' ? (
+                        <tr key={`faixa-${item.g.id}`}>
+                            <td colSpan={3 + months.length}
+                                className="sticky left-0 z-30 bg-slate-100 border-y border-slate-200 px-4 py-2">
+                                <span className="flex items-center gap-2.5 flex-wrap">
+                                    <span className="text-sm font-semibold text-slate-800">{item.g.nome}</span>
+                                    {item.g.due_day && (
+                                      <span className="text-xs text-slate-600 bg-white border border-slate-200 rounded-md px-2 py-0.5">
+                                        vence dia {item.g.due_day}
+                                      </span>
+                                    )}
+                                    <span className="text-xs text-slate-400">
+                                      {item.qtd} verba{item.qtd !== 1 ? 's' : ''}
+                                    </span>
+                                </span>
+                            </td>
+                        </tr>
+                    ) : (
+                        (r => (
                         <tr key={r.id} className="group hover:bg-slate-100 transition-colors relative">
                             {/* COL: CONTA */}
                             <td className="p-2 border-r border-slate-200 sticky left-0 z-20 bg-white backdrop-blur-sm group-hover:bg-slate-100 transition-colors shadow-xl relative">
@@ -1145,8 +1189,9 @@ export default function ArrecadacoesPage() {
                                 )}
                             </td>
                         </tr>
+                        ))(item.r)
                     ))}
-                    
+
                     {/* Botão Adicionar Row */}
                     {canEdit && (
                         <tr>
