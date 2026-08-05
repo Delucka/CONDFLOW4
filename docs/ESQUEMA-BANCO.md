@@ -1,8 +1,9 @@
 # Esquema real do banco — e as armadilhas
 
 > Escrito depois de uma sessão inteira perdida redescobrindo estas coisas.
-> **Leia antes de escrever qualquer coluna.** O `applied.txt` está parado na 0051
-> enquanto as migrations foram aplicadas até a 0080 — ele NÃO serve como fonte de verdade.
+> **Leia antes de escrever qualquer coluna, e antes de mexer em RLS.**
+> O `applied.txt` ficou parado na 0051 por meses — não serve como fonte de
+> verdade. Quem responde é o banco; as consultas estão no fim deste arquivo.
 
 ---
 
@@ -89,8 +90,9 @@ boas, a **0018 desligou o RLS** de sete tabelas, e a 0033 criou
 de que a tabela está protegida; ela está aberta desde a 0018.
 
 Desligadas pela 0018: `profiles`, `gerentes`, `condominios`, `processos`,
-`arrecadacoes`, `cobrancas_extras`, `aprovacoes`. A 0073 religou os rateios; a
-0081/0082 religaram `cobrancas_extras` e `processos`. As demais continuam abertas.
+`arrecadacoes`, `cobrancas_extras`, `aprovacoes`. A 0073 religou os rateios; a 0081/0082,
+`cobrancas_extras` e `processos`; a 0083/0084, `aprovacoes`, `arrecadacoes`,
+`condominios` e `gerentes`. Só `profiles` (0085) fica de fora até ser aplicada.
 
 **Nunca confie no `CREATE POLICY`. Confira o interruptor:**
 
@@ -107,6 +109,60 @@ Funções de apoio em `0080_rls_helpers.sql`: `papel_atual()` e
 `condominios_da_carteira()`. Use-as em vez de repetir o JOIN da carteira, e
 lembre que elas precisam ser `SECURITY DEFINER` — sem isso, uma política em
 `profiles` que chame função que lê `profiles` entra em recursão infinita.
+
+---
+
+## Armadilha 5 — policy adormecida é armadilha carregada
+
+Corolário da 4, e custou três tentativas para achar. Com o RLS **desligado**, uma
+policy defeituosa fica inerte: nenhum teste a alcança, nenhum erro aparece. Ela
+dispara no instante em que alguém liga o interruptor — possivelmente anos depois,
+por outra pessoa, sem relação com quem a escreveu.
+
+Foi o que aconteceu ao religar `profiles`. A 0001 havia criado:
+
+```sql
+-- "Master override all profiles"  (ALL)
+EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'master')
+-- "View profiles by all authenticated"  (SELECT)
+(auth.uid() = id) OR EXISTS (SELECT 1 FROM profiles)
+```
+
+Duas policies **de `profiles` que consultam `profiles`**. Dormentes desde a 0018;
+ao ligar o RLS, `42P17 infinite recursion detected`.
+
+**Duas regras que saem daí:**
+
+1. Ao religar RLS numa tabela, **apague TODAS as policies existentes primeiro** —
+   lendo de `pg_policies`, nunca por nome adivinhado:
+
+```sql
+DO $limpa$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT policyname FROM pg_policies
+            WHERE schemaname='public' AND tablename='<tabela>'
+  LOOP EXECUTE format('DROP POLICY IF EXISTS %I ON public.<tabela>', r.policyname);
+  END LOOP;
+END $limpa$;
+```
+
+2. **Uma policy nunca pode consultar a própria tabela.** Nem direto, nem por
+   função. `SECURITY DEFINER` não resolveu na prática. Se a regra precisa do
+   papel do usuário e o papel mora na tabela protegida, o caminho é liberar a
+   leitura e fechar a **escrita** — foi o que a 0085 fez.
+
+**RLS filtra LINHA, não COLUNA.** Deixar o usuário atualizar a própria linha em
+`profiles` ainda permitiria `SET role='master'`. Para limitar coluna, é `GRANT`:
+
+```sql
+REVOKE UPDATE ON public.profiles FROM authenticated;
+GRANT  UPDATE (must_change_password, password_changed_at) ON public.profiles TO authenticated;
+```
+
+**Ensaie antes.** `BEGIN … RAISE EXCEPTION` aplica as policies, mede o que cada
+papel enxergaria e desfaz — ver `ENSAIO_rls_*.sql`. Foi ele que pegou as duas
+recursões sem tocar em produção.
 
 ---
 
