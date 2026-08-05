@@ -1932,7 +1932,7 @@ export default function VisaoEmissor({ profile }) {
                     return (
                       <div key={condo.id} className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-3 border-b border-slate-200 last:border-b-0 transition-colors ${
                         temAltPrevista ? 'bg-amber-500/[0.05] hover:bg-amber-500/[0.08]'
-                          : !pacote && isPronto ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.07]'
+                          : !pacote && !editandoAgora ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.07]'
                           : 'hover:bg-slate-100'
                       }`}>
                         <div className="flex items-center gap-3 flex-wrap">
