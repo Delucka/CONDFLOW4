@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { mesAnoVigente } from '@/lib/mesVigente';
 import { useRouter } from 'next/navigation';
+import TagConsumo from '@/components/TagConsumo';
 import { combina } from '@/lib/busca';
 import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
@@ -217,12 +218,18 @@ export default function DashboardPage() {
     router.push(`/central-emissoes?${q}`);
   }
 
-  // Com concessionária, pergunta antes: abrir a emissão sem a fatura em mãos é
-  // o começo de um pacote que vai ficar parado esperando.
+  // Tem consumo, pergunta antes: abrir a emissão sem a fatura em mãos é o
+  // começo de um pacote que vai ficar parado esperando.
+  //
+  // Quem decide é `condominios.tem_consumo` (0091), a relação que a operação
+  // usa. `condominios_concessionarias` (0036) entra só para DIZER quais são —
+  // ela veio de uma planilha de 2025 e nem sempre tem todas.
   function abrirEmissao(condo) {
-    const cs = concessionariasPorCondo[condo.id] || [];
-    if (cs.length) setConfirmarConsumo({ condo, concessionarias: cs });
-    else irParaEmissao(condo);
+    if (condo.tem_consumo) {
+      setConfirmarConsumo({ condo, concessionarias: concessionariasPorCondo[condo.id] || [] });
+    } else {
+      irParaEmissao(condo);
+    }
   }
 
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
@@ -719,7 +726,10 @@ export default function DashboardPage() {
                               : <Unlock  className="w-3 h-3 text-emerald-500/50 shrink-0" />
                             }
                             <div>
-                              <p className={`${tipo.item} group-hover:text-violet-600 transition-colors truncate`}>{c.name}</p>
+                              <p className={`${tipo.item} group-hover:text-violet-600 transition-colors truncate flex items-center gap-1.5`}>
+                                {c.name}
+                                {c.tem_consumo && <TagConsumo concessionarias={concessionariasPorCondo[c.id]} />}
+                              </p>
                               <p className={`${tipo.apoio} flex items-center gap-1.5 flex-wrap`}>
                                 <span>{gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}</span>
                                 {c.due_day && <span className="text-slate-400">· venc. dia {c.due_day}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>}
@@ -775,7 +785,10 @@ export default function DashboardPage() {
                         ? <Lock className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-1" />
                         : <Unlock className="w-3.5 h-3.5 text-emerald-500/50 shrink-0 mt-1" />}
                       <div className="flex-1 min-w-0">
-                        <p className={`${tipo.item} break-words`}>{c.name}</p>
+                        <p className={`${tipo.item} break-words flex items-center gap-1.5 flex-wrap`}>
+                          {c.name}
+                          {c.tem_consumo && <TagConsumo concessionarias={concessionariasPorCondo[c.id]} />}
+                        </p>
                         <p className={tipo.apoio}>
                           {gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}
                           {c.due_day && <span className="text-slate-400"> · venc. dia {c.due_day}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>}
@@ -868,13 +881,22 @@ export default function DashboardPage() {
 
             <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5">
               <p className="text-xs font-semibold text-amber-900">Este condomínio tem consumo:</p>
-              <p className="mt-1 flex flex-wrap gap-1.5">
-                {confirmarConsumo.concessionarias.map(c => (
-                  <span key={c} className="inline-flex items-center rounded-md border border-amber-300 bg-white px-1.5 py-0.5 text-[11px] font-bold text-amber-800">
-                    {c}
-                  </span>
-                ))}
-              </p>
+              {confirmarConsumo.concessionarias.length > 0 ? (
+                <p className="mt-1 flex flex-wrap gap-1.5">
+                  {confirmarConsumo.concessionarias.map(c => (
+                    <span key={c} className="inline-flex items-center rounded-md border border-amber-300 bg-white px-1.5 py-0.5 text-[11px] font-bold text-amber-800">
+                      {c}
+                    </span>
+                  ))}
+                </p>
+              ) : (
+                // Marcado como "tem consumo" mas sem concessionária cadastrada:
+                // a relação de 2025 não cobre todos. Melhor dizer isso do que
+                // fingir que não tem.
+                <p className="mt-1 text-[11px] text-amber-700">
+                  Concessionária não cadastrada — confira qual é antes de emitir.
+                </p>
+              )}
               <p className="mt-2 text-[11px] text-amber-800 leading-relaxed">
                 Você já tem a <strong>fatura</strong> e o <strong>relatório de leitura</strong> em mãos?
                 Sem eles a emissão abre, mas fica parada.
