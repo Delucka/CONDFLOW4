@@ -90,3 +90,4 @@
 # 05/08/2026 — conferida na tela: as 2 colunas voltaram no information_schema
 0088_preparacao_espera_e_cobrancas.sql
 0089_grupos_faltantes.sql
+0090_realtime_tabelas_faltantes.sql
