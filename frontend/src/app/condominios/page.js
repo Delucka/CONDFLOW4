@@ -16,6 +16,7 @@ import { createClient } from '@/utils/supabase/client';
 const VisualizadorConferencia = dynamic(() => import('@/components/VisualizadorConferencia'), { ssr: false });
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import Modal from '@/components/Modal';
+import TagConsumo from '@/components/TagConsumo';
 import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
 import { btn, cn } from '@/lib/botoes';
 import { extrairTextoPdf, lerCondominos, exibirCnpj } from '@/lib/importarCondominos';
@@ -36,7 +37,7 @@ export default function CondominiosPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [moradoresDe, setMoradoresDe] = useState(null);   // condomínio do painel de moradores
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '' });
+  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
   const supabase = createClient();
 
@@ -181,10 +182,11 @@ export default function CondominiosPage() {
         due_day: condo.due_day || '',
         due_day_2: condo.due_day_2 || '',
         gerente_id: condo.gerente_id || '',
-        cnpj: condo.cnpj || ''
+        cnpj: condo.cnpj || '',
+        tem_consumo: !!condo.tem_consumo
       });
     } else {
-      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '' });
+      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false });
     }
     setModalOpen(true);
   }
@@ -601,6 +603,27 @@ export default function CondominiosPage() {
             <p className={AJUDA}>Opcional. O 2º só para vencimento dividido.</p>
           </div>
 
+          {/* Marcação manual do consumo (0091). A relação da operação entrou por
+              migration, mas condomínio novo, cadastro duplicado ou mudança de
+              contrato precisam de um lugar para ajustar sem passar por SQL. */}
+          <div className="space-y-1.5">
+            <label className={LBL}>Consumo</label>
+            <label htmlFor="condo-consumo"
+              className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 cursor-pointer hover:border-slate-300 transition-colors">
+              <input id="condo-consumo" type="checkbox"
+                checked={!!formData.tem_consumo}
+                onChange={e => setFormData({ ...formData, tem_consumo: e.target.checked })}
+                className="mt-0.5 w-4 h-4 accent-sky-600 shrink-0" />
+              <span className="min-w-0">
+                <span className="block text-sm text-slate-800">Depende de concessionária (água, gás ou energia)</span>
+                <span className={AJUDA}>
+                  Marca a tag <b>Consumo</b> no painel e faz a emissão perguntar pela fatura
+                  e pelo relatório de leitura antes de abrir.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="space-y-1.5">
               <label htmlFor="condo-gerente" className={LBL}>
@@ -945,6 +968,7 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores }) {
               <div className="flex items-center gap-3 text-slate-400">
                  <Calendar className="w-4 h-4 text-violet-500" />
                  <span className="text-xs font-bold">Vencimento: Dia {c.due_day || '—'}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>
+                 {c.tem_consumo && <TagConsumo />}
               </div>
               <div className="flex items-center gap-3 text-slate-400">
                  <ShieldCheck className="w-4 h-4 text-emerald-500" aria-hidden="true" />

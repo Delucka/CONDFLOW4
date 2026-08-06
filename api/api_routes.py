@@ -1550,6 +1550,7 @@ class CondoData(BaseModel):
     due_day_2: Optional[str] = None
     gerente_id: Optional[str] = None
     cnpj: Optional[str] = None
+    tem_consumo: Optional[bool] = None   # 0091 — depende de concessionária
     assistente: Optional[str] = None   # ignorado
     fluxo: Optional[int] = None        # ignorado
 
@@ -2087,6 +2088,9 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
         "due_day_2": _dia_vencimento(data.due_day_2, "2º vencimento"),
         "gerente_id": _resolver_gerente_id(db, (data.gerente_id or "").strip() or None),
         "cnpj": ((data.cnpj or "").strip() or None),
+        # A coluna é NOT NULL DEFAULT false (0091); None viraria erro, não "deixa
+        # como está" — por isso o bool() em vez de repassar o Optional cru.
+        "tem_consumo": bool(data.tem_consumo),
     }
     try:
         if data.id:
