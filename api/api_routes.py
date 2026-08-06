@@ -2032,6 +2032,41 @@ def _resolver_gerente_id(db: Client, valor):
     )
 
 
+def _garantir_grupos(db: Client, condominio_id: str, due_day, due_day_2) -> None:
+    """Todo condomínio precisa ter ao menos o grupo 'Geral' (0086).
+
+    O backfill da 0086 só alcançou quem já existia. Condomínio cadastrado depois
+    ficava sem grupo nenhum — e a tela de emissão, que espera os grupos do
+    condomínio antes de abrir o pacote, esperava para sempre, sem erro nenhum.
+
+    Idempotente: a tabela tem UNIQUE(condominio_id, nome), e o insert de um nome
+    repetido é ignorado. Nunca derruba o cadastro: se os grupos falharem, o
+    condomínio já está salvo e é isso que importa aqui.
+    """
+    try:
+        existentes = db.table("condominio_grupos").select("nome") \
+            .eq("condominio_id", condominio_id).execute().data or []
+        nomes = {g["nome"] for g in existentes}
+
+        if "Geral" not in nomes:
+            db.table("condominio_grupos").insert({
+                "condominio_id": condominio_id, "nome": "Geral",
+                "due_day": due_day, "ordem": 0,
+            }).execute()
+
+        # Segundo vencimento ganha o seu grupo, com o mesmo nome genérico que a
+        # 0086 usou — quem conhece o condomínio renomeia depois.
+        if due_day_2:
+            nome2 = f"Vencimento dia {due_day_2}"
+            if nome2 not in nomes:
+                db.table("condominio_grupos").insert({
+                    "condominio_id": condominio_id, "nome": nome2,
+                    "due_day": due_day_2, "ordem": 1,
+                }).execute()
+    except Exception as e:
+        print(f"[condominios/grupos] nao criei os grupos de {condominio_id}: {type(e).__name__}: {e}")
+
+
 @router.post("/condominios/salvar")
 def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     # Fora do try: HTTPException também é Exception, e o except abaixo estava
@@ -2056,8 +2091,11 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
     try:
         if data.id:
             db.table("condominios").update(payload).eq("id", data.id).execute()
+            _garantir_grupos(db, data.id, payload["due_day"], payload["due_day_2"])
         else:
-            db.table("condominios").insert(payload).execute()
+            novo = db.table("condominios").insert(payload).execute().data or []
+            if novo:
+                _garantir_grupos(db, novo[0]["id"], payload["due_day"], payload["due_day_2"])
     except Exception as e:
         msg = str(e)
         print(f"[condominios/salvar] falhou: {msg} | payload={payload}")

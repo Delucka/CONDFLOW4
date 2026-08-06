@@ -46,6 +46,11 @@ export default function VisaoEmissor({ profile }) {
   const [gruposCondo, setGruposCondo] = useState([]);
   const [grupoId, setGrupoId] = useState('');
   const grupoDesejadoRef = useRef(null);   // grupo do pacote que acabou de ser aberto
+  // De qual condomínio os grupos já foram buscados. NÃO dá para usar `grupoId`
+  // como sinal de "carregou": condomínio cadastrado depois da 0086 não tem grupo
+  // nenhum (o backfill só pegou os que existiam), e aí `grupoId` fica vazio para
+  // sempre — quem esperasse por ele esperaria eternamente, sem erro nenhum.
+  const [gruposCarregadosDe, setGruposCarregadosDe] = useState(null);
 
   // Persiste mês/ano: mantém ao sair/voltar; só muda quando o usuário troca.
   // O link do Dashboard (?condo&mes&ano) VENCE o que estava guardado — quem
@@ -72,6 +77,7 @@ export default function VisaoEmissor({ profile }) {
   useEffect(() => {
     let vivo = true;
     setGrupoId('');
+    setGruposCarregadosDe(null);
     if (!condoId) { setGruposCondo([]); return; }
     (async () => {
       const { data } = await supabase
@@ -87,6 +93,7 @@ export default function VisaoEmissor({ profile }) {
       grupoDesejadoRef.current = null;
       if (desejado && gs.some(g => g.id === desejado)) setGrupoId(desejado);
       else if (gs.length) setGrupoId(gs[0].id);
+      setGruposCarregadosDe(condoId);   // carregou — mesmo que a lista seja vazia
     })();
     return () => { vivo = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -311,8 +318,9 @@ export default function VisaoEmissor({ profile }) {
     const q = new URLSearchParams(window.location.search);
     const qCondo = q.get('condo');
     if (!qCondo) { linkJaTratado.current = true; return; }
-    // Espera o condomínio do link virar o selecionado e os grupos dele chegarem.
-    if (condoId !== qCondo || !grupoId) return;
+    // Espera o condomínio do link virar o selecionado e a busca de grupos
+    // TERMINAR — terminar, não achar algo. Condomínio sem grupo é caso válido.
+    if (condoId !== qCondo || gruposCarregadosDe !== qCondo) return;
 
     linkJaTratado.current = true;
     const achado = pacotes.find(p =>
@@ -320,7 +328,7 @@ export default function VisaoEmissor({ profile }) {
     if (achado) abrirPacote(achado);
     else handleCriarOuAbrirPacote();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pacotes, condoId, grupoId, loading, mes, ano]);
+  }, [pacotes, condoId, gruposCarregadosDe, loading, mes, ano]);
 
   // Carrega a referência do gerente (planilha do mês + cobranças extras) ao abrir um pacote
   useEffect(() => {
