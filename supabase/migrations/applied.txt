@@ -84,7 +84,8 @@
 0082_rls_processos.sql
 0083_rls_backend_only.sql
 0084_rls_condominios_gerentes.sql
-# 0085_rls_profiles.sql  <- NAO confirmada; anotar so depois de rodar
+# 05/08/2026 — rodada e conferida: login, logout/login e Acessos e Perfis OK
+0085_rls_profiles.sql
 0086_grupos_emissao.sql
 # 0087_conjunto_emissao_trava.sql  <- NAO confirmada; ensaio existe, rodar antes
 # 05/08/2026 — conferida na tela: as 2 colunas voltaram no information_schema

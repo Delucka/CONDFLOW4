@@ -92,7 +92,8 @@ de que a tabela está protegida; ela está aberta desde a 0018.
 Desligadas pela 0018: `profiles`, `gerentes`, `condominios`, `processos`,
 `arrecadacoes`, `cobrancas_extras`, `aprovacoes`. A 0073 religou os rateios; a 0081/0082,
 `cobrancas_extras` e `processos`; a 0083/0084, `aprovacoes`, `arrecadacoes`,
-`condominios` e `gerentes`. Só `profiles` (0085) fica de fora até ser aplicada.
+`condominios` e `gerentes`; a 0085, `profiles`. **As sete estão fechadas** desde
+05/08/2026 — o furo aberto pela 0018 durou o que durou, mas acabou.
 
 **Nunca confie no `CREATE POLICY`. Confira o interruptor:**
 
