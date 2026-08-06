@@ -14,6 +14,7 @@ import { ocrFileToText, parseFaturaOcr, decodeBoletoValor } from '@/lib/ocrClien
 import ModalPreparacao from './ModalPreparacao';
 import { mesVigente, anoVigente, mesFechado } from '@/lib/mesVigente';
 import { combina } from '@/lib/busca';
+import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 import { podeRegistrar, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
 import { FileWarning } from 'lucide-react';
@@ -300,6 +301,13 @@ export default function VisaoEmissor({ profile }) {
 
   // Refaz a busca de preparacao quando mes/ano mudam
   useEffect(() => { fetchPreparacao(); fetchAlteracoes(); fetchEdicoes(); }, [mes, ano]);
+
+  // Voltou para a aba: rebusca. O realtime cobre parte, mas não sobrevive à aba
+  // dormindo nem cobria tabela fora da publicação (ver 0090).
+  useRevalidarAoVoltar(() => {
+    fetchPacotes(); fetchPreparacao(); fetchEdicoes(); fetchProcessos();
+    if (activePacote) fetchArquivosDoPacote(activePacote.id);
+  });
 
   // Chegando pelo link do Dashboard: abre o pacote daquele condomínio+mês —
   // criando, se ainda não existir. É o que se quer ao clicar na linha: já estar

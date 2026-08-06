@@ -22,6 +22,7 @@ import { safeStorageName } from '@/lib/storage';
 import { Inbox } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { mesVigente, anoVigente } from '@/lib/mesVigente';
+import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -150,6 +151,9 @@ export default function VisaoMaster() {
     return () => supabase.removeChannel(channel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Voltou para a aba: rebusca (o realtime não sobrevive à aba dormindo).
+  useRevalidarAoVoltar(() => fetchPacotes());
 
   async function fetchPacotes() {
     setLoading(true);

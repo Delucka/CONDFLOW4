@@ -12,6 +12,7 @@ import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { combina } from '@/lib/busca';
+import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 
 export default function VisaoGerente({ profile }) {
   const supabase = createClient();
@@ -110,6 +111,9 @@ export default function VisaoGerente({ profile }) {
     return () => supabase.removeChannel(channel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Voltou para a aba: rebusca (o realtime não sobrevive à aba dormindo).
+  useRevalidarAoVoltar(() => fetchPacotes());
 
   async function handleAprovar(pacote) {
     // Só vira 'aprovado' quando TODOS os cargos do nível assinaram (via trilha)

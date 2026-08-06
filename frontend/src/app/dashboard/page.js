@@ -235,7 +235,9 @@ export default function DashboardPage() {
   dashParams.set('mes', String(mesEmissao));
   dashParams.set('ano', String(vigente.ano));
   const { data, error, isLoading, mutate } = useSWR(`/api/dashboard?${dashParams.toString()}`, apiFetcher, {
-    revalidateOnFocus: false,
+    // Sem isto o painel ficava congelado ao voltar de outra janela. O dedupe de
+    // 30s + o throttle do provider já seguram a rajada de alt-tab.
+    revalidateOnFocus: true,
     dedupingInterval: 30000,
     keepPreviousData: true,
     errorRetryCount: 4,
@@ -252,7 +254,7 @@ export default function DashboardPage() {
   // semestral no painel: quando o gerente "libera este mês", o painel reflete.
   // Usa o endpoint que JÁ existe na VPS (sem precisar de deploy do backend).
   const { data: edicoesData, mutate: mutateEdicoes } = useSWR(`/api/edicoes-mensais?ano=${vigente.ano}`, apiFetcher, {
-    revalidateOnFocus: false, dedupingInterval: 30000, keepPreviousData: true,
+    revalidateOnFocus: true, dedupingInterval: 30000, keepPreviousData: true,
   });
   const EDI_TO_PROC = { em_edicao: 'Em edição', edicao_finalizada: 'Edição finalizada', reabertura_solicitada: 'Solicitar alteração' };
   // Indexado por condomínio + MÊS. Antes pegava só a edição mais recente do condomínio,
