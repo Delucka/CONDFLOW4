@@ -386,6 +386,14 @@ export default function VisaoEmissor({ profile }) {
     }
   }
 
+  // Quantos dias inteiros de espera (0088). Só a data conta.
+  function diasDeEspera(iso) {
+    if (!iso) return null;
+    const d0 = new Date(iso); d0.setHours(0, 0, 0, 0);
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.round((hoje - d0) / 86400000));
+  }
+
   async function fetchPreparacao() {
     const { data } = await supabase
       .from('emissoes_preparacao')
@@ -2039,6 +2047,23 @@ export default function VisaoEmissor({ profile }) {
                                     {etapa && (
                                       <span className="hidden md:inline-flex items-center gap-1.5">
                                         <StatusBadge status={etapa} />
+                                        {/* Há quanto tempo espera e quantas vezes foi cobrado:
+                                            visível na lista, sem precisar abrir nada. */}
+                                        {(() => {
+                                          const dias = diasDeEspera(prep?.aguardando_desde);
+                                          const n = (prep?.cobrancas || []).length;
+                                          if (dias === null && !n) return null;
+                                          const tenso = dias !== null && dias >= 5;
+                                          return (
+                                            <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${
+                                              tenso ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+                                              title={`Aguardando há ${dias ?? '?'} dia(s)${n ? ` · cobrado ${n}×` : ' · nunca cobrado'}`}>
+                                              <Clock className="w-3 h-3" />
+                                              {dias === 0 ? 'hoje' : `${dias}d`}
+                                              {n > 0 && <span className="opacity-70">· {n}×</span>}
+                                            </span>
+                                          );
+                                        })()}
                                         {dataStr && <span className="text-[10px] font-bold text-slate-500">{dataStr}</span>}
                                         {prep?.notas && (
                                           <span className="relative group/notas">

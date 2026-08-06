@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { X, Loader2, Save, FileText, FileBarChart, CheckCircle, Calendar, Trash2, Lock, Unlock } from 'lucide-react';
+import { X, Loader2, Save, FileText, FileBarChart, CheckCircle, Calendar, Trash2, Lock, Unlock, BellRing } from 'lucide-react';
 import { apiPost } from '@/lib/api';
 
 const ETAPAS = [
@@ -25,15 +25,10 @@ const ETAPAS = [
     dateField: 'data_relatorio',
     dateLabel: 'Data do relatório de faturas enviadas',
   },
-  {
-    id: 'pronto_para_emitir',
-    label: 'Pronto para emitir',
-    desc: 'Conferências feitas — pode iniciar emissão',
-    icon: CheckCircle,
-    color: 'emerald',
-    dateField: null,
-    dateLabel: null,
-  },
+  // "Pronto para emitir" saiu daqui (0088). Criar a emissão JÁ é o "pronto":
+  // era estranho marcar à mão um estado que o próprio ato seguinte declara, e
+  // pior, essa marcação é que travava as cobranças extras do mês. Agora quem
+  // trava é a existência do pacote — ver lib/useLockedMonths.js.
 ];
 
 const COLOR_CLASSES = {
@@ -49,12 +44,65 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
   const [etapa, setEtapa]       = useState('aguardando_fatura');
+  const [etapaOriginal, setEtapaOriginal] = useState(null);  // p/ saber se a espera reinicia
   const [dataFatura, setDataFatura]       = useState('');
   const [dataRelatorio, setDataRelatorio] = useState('');
   const [notas, setNotas]       = useState('');
   const [existingId, setExistingId] = useState(null);
   const [edicaoGerente, setEdicaoGerente] = useState(null);  // registro edicoes_mensais deste mês
   const [reabrindo, setReabrindo] = useState(false);
+  // 0088: desde quando esta espera começou, e o histórico de cada vez que se foi
+  // atrás. Sem isso a informação vivia na cabeça de quem cobrou.
+  const [aguardandoDesde, setAguardandoDesde] = useState(null);
+  const [cobrancas, setCobrancas] = useState([]);
+  const [registrandoCobranca, setRegistrandoCobranca] = useState(false);
+
+  // Quantos dias inteiros de espera. Só a data importa — "há 3 dias" não muda
+  // porque a hora passou.
+  function diasDeEspera(iso) {
+    if (!iso) return null;
+    const d0 = new Date(iso); d0.setHours(0, 0, 0, 0);
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.round((hoje - d0) / 86400000));
+  }
+
+  const fmtData = (iso) => iso
+    ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+    : '—';
+
+  // Registra "fui atrás de novo hoje". Grava direto, sem esperar o Salvar: é um
+  // fato que acabou de acontecer, e perder isso porque a pessoa fechou o modal
+  // seria justamente o problema que estamos resolvendo.
+  async function registrarCobranca() {
+    setRegistrandoCobranca(true);
+    try {
+      const nova = {
+        em: new Date().toISOString(),
+        por_nome: user?.full_name || user?.email || 'alguém',
+        etapa,
+      };
+      const lista = [...cobrancas, nova];
+      const payload = {
+        condominio_id: condo.id, mes_referencia: mes, ano_referencia: ano,
+        etapa, cobrancas: lista,
+        atualizado_por: user?.id, atualizado_em: new Date().toISOString(),
+        ...(aguardandoDesde ? {} : { aguardando_desde: new Date().toISOString() }),
+      };
+      const { data, error } = existingId
+        ? await supabase.from('emissoes_preparacao').update(payload).eq('id', existingId).select('id, aguardando_desde').single()
+        : await supabase.from('emissoes_preparacao').insert(payload).select('id, aguardando_desde').single();
+      if (error) throw error;
+      setExistingId(data.id);
+      if (data.aguardando_desde) setAguardandoDesde(data.aguardando_desde);
+      setCobrancas(lista);
+      addToast(`Cobrança registrada — ${lista.length}ª vez.`, 'success');
+      onSaved?.();
+    } catch (err) {
+      addToast('Não consegui registrar a cobrança: ' + (err.message || err), 'error');
+    } finally {
+      setRegistrandoCobranca(false);
+    }
+  }
 
   // Busca o status de edição do gerente (edicoes_mensais) deste condo/mês
   async function fetchEdicao() {
@@ -83,10 +131,16 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
           .maybeSingle();
         if (data) {
           setExistingId(data.id);
-          setEtapa(data.etapa || 'aguardando_fatura');
+          // Linha antiga pode estar em 'pronto_para_emitir', que saiu da lista.
+          // Cai na primeira etapa em vez de deixar nenhuma selecionada.
+          const et = ETAPAS.some(e => e.id === data.etapa) ? data.etapa : 'aguardando_fatura';
+          setEtapa(et);
+          setEtapaOriginal(et);
           setDataFatura(data.data_fatura || '');
           setDataRelatorio(data.data_relatorio || '');
           setNotas(data.notas || '');
+          setAguardandoDesde(data.aguardando_desde || null);
+          setCobrancas(Array.isArray(data.cobrancas) ? data.cobrancas : []);
         }
         await fetchEdicao();
       } finally {
@@ -136,13 +190,23 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
         condominio_id:  condo.id,
         mes_referencia: mes,
         ano_referencia: ano,
-        etapa,
+        // Com as duas datas preenchidas não falta nada: o estado "sem pendência"
+        // é DERIVADO, igual à lista de conferência dentro da emissão. Sem isto,
+        // abrir e salvar este modal numa linha já completa a jogaria de volta
+        // para "aguardando fatura", porque o radio não tem mais essa opção.
+        etapa: (dataFatura && dataRelatorio) ? 'pronto_para_emitir' : etapa,
         data_fatura:    dataFatura || null,
         data_relatorio: dataRelatorio || null,
         notas:          notas || null,
         atualizado_por: user?.id,
         atualizado_em:  new Date().toISOString(),
       };
+
+      // A espera reinicia quando a etapa MUDA — passar de "aguardando fatura"
+      // para "aguardando relatório" é outra espera. Salvar sem mudar a etapa
+      // (só uma nota, por exemplo) não pode zerar o contador.
+      const etapaMudou = !existingId || etapa !== etapaOriginal;
+      if (etapaMudou) payload.aguardando_desde = new Date().toISOString();
 
       if (existingId) {
         const { error } = await supabase
@@ -153,15 +217,9 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
         if (error) throw error;
       }
 
-      // O lock acontece automaticamente por mês via useLockedMonths
-      // — quando etapa = 'pronto_para_emitir' o mês X fica travado para edição.
-      // Não há mais auto-lock semestral.
-      addToast(
-        etapa === 'pronto_para_emitir'
-          ? `Etapa salva! O mês ${String(mes).padStart(2,'0')}/${ano} fica bloqueado para edição.`
-          : 'Etapa de preparação atualizada!',
-        'success'
-      );
+      // A trava do mês não sai mais daqui: quem trava é a existência do pacote
+      // de emissão (useLockedMonths). Esta tela só registra o que falta.
+      addToast('Pendência atualizada.', 'success');
 
       onSaved?.();
       onClose();
@@ -226,6 +284,56 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
               );
             })()}
 
+            {/* Há quanto tempo espera + quantas vezes já se foi atrás.
+                É o que decide se dá para esperar mais ou se é hora de escalar. */}
+            {(() => {
+              const dias = diasDeEspera(aguardandoDesde);
+              const n = cobrancas.length;
+              const ultima = n ? cobrancas[n - 1] : null;
+              const tenso = dias !== null && dias >= 5;
+              return (
+                <div className={`rounded-2xl border p-3.5 ${tenso ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Espera</p>
+                      <p className={`text-sm font-bold mt-0.5 ${tenso ? 'text-amber-900' : 'text-slate-800'}`}>
+                        {dias === null ? 'Ainda não registrada'
+                          : dias === 0 ? 'Desde hoje'
+                          : `Há ${dias} dia${dias > 1 ? 's' : ''} · desde ${fmtData(aguardandoDesde)}`}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {n === 0
+                          ? 'Nunca foi cobrado.'
+                          : `Cobrado ${n}× · última em ${fmtData(ultima.em)} por ${ultima.por_nome}`}
+                      </p>
+                    </div>
+                    <button type="button" onClick={registrarCobranca} disabled={registrandoCobranca}
+                      title="Registra que você foi atrás disso hoje. Fica visível para todo mundo."
+                      className="shrink-0 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 flex items-center gap-1.5">
+                      {registrandoCobranca ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BellRing className="w-3.5 h-3.5" />}
+                      Cobrei de novo
+                    </button>
+                  </div>
+
+                  {n > 0 && (
+                    <ul className="mt-3 border-t border-slate-200 pt-2 space-y-1 max-h-32 overflow-y-auto">
+                      {[...cobrancas].reverse().map((c, i) => (
+                        <li key={`${c.em}-${i}`} className="text-[11px] text-slate-600 flex items-center gap-2">
+                          <span className="font-mono text-slate-400 shrink-0">{fmtData(c.em)}</span>
+                          <span className="truncate">{c.por_nome}</span>
+                          {c.etapa && (
+                            <span className="ml-auto shrink-0 text-[10px] text-slate-400">
+                              {c.etapa === 'aguardando_relatorio' ? 'relatório' : 'fatura'}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })()}
+
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Etapa atual</label>
               <div className="space-y-2">
@@ -281,15 +389,16 @@ export default function ModalPreparacao({ condo, mes, ano, onClose, onSaved }) {
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 focus:border-violet-500 outline-none transition-all placeholder:text-slate-700" />
             </div>
 
-            {/* Aviso quando vai bloquear o mes */}
-            {etapa === 'pronto_para_emitir' && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2">
-                <Lock className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-rose-300 leading-relaxed">
-                  <strong>Atenção:</strong> ao salvar nesta etapa, o mês <strong>{String(mes).padStart(2,'0')}/{ano}</strong> da planilha e das cobranças extras será <strong>bloqueado automaticamente</strong>. Os demais meses continuam editáveis.
-                </p>
-              </div>
-            )}
+            {/* Esta tela não trava mais nada — quem trava é criar a emissão.
+                Dizer isso é melhor que deixar a pessoa procurar o botão antigo. */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-2">
+              <Lock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Esta tela é só registro. O mês <strong>{String(mes).padStart(2,'0')}/{ano}</strong> —
+                planilha e cobranças extras — trava sozinho quando a <strong>emissão é criada</strong>.
+                Cancelar o rascunho devolve o mês.
+              </p>
+            </div>
           </form>
         )}
 
