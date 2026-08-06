@@ -77,20 +77,47 @@ export default function FilaOcorrencias() {
     }
   };
 
+  /**
+   * `gerentes.id` da carteira de quem está olhando.
+   *   • gerente    → a própria
+   *   • assistente → a do gerente a que está vinculado (profiles.gerente_id, 0057)
+   *   • demais     → null, que aqui significa "vê tudo"
+   *
+   * O RLS de `emissoes_pacotes` é `USING (true)` (0033): ele NÃO filtra carteira.
+   * Quem tem de recortar é esta tela — senão o gerente conta a base inteira.
+   */
+  const carteiraGerenteId = async () => {
+    const role = profile?.role;
+    if (role === 'gerente') {
+      const { data } = await supabase
+        .from('gerentes').select('id').eq('profile_id', profile.id).maybeSingle();
+      return data?.id || null;
+    }
+    if (role === 'assistente') {
+      const pid = profile?.gerente_profile_id;
+      if (!pid) return null;
+      const { data } = await supabase
+        .from('gerentes').select('id').eq('profile_id', pid).maybeSingle();
+      return data?.id || null;
+    }
+    return null;
+  };
+
+  /** Ids dos condomínios da carteira, ou null quando não há recorte. */
+  const condosDaCarteira = async () => {
+    const gId = await carteiraGerenteId();
+    if (!gId) return null;
+    const { data } = await supabase.from('condominios').select('id').eq('gerente_id', gId);
+    return (data || []).map(c => c.id);
+  };
+
   const fetchCondominios = async () => {
     let query = supabase.from('condominios').select('id, name');
-    
-    if (profile?.role === 'gerente') {
-      const { data: gerentes } = await supabase
-        .from('gerentes')
-        .select('id')
-        .eq('profile_id', profile.id)
-        .single();
-      
-      if (gerentes) {
-        query = query.eq('gerente_id', gerentes.id);
-      }
-    }
+    // `.single()` estourava quando o perfil não tinha linha em `gerentes` —
+    // e o assistente nem era considerado, então escolhia condomínio de qualquer
+    // carteira no modal de nova ocorrência.
+    const gId = await carteiraGerenteId();
+    if (gId) query = query.eq('gerente_id', gId);
 
     const { data } = await query.order('name');
     setCondominios(data || []);
@@ -118,9 +145,11 @@ export default function FilaOcorrencias() {
       // ========================================
       // GERENTE
       // ========================================
-      if (role === 'gerente') {
-        const { data: ger } = await supabase.from('gerentes').select('id').eq('profile_id', profile.id).maybeSingle();
-        const gId = ger?.id;
+      // O assistente trabalha a carteira do gerente a que está vinculado, e via
+      // esta mesma fila vazia — não havia ramo nenhum para ele.
+      if (role === 'gerente' || role === 'assistente') {
+        const gId = await carteiraGerenteId();
+        const meusCondos = await condosDaCarteira();
 
         // Edições em andamento (M+1)
         if (gId) {
@@ -177,18 +206,24 @@ export default function FilaOcorrencias() {
           }
         }
 
-        // Pacotes "Com gerente" (pendente_gerente / pendente / Aguardando Gerente)
-        const { count: countPacGer } = await supabase
+        // Pacotes "Com gerente" — SÓ os da carteira. Sem o recorte esta contagem
+        // varria a base inteira, e o gerente via "47 pacotes aguardando sua
+        // aprovação" com 3 sendo dele. O sino (usePendingCount) sempre filtrou,
+        // então os dois números se contradiziam na mesma tela.
+        let qPacGer = supabase
           .from('emissoes_pacotes')
           .select('id', { count: 'exact', head: true })
           .or('status.ilike.%pendente_gerente%,status.ilike.%aguardando gerente%,status.eq.pendente');
+        // Carteira vazia (ou vínculo ausente) conta zero — nunca a base toda.
+        qPacGer = qPacGer.in('condominio_id', meusCondos && meusCondos.length ? meusCondos : ['00000000-0000-0000-0000-000000000000']);
+        const { count: countPacGer } = await qPacGer;
         if (countPacGer > 0) {
           lista.push({
             id: 'pacotes-gerente',
             tipo: 'pacote',
             color: 'pink',
             icon: Package,
-            titulo: `${countPacGer} pacote${countPacGer !== 1 ? 's' : ''} aguardando sua aprovação`,
+            titulo: `${countPacGer} pacote${countPacGer !== 1 ? 's' : ''} aguardando ${role === 'assistente' ? 'a aprovação do gerente' : 'sua aprovação'}`,
             subtitulo: 'Conferir arquivos e aprovar',
             link: '/aprovacoes?tab=pacotes',
             count: countPacGer,
@@ -253,15 +288,14 @@ export default function FilaOcorrencias() {
           });
         }
         
-        // Pacotes aguardando correção (qualquer status contendo solicitar ou correcao)
-        const { data: allPacotes } = await supabase
+        // Pacotes aguardando correção. Era `select('id, status')` SEM filtro nem
+        // limite, contando no navegador: o PostgREST corta em 1000 linhas por
+        // padrão, então a partir daí a conta passava a mentir para baixo — em
+        // silêncio. Agora conta no banco.
+        const { count: countCorrecao } = await supabase
           .from('emissoes_pacotes')
-          .select('id, status');
-          
-        const countCorrecao = (allPacotes || []).filter(p => {
-          const s = (p.status || '').toLowerCase();
-          return s === 'solicitar_correcao' || s.includes('solicitar') || s.includes('correção') || s.includes('correcao') || s.includes('alteração') || s.includes('alteracao');
-        }).length;
+          .select('id', { count: 'exact', head: true })
+          .or('status.ilike.%solicitar%,status.ilike.%correc%,status.ilike.%correç%,status.ilike.%altera%');
         if (countCorrecao > 0) {
           lista.push({
             id: 'pacotes-correcao',

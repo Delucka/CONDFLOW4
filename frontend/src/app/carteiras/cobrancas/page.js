@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import { mesAnoVigente } from '@/lib/mesVigente';
+import { mesAnoVigente, mesFechado } from '@/lib/mesVigente';
 import { can } from '@/lib/roles';
 import {
   Plus, Trash2, Loader2, X, AlertCircle, CheckCircle2,
@@ -20,12 +20,11 @@ function getMesAtual() {
   return mesAnoVigente();   // trabalhamos 1 mês à frente
 }
 
-// Lock por (condo, ano) é calculado no hook useLockedMonths; aqui mantemos só
-// a verificação de "mês passou" para casos sem condo selecionado.
-function isMesNoPassado(mes, ano) {
-  const { mes: ma, ano: aa } = getMesAtual();
-  return ano < aa || (ano === aa && mes < ma);
-}
+// Lock por (condo, ano) é calculado no hook useLockedMonths; aqui fica só a
+// verificação de "mês passou", para os casos sem condomínio selecionado.
+// Usa a MESMA régua das outras telas (mesFechado): antes comparava com o mês do
+// calendário, e as três telas fechavam o mês em datas diferentes.
+const isMesNoPassado = (mes, ano) => mesFechado(mes, ano);
 
 async function getToken() {
   const sb = createClient();

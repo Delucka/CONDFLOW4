@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { mesFechado } from '@/lib/mesVigente';
 
 /**
  * Hook que calcula quais meses (1-12) de um (condominio, ano) estão BLOQUEADOS
@@ -56,12 +57,10 @@ export function useLockedMonths(condoId, ano) {
 
   const lockedMap = useMemo(() => {
     const map = {}; // { 1: { locked: true, reason: 'prazo_encerrado' }, ... }
-    const today = new Date();
     for (let mes = 1; mes <= 12; mes++) {
-      // Regra 1: hoje >= dia 16 do próprio mês (prazo de 15 dias do mês X encerrado)
-      // JS: new Date(ano, mes-1, 16) = dia 16 do mês 'mes' às 00:00
-      const cutoff = new Date(ano, mes - 1, 16, 0, 0, 0);
-      if (today >= cutoff) { map[mes] = { locked: true, reason: 'prazo_encerrado' }; continue; }
+      // Regra 1: o mês já ficou para trás (é anterior ao mês de trabalho).
+      // Era "dia 16 do próprio mês", que fechava um mês tarde — ver mesFechado().
+      if (mesFechado(mes, ano)) { map[mes] = { locked: true, reason: 'prazo_encerrado' }; continue; }
 
       // Regra 2: existe pacote do mês — inclusive rascunho. Montar a emissão é
       // o momento em que os valores do mês param de se mexer; deixar cobrança
@@ -86,7 +85,7 @@ export function useLockedMonths(condoId, ano) {
 export function reasonLabel(reason) {
   switch (reason) {
     case 'passado':            return 'Mês encerrado';                  // legado
-    case 'prazo_encerrado':    return 'Prazo encerrado (após dia 15)';
+    case 'prazo_encerrado':    return 'Mês encerrado';
     case 'pronto_para_emitir': return 'Fechado antecipadamente';   // legado (até a 0088)
     case 'em_emissao':         return 'Emissão em montagem';
     case 'emitido':            return 'Emissão registrada';

@@ -30,7 +30,17 @@ export function AuthProvider({ children }) {
         if (gerente) gerenteId = gerente.id;
       }
       
-      setProfile({ ...profile, gerente_id: gerenteId });
+      // CUIDADO com os dois sentidos de `gerente_id` (Armadilha 2 do ESQUEMA-BANCO):
+      //   • para o GERENTE, aqui ele vira `gerentes.id` — é o que as telas esperam;
+      //   • na LINHA de um assistente, a coluna guarda o id do PROFILE do gerente.
+      // A linha abaixo sobrescrevia o segundo caso com null, apagando o vínculo do
+      // assistente antes que qualquer tela pudesse usá-lo. Preservado num campo
+      // próprio, para não mudar o significado de `gerente_id` para quem já o lê.
+      setProfile({
+        ...profile,
+        gerente_id: gerenteId,
+        gerente_profile_id: profile.role === 'assistente' ? (profile.gerente_id || null) : null,
+      });
     } catch (e) {
       console.error('Error fetching profile:', e);
     }

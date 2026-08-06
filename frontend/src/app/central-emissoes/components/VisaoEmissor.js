@@ -12,7 +12,7 @@ import { apiPost, apiFetch } from '@/lib/api';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { ocrFileToText, parseFaturaOcr, decodeBoletoValor } from '@/lib/ocrClient';
 import ModalPreparacao from './ModalPreparacao';
-import { mesVigente, anoVigente } from '@/lib/mesVigente';
+import { mesVigente, anoVigente, mesFechado } from '@/lib/mesVigente';
 import { combina } from '@/lib/busca';
 import { podeRegistrar, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
@@ -522,12 +522,12 @@ export default function VisaoEmissor({ profile }) {
 
   // --- AÇÕES ---
 
-  // Helper: mes/ano selecionado está no passado (já encerrou)?
-  function mesAnoNoPassado(m, a) {
-    const lastDay = new Date(a, m, 0, 23, 59, 59);
-    return new Date() > lastDay;
-  }
-  const periodoPassado = mesAnoNoPassado(mes, ano);
+  // Mês encerrado = anterior ao mês de trabalho (mesFechado), a MESMA régua da
+  // planilha. Antes era "passou o último dia do mês", que em 05/08 ainda dava
+  // agosto como aberto — mas os boletos de agosto foram emitidos em julho e já
+  // estão vencendo. Agora agosto para trás fecha, e só setembro (o mês de
+  // trabalho) segue aberto.
+  const periodoPassado = mesFechado(mes, ano);
 
   async function handleCriarOuAbrirPacote(e) {
     e?.preventDefault?.();
