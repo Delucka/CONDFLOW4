@@ -7,6 +7,7 @@ import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { mesAnoVigente } from '@/lib/mesVigente';
+import { useRouter } from 'next/navigation';
 import { combina } from '@/lib/busca';
 import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
@@ -167,9 +168,51 @@ export default function DashboardPage() {
   useEffect(() => { const v = parseInt(localStorage.getItem('dash_mes') || '', 10); if (v >= 1 && v <= 12) setMesEmissao(v); }, []);
   useEffect(() => { try { localStorage.setItem('dash_mes', String(mesEmissao)); } catch {} }, [mesEmissao]);
 
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const supabase = createClient();
   const { addToast } = useToast();
+  const router = useRouter();
+
+  // Quem FAZ a emissão vê esta tela de outro jeito. O gerente precisa da
+  // planilha e das cobranças à mão; a emissão vê a planilha dentro da própria
+  // emissão, e cobrança extra é esporádica — mora no menu da esquerda. Aqui a
+  // linha inteira é um atalho para montar a emissão daquele condomínio.
+  const fazEmissao = ['master', 'departamento'].includes(profile?.role);
+
+  // Concessionárias por condomínio (0036) — quem tem água/gás/energia precisa de
+  // fatura e relatório antes de emitir, e é o que a tela pergunta ao abrir.
+  const [concessionariasPorCondo, setConcessionariasPorCondo] = useState({});
+  useEffect(() => {
+    if (!fazEmissao) return;
+    let vivo = true;
+    (async () => {
+      const { data } = await supabase
+        .from('condominios_concessionarias')
+        .select('condominio_id, concessionaria');
+      if (!vivo) return;
+      const map = {};
+      (data || []).forEach(r => { (map[r.condominio_id] = map[r.condominio_id] || []).push(r.concessionaria); });
+      setConcessionariasPorCondo(map);
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fazEmissao]);
+
+  // Confirmação antes de sair para a emissão: { condo, concessionarias }
+  const [confirmarConsumo, setConfirmarConsumo] = useState(null);
+
+  function irParaEmissao(condo) {
+    const q = `condo=${condo.id}&mes=${mesEmissao}&ano=${vigente.ano}&tab=upload`;
+    router.push(`/central-emissoes?${q}`);
+  }
+
+  // Com concessionária, pergunta antes: abrir a emissão sem a fatura em mãos é
+  // o começo de um pacote que vai ficar parado esperando.
+  function abrirEmissao(condo) {
+    const cs = concessionariasPorCondo[condo.id] || [];
+    if (cs.length) setConfirmarConsumo({ condo, concessionarias: cs });
+    else irParaEmissao(condo);
+  }
 
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
   const [processing, setProcessing] = useState(null);
@@ -623,7 +666,13 @@ export default function DashboardPage() {
                     const isLocked     = procStatus === 'Edição finalizada';
 
                     return (
-                      <tr key={c.id} className="hover:bg-slate-100 transition-colors group">
+                      <tr key={c.id}
+                        onClick={fazEmissao ? () => abrirEmissao(c) : undefined}
+                        role={fazEmissao ? 'button' : undefined}
+                        tabIndex={fazEmissao ? 0 : undefined}
+                        onKeyDown={fazEmissao ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirEmissao(c); } } : undefined}
+                        title={fazEmissao ? `Montar a emissão de ${c.name}` : undefined}
+                        className={`hover:bg-slate-100 transition-colors group ${fazEmissao ? 'cursor-pointer' : ''}`}>
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             {isLocked
@@ -651,10 +700,16 @@ export default function DashboardPage() {
                             : <span className="text-[10px] text-slate-400 font-bold">—</span>
                           }
                         </td>
-                        <td className="px-4 py-2">
+                        {/* stopPropagation: sem isto, clicar num ícone dispara
+                            TAMBÉM o clique da linha e a pessoa acaba na emissão. */}
+                        <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1 justify-end">
-                            <Link href={`/condominio/${c.id}/arrecadacoes`} className={btn.iconeDiscreto} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-4 h-4" aria-hidden="true" /></Link>
-                            <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className={btn.iconeDiscreto} title="Cobranças" aria-label="Cobranças"><Receipt className="w-4 h-4" aria-hidden="true" /></Link>
+                            {!fazEmissao && (
+                              <>
+                                <Link href={`/condominio/${c.id}/arrecadacoes`} className={btn.iconeDiscreto} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-4 h-4" aria-hidden="true" /></Link>
+                                <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className={btn.iconeDiscreto} title="Cobranças" aria-label="Cobranças"><Receipt className="w-4 h-4" aria-hidden="true" /></Link>
+                              </>
+                            )}
                             <button onClick={() => handleQuickView(c.id)}   className={btn.iconeDiscreto} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-4 h-4" aria-hidden="true" /></button>
                           </div>
                         </td>
@@ -673,7 +728,9 @@ export default function DashboardPage() {
                 const emissaoStatus = emissaoByCondominio[c.id] || null;
                 const isLocked      = procStatus === 'Edição finalizada';
                 return (
-                  <div key={c.id} className="p-3 active:bg-slate-100 transition-colors">
+                  <div key={c.id}
+                    onClick={fazEmissao ? () => abrirEmissao(c) : undefined}
+                    className={`p-3 active:bg-slate-100 transition-colors ${fazEmissao ? 'cursor-pointer' : ''}`}>
                     <div className="flex items-start gap-2">
                       {isLocked
                         ? <Lock className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-1" />
@@ -685,9 +742,13 @@ export default function DashboardPage() {
                           {c.due_day && <span className="text-slate-400"> · venc. dia {c.due_day}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>}
                         </p>
                       </div>
-                      <div className="flex gap-1.5 shrink-0">
-                        <Link href={`/condominio/${c.id}/arrecadacoes`} className={btn.icone} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-4 h-4" aria-hidden="true" /></Link>
-                        <Link href={`/carteiras/cobrancas?condo=${c.id}`} className={btn.icone} title="Cobranças" aria-label="Cobranças"><Receipt className="w-4 h-4" aria-hidden="true" /></Link>
+                      <div className="flex gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {!fazEmissao && (
+                          <>
+                            <Link href={`/condominio/${c.id}/arrecadacoes`} className={btn.icone} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-4 h-4" aria-hidden="true" /></Link>
+                            <Link href={`/carteiras/cobrancas?condo=${c.id}`} className={btn.icone} title="Cobranças" aria-label="Cobranças"><Receipt className="w-4 h-4" aria-hidden="true" /></Link>
+                          </>
+                        )}
                         <button onClick={() => handleQuickView(c.id)} className={btn.icone} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-4 h-4" aria-hidden="true" /></button>
                       </div>
                     </div>
@@ -750,6 +811,49 @@ export default function DashboardPage() {
           onClose={() => setArquivoConferencia(null)}
           onAction={() => { mutate(); setArquivoConferencia(null); }}
         />
+      )}
+
+      {/* Condomínio com concessionária: confere se fatura e relatório estão em
+          mãos antes de abrir a emissão. Abrir sem isso cria um pacote que fica
+          parado esperando — e ninguém lembra por quê. */}
+      {confirmarConsumo && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setConfirmarConsumo(null)} />
+          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 space-y-4">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900">{confirmarConsumo.condo.name}</h4>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Emissão de {String(mesEmissao).padStart(2, '0')}/{vigente.ano}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5">
+              <p className="text-xs font-semibold text-amber-900">Este condomínio tem consumo:</p>
+              <p className="mt-1 flex flex-wrap gap-1.5">
+                {confirmarConsumo.concessionarias.map(c => (
+                  <span key={c} className="inline-flex items-center rounded-md border border-amber-300 bg-white px-1.5 py-0.5 text-[11px] font-bold text-amber-800">
+                    {c}
+                  </span>
+                ))}
+              </p>
+              <p className="mt-2 text-[11px] text-amber-800 leading-relaxed">
+                Você já tem a <strong>fatura</strong> e o <strong>relatório de leitura</strong> em mãos?
+                Sem eles a emissão abre, mas fica parada.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setConfirmarConsumo(null)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-medium text-slate-500 hover:bg-slate-100 transition-colors">
+                Ainda não
+              </button>
+              <button type="button" onClick={() => { const c = confirmarConsumo.condo; setConfirmarConsumo(null); irParaEmissao(c); }}
+                className="flex-[2] py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium text-xs transition-colors">
+                Tenho tudo — abrir emissão
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showRejectModal && (

@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Archive } from 'lucide-react';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 // Carrega só a view ativa (cada papel usa uma) — bundle inicial menor, navegação mais rápida.
 const ViewLoader = () => (
@@ -20,6 +20,14 @@ const RegistroEmissoes = dynamic(() => import('./components/RegistroEmissoes'), 
 export default function CentralEmissoesPage() {
   const { profile, loading } = useAuth();
   const [activeView, setActiveView] = useState('default');
+
+  // Abre direto na aba pedida pelo link (Dashboard manda ?tab=upload).
+  // Lido de `window.location` num efeito, e não com useSearchParams: esta rota é
+  // estática, e useSearchParams sem Suspense quebra o build do Next aqui.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'upload' || tab === 'registro') setActiveView(tab);
+  }, []);
 
   if (loading || !profile) {
     return (

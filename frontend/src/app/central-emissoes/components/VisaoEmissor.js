@@ -47,10 +47,23 @@ export default function VisaoEmissor({ profile }) {
   const [grupoId, setGrupoId] = useState('');
   const grupoDesejadoRef = useRef(null);   // grupo do pacote que acabou de ser aberto
 
-  // Persiste mês/ano: mantém ao sair/voltar; só muda quando o usuário troca
+  // Persiste mês/ano: mantém ao sair/voltar; só muda quando o usuário troca.
+  // O link do Dashboard (?condo&mes&ano) VENCE o que estava guardado — quem
+  // clicou numa linha específica quer aquele condomínio e aquele mês, não o
+  // último que estava aberto.
   useEffect(() => {
-    const m = parseInt(localStorage.getItem('emissor_mes') || '', 10); if (m >= 1 && m <= 12) setMes(m);
-    const a = parseInt(localStorage.getItem('emissor_ano') || '', 10); if (a > 2000) setAno(a);
+    const q = new URLSearchParams(window.location.search);
+    const qCondo = q.get('condo');
+    const qMes = parseInt(q.get('mes') || '', 10);
+    const qAno = parseInt(q.get('ano') || '', 10);
+
+    if (qMes >= 1 && qMes <= 12) setMes(qMes);
+    else { const m = parseInt(localStorage.getItem('emissor_mes') || '', 10); if (m >= 1 && m <= 12) setMes(m); }
+
+    if (qAno > 2000) setAno(qAno);
+    else { const a = parseInt(localStorage.getItem('emissor_ano') || '', 10); if (a > 2000) setAno(a); }
+
+    if (qCondo) setCondoId(qCondo);
   }, []);
   useEffect(() => { try { localStorage.setItem('emissor_mes', String(mes)); localStorage.setItem('emissor_ano', String(ano)); } catch {} }, [mes, ano]);
 
@@ -280,6 +293,26 @@ export default function VisaoEmissor({ profile }) {
 
   // Refaz a busca de preparacao quando mes/ano mudam
   useEffect(() => { fetchPreparacao(); fetchAlteracoes(); fetchEdicoes(); }, [mes, ano]);
+
+  // Chegando pelo link do Dashboard: se a emissão daquele condomínio+mês JÁ
+  // existe, abre. Se não existe, apenas deixa o condomínio escolhido no
+  // formulário — de propósito.
+  //
+  // Criar sozinho seria pior que conveniente: desde a 0088 o rascunho TRAVA as
+  // cobranças extras do mês. Um clique errado na lista passaria a fechar o mês
+  // de um condomínio sem ninguém pedir.
+  const linkJaTratado = useRef(false);
+  useEffect(() => {
+    if (linkJaTratado.current || !pacotes.length) return;
+    const q = new URLSearchParams(window.location.search);
+    const qCondo = q.get('condo');
+    if (!qCondo) { linkJaTratado.current = true; return; }
+    const achado = pacotes.find(p =>
+      p.condominio_id === qCondo && p.mes_referencia === mes && p.ano_referencia === ano);
+    linkJaTratado.current = true;
+    if (achado) abrirPacote(achado);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pacotes, mes, ano]);
 
   // Carrega a referência do gerente (planilha do mês + cobranças extras) ao abrir um pacote
   useEffect(() => {
