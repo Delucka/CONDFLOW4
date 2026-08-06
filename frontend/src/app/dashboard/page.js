@@ -177,7 +177,18 @@ export default function DashboardPage() {
   // planilha e das cobranças à mão; a emissão vê a planilha dentro da própria
   // emissão, e cobrança extra é esporádica — mora no menu da esquerda. Aqui a
   // linha inteira é um atalho para montar a emissão daquele condomínio.
-  const fazEmissao = ['master', 'departamento'].includes(profile?.role);
+  // O master faz as duas coisas, então escolhe a visão. O departamento só emite;
+  // o gerente e o assistente nunca veem esse alternador.
+  const [visaoMaster, setVisaoMaster] = useState('emissao');   // 'emissao' | 'gerencia'
+  useEffect(() => {
+    const v = localStorage.getItem('dash_visao');
+    if (v === 'emissao' || v === 'gerencia') setVisaoMaster(v);
+  }, []);
+  useEffect(() => { try { localStorage.setItem('dash_visao', visaoMaster); } catch {} }, [visaoMaster]);
+
+  const podeAlternarVisao = profile?.role === 'master';
+  const fazEmissao = profile?.role === 'departamento'
+    || (profile?.role === 'master' && visaoMaster === 'emissao');
 
   // Concessionárias por condomínio (0036) — quem tem água/gás/energia precisa de
   // fatura e relatório antes de emitir, e é o que a tela pergunta ao abrir.
@@ -587,6 +598,32 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* O master trabalha dos dois lados: emitindo, a linha leva à
+                  emissão; na gerência, voltam os atalhos de planilha e cobrança. */}
+              {podeAlternarVisao && (
+                <div className={`inline-flex border border-slate-200 ${raio.controle} overflow-hidden`} role="group" aria-label="Visão do painel">
+                  {[
+                    { id: 'emissao',  rotulo: 'Emissão',  dica: 'A linha abre a emissão do condomínio' },
+                    { id: 'gerencia', rotulo: 'Gerência', dica: 'Atalhos de planilha e cobranças na linha' },
+                  ].map(v => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setVisaoMaster(v.id)}
+                      title={v.dica}
+                      aria-pressed={visaoMaster === v.id}
+                      className={`px-2.5 py-1.5 text-[13px] transition-colors ${
+                        visaoMaster === v.id
+                          ? 'bg-violet-600 text-white font-semibold'
+                          : 'bg-white text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {v.rotulo}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <select
                 value={mesEmissao}
                 onChange={(e) => setMesEmissao(Number(e.target.value))}

@@ -294,25 +294,33 @@ export default function VisaoEmissor({ profile }) {
   // Refaz a busca de preparacao quando mes/ano mudam
   useEffect(() => { fetchPreparacao(); fetchAlteracoes(); fetchEdicoes(); }, [mes, ano]);
 
-  // Chegando pelo link do Dashboard: se a emissão daquele condomínio+mês JÁ
-  // existe, abre. Se não existe, apenas deixa o condomínio escolhido no
-  // formulário — de propósito.
+  // Chegando pelo link do Dashboard: abre o pacote daquele condomínio+mês —
+  // criando, se ainda não existir. É o que se quer ao clicar na linha: já estar
+  // dentro da emissão.
   //
-  // Criar sozinho seria pior que conveniente: desde a 0088 o rascunho TRAVA as
-  // cobranças extras do mês. Um clique errado na lista passaria a fechar o mês
-  // de um condomínio sem ninguém pedir.
+  // `handleCriarOuAbrirPacote` é a MESMA porta do botão "+ Criar", então todas
+  // as travas continuam valendo (gerente editando, mês fechado, alteração
+  // prevista). Só se espera `grupoId`: sem os grupos carregados, um condomínio
+  // de dois vencimentos criaria a emissão sem grupo nenhum.
+  //
+  // Lembrete do efeito colateral, aceito de propósito: desde a 0088 o rascunho
+  // trava as cobranças extras do mês. Cancelar o rascunho devolve.
   const linkJaTratado = useRef(false);
   useEffect(() => {
-    if (linkJaTratado.current || !pacotes.length) return;
+    if (linkJaTratado.current || loading) return;
     const q = new URLSearchParams(window.location.search);
     const qCondo = q.get('condo');
     if (!qCondo) { linkJaTratado.current = true; return; }
+    // Espera o condomínio do link virar o selecionado e os grupos dele chegarem.
+    if (condoId !== qCondo || !grupoId) return;
+
+    linkJaTratado.current = true;
     const achado = pacotes.find(p =>
       p.condominio_id === qCondo && p.mes_referencia === mes && p.ano_referencia === ano);
-    linkJaTratado.current = true;
     if (achado) abrirPacote(achado);
+    else handleCriarOuAbrirPacote();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pacotes, mes, ano]);
+  }, [pacotes, condoId, grupoId, loading, mes, ano]);
 
   // Carrega a referência do gerente (planilha do mês + cobranças extras) ao abrir um pacote
   useEffect(() => {
