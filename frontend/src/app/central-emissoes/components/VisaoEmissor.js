@@ -17,6 +17,7 @@ import { combina } from '@/lib/busca';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 import { podeRegistrar, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
+import ComparativoConsumo from './ComparativoConsumo';
 import { FileWarning } from 'lucide-react';
 
 export default function VisaoEmissor({ profile }) {
@@ -1450,6 +1451,14 @@ export default function VisaoEmissor({ profile }) {
               </div>
             );
           })()}
+
+          {/* Consumo do mês anterior, como régua para o que está sendo montado */}
+          <ComparativoConsumo
+            condominioId={activePacote.condominio_id}
+            mes={activePacote.mes_referencia}
+            ano={activePacote.ano_referencia}
+            arquivosAtuais={pacoteArquivos}
+          />
 
           {/* Referência do gerente: planilha do mês + cobranças extras a incluir */}
           <div className="mb-6 rounded-2xl border border-slate-200 bg-white overflow-hidden">
