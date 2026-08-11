@@ -410,14 +410,31 @@ export default function VisaoMaster() {
 
         if (upErr) throw upErr;
 
-        await supabase.from('emissoes_arquivos').insert({
-          pacote_id:     pacoteExpedir.id,
-          condominio_id: pacoteExpedir.condominio_id,
-          arquivo_nome:  file.name,
-          arquivo_url:   filePath,
-          formato:       ext,
-          status:        'expedida',
+        // Este insert NUNCA funcionou. Mandava `status: 'expedida'`, e `status`
+        // é o enum `emissao_status`, que só aceita pendente/aprovado/
+        // solicitar_correcao (0005). Também faltava `tipo`, que é NOT NULL sem
+        // default. E o erro era engolido: `await ...insert()` sem ler o retorno,
+        // e o supabase-js DEVOLVE {error} em vez de lançar.
+        //
+        // Resultado: todo boleto foi para o bucket sem linha na tabela, órfão, e
+        // a tela dizia "done". Por isso a fila de expedição vinha vazia.
+        //
+        // Agora: payload completo, categoria 'boleto' (0095) — que é o campo
+        // que diz O QUE o arquivo é — e o erro conferido.
+        const { error: dbErr } = await supabase.from('emissoes_arquivos').insert({
+          pacote_id:      pacoteExpedir.id,
+          condominio_id:  pacoteExpedir.condominio_id,
+          tipo:           'emissao',
+          categoria:      'boleto',
+          arquivo_nome:   file.name,
+          arquivo_url:    filePath,
+          formato:        ext,
+          mes_referencia: pacoteExpedir.mes_referencia,
+          ano_referencia: pacoteExpedir.ano_referencia,
+          status:         'pendente',
+          uploaded_by:    profile?.id || null,
         });
+        if (dbErr) throw dbErr;
 
         novoStatus[file.name] = 'done';
       } catch (e) {

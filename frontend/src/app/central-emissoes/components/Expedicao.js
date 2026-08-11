@@ -16,7 +16,7 @@ import { Printer, Check, Loader2, Inbox, Search, RotateCcw, FileText, X } from '
  * duas remessas no mesmo mês, com boletos diferentes e datas diferentes, e a
  * expedição trata cada uma como um trabalho separado.
  *
- * Boleto aqui é `emissoes_arquivos.status = 'expedida'` — os arquivos que o
+ * Boleto aqui é `emissoes_arquivos.categoria = 'boleto'` — os arquivos que o
  * emissor anexa no "Expedir", depois de registrar. O resto do pacote (planilha,
  * faturas, rateio) não é assunto de quem imprime.
  *
@@ -63,7 +63,10 @@ export default function Expedicao() {
           .from('emissoes_arquivos')
           .select('id, pacote_id, arquivo_nome, arquivo_url, impresso_em, impresso_por_nome, ordem, criado_em')
           .in('pacote_id', ids)
-          .eq('status', 'expedida')       // o que o emissor anexou no "Expedir"
+          // `categoria = 'boleto'` (0095) é o que o "Expedir" anexa. Antes o
+          // código marcava `status: 'expedida'`, valor que o enum nem aceita —
+          // o insert falhava calado e nenhum boleto chegou à tabela.
+          .eq('categoria', 'boleto')
           .order('ordem', { ascending: true, nullsFirst: false })
           .order('criado_em', { ascending: true });
         (arqs || []).forEach(a => { (porPacote[a.pacote_id] = porPacote[a.pacote_id] || []).push(a); });
