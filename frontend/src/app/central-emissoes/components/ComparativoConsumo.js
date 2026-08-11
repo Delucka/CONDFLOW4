@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Droplet, Flame, Zap, TrendingUp, TrendingDown, Minus, Loader2 } from 'lucide-react';
+import { Droplet, Flame, Zap, TrendingUp, TrendingDown, Minus, Loader2, FileText } from 'lucide-react';
+import { abrirArquivoSeguro } from '@/lib/arquivo';
 
 /**
  * O consumo do MÊS ANTERIOR, ao lado do que está sendo montado agora.
@@ -38,18 +39,61 @@ function servicoDoArquivo(a) {
 
 const brl = (n) => Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/** Resume um conjunto de arquivos num par {valor, consumo} por serviço. */
+/**
+ * Resume um conjunto de arquivos num {valor, consumo, fatura} por serviço.
+ *
+ * `fatura` guarda o caminho do anexo para poder ABRIR o documento: número em
+ * tela responde "mudou quanto", mas quem precisa decidir se aquilo é vazamento
+ * ou fatura trocada tem que olhar a conta.
+ */
 function resumir(arquivos) {
   const mapa = {};
   for (const a of arquivos || []) {
     const s = servicoDoArquivo(a);
     if (!s) continue;
-    mapa[s] = mapa[s] || { valor: null, consumo: null };
+    mapa[s] = mapa[s] || { valor: null, consumo: null, fatura: null, relatorio: null };
     if (a.valor_fatura != null) mapa[s].valor = Number(a.valor_fatura);
     if (a.relatorio_valor_total != null && mapa[s].valor == null) mapa[s].valor = Number(a.relatorio_valor_total);
     if (a.relatorio_consumo_total != null) mapa[s].consumo = Number(a.relatorio_consumo_total);
+    // A fatura da concessionária é o documento que se confere; o relatório de
+    // leitura vem junto como segunda opção.
+    if (a.arquivo_url && a.categoria === 'concessionaria' && !mapa[s].fatura) {
+      mapa[s].fatura = { url: a.arquivo_url, nome: a.arquivo_nome };
+    }
+    if (a.arquivo_url && a.categoria === 'relatorio_leitura' && !mapa[s].relatorio) {
+      mapa[s].relatorio = { url: a.arquivo_url, nome: a.arquivo_nome };
+    }
   }
   return mapa;
+}
+
+/**
+ * Um lado do comparativo. Vira botão quando existe documento anexado — o
+ * número sozinho não resolve; para decidir se é vazamento ou fatura trocada,
+ * é preciso abrir a conta.
+ */
+function Lado({ rotulo, valor, consumo, doc, vazio, forte, onAbrir, abrindo }) {
+  const conteudo = (
+    <>
+      <span className="text-[10px] uppercase tracking-widest text-slate-400 mr-1 font-normal">{rotulo}</span>
+      {valor != null ? `R$ ${brl(valor)}` : vazio}
+      {consumo != null && <span className="text-slate-400 font-normal"> · {brl(consumo)} m³</span>}
+    </>
+  );
+  const classe = `text-xs tabular-nums ${forte ? 'font-bold ' : ''}${valor != null ? (forte ? 'text-slate-800' : 'text-slate-500') : 'text-slate-400'}`;
+
+  if (!doc) return <span className={classe}>{conteudo}</span>;
+
+  return (
+    <button type="button" onClick={() => onAbrir(doc)} disabled={abrindo === doc.url}
+      title={`Abrir ${doc.nome || 'o documento anexado'}`}
+      className={`${classe} inline-flex items-center gap-1 rounded-md px-1 -mx-1 hover:bg-violet-50 hover:text-violet-700 transition-colors disabled:opacity-50`}>
+      {conteudo}
+      {abrindo === doc.url
+        ? <Loader2 className="w-3 h-3 animate-spin shrink-0" aria-hidden="true" />
+        : <FileText className="w-3 h-3 shrink-0 text-violet-500" aria-hidden="true" />}
+    </button>
+  );
 }
 
 export default function ComparativoConsumo({ condominioId, mes, ano, arquivosAtuais }) {
@@ -68,7 +112,7 @@ export default function ComparativoConsumo({ condominioId, mes, ano, arquivosAtu
     (async () => {
       const { data, error } = await supabase
         .from('emissoes_arquivos')
-        .select('subtipo, categoria, valor_fatura, relatorio_tipo_servico, relatorio_consumo_total, relatorio_valor_total')
+        .select('subtipo, categoria, valor_fatura, relatorio_tipo_servico, relatorio_consumo_total, relatorio_valor_total, arquivo_url, arquivo_nome')
         .eq('condominio_id', condominioId)
         .eq('mes_referencia', mesAnt)
         .eq('ano_referencia', anoAnt)
@@ -81,6 +125,16 @@ export default function ComparativoConsumo({ condominioId, mes, ano, arquivosAtu
   }, [supabase, condominioId, mesAnt, anoAnt]);
 
   const atuais = useMemo(() => resumir(arquivosAtuais), [arquivosAtuais]);
+
+  // Nunca abre o Supabase direto: o backend confere a permissão por arquivo
+  // antes de devolver a URL assinada.
+  const [abrindo, setAbrindo] = useState(null);
+  async function abrir(doc) {
+    if (!doc?.url) return;
+    setAbrindo(doc.url);
+    try { await abrirArquivoSeguro(doc.url); }
+    finally { setAbrindo(null); }
+  }
 
   if (anteriores === null) {
     return (
@@ -134,19 +188,13 @@ export default function ComparativoConsumo({ condominioId, mes, ano, arquivosAtu
                 {s.rotulo}
               </span>
 
-              <span className="text-xs text-slate-500 tabular-nums">
-                <span className="text-[10px] uppercase tracking-widest text-slate-400 mr-1">antes</span>
-                {vAnt != null ? `R$ ${brl(vAnt)}` : '—'}
-                {ant?.consumo != null && <span className="text-slate-400"> · {brl(ant.consumo)} m³</span>}
-              </span>
+              <Lado rotulo="antes" valor={vAnt} consumo={ant?.consumo} doc={ant?.fatura || ant?.relatorio}
+                    vazio="—" onAbrir={abrir} abrindo={abrindo} />
 
               <span className="text-slate-300">→</span>
 
-              <span className={`text-xs tabular-nums font-bold ${vAtual != null ? 'text-slate-800' : 'text-slate-400'}`}>
-                <span className="text-[10px] uppercase tracking-widest text-slate-400 mr-1 font-normal">agora</span>
-                {vAtual != null ? `R$ ${brl(vAtual)}` : 'ainda não anexada'}
-                {atual?.consumo != null && <span className="text-slate-400 font-normal"> · {brl(atual.consumo)} m³</span>}
-              </span>
+              <Lado rotulo="agora" valor={vAtual} consumo={atual?.consumo} doc={atual?.fatura || atual?.relatorio}
+                    vazio="ainda não anexada" forte onAbrir={abrir} abrindo={abrindo} />
 
               {varia != null && (
                 <span className={`ml-auto inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
