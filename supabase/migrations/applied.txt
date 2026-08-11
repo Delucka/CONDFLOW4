@@ -87,7 +87,11 @@
 # 05/08/2026 — rodada e conferida: login, logout/login e Acessos e Perfis OK
 0085_rls_profiles.sql
 0086_grupos_emissao.sql
-# 0087_conjunto_emissao_trava.sql  <- NAO confirmada; ensaio existe, rodar antes
+# 06/08/2026 — ensaio passou nos 2 casos, depois rodadas juntas (0093 antes da
+# 0087, para nao ficar sem protecao nenhuma no meio). Conferido: 0 indices
+# unicos em emissoes_pacotes e trg_conjunto_emissao no ar.
+0093_derruba_indice_unico_emissao.sql
+0087_conjunto_emissao_trava.sql
 # 05/08/2026 — conferida na tela: as 2 colunas voltaram no information_schema
 0088_preparacao_espera_e_cobrancas.sql
 0089_grupos_faltantes.sql
