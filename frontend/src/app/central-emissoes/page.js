@@ -46,6 +46,9 @@ export default function CentralEmissoesPage() {
   // Acesso restrito a master e departamento (emissor)
   const isMaster = profile.role === 'master';
   const isDepartamento = profile.role === 'departamento';
+  // A expedicao entra so para imprimir: nao ve painel, nao faz emissao,
+  // nao mexe no registro.
+  const isExpedicao = profile.role === 'expedicao';
 
   // Montar abas conforme o perfil
   const tabs = [];
@@ -61,8 +64,10 @@ export default function CentralEmissoesPage() {
   // passo seguinte a fazer a emissão, não o arquivo morto.
   tabs.push({ id: 'expedicao', label: 'Expedição', activeClass: 'bg-violet-600 text-white ' });
 
-  // Aba Registro de Emissões
-  tabs.push({ id: 'registro', label: 'Registro de Emissões', icon: true, activeClass: 'bg-emerald-600 text-white ' });
+  // Registro é arquivo/auditoria: não é assunto de quem imprime.
+  if (!isExpedicao) {
+    tabs.push({ id: 'registro', label: 'Registro de Emissões', icon: true, activeClass: 'bg-emerald-600 text-white ' });
+  }
 
   // Toolbar
   const toolbar = (
@@ -85,7 +90,7 @@ export default function CentralEmissoesPage() {
   // Conteúdo
   let content = null;
 
-  if (activeView === 'expedicao') {
+  if (activeView === 'expedicao' || isExpedicao) {
     content = <Expedicao />;
   } else if (activeView === 'registro') {
     content = <RegistroEmissoes profile={profile} />;

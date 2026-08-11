@@ -7,7 +7,7 @@ Mantém o RBAC consistente entre back e front.
 ALL_ROLES = [
     'master', 'gerente', 'assistente', 'supervisora',
     'supervisora_contabilidade', 'supervisor_gerentes',
-    'departamento', 'sindico', 'outros'
+    'departamento', 'expedicao', 'sindico', 'outros'
 ]
 
 # Capabilities (espelho de CAPABILITIES no front)

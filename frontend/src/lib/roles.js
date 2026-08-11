@@ -7,6 +7,7 @@ export const ROLE_LABELS = {
   supervisora_contabilidade: 'Sp. Contabilidade',
   supervisor_gerentes: 'Sup. Gerentes',
   departamento: 'Departamento',
+  expedicao: 'Expedição',
   sindico: 'Síndico',
   outros: 'Usuário',
 };
@@ -20,6 +21,7 @@ export const ROLE_SIGLA = {
   supervisora_contabilidade: { sigla: 'SPC', label: 'Supervisor da Contabilidade' },
   supervisor_gerentes:       { sigla: 'SPG', label: 'Supervisor de Gerentes' },
   departamento:              { sigla: 'DEP', label: 'Departamento' },
+  expedicao:                 { sigla: 'EXP', label: 'Expedição' },
   sindico:                   { sigla: 'SIN', label: 'Síndico' },
 };
 export function siglaRole(role) {
@@ -38,7 +40,8 @@ export const ROUTE_ACCESS = {
   '/carteiras/cobrancas': ['master','gerente','assistente'],
   '/carteiras/segundas-vias': ['master','gerente','assistente','departamento'],
   '/aprovacoes':          ['master','gerente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
-  '/central-emissoes':    ['master','departamento'],
+  // A expedicao entra so pela aba de impressao — a pagina esconde as outras.
+  '/central-emissoes':    ['master','departamento','expedicao'],
   '/correios':            ['master','departamento'],
   '/consumos':            ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
   '/admin/usuarios':      ['master'],

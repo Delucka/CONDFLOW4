@@ -4,34 +4,33 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { abrirArquivoSeguro } from '@/lib/arquivo';
-import { montarZipEmissao } from '@/lib/extrairEmissao';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
-import SeloGrupo from './SeloGrupo';
 import { anexarGrupos } from '@/lib/conjuntoEmissao';
-import {
-  Printer, Check, Loader2, Inbox, Archive, FileText, Search, RotateCcw,
-} from 'lucide-react';
+import { mesAnoVigente } from '@/lib/mesVigente';
+import { Printer, Check, Loader2, Inbox, Search, RotateCcw, FileText, X } from 'lucide-react';
 
 /**
- * Fila de impressão da expedição.
+ * Central de expedição — a fila de impressão dos boletos.
  *
- * O que ela resolve: até aqui, o único marco era o pacote inteiro virar
- * 'expedida'. Grosso demais — um pacote tem vários documentos, a impressão
- * acontece aos poucos, e quem volta de um intervalo não sabe onde parou. Sem
- * marca, o jeito de não imprimir duas vezes é lembrar.
+ * Uma linha por REMESSA, não por documento: condomínio de dois vencimentos tem
+ * duas remessas no mesmo mês, com boletos diferentes e datas diferentes, e a
+ * expedição trata cada uma como um trabalho separado.
  *
- * A baixa é por DOCUMENTO e não arquiva nada: o arquivo continua ali para
- * reimpressão e consulta. É carimbo, não gaveta.
+ * Boleto aqui é `emissoes_arquivos.status = 'expedida'` — os arquivos que o
+ * emissor anexa no "Expedir", depois de registrar. O resto do pacote (planilha,
+ * faturas, rateio) não é assunto de quem imprime.
+ *
+ * A baixa não arquiva: o arquivo continua ali para reimprimir e consultar.
  */
 
-const FILTROS = [
-  { id: 'pendentes', rotulo: 'A imprimir' },
-  { id: 'impressos', rotulo: 'Impressos' },
-  { id: 'todos',     rotulo: 'Todos' },
-];
+const MESES = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+               'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+const soDigitos = (s) => String(s || '').replace(/\D/g, '');
+const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 const fmtData = (iso) => iso
-  ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+  ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
   : null;
 
 export default function Expedicao() {
@@ -39,44 +38,52 @@ export default function Expedicao() {
   const { user } = useAuth();
   const { addToast } = useToast();
 
-  const [pacotes, setPacotes] = useState([]);
+  const [remessas, setRemessas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [mesAba, setMesAba] = useState(null);      // "2026-09"
   const [filtro, setFiltro] = useState('pendentes');
   const [busca, setBusca] = useState('');
-  const [marcando, setMarcando] = useState(null);   // id do arquivo (ou 'pacote:<id>')
-  const [zipando, setZipando] = useState(null);
-  const [prog, setProg] = useState(null);
+  const [expandido, setExpandido] = useState(null);
+  const [marcando, setMarcando] = useState(null);
 
   const fetchFila = useCallback(async () => {
     setLoading(true);
     try {
-      // A expedição começa quando a emissão é registrada. 'expedida' continua na
-      // lista: reimpressão e consulta são o motivo de nada sumir daqui.
-      const { data, error } = await supabase
+      // Só emissões que já passaram do registro. Antes disso não existe boleto.
+      const { data: pacs, error } = await supabase
         .from('emissoes_pacotes')
-        .select('id, condominio_id, mes_referencia, ano_referencia, status, grupo_id, condominios(name)')
-        .in('status', ['registrado', 'expedida'])
-        .order('ano_referencia', { ascending: false })
-        .order('mes_referencia', { ascending: false });
+        .select('id, condominio_id, mes_referencia, ano_referencia, status, grupo_id, condominios(name, due_day)')
+        .in('status', ['registrado', 'expedida']);
       if (error) throw error;
 
-      const ids = (data || []).map(p => p.id);
-      let porPacote = {};
+      const ids = (pacs || []).map(p => p.id);
+      const porPacote = {};
       if (ids.length) {
         const { data: arqs } = await supabase
           .from('emissoes_arquivos')
-          .select('id, pacote_id, arquivo_nome, arquivo_url, formato, categoria, subtipo, impresso_em, impresso_por_nome, ordem, criado_em')
+          .select('id, pacote_id, arquivo_nome, arquivo_url, impresso_em, impresso_por_nome, ordem, criado_em')
           .in('pacote_id', ids)
+          .eq('status', 'expedida')       // o que o emissor anexou no "Expedir"
           .order('ordem', { ascending: true, nullsFirst: false })
           .order('criado_em', { ascending: true });
         (arqs || []).forEach(a => { (porPacote[a.pacote_id] = porPacote[a.pacote_id] || []).push(a); });
       }
 
-      const comGrupo = await anexarGrupos(supabase, data || []);
-      setPacotes(comGrupo.map(p => ({ ...p, arquivos: porPacote[p.id] || [] })));
+      const comGrupo = await anexarGrupos(supabase, pacs || []);
+      // Pacote sem boleto anexado não é trabalho de expedição — ainda está com
+      // quem emite. Some da fila em vez de virar linha vazia.
+      const lista = comGrupo
+        .map(p => ({
+          ...p,
+          boletos: porPacote[p.id] || [],
+          vencimento: p.grupo_due_day ?? p.condominios?.due_day ?? null,
+        }))
+        .filter(p => p.boletos.length > 0);
+
+      setRemessas(lista);
     } catch (e) {
       addToast('Erro ao carregar a fila: ' + (e.message || e), 'error');
-      setPacotes([]);
+      setRemessas([]);
     } finally {
       setLoading(false);
     }
@@ -93,198 +100,223 @@ export default function Expedicao() {
 
   useRevalidarAoVoltar(fetchFila);
 
-  // ── Baixa ──
-  // Guarda quem carimbou: quando alguém perguntar "isso já saiu?", a resposta
-  // tem nome e hora, não "acho que sim".
-  async function marcar(arquivos, impresso) {
-    const ids = arquivos.map(a => a.id);
-    if (!ids.length) return;
+  // ── Abas de mês ──
+  const abas = useMemo(() => {
+    const mapa = new Map();
+    for (const r of remessas) {
+      const chave = `${r.ano_referencia}-${String(r.mes_referencia).padStart(2, '0')}`;
+      const atual = mapa.get(chave) || { chave, mes: r.mes_referencia, ano: r.ano_referencia, pendentes: 0 };
+      atual.pendentes += r.boletos.filter(b => !b.impresso_em).length ? 1 : 0;
+      mapa.set(chave, atual);
+    }
+    return [...mapa.values()].sort((a, b) => b.chave.localeCompare(a.chave));
+  }, [remessas]);
+
+  // Abre no mês de trabalho quando ele tem fila; senão, no mais recente que tem.
+  const abaAtiva = useMemo(() => {
+    if (mesAba && abas.some(a => a.chave === mesAba)) return mesAba;
+    const vig = mesAnoVigente();
+    const chaveVig = `${vig.ano}-${String(vig.mes).padStart(2, '0')}`;
+    if (abas.some(a => a.chave === chaveVig)) return chaveVig;
+    return abas[0]?.chave || null;
+  }, [mesAba, abas]);
+
+  // ── Busca: número, nome ou dia de vencimento, num campo só ──
+  // Termo numérico casa com o código do condomínio E com o dia do vencimento —
+  // obrigar a escolher o tipo seria uma pergunta a mais para quem só quer achar.
+  const lista = useMemo(() => {
+    const termo = busca.trim();
+    const num = soDigitos(termo);
+    const texto = semAcento(termo);
+
+    return remessas
+      .filter(r => `${r.ano_referencia}-${String(r.mes_referencia).padStart(2, '0')}` === abaAtiva)
+      .filter(r => {
+        const pendente = r.boletos.some(b => !b.impresso_em);
+        return filtro === 'pendentes' ? pendente : !pendente;
+      })
+      .filter(r => {
+        if (!termo) return true;
+        const nome = semAcento(r.condominios?.name);
+        if (texto && nome.includes(texto)) return true;
+        if (!num) return false;
+        const codigo = soDigitos((r.condominios?.name || '').split('-')[0]);
+        if (codigo && parseInt(codigo, 10) === parseInt(num, 10)) return true;
+        return r.vencimento != null && r.vencimento === parseInt(num, 10);
+      })
+      .sort((a, b) => (a.vencimento ?? 99) - (b.vencimento ?? 99)
+        || String(a.condominios?.name || '').localeCompare(String(b.condominios?.name || '')));
+  }, [remessas, abaAtiva, filtro, busca]);
+
+  // ── Ações ──
+  async function imprimir(r) {
+    if (r.boletos.length === 1) {
+      const ok = await abrirArquivoSeguro(r.boletos[0].arquivo_url);
+      if (!ok) addToast('Não consegui abrir o arquivo.', 'error');
+      return;
+    }
+    // Vários: abrir tudo de uma vez esbarra no bloqueador de pop-up do
+    // navegador. Abre a lista e a pessoa clica em cada um.
+    setExpandido(e => (e === r.id ? null : r.id));
+  }
+
+  async function marcar(r, impresso) {
+    const ids = r.boletos.map(b => b.id);
     const payload = impresso
       ? { impresso_em: new Date().toISOString(), impresso_por_nome: user?.full_name || user?.email || null }
       : { impresso_em: null, impresso_por_nome: null };
 
-    // Otimista: a fila reage na hora e o banco confirma atrás.
-    setPacotes(prev => prev.map(p => ({
-      ...p,
-      arquivos: p.arquivos.map(a => (ids.includes(a.id) ? { ...a, ...payload } : a)),
-    })));
+    setMarcando(r.id);
+    setRemessas(prev => prev.map(x => (x.id === r.id
+      ? { ...x, boletos: x.boletos.map(b => ({ ...b, ...payload })) } : x)));
 
     const { error } = await supabase.from('emissoes_arquivos').update(payload).in('id', ids);
-    if (error) {
-      addToast('Não consegui dar baixa: ' + error.message, 'error');
-      fetchFila();
-      return;
-    }
-    addToast(impresso
-      ? `${ids.length} documento${ids.length > 1 ? 's' : ''} marcado${ids.length > 1 ? 's' : ''} como impresso.`
-      : 'Voltou para a fila de impressão.', 'success');
+    setMarcando(null);
+    if (error) { addToast('Não consegui dar baixa: ' + error.message, 'error'); fetchFila(); return; }
+    addToast(impresso ? 'Baixa registrada.' : 'Voltou para a fila.', 'success');
   }
 
-  async function abrir(a) {
-    const ok = await abrirArquivoSeguro(a.arquivo_url);
-    if (!ok) addToast('Não consegui abrir este arquivo.', 'error');
-  }
-
-  // ZIP com os originais: imprimir em lote sem abrir um a um. Não dá baixa
-  // sozinho — baixar não é imprimir, e supor isso marcaria o que ficou na fila
-  // da impressora.
-  async function baixarZip(p, lista) {
-    if (!lista.length) return;
-    setZipando(p.id);
-    try {
-      const { blob, pulados } = await montarZipEmissao(lista, (i, n, nome) => setProg({ i, n, nome }));
-      const { saveAs } = await import('file-saver');
-      const base = `${(p.condominios?.name || 'emissao').replace(/[^\w]+/g, '_')}_${String(p.mes_referencia).padStart(2, '0')}-${p.ano_referencia}`;
-      saveAs(blob, `${base}_boletos.zip`);
-      if (pulados?.length) addToast(`${pulados.length} arquivo(s) não entraram no ZIP.`, 'warning');
-    } catch (e) {
-      addToast('Erro ao montar o ZIP: ' + (e.message || e), 'error');
-    } finally {
-      setZipando(null); setProg(null);
-    }
-  }
-
-  // ── Filtro ──
-  const lista = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
-    return pacotes
-      .map(p => {
-        const arquivos = p.arquivos.filter(a =>
-          filtro === 'todos' ? true : filtro === 'impressos' ? !!a.impresso_em : !a.impresso_em);
-        return { ...p, visiveis: arquivos };
-      })
-      .filter(p => p.visiveis.length > 0)
-      .filter(p => !termo || (p.condominios?.name || '').toLowerCase().includes(termo));
-  }, [pacotes, filtro, busca]);
-
-  const totalPendentes = useMemo(
-    () => pacotes.reduce((s, p) => s + p.arquivos.filter(a => !a.impresso_em).length, 0),
-    [pacotes],
-  );
+  const totalBoletos = (r) => r.boletos.length;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Printer className="w-5 h-5 text-violet-500" aria-hidden="true" />
-          <h3 className="text-base font-semibold text-slate-900">Expedição</h3>
-          {totalPendentes > 0 && (
-            <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-              {totalPendentes} a imprimir
-            </span>
+      <div className="flex items-center gap-2.5">
+        <Printer className="w-5 h-5 text-violet-500" aria-hidden="true" />
+        <h3 className="text-base font-semibold text-slate-900">Expedição</h3>
+      </div>
+
+      {/* Abas por mês */}
+      {abas.length > 0 && (
+        <div className="flex gap-1 border-b border-slate-200 overflow-x-auto scrollbar-thin">
+          {abas.map(a => (
+            <button key={a.chave} type="button" onClick={() => setMesAba(a.chave)}
+              aria-current={abaAtiva === a.chave ? 'true' : undefined}
+              className={`shrink-0 px-3.5 py-2 text-sm transition-colors border-b-2 -mb-px ${
+                abaAtiva === a.chave
+                  ? 'border-violet-600 text-violet-700 font-semibold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+              {MESES[a.mes]}/{String(a.ano).slice(-2)}
+              {a.pendentes > 0 && (
+                <span className="ml-1.5 rounded-md bg-amber-100 border border-amber-300 px-1.5 text-[11px] font-bold text-amber-800">
+                  {a.pendentes}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2.5 items-center flex-wrap">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+          <input value={busca} onChange={e => setBusca(e.target.value)}
+            placeholder="Número, nome ou dia de vencimento" aria-label="Buscar por número, nome ou dia de vencimento"
+            className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-8 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500" />
+          {busca && (
+            <button type="button" onClick={() => setBusca('')} aria-label="Limpar busca"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700">
+              <X className="w-4 h-4" />
+            </button>
           )}
         </div>
-        <div className="inline-flex border border-slate-200 rounded-xl overflow-hidden">
-          {FILTROS.map(f => (
+        <div className="inline-flex border border-slate-200 rounded-xl overflow-hidden shrink-0">
+          {[{ id: 'pendentes', r: 'A imprimir' }, { id: 'impressos', r: 'Impressos' }].map(f => (
             <button key={f.id} type="button" onClick={() => setFiltro(f.id)} aria-pressed={filtro === f.id}
-              className={`px-3 py-1.5 text-xs transition-colors ${
+              className={`px-3.5 py-2 text-xs transition-colors ${
                 filtro === f.id ? 'bg-violet-600 text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>
-              {f.rotulo}
+              {f.r}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
-        <input value={busca} onChange={e => setBusca(e.target.value)}
-          placeholder="Buscar condomínio…" aria-label="Buscar condomínio"
-          className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500" />
-      </div>
-
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
-        </div>
+        <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-violet-500" /></div>
       ) : lista.length === 0 ? (
         <div className="py-16 text-center">
           <Inbox className="w-12 h-12 text-slate-300 mx-auto mb-3" aria-hidden="true" />
           <p className="text-slate-500 font-medium">
-            {filtro === 'pendentes' ? 'Nada na fila de impressão.'
-              : filtro === 'impressos' ? 'Nada foi marcado como impresso ainda.'
-              : 'Nenhuma emissão registrada.'}
+            {busca ? 'Nada encontrado com esse termo.'
+              : filtro === 'pendentes' ? 'Nada para imprimir neste mês.'
+              : 'Nada foi impresso neste mês ainda.'}
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {lista.map(p => {
-            const pendentes = p.visiveis.filter(a => !a.impresso_em);
+        <div className="border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-200">
+          {lista.map(r => {
+            const impresso = r.boletos.every(b => b.impresso_em);
+            const marca = r.boletos.find(b => b.impresso_em);
+            const aberto = expandido === r.id;
             return (
-              <div key={p.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
-                      {p.condominios?.name || 'Condomínio'}
-                      <SeloGrupo pacote={p} />
+              <div key={r.id} className={impresso ? 'bg-slate-50' : 'bg-white'}>
+                <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
+                  <span className="w-14 shrink-0 text-center text-xs text-slate-600 border border-slate-200 rounded-lg py-1"
+                        title="Dia de vencimento dos boletos desta remessa">
+                    {r.vencimento ? `dia ${r.vencimento}` : '—'}
+                  </span>
+
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm truncate ${impresso ? 'text-slate-500' : 'font-semibold text-slate-900'}`}>
+                      {r.condominios?.name || 'Condomínio'}
+                      {r.grupo_nome && (
+                        <span className="ml-2 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[11px] font-semibold text-violet-700">
+                          {r.grupo_nome}
+                        </span>
+                      )}
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      {String(p.mes_referencia).padStart(2, '0')}/{p.ano_referencia} · {p.visiveis.length} documento{p.visiveis.length !== 1 ? 's' : ''}
-                      {pendentes.length > 0 && <span className="text-amber-700 font-bold"> · {pendentes.length} a imprimir</span>}
+                      {totalBoletos(r)} arquivo{totalBoletos(r) !== 1 ? 's' : ''} de boleto
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button type="button" onClick={() => baixarZip(p, p.visiveis)} disabled={zipando === p.id}
-                      title="Baixa os originais num ZIP, para imprimir em lote"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50">
-                      {zipando === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
-                      ZIP
-                    </button>
-                    {pendentes.length > 0 && (
-                      <button type="button" onClick={() => marcar(pendentes, true)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors">
-                        <Check className="w-3.5 h-3.5" />
-                        Dar baixa em {pendentes.length}
+
+                  {impresso ? (
+                    <>
+                      <span className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-800 shrink-0"
+                            title={marca?.impresso_por_nome ? `Baixa dada por ${marca.impresso_por_nome}` : undefined}>
+                        <Check className="w-3 h-3 inline -mt-0.5 mr-1" />
+                        {fmtData(marca?.impresso_em)}{marca?.impresso_por_nome ? ` · ${marca.impresso_por_nome.split(' ')[0]}` : ''}
+                      </span>
+                      <button type="button" onClick={() => imprimir(r)}
+                        className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 transition-colors">
+                        Reimprimir
                       </button>
-                    )}
+                      <button type="button" onClick={() => marcar(r, false)} aria-label="Voltar para a fila"
+                        title="Voltar para a fila de impressão"
+                        className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-slate-100 transition-colors">
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" onClick={() => imprimir(r)}
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors">
+                        <Printer className="w-3.5 h-3.5" /> Imprimir
+                      </button>
+                      <button type="button" onClick={() => marcar(r, true)} disabled={marcando === r.id}
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                        {marcando === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        Impresso
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Mais de um arquivo: abre a lista em vez de disparar várias
+                    abas de uma vez, que o navegador bloquearia. */}
+                {aberto && r.boletos.length > 1 && (
+                  <div className="px-4 pb-3 pl-20 space-y-1">
+                    {r.boletos.map(b => (
+                      <button key={b.id} type="button" onClick={() => abrirArquivoSeguro(b.arquivo_url)}
+                        className="flex items-center gap-2 text-xs text-slate-600 hover:text-violet-700 hover:underline">
+                        <FileText className="w-3.5 h-3.5 text-violet-500 shrink-0" aria-hidden="true" />
+                        {b.arquivo_nome}
+                      </button>
+                    ))}
                   </div>
-                </div>
-
-                <div className="divide-y divide-slate-100">
-                  {p.visiveis.map(a => (
-                    <div key={a.id} className="px-4 py-2.5 flex items-center gap-3 flex-wrap">
-                      <button type="button" onClick={() => abrir(a)}
-                        title="Abrir para imprimir ou consultar"
-                        className="flex items-center gap-2 min-w-0 text-left group">
-                        <FileText className="w-4 h-4 text-violet-500 shrink-0" aria-hidden="true" />
-                        <span className="text-sm text-slate-800 truncate group-hover:text-violet-700 group-hover:underline">
-                          {a.arquivo_nome}
-                        </span>
-                      </button>
-
-                      {a.impresso_em ? (
-                        <span className="ml-auto flex items-center gap-2 shrink-0">
-                          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800"
-                                title={a.impresso_por_nome ? `Baixa dada por ${a.impresso_por_nome}` : undefined}>
-                            <Check className="w-3 h-3" /> impresso {fmtData(a.impresso_em)}
-                          </span>
-                          <button type="button" onClick={() => marcar([a], false)}
-                            title="Voltar para a fila de impressão"
-                            className="p-1 rounded-md text-slate-400 hover:text-violet-600 hover:bg-slate-100 transition-colors">
-                            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-                          </button>
-                        </span>
-                      ) : (
-                        <button type="button" onClick={() => marcar([a], true)} disabled={marcando === a.id}
-                          className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 transition-colors">
-                          <Check className="w-3.5 h-3.5" /> Marcar impresso
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                )}
               </div>
             );
           })}
-        </div>
-      )}
-
-      {prog && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 shadow-2xl text-center max-w-xs">
-            <Loader2 className="w-8 h-8 text-violet-500 animate-spin mx-auto mb-3" />
-            <p className="text-sm font-semibold text-slate-900">Montando o ZIP…</p>
-            <p className="text-xs text-slate-500 mt-1 truncate">{prog.i}/{prog.n} · {prog.nome}</p>
-          </div>
         </div>
       )}
     </div>
