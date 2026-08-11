@@ -191,6 +191,35 @@ conselho, não trava.
 
 ---
 
+## Armadilha 7 — unicidade mora em DOIS lugares
+
+A 0086 precisava derrubar a unicidade de `emissoes_pacotes(condominio_id, mes, ano)`.
+Varreu `pg_constraint` procurando `contype='u'`, derrubou o que achou, e declarou
+o trabalho feito. Ficou de pé um **`CREATE UNIQUE INDEX`** da 0016 —
+`idx_emissao_unica_por_competencia` —, que **não aparece em `pg_constraint`**.
+
+Pior: o índice era **parcial** (`WHERE ... status != 'rascunho'`). Criar duas
+emissões do mesmo mês funcionava; a segunda só era recusada ao **sair de
+rascunho**. A funcionalidade de grupos parecia pronta e ia morrer no primeiro uso
+real, em produção, na frente do usuário.
+
+Só apareceu porque o ensaio da 0087 tentou o caso de verdade e levou `23505`.
+
+**Para conferir unicidade, olhe o índice — não a constraint:**
+
+```sql
+SELECT i.relname AS indice, ix.indisunique, pg_get_indexdef(ix.indexrelid) AS definicao
+  FROM pg_index ix
+  JOIN pg_class i ON i.oid = ix.indexrelid
+ WHERE ix.indrelid = 'public.<tabela>'::regclass
+   AND ix.indisunique AND NOT ix.indisprimary;
+```
+
+Corolário do corolário: **ensaio que só testa o caminho feliz não testa nada.**
+O da 0087 achou isto porque insere duas linhas de verdade antes de checar.
+
+---
+
 ## Dados pessoais (LGPD)
 
 `condominos` (0071) guarda nome, CPF, telefone e e-mail de morador. A tabela tem

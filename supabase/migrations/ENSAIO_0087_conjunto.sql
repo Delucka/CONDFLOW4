@@ -18,6 +18,10 @@ DECLARE
   v_solo    text := 'NAO PASSOU';
   v_relato  text;
 BEGIN
+  -- O índice único parcial da 0016, que a 0086 não encontrou (ela varreu
+  -- pg_constraint, e isto é índice). Some junto com a transação, como o resto.
+  DROP INDEX IF EXISTS public.idx_emissao_unica_por_competencia;
+
   -- O trigger de verdade, dentro da transação de ensaio.
   CREATE OR REPLACE FUNCTION public.checa_conjunto_emissao()
   RETURNS trigger LANGUAGE plpgsql AS $f$
