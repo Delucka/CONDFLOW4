@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Archive } from 'lucide-react';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 // Carrega só a view ativa (cada papel usa uma) — bundle inicial menor, navegação mais rápida.
 const ViewLoader = () => (
@@ -16,18 +16,24 @@ const ViewLoader = () => (
 const VisaoEmissor = dynamic(() => import('./components/VisaoEmissor'), { loading: ViewLoader, ssr: false });
 const VisaoMaster = dynamic(() => import('./components/VisaoMaster'), { loading: ViewLoader, ssr: false });
 const RegistroEmissoes = dynamic(() => import('./components/RegistroEmissoes'), { loading: ViewLoader, ssr: false });
+const Expedicao = dynamic(() => import('./components/Expedicao'), { loading: ViewLoader, ssr: false });
 
 export default function CentralEmissoesPage() {
   const { profile, loading } = useAuth();
-  const [activeView, setActiveView] = useState('default');
-
-  // Abre direto na aba pedida pelo link (Dashboard manda ?tab=upload).
-  // Lido de `window.location` num efeito, e não com useSearchParams: esta rota é
-  // estática, e useSearchParams sem Suspense quebra o build do Next aqui.
-  useEffect(() => {
+  // Abre direto na aba pedida pelo link (o Dashboard manda ?tab=upload).
+  //
+  // Lido de `window.location`, e não com useSearchParams: esta rota é estática, e
+  // useSearchParams sem Suspense quebra o build do Next aqui.
+  //
+  // No inicializador do useState, não num efeito: efeito que chama setState
+  // dispara render em cascata (o lint pega). Sem `window` no servidor cai em
+  // 'default', e isso não causa divergência de hidratação — enquanto o auth
+  // carrega, os dois lados renderizam o mesmo spinner, e a aba nem chega ao DOM.
+  const [activeView, setActiveView] = useState(() => {
+    if (typeof window === 'undefined') return 'default';
     const tab = new URLSearchParams(window.location.search).get('tab');
-    if (tab === 'upload' || tab === 'registro') setActiveView(tab);
-  }, []);
+    return ['upload', 'registro', 'expedicao'].includes(tab) ? tab : 'default';
+  });
 
   if (loading || !profile) {
     return (
@@ -50,6 +56,10 @@ export default function CentralEmissoesPage() {
   } else if (isDepartamento) {
     tabs.push({ id: 'default', label: 'Fazer Emissões', activeClass: 'bg-violet-600 text-white ' });
   }
+
+  // Aba Expedição — a fila de impressão. Vem antes do Registro porque é o
+  // passo seguinte a fazer a emissão, não o arquivo morto.
+  tabs.push({ id: 'expedicao', label: 'Expedição', activeClass: 'bg-violet-600 text-white ' });
 
   // Aba Registro de Emissões
   tabs.push({ id: 'registro', label: 'Registro de Emissões', icon: true, activeClass: 'bg-emerald-600 text-white ' });
@@ -75,7 +85,9 @@ export default function CentralEmissoesPage() {
   // Conteúdo
   let content = null;
 
-  if (activeView === 'registro') {
+  if (activeView === 'expedicao') {
+    content = <Expedicao />;
+  } else if (activeView === 'registro') {
     content = <RegistroEmissoes profile={profile} />;
   } else if (activeView === 'upload' && isMaster) {
     content = <VisaoEmissor profile={profile} />;
