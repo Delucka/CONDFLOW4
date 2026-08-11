@@ -122,14 +122,37 @@ export default function ArrecadacoesPage() {
     try {
       // Confere o erro: o supabase-js DEVOLVE {error}, não lança. Sem isto a
       // gravação falharia calada — Armadilha 1 do docs/ESQUEMA-BANCO.md.
-      const { error } = await supabase.from('condominio_grupos')
-        .update({ nome, due_day: dia }).eq('id', editandoGrupo.id);
-      if (error) throw error;
-      setGrupos(prev => prev.map(g => g.id === editandoGrupo.id ? { ...g, nome, due_day: dia } : g));
+      if (editandoGrupo.id) {
+        const { error } = await supabase.from('condominio_grupos')
+          .update({ nome, due_day: dia }).eq('id', editandoGrupo.id);
+        if (error) throw error;
+        setGrupos(prev => prev.map(g => g.id === editandoGrupo.id ? { ...g, nome, due_day: dia } : g));
+        addToast('Grupo atualizado.', 'success');
+      } else {
+        // Grupo NOVO. Antes só existia atualização, e grupo só nascia do
+        // due_day_2 do cadastro — que a importação de 2054 preencheu para
+        // poucos. Resultado: condomínio com dois vencimentos reais, mas sem o
+        // segundo campo preenchido, não tinha como ganhar o segundo grupo.
+        const { data, error } = await supabase.from('condominio_grupos')
+          .insert({
+            condominio_id: condoId, nome, due_day: dia,
+            ordem: grupos.length,   // entra no fim
+          })
+          .select('id, nome, due_day, ordem')
+          .single();
+        if (error) throw error;
+        setGrupos(prev => [...prev, data]);
+        addToast(`Grupo "${nome}" criado. Agora mova as verbas dele pela engrenagem.`, 'success');
+      }
       setEditandoGrupo(null);
-      addToast('Grupo atualizado.', 'success');
     } catch (e) {
-      addToast('Não consegui salvar o grupo: ' + (e.message || e), 'error');
+      const msg = String(e.message || e);
+      // UNIQUE (condominio_id, nome) da 0086
+      if (msg.includes('23505') || msg.toLowerCase().includes('duplicate')) {
+        addToast(`Já existe um grupo chamado "${nome}" neste condomínio.`, 'error');
+      } else {
+        addToast('Não consegui salvar o grupo: ' + msg, 'error');
+      }
     } finally {
       setSalvandoGrupo(false);
     }
@@ -934,8 +957,8 @@ export default function ArrecadacoesPage() {
         <div className="mb-4 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-amber-500/5 border border-amber-500/15 text-amber-300/80 animate-fade-in">
           <Lock className="w-3 h-3 shrink-0" />
           <p className="text-[10px] uppercase font-bold tracking-widest">
-            Cada mês pode ser editado até <strong>dia 15</strong>. A partir do dia 16, fecha automaticamente.
-            Também fica travado quando a etapa é marcada como <strong>"pronto p/ emitir"</strong> ou a <strong>emissão é registrada</strong>.
+            O mês fecha quando a operação passa dele — hoje o mês de trabalho é o único aberto.
+            Também trava assim que a <strong>emissão é criada</strong>, mesmo em rascunho.
           </p>
         </div>
       )}
@@ -1090,6 +1113,26 @@ export default function ArrecadacoesPage() {
             <StatusBadge status={processo?.status} flow="processo" />
         </div>
       </div>
+
+      {/* Grupos de emissão. A barra aparece SEMPRE (com um grupo só, também):
+          é o único lugar onde dá para criar o segundo vencimento de um
+          condomínio cujo cadastro não tem due_day_2 preenchido — a maioria. */}
+      {canEdit && (
+        <div className="mb-4 flex items-center justify-between gap-3 flex-wrap rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5">
+          <p className="text-xs text-slate-600">
+            {grupos.length > 1
+              ? <>Este condomínio emite em <strong>{grupos.length} grupos</strong>: {grupos.map(g => g.nome + (g.due_day ? ` (dia ${g.due_day})` : '')).join(' · ')}</>
+              : <>Emite em <strong>um vencimento só</strong>. Se tiver bloco ou vencimento separado, crie um grupo.</>}
+          </p>
+          <button
+            type="button"
+            onClick={() => setEditandoGrupo({ id: null, nome: '', due_day: '' })}
+            className="shrink-0 rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-50"
+          >
+            + Novo grupo
+          </button>
+        </div>
+      )}
 
       {/* Só faz sentido com mais de um grupo — e só quando há algo a mover. */}
       {canEdit && grupos.length > 1 && (() => {
@@ -1538,9 +1581,13 @@ export default function ArrecadacoesPage() {
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setEditandoGrupo(null)} />
           <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 space-y-4">
             <div>
-              <h4 className="text-sm font-semibold text-slate-900">Grupo de emissão</h4>
+              <h4 className="text-sm font-semibold text-slate-900">
+                {editandoGrupo.id ? 'Grupo de emissão' : 'Novo grupo de emissão'}
+              </h4>
               <p className="text-xs text-slate-500 mt-0.5">
-                O nome aparece na faixa da planilha e no cartão da emissão.
+                {editandoGrupo.id
+                  ? 'O nome aparece na faixa da planilha e no cartão da emissão.'
+                  : 'Cada grupo vira uma emissão própria, com o seu vencimento. Depois de criar, mova as verbas dele pela engrenagem de cada verba.'}
               </p>
             </div>
 
@@ -1569,7 +1616,7 @@ export default function ArrecadacoesPage() {
               </button>
               <button type="button" onClick={salvarGrupo} disabled={salvandoGrupo}
                 className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-40">
-                {salvandoGrupo ? 'Salvando…' : 'Salvar grupo'}
+                {salvandoGrupo ? 'Salvando…' : (editandoGrupo.id ? 'Salvar grupo' : 'Criar grupo')}
               </button>
             </div>
           </div>
