@@ -149,13 +149,16 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         if (Array.isArray(congelado)) { if (!cancelado) setCobrancasSnap(congelado); return; }
         // Sem snapshot (emissões antigas): reconstrói da tabela (inclui 'processada').
         const { data: rows } = await supabase.from('cobrancas_extras')
-          .select('id, description, amount, mes, ano, unidades, attachments, status')
+          .select('id, description, amount, mes, ano, unidades, attachments, status, parcela_atual, parcela_total')
           .eq('condominio_id', cid).eq('mes', m).eq('ano', a).neq('status', 'cancelada');
         let list = rows || [];
         if (Array.isArray(incluidas)) list = list.filter((c) => incluidas.includes(c.id));
         if (!cancelado) setCobrancasSnap(list.map((c) => ({
           id: c.id, descricao: c.description || 'Cobrança Extra', valor: Number(c.amount) || 0,
           mes: c.mes, ano: c.ano, unidades: c.unidades, attachments: c.attachments || [],
+          // Congela a parcela junto: sem isto a emissão registrada perde
+          // o "3/6" e vira uma cobranca avulsa aos olhos de quem audita.
+          parcela_atual: c.parcela_atual, parcela_total: c.parcela_total,
         })));
       } catch { if (!cancelado) setCobrancasSnap([]); }
     })();
@@ -741,8 +744,16 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                             className={`border-t border-slate-800 transition-colors ${c.attachments?.length ? 'cursor-pointer hover:bg-violet-50' : 'hover:bg-slate-50'}`}
                             title={c.attachments?.length ? 'Clique para abrir o anexo' : 'Sem anexo'}>
                             <td className="px-3 py-2 text-xs text-slate-700">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 {c.descricao}
+                                {/* Parcela: quem aprova precisa saber que este
+                                    valor se repete, e por quantos meses ainda. */}
+                                {c.parcela_total > 1 && (
+                                  <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 shrink-0"
+                                        title={`Parcelamento de ${c.parcela_total} vezes. Esta é a ${c.parcela_atual}ª.`}>
+                                    {c.parcela_atual}/{c.parcela_total}
+                                  </span>
+                                )}
                                 {c.attachments?.length > 0 && <FileText className="w-3 h-3 text-violet-400 shrink-0" />}
                               </div>
                             </td>

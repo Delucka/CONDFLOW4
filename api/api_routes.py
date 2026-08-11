@@ -3255,7 +3255,7 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
         is_retif = request.query_params.get("retificacao") == "true"
 
         query = db.table("cobrancas_extras") \
-            .select("id,description,amount,created_at,attachments,status,mes,ano,unidades") \
+            .select("id,description,amount,created_at,attachments,status,mes,ano,unidades,parcela_atual,parcela_total,grupo_id") \
             .eq("condominio_id", condo_id) \
             .neq("status", "cancelada")
 
@@ -3288,6 +3288,13 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
                 'valor':       parse_valor(c.get('amount')),
                 'unidades':    c.get('unidades'),
                 'attachments': signed_atts,
+                # Parcelamento: quem emite precisa ver que aquilo é a 3ª de 6, e
+                # não uma cobrança avulsa. Vinha só embutido no texto da
+                # descrição — e só quando a cobrança nasceu pelo endpoint de
+                # parcelamento. Agora vem como dado.
+                'parcela_atual': c.get('parcela_atual'),
+                'parcela_total': c.get('parcela_total'),
+                'grupo_id':      c.get('grupo_id'),
             })
     except Exception as e:
         # Loga o erro real em vez de engolir silenciosamente

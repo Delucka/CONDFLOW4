@@ -1052,7 +1052,7 @@ export default function VisaoEmissor({ profile }) {
     if (activePacote.condominio_id) {
       try {
         const { data: rows } = await supabase.from('cobrancas_extras')
-          .select('id, description, amount, mes, ano, unidades, attachments, status')
+          .select('id, description, amount, mes, ano, unidades, attachments, status, parcela_atual, parcela_total')
           .eq('condominio_id', activePacote.condominio_id)
           .eq('mes', activePacote.mes_referencia)
           .eq('ano', activePacote.ano_referencia)
@@ -1063,6 +1063,9 @@ export default function VisaoEmissor({ profile }) {
         cobrancas_snapshot = list.map((c) => ({
           id: c.id, descricao: c.description || 'Cobrança Extra', valor: Number(c.amount) || 0,
           mes: c.mes, ano: c.ano, unidades: c.unidades, attachments: c.attachments || [],
+          // Congela a parcela junto: sem isto a emissão registrada perde
+          // o "3/6" e vira uma cobranca avulsa aos olhos de quem audita.
+          parcela_atual: c.parcela_atual, parcela_total: c.parcela_total,
         }));
       } catch { /* snapshot é opcional */ }
     }
@@ -1521,6 +1524,16 @@ export default function VisaoEmissor({ profile }) {
                             <input type="checkbox" checked={checked} onChange={() => toggleCobranca(c.id)} className="w-4 h-4 accent-violet-600 shrink-0" />
                             <div className="flex-1 min-w-0">
                               <p className={`text-xs font-bold truncate ${checked ? 'text-slate-800' : 'text-slate-500'}`}>{c.descricao}</p>
+                              {/* Parcelamento: a 3ª de 6 é outra coisa que uma
+                                  cobrança avulsa de mesmo valor. Antes isso só
+                                  existia embutido no texto da descrição. */}
+                              {c.parcela_total > 1 && (
+                                <p className="mt-0.5 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
+                                   title={`Parcelamento de ${c.parcela_total} vezes. Esta é a ${c.parcela_atual}ª.`}>
+                                  Parcela {c.parcela_atual}/{c.parcela_total}
+                                  {c.parcela_atual === c.parcela_total && <span className="font-normal opacity-70">· última</span>}
+                                </p>
+                              )}
                               {c.unidades && (
                                 <p className="text-[10px] text-violet-600 font-bold truncate">🏠 unid.: {c.unidades}</p>
                               )}

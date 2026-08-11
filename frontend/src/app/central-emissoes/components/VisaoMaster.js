@@ -220,7 +220,7 @@ export default function VisaoMaster() {
     if (!pacote?.condominio_id) return null;
     try {
       const { data: rows } = await supabase.from('cobrancas_extras')
-        .select('id, description, amount, mes, ano, unidades, attachments, status')
+        .select('id, description, amount, mes, ano, unidades, attachments, status, parcela_atual, parcela_total')
         .eq('condominio_id', pacote.condominio_id)
         .eq('mes', pacote.mes_referencia)
         .eq('ano', pacote.ano_referencia)
@@ -231,6 +231,9 @@ export default function VisaoMaster() {
       return list.map((c) => ({
         id: c.id, descricao: c.description || 'Cobrança Extra', valor: Number(c.amount) || 0,
         mes: c.mes, ano: c.ano, unidades: c.unidades, attachments: c.attachments || [],
+          // Congela a parcela junto: sem isto a emissão registrada perde
+          // o "3/6" e vira uma cobranca avulsa aos olhos de quem audita.
+          parcela_atual: c.parcela_atual, parcela_total: c.parcela_total,
       }));
     } catch { return null; }
   }
