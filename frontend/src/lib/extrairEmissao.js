@@ -17,6 +17,18 @@ export function ordenarParaExtracao(arquivos = [], cobrancas = []) {
     out.push(a);
   };
 
+  // ── Ordem manual primeiro (0092) ──
+  // Quem arrastou os arquivos na tela decidiu a ordem, e essa decisão vence a
+  // classificação automática abaixo. O `add` ignora repetido, então tudo que
+  // entrar aqui simplesmente não entra de novo lá.
+  //
+  // Arquivo enviado depois de arrastar fica com `ordem` nula e cai na regra
+  // automática, no fim — não some nem embaralha o que já estava ordenado.
+  arquivos
+    .filter((a) => Number.isFinite(a.ordem))
+    .sort((a, b) => a.ordem - b.ordem)
+    .forEach(add);
+
   const porCat = (cat) => arquivos.filter((a) => a.categoria === cat);
   const outrosSub = (...subs) =>
     arquivos.filter((a) => a.categoria === 'outros' && subs.some((s) => norm(a.subtipo) === norm(s)));

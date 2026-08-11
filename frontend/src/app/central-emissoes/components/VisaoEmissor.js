@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search, Droplet } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search, Droplet, GripVertical } from 'lucide-react';
 import { safeStorageName } from '@/lib/storage';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
@@ -404,6 +404,54 @@ export default function VisaoEmissor({ profile }) {
     }
   }
 
+  // ── Ordem manual dos arquivos (0092) ──
+  // A ordem de extração é automática por categoria. Serve para a maioria, mas
+  // não para todos — e não havia como mudar sem mexer no código. Arrastando,
+  // a pessoa define e a ordem dela passa a mandar.
+  const [arrastandoId, setArrastandoId] = useState(null);
+  const [alvoId, setAlvoId] = useState(null);
+  const [salvandoOrdem, setSalvandoOrdem] = useState(false);
+
+  const podeOrdenar = ['rascunho', 'solicitar_correcao'].includes(
+    (activePacote?.status || '').toLowerCase(),
+  );
+
+  async function soltarNaPosicao(destinoId) {
+    setAlvoId(null);
+    const origemId = arrastandoId;
+    setArrastandoId(null);
+    if (!origemId || !destinoId || origemId === destinoId) return;
+
+    const lista = [...pacoteArquivos];
+    const de = lista.findIndex(a => a.id === origemId);
+    const para = lista.findIndex(a => a.id === destinoId);
+    if (de < 0 || para < 0) return;
+
+    const [movido] = lista.splice(de, 1);
+    lista.splice(para, 0, movido);
+
+    // Otimista: a lista reordena na hora, e o banco confirma atrás.
+    const comOrdem = lista.map((a, i) => ({ ...a, ordem: i + 1 }));
+    setPacoteArquivos(comOrdem);
+
+    setSalvandoOrdem(true);
+    try {
+      // Grava a ordem de TODOS, não só dos dois que se moveram: assim não sobra
+      // arquivo com ordem nula no meio, que cairia na regra automática e
+      // apareceria fora do lugar.
+      for (const a of comOrdem) {
+        const { error } = await supabase.from('emissoes_arquivos')
+          .update({ ordem: a.ordem }).eq('id', a.id);
+        if (error) throw error;
+      }
+    } catch (e) {
+      addToast('Não consegui salvar a ordem: ' + (e.message || e), 'error');
+      await fetchArquivosDoPacote(activePacote.id);   // volta ao que está no banco
+    } finally {
+      setSalvandoOrdem(false);
+    }
+  }
+
   // Marca/desmarca uma cobrança e persiste a seleção no pacote
   async function toggleCobranca(id) {
     setCobrancasSel(prev => {
@@ -539,6 +587,10 @@ export default function VisaoEmissor({ profile }) {
       .from('emissoes_arquivos')
       .select('*')
       .eq('pacote_id', pacoteId)
+      // Ordem manual primeiro (0092); quem ainda não foi arrastado (ordem nula)
+      // fica no fim, na ordem de chegada. `nullsFirst: false` é o que garante
+      // isso — sem ele o Postgres põe NULL no começo em ordem crescente.
+      .order('ordem', { ascending: true, nullsFirst: false })
       .order('criado_em', { ascending: true });
     if (data) setPacoteArquivos(data);
   }
@@ -1622,6 +1674,15 @@ export default function VisaoEmissor({ profile }) {
           </div>
 
           {/* Lista de Arquivos do Pacote */}
+          {podeOrdenar && pacoteArquivos.length > 1 && (
+            <div className="mb-2 flex items-center gap-2 text-[11px] text-slate-500">
+              <GripVertical className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                Arraste para definir a ordem em que os arquivos entram no PDF da emissão.
+              </span>
+              {salvandoOrdem && <span className="text-violet-500 font-bold">salvando…</span>}
+            </div>
+          )}
           <div className="space-y-3 mb-6">
             {pacoteArquivos.length === 0 ? (
               <div className="text-center py-8 border border-dashed border-slate-200 rounded-2xl">
@@ -1629,17 +1690,39 @@ export default function VisaoEmissor({ profile }) {
                 <p className="text-slate-500 text-sm">Nenhum arquivo adicionado ainda.</p>
               </div>
             ) : (
-              pacoteArquivos.map(arq => {
+              pacoteArquivos.map((arq, idx) => {
                 const catColor = arq.categoria === 'concessionaria' ? 'orange'
                               : arq.categoria === 'outros'          ? 'slate'
                               : 'violet';
                 const catLabel = arq.categoria === 'concessionaria' ? (arq.subtipo || 'Concessionária')
                               : arq.categoria === 'outros'          ? (arq.subtipo || 'Outros')
                               : 'Emissão';
+                const arrastando = arrastandoId === arq.id;
+                const eAlvo = alvoId === arq.id && !arrastando;
                 return (
-                <div key={arq.id} className="p-4 bg-white border border-slate-200 rounded-2xl hover:bg-slate-100 transition-colors group">
+                <div key={arq.id}
+                  draggable={podeOrdenar}
+                  onDragStart={() => setArrastandoId(arq.id)}
+                  onDragEnd={() => { setArrastandoId(null); setAlvoId(null); }}
+                  onDragOver={(e) => { if (podeOrdenar && arrastandoId) { e.preventDefault(); setAlvoId(arq.id); } }}
+                  onDragLeave={() => setAlvoId(a => (a === arq.id ? null : a))}
+                  onDrop={(e) => { e.preventDefault(); soltarNaPosicao(arq.id); }}
+                  className={`p-4 bg-white border rounded-2xl transition-colors group ${
+                    arrastando ? 'opacity-40 border-violet-400'
+                    : eAlvo ? 'border-violet-500 border-dashed bg-violet-50'
+                    : 'border-slate-200 hover:bg-slate-100'
+                  }`}>
                   <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
+                    {podeOrdenar && (
+                      // A alça é o único ponto arrastável visualmente anunciado.
+                      // O número é a ordem em que este arquivo entra no PDF.
+                      <span className="flex items-center gap-1.5 shrink-0 cursor-grab active:cursor-grabbing select-none"
+                            title="Arraste para mudar a ordem do PDF">
+                        <GripVertical className="w-4 h-4 text-slate-400" aria-hidden="true" />
+                        <span className="w-5 text-center text-[11px] font-black text-slate-500 tabular-nums">{idx + 1}</span>
+                      </span>
+                    )}
                     <div className={`w-10 h-10 bg-${catColor}-500/10 rounded-xl flex items-center justify-center border border-${catColor}-500/20`}>
                       <FileText className={`w-5 h-5 text-${catColor}-400`} />
                     </div>
