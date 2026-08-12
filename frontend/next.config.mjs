@@ -71,9 +71,28 @@ const nextConfig = {
     ];
   },
   typescript: { ignoreBuildErrors: true },
-  experimental: {
-    optimizePackageImports: ['lucide-react'],
-  },
+
+  // `experimental.optimizePackageImports: ['lucide-react']` foi REMOVIDO aqui.
+  //
+  // A Central de Emissões quebrava em produção com
+  //   ReferenceError: Cannot access 'tP' before initialization
+  // lançado durante o render, dentro de um chunk minificado — não de nenhum
+  // arquivo nosso. Descartados por verificação, e não por suposição:
+  //   • nenhum commit recente toca o caminho que quebra (VisaoMaster/VisaoEmissor
+  //     não são alterados há semanas; o resto foi só troca de className);
+  //   • ESLint com `no-use-before-define` não acha temporal dead zone em src/;
+  //   • o grafo de módulos não tem nenhuma importação circular.
+  //
+  // Sobra o único transform não-padrão do build. Esta opção é `experimental` e
+  // reescreve `import { A, B } from 'lucide-react'` em imports por ícone; quando
+  // o mesmo módulo é importado mais de uma vez no arquivo, a reescrita pode gerar
+  // ligações que se referenciam antes de inicializar — exatamente este erro. Os
+  // quatro arquivos que tinham import duplicado de lucide-react eram os de
+  // /aprovacoes e /central-emissoes: as telas que quebraram. Os duplicados também
+  // foram unificados, então a hipótese está atacada dos dois lados.
+  //
+  // Custo de remover: bundle um pouco maior. Custo de manter: tela fora do ar.
+  // Se algum dia voltar, volte junto com uma verificação em produção.
 };
 
 export default nextConfig;

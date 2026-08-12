@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import {
   CheckCircle, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle,
   User, ShieldCheck, Send, X, FileCheck, Building, Edit, ChevronLeft, ChevronRight,
-  Lock, Send as SendIcon, Rocket, Upload, AlertTriangle, BellRing,
+  Lock, Send as SendIcon, Rocket, Upload, AlertTriangle, BellRing, Inbox,
 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import { apiPost } from '@/lib/api';
@@ -17,7 +17,6 @@ import { isPendingForRole } from '@/lib/usePendingCount';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
 import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
 import { safeStorageName } from '@/lib/storage';
-import { Inbox } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { mesVigente, anoVigente } from '@/lib/mesVigente';
 

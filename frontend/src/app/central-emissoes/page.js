@@ -1,9 +1,10 @@
 'use client';
 
 import { useAuth } from '@/lib/auth';
-import { Loader2 } from 'lucide-react';
+// Um único import de lucide-react por arquivo: dois `import` do mesmo módulo
+// davam ao bundler duas ligações para a mesma origem — ver next.config.mjs.
+import { Loader2, Archive } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { Archive } from 'lucide-react';
 
 import { useState } from 'react';
 

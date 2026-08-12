@@ -13,7 +13,8 @@ import {
   MessageSquare, Building2, Loader2, Send,
   History, Inbox, Eye, ShieldCheck, Filter,
   FileText, Lock, Unlock, Globe, User, Calendar,
-  ChevronDown, X, RefreshCw, FileUp, ArrowRight, ExternalLink, AlertTriangle
+  ChevronDown, X, RefreshCw, FileUp, ArrowRight, ExternalLink, AlertTriangle,
+  Package, Archive, BarChart3,
 } from 'lucide-react';
 
 // Cor por etapa na linha do tempo da auditoria
@@ -36,7 +37,6 @@ import VisaoMaster from '@/app/central-emissoes/components/VisaoMaster';
 import RegistroEmissoes from '@/app/central-emissoes/components/RegistroEmissoes';
 import RelatorioEmissoes from '@/app/aprovacoes/RelatorioEmissoes';
 import BaixarDocumentosEmissao from '@/app/aprovacoes/BaixarDocumentosEmissao';
-import { Package, Archive, BarChart3 } from 'lucide-react';
 
 // Cor e ícone por tipo de ação
 function getActionStyle(action = '') {

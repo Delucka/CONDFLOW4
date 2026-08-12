@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search, Droplet } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search, Droplet, FileWarning } from 'lucide-react';
 import { safeStorageName } from '@/lib/storage';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
@@ -14,7 +14,6 @@ import { ocrFileToText, parseFaturaOcr, decodeBoletoValor } from '@/lib/ocrClien
 import ModalPreparacao from './ModalPreparacao';
 import { mesVigente, anoVigente } from '@/lib/mesVigente';
 import { combina } from '@/lib/busca';
-import { FileWarning } from 'lucide-react';
 
 export default function VisaoEmissor({ profile }) {
   // VERSÃO 4.1 - BOTÃO REGISTRAR ESTABILIZADO
