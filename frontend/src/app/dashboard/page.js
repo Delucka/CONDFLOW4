@@ -9,6 +9,7 @@ import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { mesAnoVigente } from '@/lib/mesVigente';
 import { useRouter } from 'next/navigation';
 import TagConsumo from '@/components/TagConsumo';
+import TagPrioritario from '@/components/TagPrioritario';
 import { combina } from '@/lib/busca';
 import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
@@ -729,6 +730,7 @@ export default function DashboardPage() {
                               <p className={`${tipo.item} group-hover:text-violet-600 transition-colors truncate flex items-center gap-1.5`}>
                                 {c.name}
                                 {c.tem_consumo && <TagConsumo concessionarias={concessionariasPorCondo[c.id]} />}
+                                <TagPrioritario condo={c} mes={mesEmissao} ano={vigente.ano} />
                               </p>
                               <p className={`${tipo.apoio} flex items-center gap-1.5 flex-wrap`}>
                                 <span>{gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}</span>
@@ -788,6 +790,7 @@ export default function DashboardPage() {
                         <p className={`${tipo.item} break-words flex items-center gap-1.5 flex-wrap`}>
                           {c.name}
                           {c.tem_consumo && <TagConsumo concessionarias={concessionariasPorCondo[c.id]} />}
+                                <TagPrioritario condo={c} mes={mesEmissao} ano={vigente.ano} />
                         </p>
                         <p className={tipo.apoio}>
                           {gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}

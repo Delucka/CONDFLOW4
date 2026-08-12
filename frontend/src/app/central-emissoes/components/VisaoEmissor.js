@@ -17,6 +17,7 @@ import { combina } from '@/lib/busca';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 import { podeRegistrar, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
+import TagPrioritario from '@/components/TagPrioritario';
 import ComparativoConsumo from './ComparativoConsumo';
 import { FileWarning } from 'lucide-react';
 
@@ -115,6 +116,7 @@ export default function VisaoEmissor({ profile }) {
   // Carteiras expandidas
   const [expandedCarteiras, setExpandedCarteiras] = useState({});
   const [buscaCarteira, setBuscaCarteira] = useState('');
+  const [situacao, setSituacao] = useState('todos');   // filtro de situação da lista
 
   // Mapa de status dos processos por condomínio { condoId: { id, status } }
   const [processosMap, setProcessosMap] = useState({});
@@ -300,8 +302,10 @@ export default function VisaoEmissor({ profile }) {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Refaz a busca de preparacao quando mes/ano mudam
-  useEffect(() => { fetchPreparacao(); fetchAlteracoes(); fetchEdicoes(); }, [mes, ano]);
+  // Refaz quando mes/ano mudam — os pacotes também, agora que o recorte de mês
+  // é feito no banco.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchPacotes(); fetchPreparacao(); fetchAlteracoes(); fetchEdicoes(); }, [mes, ano]);
 
   // Voltou para a aba: rebusca. O realtime cobre parte, mas não sobrevive à aba
   // dormindo nem cobria tabela fora da publicação (ver 0090).
@@ -561,23 +565,28 @@ export default function VisaoEmissor({ profile }) {
   }
 
   async function fetchPacotes() {
+    // Só o mês exibido. Antes trazia TODO pacote já criado — incluindo os campos
+    // de snapshot, que guardam a planilha inteira em JSON por emissão — e a
+    // tela usava só um mês. Depois varria `emissoes_arquivos` inteira para
+    // contar arquivos por pacote.
     const { data } = await supabase
       .from('emissoes_pacotes')
       .select('*, condominios(name, gerente_id, gerentes:gerente_id(profiles!gerentes_profile_id_fkey(full_name)))')
+      .eq('mes_referencia', mes)
+      .eq('ano_referencia', ano)
       .order('criado_em', { ascending: false });
-    
+
     if (data) {
-      // Buscar contagem de arquivos por pacote
-      const { data: arquivos } = await supabase
-        .from('emissoes_arquivos')
-        .select('id, pacote_id')
-        .not('pacote_id', 'is', null);
-      
+      const ids = data.map(p => p.id);
+      const { data: arquivos } = ids.length
+        ? await supabase.from('emissoes_arquivos').select('id, pacote_id').in('pacote_id', ids)
+        : { data: [] };
+
       const countMap = {};
       (arquivos || []).forEach(a => {
         countMap[a.pacote_id] = (countMap[a.pacote_id] || 0) + 1;
       });
-      
+
       const comGrupo = await anexarGrupos(supabase, data);
       setPacotes(comGrupo.map(p => ({ ...p, numArquivos: countMap[p.id] || 0 })));
     }
@@ -1319,18 +1328,59 @@ export default function VisaoEmissor({ profile }) {
     return groups;
   }, [condominios]);
 
+  // Filtro por situação, junto da busca. Responde as perguntas que se faz de
+  // manhã: o que o gerente já liberou, o que ainda está com ele, o que já virou
+  // emissão, e o que tem prazo apertando.
+  const SITUACOES = [
+    { id: 'todos',     rotulo: 'Todos' },
+    { id: 'liberados', rotulo: 'Liberados' },
+    { id: 'com_gerente', rotulo: 'Com o gerente' },
+    { id: 'sem_emissao', rotulo: 'Sem emissão' },
+    { id: 'em_emissao',  rotulo: 'Em emissão' },
+    { id: 'prazo',       rotulo: 'Prazo apertando' },
+  ];
+
+  function passaNaSituacao(condo) {
+    if (situacao === 'todos') return true;
+    const lista = pacotesPorCondo[`${condo.id}_${mes}_${ano}`] || [];
+    const editando = gerenteEditando(condo.id);
+
+    switch (situacao) {
+      // "Liberado" = o gerente terminou a planilha do mês e passou para nós.
+      // Sem registro em edicoes_mensais não conta: nunca foi aberto para ele,
+      // então não houve liberação nenhuma a comemorar.
+      case 'liberados':
+        return edicoesMap[`${condo.id}_${mes}_${ano}`]?.status === 'edicao_finalizada';
+      case 'com_gerente':  return editando;
+      case 'sem_emissao':  return lista.length === 0;
+      case 'em_emissao':   return lista.length > 0;
+      case 'prazo': {
+        const dia = condo.prazo_expedicao_dia;
+        if (!dia) return false;
+        const hoje = new Date();
+        // Só aperta no mês corrente; em mês futuro a conta não diz nada.
+        if (mes !== hoje.getMonth() + 1 || ano !== hoje.getFullYear()) return true;
+        return dia - hoje.getDate() <= 3;
+      }
+      default: return true;
+    }
+  }
+
   // Busca (ignora acentos/caixa): casa por nome/código do condomínio OU nome do gerente
   const carteirasFiltradas = useMemo(() => {
     const q = (buscaCarteira || '').trim();
-    if (!q) return carteiras;
     const out = {};
     Object.entries(carteiras).forEach(([gerente, condos]) => {
-      if (combina(q, gerente)) { out[gerente] = condos; return; }   // achou o gerente: leva a carteira toda
-      const m = condos.filter(c => combina(q, c.name));
+      const porSituacao = condos.filter(passaNaSituacao);
+      if (!porSituacao.length) return;
+      if (!q) { out[gerente] = porSituacao; return; }
+      if (combina(q, gerente)) { out[gerente] = porSituacao; return; }   // achou o gerente: leva a carteira toda
+      const m = porSituacao.filter(c => combina(q, c.name));
       if (m.length) out[gerente] = m;
     });
     return out;
-  }, [carteiras, buscaCarteira]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carteiras, buscaCarteira, situacao, pacotesPorCondo, edicoesMap, mes, ano]);
   const totalEncontrados = useMemo(
     () => Object.values(carteirasFiltradas).reduce((s, arr) => s + arr.length, 0),
     [carteirasFiltradas]
@@ -2048,7 +2098,19 @@ export default function VisaoEmissor({ profile }) {
             placeholder="Buscar condomínio (nome ou código) ou gerente…"
             className="w-full bg-white border border-slate-200 rounded-xl pl-11 pr-10 py-3 text-sm text-slate-800 outline-none focus:border-violet-500 placeholder-slate-400 shadow-sm"
           />
-          {buscaCarteira && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+          {SITUACOES.map(f => (
+            <button key={f.id} type="button" onClick={() => setSituacao(f.id)} aria-pressed={situacao === f.id}
+              className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                situacao === f.id
+                  ? 'border-violet-600 bg-violet-600 text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'}`}>
+              {f.rotulo}
+            </button>
+          ))}
+        </div>
+
+        {buscaCarteira && (
             <button type="button" onClick={() => setBuscaCarteira('')} title="Limpar busca"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
               <X className="w-4 h-4" />
@@ -2107,6 +2169,7 @@ export default function VisaoEmissor({ profile }) {
                       }`}>
                         <div className="flex items-center gap-3 flex-wrap">
                           <span className="text-sm font-bold text-slate-700 truncate max-w-[75vw] sm:max-w-[280px]">{condo.name}</span>
+                          <TagPrioritario condo={condo} mes={mes} ano={ano} />
                           {condo.due_day && <span className="text-[10px] text-slate-400 font-medium">venc. dia {condo.due_day}{condo.due_day_2 ? ` e ${condo.due_day_2}` : ''}</span>}
                           {temAltPrevista && (
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black uppercase tracking-widest animate-pulse"

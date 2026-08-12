@@ -6,6 +6,7 @@ import { useToast } from '@/components/Toast';
 import { abrirArquivoSeguro } from '@/lib/arquivo';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 import { anexarGrupos } from '@/lib/conjuntoEmissao';
+import TagPrioritario from '@/components/TagPrioritario';
 import { mesAnoVigente } from '@/lib/mesVigente';
 import { Printer, Check, Loader2, Inbox, Search, RotateCcw, FileText, X } from 'lucide-react';
 
@@ -52,7 +53,7 @@ export default function Expedicao() {
       // Só emissões que já passaram do registro. Antes disso não existe boleto.
       const { data: pacs, error } = await supabase
         .from('emissoes_pacotes')
-        .select('id, condominio_id, mes_referencia, ano_referencia, status, grupo_id, condominios(name, due_day)')
+        .select('id, condominio_id, mes_referencia, ano_referencia, status, grupo_id, condominios(name, due_day, prazo_expedicao_dia, prioridade_motivo)')
         .in('status', ['registrado', 'expedida']);
       if (error) throw error;
 
@@ -261,6 +262,7 @@ export default function Expedicao() {
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm truncate ${impresso ? 'text-slate-500' : 'font-semibold text-slate-900'}`}>
                       {r.condominios?.name || 'Condomínio'}
+                      <TagPrioritario condo={r.condominios} mes={r.mes_referencia} ano={r.ano_referencia} className="ml-2" />
                       {r.grupo_nome && (
                         <span className="ml-2 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[11px] font-semibold text-violet-700">
                           {r.grupo_nome}

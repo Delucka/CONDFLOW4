@@ -1551,6 +1551,8 @@ class CondoData(BaseModel):
     gerente_id: Optional[str] = None
     cnpj: Optional[str] = None
     tem_consumo: Optional[bool] = None   # 0091 — depende de concessionária
+    prazo_expedicao_dia: Optional[str] = None   # 0096 — dia limite p/ expedir
+    prioridade_motivo: Optional[str] = None      # 0096 — por que é prioritário
     assistente: Optional[str] = None   # ignorado
     fluxo: Optional[int] = None        # ignorado
 
@@ -2091,6 +2093,10 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
         # A coluna é NOT NULL DEFAULT false (0091); None viraria erro, não "deixa
         # como está" — por isso o bool() em vez de repassar o Optional cru.
         "tem_consumo": bool(data.tem_consumo),
+        # Prazo de ENTREGA, nao de vencimento. Mesmo tratamento dos dias:
+        # "" vira NULL em vez de estourar no INTEGER.
+        "prazo_expedicao_dia": _dia_vencimento(data.prazo_expedicao_dia, "prazo de expedição"),
+        "prioridade_motivo": ((data.prioridade_motivo or "").strip() or None),
     }
     try:
         if data.id:

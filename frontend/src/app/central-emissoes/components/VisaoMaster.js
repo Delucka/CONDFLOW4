@@ -143,6 +143,7 @@ export default function VisaoMaster() {
   }, [pacotesAtivos, profile?.role]);
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
+  // Rebusca ao trocar de mês: agora o recorte é do banco, não do navegador.
   useEffect(() => {
     fetchPacotes();
     const channel = supabase.channel(`master_pacotes_${Math.random().toString(36).slice(2)}`)
@@ -150,7 +151,7 @@ export default function VisaoMaster() {
       .subscribe();
     return () => supabase.removeChannel(channel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mesAtivo, anoAtivo]);
 
   // Voltou para a aba: rebusca (o realtime não sobrevive à aba dormindo).
   useRevalidarAoVoltar(() => fetchPacotes());
@@ -158,18 +159,37 @@ export default function VisaoMaster() {
   async function fetchPacotes() {
     setLoading(true);
     try {
+      // Filtra o MÊS no banco, não no navegador.
+      //
+      // Antes: baixava todo pacote já criado — com `planilha_snapshot` e
+      // `cobrancas_snapshot`, que são a planilha inteira em JSON por emissão —
+      // e o `useMemo` jogava fora tudo que não era do mês exibido. Depois pedia
+      // a tabela INTEIRA de arquivos (com `extracao_dados_brutos`, também JSON)
+      // e a de aprovações. Quatro varreduras completas a cada carregamento,
+      // para mostrar um mês.
       const { data, error } = await supabase
         .from('emissoes_pacotes')
         .select('*, condominios(name)')
+        .eq('mes_referencia', mesAtivo)
+        .eq('ano_referencia', anoAtivo)
         .order('criado_em', { ascending: false });
 
       if (error) { addToast('Erro ao carregar pacotes: ' + error.message, 'error'); return; }
 
       if (data) {
-        const { data: arquivos } = await supabase
-          .from('emissoes_arquivos')
-          .select('id, pacote_id, arquivo_nome, arquivo_url, formato, categoria, subtipo, nome_condominio_fatura, vencimento_fatura, valor_fatura, relatorio_empresa, relatorio_tipo_servico, relatorio_data_leitura, relatorio_unidades, relatorio_consumo_total, relatorio_valor_total, extracao_dados_brutos, condominio_id, mes_referencia, ano_referencia')
-          .not('pacote_id', 'is', null);
+        const ids = data.map(p => p.id);
+        // Só os arquivos e as aprovações DESTES pacotes.
+        const [{ data: arquivos }, { data: aprs }] = ids.length
+          ? await Promise.all([
+              supabase.from('emissoes_arquivos')
+                .select('id, pacote_id, arquivo_nome, arquivo_url, formato, categoria, subtipo, nome_condominio_fatura, vencimento_fatura, valor_fatura, relatorio_empresa, relatorio_tipo_servico, relatorio_data_leitura, relatorio_unidades, relatorio_consumo_total, relatorio_valor_total, extracao_dados_brutos, condominio_id, mes_referencia, ano_referencia')
+                .in('pacote_id', ids),
+              supabase.from('emissoes_pacotes_aprovacoes')
+                .select('pacote_id, acao, role, usuario_nome, usuario_email, criado_em')
+                .in('pacote_id', ids)
+                .order('criado_em', { ascending: true }),
+            ])
+          : [{ data: [] }, { data: [] }];
 
         const arqMap = {};
         (arquivos || []).forEach(a => {
@@ -177,10 +197,6 @@ export default function VisaoMaster() {
           arqMap[a.pacote_id].push(a);
         });
 
-        const { data: aprs } = await supabase
-          .from('emissoes_pacotes_aprovacoes')
-          .select('pacote_id, acao, role, usuario_nome, usuario_email, criado_em')
-          .order('criado_em', { ascending: true });
         const aprMap = {};
         (aprs || []).forEach(a => { (aprMap[a.pacote_id] = aprMap[a.pacote_id] || []).push(a); });
 

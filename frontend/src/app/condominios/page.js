@@ -17,6 +17,7 @@ const VisualizadorConferencia = dynamic(() => import('@/components/VisualizadorC
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import Modal from '@/components/Modal';
 import TagConsumo from '@/components/TagConsumo';
+import TagPrioritario from '@/components/TagPrioritario';
 import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
 import { btn, cn } from '@/lib/botoes';
 import { extrairTextoPdf, lerCondominos, exibirCnpj } from '@/lib/importarCondominos';
@@ -37,7 +38,7 @@ export default function CondominiosPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [moradoresDe, setMoradoresDe] = useState(null);   // condomínio do painel de moradores
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false });
+  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false, prazo_expedicao_dia: '', prioridade_motivo: '' });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
   const supabase = createClient();
 
@@ -183,10 +184,12 @@ export default function CondominiosPage() {
         due_day_2: condo.due_day_2 || '',
         gerente_id: condo.gerente_id || '',
         cnpj: condo.cnpj || '',
-        tem_consumo: !!condo.tem_consumo
+        tem_consumo: !!condo.tem_consumo,
+        prazo_expedicao_dia: condo.prazo_expedicao_dia ?? '',
+        prioridade_motivo: condo.prioridade_motivo || ''
       });
     } else {
-      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false });
+      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false, prazo_expedicao_dia: '', prioridade_motivo: '' });
     }
     setModalOpen(true);
   }
@@ -603,6 +606,33 @@ export default function CondominiosPage() {
             <p className={AJUDA}>Opcional. O 2º só para vencimento dividido.</p>
           </div>
 
+          {/* Prioritário (0096). O prazo é de ENTREGA, não de pagamento: o
+              condomínio pode vencer dia 5 e ter prazo de entrega no dia 20. */}
+          <div className="space-y-1.5">
+            <label className={LBL}>Prioridade</label>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <label htmlFor="condo-prazo" className="text-sm text-slate-600 shrink-0">Entregar até o dia</label>
+                <input id="condo-prazo" type="number" inputMode="numeric" min="1" max="31" placeholder="—"
+                  value={formData.prazo_expedicao_dia}
+                  onChange={e => setFormData({ ...formData, prazo_expedicao_dia: e.target.value })}
+                  className={`${CAMPO} max-w-[90px]`} aria-label="Dia limite para expedir" />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="condo-motivo" className="text-sm text-slate-600 block">Por que é prioritário</label>
+                <textarea id="condo-motivo" rows={2}
+                  value={formData.prioridade_motivo}
+                  onChange={e => setFormData({ ...formData, prioridade_motivo: e.target.value })}
+                  placeholder="Ex.: síndico cobra a entrega no dia 18; contrato exige boleto com 10 dias de antecedência"
+                  className={`${CAMPO} resize-y`} />
+              </div>
+            </div>
+            <p className={AJUDA}>
+              Preencher qualquer um dos dois marca o condomínio como prioritário em todas as telas.
+              O motivo aparece ao passar o mouse na tag — sem ele, &quot;prioritário&quot; vira aviso que todo mundo ignora.
+            </p>
+          </div>
+
           {/* Marcação manual do consumo (0091). A relação da operação entrou por
               migration, mas condomínio novo, cadastro duplicado ou mudança de
               contrato precisam de um lugar para ajustar sem passar por SQL. */}
@@ -969,6 +999,7 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores }) {
                  <Calendar className="w-4 h-4 text-violet-500" />
                  <span className="text-xs font-bold">Vencimento: Dia {c.due_day || '—'}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>
                  {c.tem_consumo && <TagConsumo />}
+                 <TagPrioritario condo={c} />
               </div>
               <div className="flex items-center gap-3 text-slate-400">
                  <ShieldCheck className="w-4 h-4 text-emerald-500" aria-hidden="true" />
