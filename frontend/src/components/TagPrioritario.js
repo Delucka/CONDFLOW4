@@ -33,11 +33,18 @@ export default function TagPrioritario({ condo, mes, ano, className = '' }) {
   const vencido = restam !== null && restam < 0;
   const apertando = restam !== null && restam >= 0 && restam <= 3;
 
+  // SÓLIDA, não translúcida. Todas as outras tags do app são pílulas de tinta
+  // clara — consumo, grupo, parcela, status. Uma pílula PREENCHIDA no meio
+  // delas salta pela forma, antes mesmo da cor, e continua saltando se um dia
+  // aparecer mais uma tag âmbar por perto.
+  //
+  // O âmbar sozinho não servia: já é a cor de "pendente" em 17 lugares, então
+  // prioridade em âmbar virava mais um aviso na pilha de avisos.
   const tom = vencido
-    ? 'border-rose-300 bg-rose-50 text-rose-800'
+    ? 'border-rose-700 bg-rose-600 text-white'
     : apertando
-      ? 'border-amber-300 bg-amber-50 text-amber-900'
-      : 'border-amber-200 bg-amber-50 text-amber-800';
+      ? 'border-orange-600 bg-orange-500 text-white'
+      : 'border-rose-600 bg-rose-500 text-white';
 
   const sufixo = !dia ? ''
     : vencido ? ' · atrasado'

@@ -153,24 +153,37 @@ input:focus, select:focus, textarea:focus {
    ============================================================ */
 html.dark {
   color-scheme: dark;
-  --color-surface-app:    #0b1120;
-  --color-surface:        #121c30;
-  --color-surface-2:      #18243c;
-  --color-surface-sunken: #0e1626;
-  --color-text-primary:   #f1f5f9;
-  --color-text-secondary: #cbd5e1;
-  --color-text-muted:     #8499b5;
-  --color-border-subtle:  #1f2b45;
-  --color-border-default: #2a3a59;
-  --color-border-strong:  #3a4d72;
-  --color-brand-soft:     #15213f;
 
-  /* Acento no escuro: azul mais claro (salta no fundo escuro) */
-  --color-violet-300: #9fc0ff;
-  --color-violet-400: #7da2ff;
-  --color-violet-500: #5b8def;
-  --color-violet-600: #4f7cef;
-  --color-violet-700: #3f63cf;
+  /* ── Grafite neutro ──
+     O fundo era azul saturado (#0b1120) e o acento também é azul. Fundo e
+     destaque disputavam o mesmo espaço: nada saltava, e a solução de sempre era
+     saturar mais o acento, que cansava a vista.
+
+     Com a base neutra, o azul do acento vira a ÚNICA cor fria da tela e salta
+     sozinho — sem precisar gritar. As tags coloridas ganham o mesmo efeito.
+
+     Os degraus também eram curtos demais (#121c30 → #18243c, 6 pontos de
+     luminância): cartão e fundo se confundiam. Agora cada nível sobe o
+     bastante para a hierarquia ser visível sem depender de borda. */
+  --color-surface-app:    #0d0f12;   /* página */
+  --color-surface:        #16181d;   /* cartão */
+  --color-surface-2:      #1f2229;   /* cartão sobre cartão, cabeçalho */
+  --color-surface-sunken: #0a0c0e;   /* faixa afundada, campo */
+  --color-text-primary:   #f2f4f7;
+  --color-text-secondary: #c3c8d1;
+  --color-text-muted:     #8b919c;
+  --color-border-subtle:  #23262d;
+  --color-border-default: #2e323b;
+  --color-border-strong:  #3f4550;
+  --color-brand-soft:     #16203a;
+
+  /* Acento: azul um pouco mais claro que no claro, para separar do grafite.
+     Não precisa ser berrante — o fundo neutro já faz metade do trabalho. */
+  --color-violet-300: #a8c3ff;
+  --color-violet-400: #86a9ff;
+  --color-violet-500: #6690f5;
+  --color-violet-600: #5b8def;
+  --color-violet-700: #4a76d8;
 }
 
 /* Painéis token-driven */
@@ -182,15 +195,15 @@ html.dark {
 .dark .bg-white       { background-color: var(--color-surface) !important; }
 .dark .bg-slate-50    { background-color: var(--color-surface-2) !important; }
 .dark .bg-slate-100   { background-color: var(--color-surface-sunken) !important; }
-.dark .bg-slate-200   { background-color: #243150 !important; }
+.dark .bg-slate-200   { background-color: #2a2e37 !important; }
 
 /* Texto */
 .dark .text-slate-900 { color: var(--color-text-primary) !important; }
-.dark .text-slate-800 { color: #e6edf6 !important; }
-.dark .text-slate-700 { color: #cdd9e8 !important; }
-.dark .text-slate-600 { color: #aebccf !important; }
-.dark .text-slate-500 { color: #8499b5 !important; }
-.dark .text-slate-400 { color: #6b7d99 !important; }
+.dark .text-slate-800 { color: #e8eaee !important; }
+.dark .text-slate-700 { color: #d0d4db !important; }
+.dark .text-slate-600 { color: #aeb4bf !important; }
+.dark .text-slate-500 { color: #8b919c !important; }
+.dark .text-slate-400 { color: #737985 !important; }
 
 /* Bordas */
 .dark .border-slate-100 { border-color: var(--color-border-subtle) !important; }
@@ -198,21 +211,21 @@ html.dark {
 .dark .border-slate-300 { border-color: var(--color-border-strong) !important; }
 
 /* Fundos suaves de acento (claros → tingidos escuros) */
-.dark .bg-violet-50  { background-color: rgba(79,124,239,.16) !important; }
-.dark .bg-emerald-50 { background-color: rgba(16,185,129,.14) !important; }
-.dark .bg-amber-50   { background-color: rgba(245,158,11,.14) !important; }
-.dark .bg-rose-50    { background-color: rgba(244,63,94,.14) !important; }
+.dark .bg-violet-50  { background-color: rgba(91,141,239,.13) !important; }
+.dark .bg-emerald-50 { background-color: rgba(16,185,129,.12) !important; }
+.dark .bg-amber-50   { background-color: rgba(245,158,11,.12) !important; }
+.dark .bg-rose-50    { background-color: rgba(244,63,94,.12) !important; }
 
 /* Bordas suaves de acento. A rampa escura só redefine violet 300–700: as
    claras (50/100/200) continuam com o valor CLARO e viravam borda leitosa
    sobre o fundo escuro — foi o "cinza estranho" das faixas de grupo. */
-.dark .border-violet-100 { border-color: rgba(79,124,239,.24) !important; }
-.dark .border-violet-200 { border-color: rgba(79,124,239,.38) !important; }
-.dark .border-violet-300 { border-color: rgba(79,124,239,.55) !important; }
-.dark .border-emerald-200 { border-color: rgba(16,185,129,.34) !important; }
-.dark .border-amber-200   { border-color: rgba(245,158,11,.34) !important; }
-.dark .border-amber-300   { border-color: rgba(245,158,11,.48) !important; }
-.dark .border-rose-200    { border-color: rgba(244,63,94,.34) !important; }
+.dark .border-violet-100 { border-color: rgba(91,141,239,.22) !important; }
+.dark .border-violet-200 { border-color: rgba(91,141,239,.34) !important; }
+.dark .border-violet-300 { border-color: rgba(91,141,239,.48) !important; }
+.dark .border-emerald-200 { border-color: rgba(16,185,129,.30) !important; }
+.dark .border-amber-200   { border-color: rgba(245,158,11,.30) !important; }
+.dark .border-amber-300   { border-color: rgba(245,158,11,.42) !important; }
+.dark .border-rose-200    { border-color: rgba(244,63,94,.30) !important; }
 
 /* Texto de acento forte: no claro é navy quase preto (#172554), pensado para
    chip claro. No escuro tem de clarear, igual ao que já se faz com
@@ -234,7 +247,7 @@ html.dark {
 .dark .text-emerald-300, .dark .text-emerald-200 { color:#6ee7b7 !important; }
 .dark .text-amber-300,   .dark .text-amber-200   { color:#fcd34d !important; }
 .dark .text-rose-300,    .dark .text-rose-200    { color:#fda4af !important; }
-.dark .text-violet-300,  .dark .text-violet-200  { color:#9fc0ff !important; }
+.dark .text-violet-300,  .dark .text-violet-200  { color:#a8c3ff !important; }
 
 /* Tom 400 também era fraco no claro (muito usado em chips/badges e ícones de status) */
 .text-emerald-400 { color:#047857 !important; }
@@ -260,22 +273,22 @@ html.dark {
 .dark .text-emerald-800, .dark .text-emerald-900 { color:#6ee7b7 !important; }
 .dark .text-amber-800,   .dark .text-amber-900   { color:#fcd34d !important; }
 .dark .text-rose-800,    .dark .text-rose-900    { color:#fda4af !important; }
-.dark .text-violet-800,  .dark .text-violet-900  { color:#9fc0ff !important; }
-.dark .text-slate-800\/90 { color:#e6edf6 !important; }
+.dark .text-violet-800,  .dark .text-violet-900  { color:#a8c3ff !important; }
+.dark .text-slate-800\/90 { color:#e8eaee !important; }
 
 /* Rampa SKY: nunca teve tratamento nenhum. `bg-sky-50` é #f0f9ff — uma pílula
    quase branca no fundo #0b1120. A tag de Consumo usava exatamente isso. */
-.dark .bg-sky-50      { background-color: rgba(56,189,248,.14) !important; }
-.dark .bg-sky-100     { background-color: rgba(56,189,248,.20) !important; }
+.dark .bg-sky-50      { background-color: rgba(56,189,248,.12) !important; }
+.dark .bg-sky-100     { background-color: rgba(56,189,248,.18) !important; }
 
 /* Os tons 100 dos acentos: mesmo problema do 50, um degrau mais claro ainda.
    `bg-amber-100` é #fef3c7 — no escuro, um retângulo branco. */
-.dark .bg-amber-100   { background-color: rgba(245,158,11,.22) !important; }
-.dark .bg-emerald-100 { background-color: rgba(16,185,129,.22) !important; }
-.dark .bg-rose-100    { background-color: rgba(244,63,94,.22) !important; }
-.dark .bg-violet-100  { background-color: rgba(79,124,239,.22) !important; }
-.dark .border-sky-200 { border-color: rgba(56,189,248,.30) !important; }
-.dark .border-sky-300 { border-color: rgba(56,189,248,.42) !important; }
+.dark .bg-amber-100   { background-color: rgba(245,158,11,.18) !important; }
+.dark .bg-emerald-100 { background-color: rgba(16,185,129,.18) !important; }
+.dark .bg-rose-100    { background-color: rgba(244,63,94,.18) !important; }
+.dark .bg-violet-100  { background-color: rgba(91,141,239,.18) !important; }
+.dark .border-sky-200 { border-color: rgba(56,189,248,.26) !important; }
+.dark .border-sky-300 { border-color: rgba(56,189,248,.36) !important; }
 .dark .text-sky-600, .dark .text-sky-700,
 .dark .text-sky-800, .dark .text-sky-900 { color:#7dd3fc !important; }
 
@@ -283,8 +296,19 @@ html.dark {
 .dark .bg-emerald-600 { background-color:#115e59 !important; }
 .dark .bg-amber-500   { background-color:#b45309 !important; }
 .dark .bg-amber-600   { background-color:#92400e !important; }
-.dark .bg-rose-500    { background-color:#be123c !important; }
-.dark .bg-rose-600    { background-color:#9f1239 !important; }
+/* Vermelhos: os valores antigos eram rebaixados para não vibrar sobre o navy.
+   Na base grafite isso apaga o alerta — voltam ao tom cheio, que é o ponto de
+   uma cor de perigo. Contraste com texto branco fica em 4,5:1. */
+.dark .bg-rose-500    { background-color:#e11d48 !important; }
+.dark .bg-rose-600    { background-color:#be123c !important; }
+.dark .bg-rose-700    { background-color:#9f1239 !important; }
+
+/* Laranja: usado só no aviso de prazo apertando, e não tinha versão escura. */
+.dark .bg-orange-500  { background-color:#ea580c !important; }
+.dark .bg-orange-600  { background-color:#c2410c !important; }
+.dark .border-orange-600 { border-color:#9a3412 !important; }
+.dark .border-rose-600   { border-color:#9f1239 !important; }
+.dark .border-rose-700   { border-color:#881337 !important; }
 
 .dark .border-emerald-200, .dark .border-emerald-300 { border-color:#115e59 !important; }
 .dark .border-amber-200,   .dark .border-amber-300   { border-color:#92400e !important; }
