@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
 import { combina } from '@/lib/busca';
-import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, Upload, Users } from 'lucide-react';
+import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, Upload, Users, AlertTriangle } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/utils/supabase/client';
 
@@ -22,6 +22,7 @@ import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
 import { btn, cn } from '@/lib/botoes';
 import { extrairTextoPdf, lerCondominos, exibirCnpj } from '@/lib/importarCondominos';
 const PainelMoradores = dynamic(() => import('./PainelMoradores'), { ssr: false });
+const PainelPrioridades = dynamic(() => import('./PainelPrioridades'), { ssr: false });
 
 // Estilos do formulário num lugar só — antes cada campo repetia a mesma
 // sequência de classes, e mudar um espaçamento significava editar 6 linhas.
@@ -36,6 +37,7 @@ export default function CondominiosPage() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [prioridadesOpen, setPrioridadesOpen] = useState(false);
   const [moradoresDe, setMoradoresDe] = useState(null);   // condomínio do painel de moradores
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false, prazo_expedicao_dia: '', prioridade_motivo: '' });
@@ -452,6 +454,13 @@ export default function CondominiosPage() {
         {canEdit && (
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
             <button
+              onClick={() => setPrioridadesOpen(true)}
+              className={cn(btn.secundario, 'w-full sm:w-auto')}
+              title="Marcar prazo e motivo em vários condomínios de uma vez"
+            >
+              <AlertTriangle className="w-4 h-4" aria-hidden="true" /> Prioridades
+            </button>
+            <button
               onClick={() => setImportOpen(true)}
               className={cn(btn.secundario, 'w-full sm:w-auto')}
             >
@@ -696,6 +705,13 @@ export default function CondominiosPage() {
         open={!!moradoresDe}
         condominio={moradoresDe}
         onClose={() => setMoradoresDe(null)}
+      />
+
+      <PainelPrioridades
+        open={prioridadesOpen}
+        onClose={() => setPrioridadesOpen(false)}
+        condominios={condosData || []}
+        onSalvo={() => mutateCondos()}
       />
 
       <ImportarCondominios
