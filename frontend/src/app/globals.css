@@ -252,6 +252,33 @@ html.dark {
 .dark .text-amber-500,   .dark .text-amber-600,   .dark .text-amber-700   { color:#fbbf24 !important; }
 .dark .text-rose-500,    .dark .text-rose-600,    .dark .text-rose-700    { color:#fb7185 !important; }
 
+/* 800/900 — o tom que se usa em CHIP CLARO: texto quase preto sobre fundo
+   pastel. É a receita certa no claro e a pior possível no escuro, onde o fundo
+   pastel vira tinta translúcida escura e o texto some dentro dela.
+   Ficaram de fora quando os 500–700 foram tratados, e desde então toda tag
+   nova (prioritário, consumo, parcela, grupo, expedição) caiu no buraco. */
+.dark .text-emerald-800, .dark .text-emerald-900 { color:#6ee7b7 !important; }
+.dark .text-amber-800,   .dark .text-amber-900   { color:#fcd34d !important; }
+.dark .text-rose-800,    .dark .text-rose-900    { color:#fda4af !important; }
+.dark .text-violet-800,  .dark .text-violet-900  { color:#9fc0ff !important; }
+.dark .text-slate-800\/90 { color:#e6edf6 !important; }
+
+/* Rampa SKY: nunca teve tratamento nenhum. `bg-sky-50` é #f0f9ff — uma pílula
+   quase branca no fundo #0b1120. A tag de Consumo usava exatamente isso. */
+.dark .bg-sky-50      { background-color: rgba(56,189,248,.14) !important; }
+.dark .bg-sky-100     { background-color: rgba(56,189,248,.20) !important; }
+
+/* Os tons 100 dos acentos: mesmo problema do 50, um degrau mais claro ainda.
+   `bg-amber-100` é #fef3c7 — no escuro, um retângulo branco. */
+.dark .bg-amber-100   { background-color: rgba(245,158,11,.22) !important; }
+.dark .bg-emerald-100 { background-color: rgba(16,185,129,.22) !important; }
+.dark .bg-rose-100    { background-color: rgba(244,63,94,.22) !important; }
+.dark .bg-violet-100  { background-color: rgba(79,124,239,.22) !important; }
+.dark .border-sky-200 { border-color: rgba(56,189,248,.30) !important; }
+.dark .border-sky-300 { border-color: rgba(56,189,248,.42) !important; }
+.dark .text-sky-600, .dark .text-sky-700,
+.dark .text-sky-800, .dark .text-sky-900 { color:#7dd3fc !important; }
+
 .dark .bg-emerald-500 { background-color:#0f766e !important; }
 .dark .bg-emerald-600 { background-color:#115e59 !important; }
 .dark .bg-amber-500   { background-color:#b45309 !important; }
