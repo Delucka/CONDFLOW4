@@ -1328,6 +1328,25 @@ export default function VisaoEmissor({ profile }) {
     return groups;
   }, [condominios]);
 
+  // Precisa vir ANTES de `passaNaSituacao`: `useMemo` executa o corpo na hora,
+  // durante o render. Declarado depois, o filtro leria a variável na zona morta
+  // temporal e derrubava a tela — não no carregamento, mas no instante em que
+  // alguém trocasse o filtro de "Todos" para qualquer outro.
+  const pacotesPorCondo = useMemo(() => {
+    const map = {};
+    pacotes.forEach(p => {
+      const key = `${p.condominio_id}_${p.mes_referencia}_${p.ano_referencia}`;
+      (map[key] = map[key] || []).push(p);
+    });
+    // Ordem estável: por dia de vencimento, depois pelo nome do grupo.
+    for (const k of Object.keys(map)) {
+      map[k].sort((a, b) =>
+        (a.grupo_due_day ?? 99) - (b.grupo_due_day ?? 99) ||
+        String(a.grupo_nome || '').localeCompare(String(b.grupo_nome || '')));
+    }
+    return map;
+  }, [pacotes]);
+
   // Filtro por situação, junto da busca. Responde as perguntas que se faz de
   // manhã: o que o gerente já liberou, o que ainda está com ele, o que já virou
   // emissão, e o que tem prazo apertando.
@@ -1390,20 +1409,6 @@ export default function VisaoEmissor({ profile }) {
   // LISTA por condomínio+mês, não um só. Antes era `map[key] = p`: com duas
   // emissões no mesmo mês (0086) a segunda sobrescrevia a primeira e sumia da
   // tela — o emissor nunca veria que faltava montar a do outro vencimento.
-  const pacotesPorCondo = useMemo(() => {
-    const map = {};
-    pacotes.forEach(p => {
-      const key = `${p.condominio_id}_${p.mes_referencia}_${p.ano_referencia}`;
-      (map[key] = map[key] || []).push(p);
-    });
-    // Ordem estável: por dia de vencimento, depois pelo nome do grupo.
-    for (const k of Object.keys(map)) {
-      map[k].sort((a, b) =>
-        (a.grupo_due_day ?? 99) - (b.grupo_due_day ?? 99) ||
-        String(a.grupo_nome || '').localeCompare(String(b.grupo_nome || '')));
-    }
-    return map;
-  }, [pacotes]);
 
   const toggleCarteira = (name) => {
     setExpandedCarteiras(prev => ({ ...prev, [name]: !prev[name] }));
