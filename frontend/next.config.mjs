@@ -72,6 +72,19 @@ const nextConfig = {
   },
   typescript: { ignoreBuildErrors: true },
 
+  // Mapas de origem no build de produção.
+  //
+  // O erro da Central de Emissões chega como `Cannot access 'tP' before
+  // initialization` — `tP` é nome inventado pelo minificador, então o rastro não
+  // aponta arquivo nem linha, e sem isso o diagnóstico vira adivinhação. Com o
+  // mapa, o mesmo erro passa a nomear o arquivo e a linha reais.
+  //
+  // Custo: o build publica os `.map`, então o código-fonte fica legível por quem
+  // abrir o DevTools. Não é vazamento de segredo — o JS já vai inteiro para o
+  // navegador, só ilegível —, mas também não é para ficar ligado para sempre.
+  // DESLIGUE assim que o erro estiver identificado.
+  productionBrowserSourceMaps: true,
+
   // `experimental.optimizePackageImports: ['lucide-react']` foi REMOVIDO aqui.
   //
   // A Central de Emissões quebrava em produção com
