@@ -710,7 +710,7 @@ export default function CondominiosPage() {
       <PainelPrioridades
         open={prioridadesOpen}
         onClose={() => setPrioridadesOpen(false)}
-        condominios={condosData || []}
+        condominios={condos}
         onSalvo={() => mutateCondos()}
       />
 

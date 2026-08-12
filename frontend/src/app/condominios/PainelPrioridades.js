@@ -32,7 +32,10 @@ export default function PainelPrioridades({ open, onClose, condominios, onSalvo 
 
   const lista = useMemo(() => {
     const q = busca.trim();
-    return (condominios || [])
+    // Array.isArray, não `|| []`: o endpoint devolve `{condos: [...]}`, e um
+    // objeto passa no `||` e só quebra no `.filter` — derrubando a página
+    // inteira, porque este componente renderiza mesmo com o modal fechado.
+    return (Array.isArray(condominios) ? condominios : [])
       .filter(c => !soPrioritarios || ehPrioritario(c))
       .filter(c => !q || combina(q, c.name))
       .slice(0, 400);
