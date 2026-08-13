@@ -394,13 +394,12 @@ export default function DashboardPage() {
       .filter(passa)
       .filter(c => combina(buscaCondo, c.name, c.gerente_name));
 
-    // Prioritário primeiro: é o que não pode passar batido numa lista de 325.
-    return achados.sort((a, b) => {
-      const pa = ehPrioritario(a) ? 0 : 1;
-      const pb = ehPrioritario(b) ? 0 : 1;
-      if (pa !== pb) return pa - pb;
-      return ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name);
-    });
+    // SEMPRE por código. O filtro muda o que aparece, nunca a ordem — a lista é
+    // percorrida de cima a baixo no dia a dia, e ordem que se reorganiza sozinha
+    // faz perder o lugar. Para ver só os prioritários existe o filtro.
+    return achados.sort((a, b) => (
+      ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name)
+    ));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [condos, ordemAsc, buscaCondo, situacao, processos, emissaoByCondominio]);
   const pendingProcesses = useMemo(() => {

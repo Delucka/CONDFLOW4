@@ -1319,12 +1319,24 @@ export default function VisaoEmissor({ profile }) {
 
   // Agrupar condomínios por carteira
   const carteiras = useMemo(() => {
+    // Ordem NUMÉRICA pelo código, dentro de cada carteira. A consulta traz por
+    // nome, e alfabético não é o mesmo que numérico: "1000" vem antes de "999",
+    // e "0001" antes de "001". Quem percorre a lista de cima a baixo espera a
+    // sequência dos códigos.
+    const codigoDe = (n) => {
+      const m = String(n || '').match(/^\s*0*(\d+)/);
+      return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+    };
     const groups = {};
     condominios.forEach(c => {
       const gerente = c.gerentes?.profiles?.full_name || 'Sem Carteira';
       if (!groups[gerente]) groups[gerente] = [];
       groups[gerente].push(c);
     });
+    for (const g of Object.keys(groups)) {
+      groups[g].sort((a, b) => codigoDe(a.name) - codigoDe(b.name)
+        || String(a.name || '').localeCompare(String(b.name || '')));
+    }
     return groups;
   }, [condominios]);
 
