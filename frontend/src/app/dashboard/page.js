@@ -9,7 +9,9 @@ import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { mesAnoVigente } from '@/lib/mesVigente';
 import { useRouter } from 'next/navigation';
 import TagConsumo from '@/components/TagConsumo';
-import TagPrioritario from '@/components/TagPrioritario';
+import TagPrioritario, { ehPrioritario } from '@/components/TagPrioritario';
+import dynamic from 'next/dynamic';
+const PainelPrioridades = dynamic(() => import('@/components/PainelPrioridades'), { ssr: false });
 import { combina } from '@/lib/busca';
 import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
@@ -164,6 +166,8 @@ export default function DashboardPage() {
   const [vigente] = useState(mesAnoVigente);
   const [mesEmissao, setMesEmissao] = useState(vigente.mes);
   const [ordemAsc, setOrdemAsc] = useState(true);
+  const [situacao, setSituacao] = useState('todos');
+  const [prioridadesOpen, setPrioridadesOpen] = useState(false);
   const isMobile = useIsMobile();
 
   // Persiste o mês escolhido: mantém ao sair/voltar; só muda quando o usuário troca
@@ -256,6 +260,10 @@ export default function DashboardPage() {
   const pipelineConfig      = data?.pipeline_config || null;
   const emissaoStats        = data?.emissao_stats   || { gerente: 0, supGerente: 0, supContabilidade: 0, aguardando: 0, registrada: 0 };
   const emissaoByCondominio = data?.emissao_by_condo || {};
+  // Sobe para cá porque o `useMemo` do filtro lê isto durante o render — e
+  // useMemo executa na hora. Declarado depois, cairia na zona morta do const
+  // e derrubaria o painel no primeiro clique de filtro.
+  const processos = data?.processos || {};
   const countdown           = useCountdown(pipelineConfig);
 
   // Status da edição mensal (edicoes_mensais) por condomínio — VENCE o status
@@ -352,11 +360,49 @@ export default function DashboardPage() {
 
   // Hooks SEMPRE antes de qualquer return condicional (Regras dos Hooks)
   const condos = data?.condos || [];
+  // Filtro por situação — o mesmo de Fazer Emissões, porque o painel virou a
+  // tela de trabalho de quem emite: a linha inteira já leva para a emissão.
+  const SITUACOES = [
+    { id: 'todos',       rotulo: 'Todos' },
+    { id: 'liberados',   rotulo: 'Liberados' },
+    { id: 'com_gerente', rotulo: 'Com o gerente' },
+    { id: 'sem_emissao', rotulo: 'Sem emissão' },
+    { id: 'em_emissao',  rotulo: 'Em emissão' },
+    { id: 'prioritarios', rotulo: 'Prioritários' },
+  ];
+
   const condosOrdenados = useMemo(() => {
     const codeOf = (n) => { const m = String(n || '').match(/^\s*0*(\d+)/); return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER; };
-    const achados = condos.filter(c => combina(buscaCondo, c.name, c.gerente_name));
-    return achados.sort((a, b) => ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name));
-  }, [condos, ordemAsc, buscaCondo]);
+
+    const passa = (c) => {
+      if (situacao === 'todos') return true;
+      const plan = statusPlanilha(c.id) || processos[c.id]?.status || null;
+      const emis = emissaoByCondominio[c.id] || null;
+      switch (situacao) {
+        // O gerente terminou e passou para nós. 'Edição finalizada' é o estado
+        // do mês liberado; 'Entregue' é como o badge o chama na tela.
+        case 'liberados':    return plan === 'Edição finalizada';
+        case 'com_gerente':  return plan === 'Em edição' || plan === 'Solicitar alteração';
+        case 'sem_emissao':  return !emis;
+        case 'em_emissao':   return !!emis;
+        case 'prioritarios': return ehPrioritario(c);
+        default: return true;
+      }
+    };
+
+    const achados = condos
+      .filter(passa)
+      .filter(c => combina(buscaCondo, c.name, c.gerente_name));
+
+    // Prioritário primeiro: é o que não pode passar batido numa lista de 325.
+    return achados.sort((a, b) => {
+      const pa = ehPrioritario(a) ? 0 : 1;
+      const pb = ehPrioritario(b) ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      return ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [condos, ordemAsc, buscaCondo, situacao, processos, emissaoByCondominio]);
   const pendingProcesses = useMemo(() => {
     if (!data?.processos) return [];
     const out = [];
@@ -400,7 +446,6 @@ export default function DashboardPage() {
   const gerentes = data?.gerentes || [];
   const gerenteNomePorId = {};
   gerentes.forEach(g => { gerenteNomePorId[g.id] = g.profiles?.full_name || g.nome || null; });
-  const processos = data?.processos || {};
 
   // ═══════════════ INÍCIO — versão de celular (layout de app) ═══════════════
   if (isMobile) {
@@ -610,6 +655,15 @@ export default function DashboardPage() {
             <div className="flex flex-wrap items-center gap-2">
               {/* O master trabalha dos dois lados: emitindo, a linha leva à
                   emissão; na gerência, voltam os atalhos de planilha e cobrança. */}
+              <button
+                type="button"
+                onClick={() => setPrioridadesOpen(true)}
+                title="Marcar prazo e motivo em vários condomínios de uma vez"
+                className={`inline-flex items-center gap-1.5 border border-slate-200 bg-white ${raio.controle} px-2.5 py-1.5 text-[13px] text-slate-700 hover:bg-slate-100 transition-colors`}
+              >
+                <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" /> Prioridades
+              </button>
+
               {podeAlternarVisao && (
                 <div className={`inline-flex border border-slate-200 ${raio.controle} overflow-hidden`} role="group" aria-label="Visão do painel">
                   {[
@@ -644,6 +698,18 @@ export default function DashboardPage() {
                   <option key={i + 1} value={i + 1}>{m}/{vigente.ano}</option>
                 ))}
               </select>
+
+              <span className="w-full flex flex-wrap gap-1.5 order-last">
+                {SITUACOES.map(f => (
+                  <button key={f.id} type="button" onClick={() => setSituacao(f.id)} aria-pressed={situacao === f.id}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      situacao === f.id
+                        ? 'border-violet-600 bg-violet-600 text-white'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'}`}>
+                    {f.rotulo}
+                  </button>
+                ))}
+              </span>
 
               {user?.role !== 'gerente' && (
                 <select
@@ -871,6 +937,13 @@ export default function DashboardPage() {
       {/* Condomínio com concessionária: confere se fatura e relatório estão em
           mãos antes de abrir a emissão. Abrir sem isso cria um pacote que fica
           parado esperando — e ninguém lembra por quê. */}
+      <PainelPrioridades
+        open={prioridadesOpen}
+        onClose={() => setPrioridadesOpen(false)}
+        condominios={condos}
+        onSalvo={() => mutate()}
+      />
+
       {confirmarConsumo && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setConfirmarConsumo(null)} />

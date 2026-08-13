@@ -22,7 +22,7 @@ import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
 import { btn, cn } from '@/lib/botoes';
 import { extrairTextoPdf, lerCondominos, exibirCnpj } from '@/lib/importarCondominos';
 const PainelMoradores = dynamic(() => import('./PainelMoradores'), { ssr: false });
-const PainelPrioridades = dynamic(() => import('./PainelPrioridades'), { ssr: false });
+const PainelPrioridades = dynamic(() => import('@/components/PainelPrioridades'), { ssr: false });
 
 // Estilos do formulário num lugar só — antes cada campo repetia a mesma
 // sequência de classes, e mudar um espaçamento significava editar 6 linhas.
