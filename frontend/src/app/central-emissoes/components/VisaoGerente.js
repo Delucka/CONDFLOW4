@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
@@ -21,6 +21,8 @@ export default function VisaoGerente({ profile }) {
 
   const [pacotes, setPacotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Ver o comentário em fetchPacotes(): distingue primeira carga de rebusca.
+  const jaCarregouRef = useRef(false);
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [termoBusca, setTermoBusca] = useState('');
   const [arquivoAberto, setArquivoAberto] = useState(null);
@@ -35,7 +37,11 @@ export default function VisaoGerente({ profile }) {
   const isSupervisor = ['supervisora', 'supervisora_contabilidade', 'supervisor_gerentes'].includes(role);
 
   async function fetchPacotes() {
-    setLoading(true);
+      // Spinner de tela cheia SÓ na primeira carga. Antes, todo rebusca (voltar
+      // para a aba, evento do realtime) acendia o spinner e desmontava a árvore:
+      // carteira expandida fechava, rolagem voltava ao topo, filtro parecia
+      // "sair de ordem". O dado nem mudava — o que se perdia era o lugar.
+    if (!jaCarregouRef.current) setLoading(true);
     try {
       let pacotesData = [];
 
@@ -98,6 +104,7 @@ export default function VisaoGerente({ profile }) {
     } catch (err) {
       console.error('[VisaoGerente] erro geral:', err);
     }
+    jaCarregouRef.current = true;
     setLoading(false);
   }
 

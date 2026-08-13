@@ -487,11 +487,18 @@ export default function VisaoEmissor({ profile }) {
     }
   }
 
+  const jaCarregouRef = useRef(false);
+
   async function fetchDados() {
-    setLoading(true);
+    // Spinner de tela cheia SÓ na primeira carga. Antes, todo rebusca acendia o
+    // spinner e desmontava a árvore: carteira expandida fechava, rolagem
+    // voltava ao topo, filtro parecia "sair de ordem". O dado nem mudava — o
+    // que se perdia era o lugar.
+    if (!jaCarregouRef.current) setLoading(true);
     try {
       await Promise.all([fetchCondominios(), fetchPacotes(), fetchProcessos(), fetchPreparacao()]);
     } finally {
+      jaCarregouRef.current = true;
       setLoading(false);
     }
   }

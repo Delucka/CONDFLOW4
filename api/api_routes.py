@@ -130,8 +130,19 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         sem = 1 if datetime.now().month <= 6 else 2
         emis_ano = int(ano) if ano else year
 
-        query = db.table("condominios").select("*, processos(*)")
-        
+        # O join de processos vinha SEM filtro: trazia todo processo de todo
+        # condomínio, de todos os semestres desde 2024, e o laço abaixo jogava
+        # fora tudo que não fosse do semestre corrente. Com 325 condomínios e
+        # vários semestres, é a consulta mais cara do sistema — e roda a cada
+        # abertura do painel.
+        #
+        # Filtrar o recurso embutido (`processos.year`) recorta ANTES de vir
+        # pela rede. Sem `!inner`, condomínio sem processo do semestre continua
+        # aparecendo, com a lista vazia — que é o que o laço já espera.
+        query = (db.table("condominios").select("*, processos(*)")
+                   .eq("processos.year", year)
+                   .eq("processos.semester", sem))
+
         # Filtros baseados na role
         if user["role"] in ("gerente", "assistente"):
             g_id = carteira_gerente_id(db, user)

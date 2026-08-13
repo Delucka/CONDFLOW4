@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
@@ -41,6 +41,8 @@ export default function Expedicao() {
 
   const [remessas, setRemessas] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Ver o comentário em fetchFila(): distingue primeira carga de rebusca.
+  const jaCarregouRef = useRef(false);
   const [mesAba, setMesAba] = useState(null);      // "2026-09"
   const [filtro, setFiltro] = useState('pendentes');
   const [busca, setBusca] = useState('');
@@ -48,7 +50,11 @@ export default function Expedicao() {
   const [marcando, setMarcando] = useState(null);
 
   const fetchFila = useCallback(async () => {
-    setLoading(true);
+      // Spinner de tela cheia SÓ na primeira carga. Antes, todo rebusca (voltar
+      // para a aba, evento do realtime) acendia o spinner e desmontava a árvore:
+      // carteira expandida fechava, rolagem voltava ao topo, filtro parecia
+      // "sair de ordem". O dado nem mudava — o que se perdia era o lugar.
+    if (!jaCarregouRef.current) setLoading(true);
     try {
       // Só emissões que já passaram do registro. Antes disso não existe boleto.
       const { data: pacs, error } = await supabase
@@ -89,6 +95,7 @@ export default function Expedicao() {
       addToast('Erro ao carregar a fila: ' + (e.message || e), 'error');
       setRemessas([]);
     } finally {
+      jaCarregouRef.current = true;
       setLoading(false);
     }
   }, [supabase, addToast]);

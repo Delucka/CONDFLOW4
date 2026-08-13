@@ -53,11 +53,12 @@ export default function CentralEmissoesPage() {
   // Montar abas conforme o perfil
   const tabs = [];
 
-  if (isMaster) {
+  // Quem emite também precisa do Painel de Gestão. A regra antiga é de quando o
+  // `departamento` só subia arquivo; hoje ele monta a emissão inteira, e quem
+  // monta precisa ver o que já saiu, o que falta e o que travou.
+  if (isMaster || isDepartamento) {
     tabs.push({ id: 'default', label: 'Painel de Gestão', activeClass: 'bg-violet-500 text-white ' });
     tabs.push({ id: 'upload', label: 'Fazer Emissões', activeClass: 'bg-violet-600 text-white ' });
-  } else if (isDepartamento) {
-    tabs.push({ id: 'default', label: 'Fazer Emissões', activeClass: 'bg-violet-600 text-white ' });
   }
 
   // Aba Expedição — a fila de impressão. Vem antes do Registro porque é o
@@ -94,11 +95,9 @@ export default function CentralEmissoesPage() {
     content = <Expedicao />;
   } else if (activeView === 'registro') {
     content = <RegistroEmissoes profile={profile} />;
-  } else if (activeView === 'upload' && isMaster) {
+  } else if (activeView === 'upload') {
     content = <VisaoEmissor profile={profile} />;
-  } else if (isDepartamento) {
-    content = <VisaoEmissor profile={profile} />;
-  } else if (isMaster) {
+  } else if (isMaster || isDepartamento) {
     content = <VisaoMaster profile={profile} />;
   } else {
     content = (

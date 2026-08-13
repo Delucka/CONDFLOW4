@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import {
   CheckCircle, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle,
@@ -36,6 +36,8 @@ export default function VisaoMaster() {
   const [pacotes, setPacotes] = useState([]);
   const [notificandoId, setNotificandoId] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Ver o comentário em fetchPacotes(): distingue primeira carga de rebusca.
+  const jaCarregouRef = useRef(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -157,7 +159,11 @@ export default function VisaoMaster() {
   useRevalidarAoVoltar(() => fetchPacotes());
 
   async function fetchPacotes() {
-    setLoading(true);
+      // Spinner de tela cheia SÓ na primeira carga. Antes, todo rebusca (voltar
+      // para a aba, evento do realtime) acendia o spinner e desmontava a árvore:
+      // carteira expandida fechava, rolagem voltava ao topo, filtro parecia
+      // "sair de ordem". O dado nem mudava — o que se perdia era o lugar.
+    if (!jaCarregouRef.current) setLoading(true);
     try {
       // Filtra o MÊS no banco, não no navegador.
       //
@@ -210,7 +216,7 @@ export default function VisaoMaster() {
         setOrphans(orphanData || []);
       }
     } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    finally { jaCarregouRef.current = true; setLoading(false); }
   }
 
   // ── Helper: snapshot da planilha ──────────────────────────────────────────

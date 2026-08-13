@@ -23,7 +23,14 @@ import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
-import FilaOcorrencias from '@/app/central-emissoes/components/FilaOcorrencias';
+// A fila dispara até 8 consultas próprias (ocorrências, profiles, condomínios e
+// contagens de pacotes). Carregada junto, ela competia com a lista de
+// condomínios — que é o que a pessoa veio ver. Agora entra depois, sem segurar
+// a primeira pintura da tela.
+const FilaOcorrencias = dynamic(
+  () => import('@/app/central-emissoes/components/FilaOcorrencias'),
+  { ssr: false, loading: () => <div className="h-40 rounded-2xl bg-slate-100 animate-pulse" /> },
+);
 import { SkeletonTable } from '@/components/Skeleton';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { btn, cn } from '@/lib/botoes';
