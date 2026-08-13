@@ -296,6 +296,22 @@ html.dark {
 .dark .bg-emerald-600 { background-color:#115e59 !important; }
 .dark .bg-amber-500   { background-color:#b45309 !important; }
 .dark .bg-amber-600   { background-color:#92400e !important; }
+/* Navy SÓLIDO no escuro: `bg-violet-600` resolvia para #5b8def, um azul claro.
+   Com texto branco em cima dava 2,6:1 — abaixo do mínimo legível, e isso valia
+   para os 74 botões do app, não só para a tag de prioridade. Aqui o preenchimento
+   escurece o bastante para o branco ficar nítido, e continua claramente azul
+   contra o grafite.
+
+   No escuro a escala INVERTE: mais claro = mais urgente, que é como o olho lê
+   num fundo escuro. Serve também para os `hover:bg-violet-700`, onde clarear no
+   hover é o comportamento esperado. */
+.dark .bg-violet-600 { background-color:#2f56b8 !important; }
+.dark .bg-violet-700 { background-color:#3d6ad6 !important; }
+.dark .bg-violet-800 { background-color:#5b8def !important; }
+.dark .border-violet-600 { border-color:#2f56b8 !important; }
+.dark .border-violet-700 { border-color:#3d6ad6 !important; }
+.dark .border-violet-800 { border-color:#5b8def !important; }
+
 /* Vermelhos: os valores antigos eram rebaixados para não vibrar sobre o navy.
    Na base grafite isso apaga o alerta — voltam ao tom cheio, que é o ponto de
    uma cor de perigo. Contraste com texto branco fica em 4,5:1. */

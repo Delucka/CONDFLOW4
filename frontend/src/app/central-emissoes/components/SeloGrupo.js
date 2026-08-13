@@ -15,7 +15,7 @@ export default function SeloGrupo({ pacote, className = '' }) {
   const dia = pacote.grupo_due_day;
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ${className}`}
+      className={`inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 ${className}`}
       title={dia ? `Grupo "${nome}" — boletos vencem dia ${dia}` : `Grupo "${nome}"`}
     >
       <CalendarClock className="h-3 w-3 shrink-0" aria-hidden="true" />

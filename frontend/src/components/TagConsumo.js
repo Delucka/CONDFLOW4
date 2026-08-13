@@ -8,6 +8,10 @@ import { Droplet } from 'lucide-react';
  * fatura e relatório de concessionária. Sem a tag, isso vivia na cabeça de quem
  * faz — e quem entrava novo descobria errando.
  *
+ * Navy de contorno, como todo RÓTULO do app: diz o que a coisa é, não pede
+ * ação. O vermelho fica reservado para prazo — dois matizes na linha, e o que
+ * pede ação é o único que destoa.
+ *
  * A decisão de SE tem vem de `condominios.tem_consumo` (0091), a relação que a
  * operação usa. As siglas vêm de `condominios_concessionarias` (0036), que veio
  * de uma planilha de 2025 e nem sempre tem todas — por isso o título degrada
@@ -22,7 +26,7 @@ export default function TagConsumo({ concessionarias, className = '' }) {
   return (
     <span
       title={titulo}
-      className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[10px] font-bold text-sky-800 ${className}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 ${className}`}
     >
       <Droplet className="h-3 w-3 shrink-0" aria-hidden="true" />
       Consumo

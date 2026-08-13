@@ -1644,7 +1644,7 @@ export default function VisaoEmissor({ profile }) {
                                   cobrança avulsa de mesmo valor. Antes isso só
                                   existia embutido no texto da descrição. */}
                               {c.parcela_total > 1 && (
-                                <p className="mt-0.5 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
+                                <p className="mt-0.5 inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700"
                                    title={`Parcelamento de ${c.parcela_total} vezes. Esta é a ${c.parcela_atual}ª.`}>
                                   Parcela {c.parcela_atual}/{c.parcela_total}
                                   {c.parcela_atual === c.parcela_total && <span className="font-normal opacity-70">· última</span>}

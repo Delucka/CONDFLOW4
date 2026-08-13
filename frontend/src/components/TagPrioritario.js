@@ -33,18 +33,21 @@ export default function TagPrioritario({ condo, mes, ano, className = '' }) {
   const vencido = restam !== null && restam < 0;
   const apertando = restam !== null && restam >= 0 && restam <= 3;
 
-  // SÓLIDA, não translúcida. Todas as outras tags do app são pílulas de tinta
-  // clara — consumo, grupo, parcela, status. Uma pílula PREENCHIDA no meio
-  // delas salta pela forma, antes mesmo da cor, e continua saltando se um dia
-  // aparecer mais uma tag âmbar por perto.
+  // Vermelho SÓLIDO — a única coisa colorida diferente na linha. Os rótulos
+  // (consumo, grupo, parcela) são navy de contorno, como o resto do app; esta é
+  // a única que pede ação, então é a única que destoa.
   //
-  // O âmbar sozinho não servia: já é a cor de "pendente" em 17 lugares, então
-  // prioridade em âmbar virava mais um aviso na pilha de avisos.
+  // Dois reforços somados: matiz oposto ao navy, e preenchimento sólido contra
+  // pílulas de contorno. Forma separa mesmo quando a cor não separa — daltonismo,
+  // tela ruim, print em preto e branco.
+  //
+  // A urgência muda a densidade, não o tom. Um vermelho que fica mais forte lê
+  // como escala; três cores diferentes leriam como enfeite.
   const tom = vencido
-    ? 'border-rose-700 bg-rose-600 text-white'
+    ? 'border-rose-700 bg-rose-700 text-white'
     : apertando
-      ? 'border-orange-600 bg-orange-500 text-white'
-      : 'border-rose-600 bg-rose-500 text-white';
+      ? 'border-rose-600 bg-rose-600 text-white'
+      : 'border-rose-500 bg-rose-500 text-white';
 
   const sufixo = !dia ? ''
     : vencido ? ' · atrasado'

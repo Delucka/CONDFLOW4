@@ -749,7 +749,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                                 {/* Parcela: quem aprova precisa saber que este
                                     valor se repete, e por quantos meses ainda. */}
                                 {c.parcela_total > 1 && (
-                                  <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 shrink-0"
+                                  <span className="inline-flex items-center rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 shrink-0"
                                         title={`Parcelamento de ${c.parcela_total} vezes. Esta é a ${c.parcela_atual}ª.`}>
                                     {c.parcela_atual}/{c.parcela_total}
                                   </span>
