@@ -4,6 +4,10 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { AlertTriangle, AlertCircle, Edit, ChevronRight, CheckCircle, Plus, User, Clock, Loader2, Activity, Package, FileCheck2, Receipt, Inbox, XCircle, RefreshCw } from 'lucide-react';
 import { SkeletonList } from '@/components/Skeleton';
+// Curinga no comeco (`ilike '%x%'`) impede o indice de ser usado: cada contagem
+// virava varredura completa, seis vezes por abertura do Painel. As listas cobrem
+// as grafias legadas que motivavam o ilike.
+import { COM_GERENTE, COM_SUP_GERENTES, COM_SUP_CONTABILIDADE, EM_CORRECAO } from '@/lib/statusEmissao';
 import Link from 'next/link';
 
 export default function FilaOcorrencias() {
@@ -213,7 +217,7 @@ export default function FilaOcorrencias() {
         let qPacGer = supabase
           .from('emissoes_pacotes')
           .select('id', { count: 'exact', head: true })
-          .or('status.ilike.%pendente_gerente%,status.ilike.%aguardando gerente%,status.eq.pendente');
+          .in('status', COM_GERENTE);
         // Carteira vazia (ou vínculo ausente) conta zero — nunca a base toda.
         qPacGer = qPacGer.in('condominio_id', meusCondos && meusCondos.length ? meusCondos : ['00000000-0000-0000-0000-000000000000']);
         const { count: countPacGer } = await qPacGer;
@@ -295,7 +299,7 @@ export default function FilaOcorrencias() {
         const { count: countCorrecao } = await supabase
           .from('emissoes_pacotes')
           .select('id', { count: 'exact', head: true })
-          .or('status.ilike.%solicitar%,status.ilike.%correc%,status.ilike.%correç%,status.ilike.%altera%');
+          .in('status', EM_CORRECAO);
         if (countCorrecao > 0) {
           lista.push({
             id: 'pacotes-correcao',
@@ -335,7 +339,7 @@ export default function FilaOcorrencias() {
         const { count } = await supabase
           .from('emissoes_pacotes')
           .select('id', { count: 'exact', head: true })
-          .or('status.ilike.%pendente_sup_gerentes%,status.ilike.%aguardando chefe%');
+          .in('status', COM_SUP_GERENTES);
         if (count > 0) {
           lista.push({
             id: 'pacotes-sup-gerentes',
@@ -353,7 +357,7 @@ export default function FilaOcorrencias() {
         const { count } = await supabase
           .from('emissoes_pacotes')
           .select('id', { count: 'exact', head: true })
-          .or('status.ilike.%pendente_sup_contabilidade%,status.ilike.%aguardando supervisor%');
+          .in('status', COM_SUP_CONTABILIDADE);
         if (count > 0) {
           lista.push({
             id: 'pacotes-sup-contab',

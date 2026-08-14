@@ -51,10 +51,24 @@ function resumir(arquivos) {
   for (const a of arquivos || []) {
     const s = servicoDoArquivo(a);
     if (!s) continue;
-    mapa[s] = mapa[s] || { valor: null, consumo: null, fatura: null, relatorio: null };
-    if (a.valor_fatura != null) mapa[s].valor = Number(a.valor_fatura);
-    if (a.relatorio_valor_total != null && mapa[s].valor == null) mapa[s].valor = Number(a.relatorio_valor_total);
-    if (a.relatorio_consumo_total != null) mapa[s].consumo = Number(a.relatorio_consumo_total);
+    mapa[s] = mapa[s] || { valor: null, consumo: null, fatura: null, relatorio: null, contas: 0 };
+
+    // SOMA, não sobrescreve. Um condomínio pode ter mais de uma conta do mesmo
+    // serviço no mesmo mês — dois hidrômetros, bloco e casa do zelador, duas
+    // instalações. Atribuindo, o comparativo mostrava só a última anexada e
+    // dava a entender que o consumo tinha caído pela metade.
+    //
+    // O backend (`_consumos_do_pacote`) já somava; era só aqui que divergia.
+    if (a.valor_fatura != null) {
+      mapa[s].valor = (mapa[s].valor || 0) + Number(a.valor_fatura);
+      mapa[s].contas += 1;
+    } else if (a.relatorio_valor_total != null) {
+      mapa[s].valor = (mapa[s].valor || 0) + Number(a.relatorio_valor_total);
+      mapa[s].contas += 1;
+    }
+    if (a.relatorio_consumo_total != null) {
+      mapa[s].consumo = (mapa[s].consumo || 0) + Number(a.relatorio_consumo_total);
+    }
     // A fatura da concessionária é o documento que se confere; o relatório de
     // leitura vem junto como segunda opção.
     if (a.arquivo_url && a.categoria === 'concessionaria' && !mapa[s].fatura) {
@@ -72,12 +86,17 @@ function resumir(arquivos) {
  * número sozinho não resolve; para decidir se é vazamento ou fatura trocada,
  * é preciso abrir a conta.
  */
-function Lado({ rotulo, valor, consumo, doc, vazio, forte, onAbrir, abrindo }) {
+function Lado({ rotulo, valor, consumo, doc, vazio, forte, contas, onAbrir, abrindo }) {
   const conteudo = (
     <>
       <span className="text-[10px] uppercase tracking-widest text-slate-400 mr-1 font-normal">{rotulo}</span>
       {valor != null ? `R$ ${brl(valor)}` : vazio}
       {consumo != null && <span className="text-slate-400 font-normal"> · {brl(consumo)} m³</span>}
+      {/* Dizer que são várias evita a leitura errada do total: sem isto, um mês
+          com duas contas parece um mês caríssimo de uma conta só. */}
+      {contas > 1 && (
+        <span className="text-slate-400 font-normal"> · soma de {contas} contas</span>
+      )}
     </>
   );
   const classe = `text-xs tabular-nums ${forte ? 'font-bold ' : ''}${valor != null ? (forte ? 'text-slate-800' : 'text-slate-500') : 'text-slate-400'}`;
@@ -189,12 +208,12 @@ export default function ComparativoConsumo({ condominioId, mes, ano, arquivosAtu
               </span>
 
               <Lado rotulo="antes" valor={vAnt} consumo={ant?.consumo} doc={ant?.fatura || ant?.relatorio}
-                    vazio="—" onAbrir={abrir} abrindo={abrindo} />
+                    vazio="—" contas={ant?.contas} onAbrir={abrir} abrindo={abrindo} />
 
               <span className="text-slate-300">→</span>
 
               <Lado rotulo="agora" valor={vAtual} consumo={atual?.consumo} doc={atual?.fatura || atual?.relatorio}
-                    vazio="ainda não anexada" forte onAbrir={abrir} abrindo={abrindo} />
+                    vazio="ainda não anexada" forte contas={atual?.contas} onAbrir={abrir} abrindo={abrindo} />
 
               {varia != null && (
                 <span className={`ml-auto inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
