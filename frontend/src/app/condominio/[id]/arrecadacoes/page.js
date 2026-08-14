@@ -497,8 +497,14 @@ export default function ArrecadacoesPage() {
     }
     
     // Rateio persistido no banco — deletar do Supabase
-    // Primeiro deleta os valores associados
-    await supabase.from('rateios_valores').delete().eq('rateio_id', id);
+    // Primeiro deleta os valores associados. Falha calada aqui deixa valores
+    // órfãos: a verba some da tela, mas os números dela continuam somando no
+    // total do mês — e ninguém acha a origem.
+    const { error: errValores } = await supabase.from('rateios_valores').delete().eq('rateio_id', id);
+    if (errValores) {
+      addToast('Não consegui remover os valores desta verba: ' + errValores.message, 'error');
+      return;
+    }
     const { error } = await supabase.from('rateios_config').delete().eq('id', id);
     if (error) {
       console.error('Erro ao excluir rateio:', error);

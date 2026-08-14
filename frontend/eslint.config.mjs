@@ -1,6 +1,10 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import globals from "globals";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const supabaseChecarErro = require("./eslint-rules/supabase-checar-erro.js");
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -29,6 +33,23 @@ const eslintConfig = defineConfig([
       globals: { ...globals.browser, ...globals.node },
     },
     rules: { "no-undef": "error" },
+  },
+
+  // ── Escrita no Supabase tem que ler o { error } ──
+  // A classe de defeito mais cara deste projeto: `supabase-js` DEVOLVE o erro
+  // em vez de lançar, então `await supabase.from(x).insert(...)` sem ler o
+  // retorno transforma recusa do banco em "deu certo". Três incidentes até
+  // hoje — `assistente`, `fluxo` (todo processo aprovado direto, pulando os
+  // supervisores, por meses) e o anexo de boleto que ia para o bucket sem
+  // registro. Nenhum deu erro em lugar nenhum.
+  //
+  // A regra mora em eslint-rules/ e foi testada contra os dois casos: acusa as
+  // escritas soltas, ignora as que leem o erro, as que devolvem o resultado e
+  // as do storage (outra API).
+  {
+    files: ["src/**/*.{js,jsx}"],
+    plugins: { condoflow: { rules: { "supabase-checar-erro": supabaseChecarErro } } },
+    rules: { "condoflow/supabase-checar-erro": "error" },
   },
 ]);
 

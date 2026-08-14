@@ -140,7 +140,10 @@ export default function NotificationsBell() {
   async function marcarLida(n) {
     if (!n.lida) {
       setItems(prev => prev.map(x => x.id === n.id ? { ...x, lida: true } : x));
-      await supabase.from('notificacoes').update({ lida: true }).eq('id', n.id);
+      // Sem conferir, o sino "apagava" na tela e voltava aceso no próximo
+      // carregamento — parecendo bug do sino, quando é gravação recusada.
+      const { error } = await supabase.from('notificacoes').update({ lida: true }).eq('id', n.id);
+      if (error) console.error('[sino] não consegui marcar como lida:', error.message);
     }
   }
 
@@ -148,7 +151,8 @@ export default function NotificationsBell() {
     const ids = items.filter(n => !n.lida).map(n => n.id);
     if (!ids.length) return;
     setItems(prev => prev.map(x => ({ ...x, lida: true })));
-    await supabase.from('notificacoes').update({ lida: true }).in('id', ids);
+    const { error } = await supabase.from('notificacoes').update({ lida: true }).in('id', ids);
+    if (error) console.error('[sino] não consegui marcar todas como lidas:', error.message);
   }
 
   function abrir(n) {

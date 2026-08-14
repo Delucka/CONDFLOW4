@@ -845,7 +845,11 @@ export default function VisaoEmissor({ profile }) {
     const filePath = `${activePacote.condominio_id}/${ano}/${mes}/outros/${randomId}_${safeStorageName(displayName)}`;
     const { error: upErr } = await supabase.storage.from('emissoes').upload(filePath, file);
     if (upErr) throw upErr;
-    await supabase.from('emissoes_arquivos').insert({
+    // Sem conferir, este era o defeito do boleto de novo: arquivo no bucket,
+    // nenhuma linha apontando para ele, e a função devolvendo {url, nome} como
+    // se tivesse dado certo. O anexo que COMPROVA a aprovação da repetição
+    // sumiria justamente quando alguém fosse auditar.
+    const { error: errAnexo } = await supabase.from('emissoes_arquivos').insert({
       condominio_id: activePacote.condominio_id,
       pacote_id: activePacote.id,
       tipo: 'emissao',
@@ -859,6 +863,7 @@ export default function VisaoEmissor({ profile }) {
       status: 'pendente',
       uploaded_by: profile.id,
     });
+    if (errAnexo) throw errAnexo;
     return { url: filePath, nome: displayName };
   }
 

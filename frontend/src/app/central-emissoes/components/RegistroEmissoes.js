@@ -169,9 +169,14 @@ export default function RegistroEmissoes({ profile }) {
       if (pacote.arquivos?.length) {
         await supabase.storage.from('emissoes').remove(pacote.arquivos.map(a => a.arquivo_url));
       }
-      // Remove dependências antes do pacote (respeita FK)
-      await supabase.from('emissoes_retificacoes').delete().eq('pacote_original_id', pacote.id);
-      await supabase.from('emissoes_arquivos').delete().eq('pacote_id', pacote.id);
+      // Remove dependências antes do pacote (respeita FK).
+      // Conferir aqui importa: se um destes falha em silêncio, o delete do
+      // pacote estoura logo depois com erro de chave estrangeira — mensagem que
+      // não diz nada a quem está na tela.
+      const { error: errRetif } = await supabase.from('emissoes_retificacoes').delete().eq('pacote_original_id', pacote.id);
+      if (errRetif) throw errRetif;
+      const { error: errArqs } = await supabase.from('emissoes_arquivos').delete().eq('pacote_id', pacote.id);
+      if (errArqs) throw errArqs;
       const { error } = await supabase.from('emissoes_pacotes').delete().eq('id', pacote.id);
       if (error) throw error;
       setPacotes(prev => prev.filter(p => p.id !== pacote.id));

@@ -1,4 +1,5 @@
 'use client';
+import { registrarNaTrilha } from '@/lib/aprovacaoFluxo';
 
 /**
  * Conjunto de emissão — a regra de "se são um conjunto, todas saem juntas".
@@ -140,15 +141,13 @@ export async function devolverConjunto(supabase, pacote, { comentario, user }) {
 
   // Mesma marca de ciclo da recusa original: as aprovações anteriores destas
   // também deixam de valer, senão elas voltariam "meio aprovadas".
-  await supabase.from('emissoes_pacotes_aprovacoes').insert(
-    ids.map((id) => ({
-      pacote_id: id,
-      acao: 'correcao',
-      role: user?.role || null,
-      usuario_nome: user?.full_name || null,
-      usuario_email: user?.email || null,
-    })),
-  );
+  const { error: errTrilha } = await registrarNaTrilha(supabase, {
+    pacoteIds: ids, acao: 'correcao', user,
+  });
+  // Devolve junto com a contagem: as irmãs JÁ voltaram para correção, então não
+  // é caso de abortar — mas quem chamou precisa poder avisar que a trilha delas
+  // ficou incompleta.
+  if (errTrilha) return { devolvidas: (data || []).length, error: errTrilha };
 
   return { devolvidas: (data || []).length, error: null };
 }

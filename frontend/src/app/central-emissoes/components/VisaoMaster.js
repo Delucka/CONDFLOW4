@@ -15,7 +15,7 @@ import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { isPendingForRole } from '@/lib/usePendingCount';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
-import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
+import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou } from '@/lib/aprovacaoFluxo';
 import { podeRegistrar, carregarConjunto, arrastadasPelaRecusa, devolverConjunto, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
 import { safeStorageName } from '@/lib/storage';
@@ -293,10 +293,10 @@ export default function VisaoMaster() {
     if (error) addToast('Erro ao processar aprovação: ' + error.message, 'error');
     else if (!data || data.length === 0) addToast('Aprovação bloqueada por RLS (0 linhas atualizadas).', 'error');
     else {
-      await supabase.from('emissoes_pacotes_aprovacoes').insert({
-        pacote_id: pacote.id, acao: 'aprovacao', role: user?.role || null,
-        usuario_nome: user?.full_name || null, usuario_email: user?.email || null,
+      const { error: errTrilha } = await registrarNaTrilha(supabase, {
+        pacoteId: pacote.id, acao: 'aprovacao', user,
       });
+      if (errTrilha) addToast(avisoTrilhaFalhou('aprovacao', errTrilha), 'error');
       addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success'); fetchPacotes();
     }
   }
@@ -544,10 +544,10 @@ export default function VisaoMaster() {
     if (!data?.length) return addToast('Correção bloqueada pelas regras de acesso (0 linhas).', 'error');
 
     // Marca o ciclo: as aprovações anteriores deixam de valer.
-    await supabase.from('emissoes_pacotes_aprovacoes').insert({
-      pacote_id: pacote.id, acao: 'correcao', role: user?.role || null,
-      usuario_nome: user?.full_name || null, usuario_email: user?.email || null,
+    const { error: errTrilha } = await registrarNaTrilha(supabase, {
+      pacoteId: pacote.id, acao: 'correcao', user,
     });
+    if (errTrilha) addToast(avisoTrilhaFalhou('correcao', errTrilha), 'error');
 
     const { devolvidas, error: errConj } = await devolverConjunto(supabase, pacote, { comentario: reason, user });
     if (errConj) addToast('A emissão voltou, mas não consegui devolver as irmãs: ' + errConj.message, 'error');
@@ -570,8 +570,12 @@ export default function VisaoMaster() {
       const pacote = pacotes.find(p => p.id === id);
       if (pacote?.arquivos?.length) await supabase.storage.from('emissoes').remove(pacote.arquivos.map(a => a.arquivo_url));
       // Remove dependências antes do pacote (respeita FK)
-      await supabase.from('emissoes_retificacoes').delete().eq('pacote_original_id', id);
-      await supabase.from('emissoes_arquivos').delete().eq('pacote_id', id);
+      // Conferir: falha calada aqui vira erro de chave estrangeira no delete do
+      // pacote, que não diz nada a quem está na tela.
+      const { error: errRetif } = await supabase.from('emissoes_retificacoes').delete().eq('pacote_original_id', id);
+      if (errRetif) throw errRetif;
+      const { error: errArqs } = await supabase.from('emissoes_arquivos').delete().eq('pacote_id', id);
+      if (errArqs) throw errArqs;
       const { error } = await supabase.from('emissoes_pacotes').delete().eq('id', id);
       if (error) throw error;
       setPacotes(prev => prev.filter(p => p.id !== id));

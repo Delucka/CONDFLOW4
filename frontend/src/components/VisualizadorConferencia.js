@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
+import { registrarNaTrilha, avisoTrilhaFalhou } from '@/lib/aprovacaoFluxo';
 import useSWR from 'swr';
 import { apiFetcher } from '@/lib/api';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
@@ -236,10 +237,10 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         .eq('id', pacoteId)
         .select('id');
       if (error || !data || data.length === 0) throw new Error(error?.message || 'Sem permissão para aprovar');
-      await supabase.from('emissoes_pacotes_aprovacoes').insert({
-        pacote_id: pacoteId, acao: 'aprovacao', role: currentUser?.role || null,
-        usuario_nome: currentUser?.full_name || null, usuario_email: currentUser?.email || null,
+      const { error: errTrilha } = await registrarNaTrilha(supabase, {
+        pacoteId, acao: 'aprovacao', user: currentUser,
       });
+      if (errTrilha) addToast(avisoTrilhaFalhou('aprovacao', errTrilha), 'error');
       addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success');
       onAction?.(); onClose?.();
     } catch (e) { addToast(e.message, 'error'); }
@@ -276,10 +277,10 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         .eq('id', pacoteId);
       if (error) throw error;
       // Marca o ciclo: aprovações anteriores deixam de valer (re-conferência do zero)
-      await supabase.from('emissoes_pacotes_aprovacoes').insert({
-        pacote_id: pacoteId, acao: 'correcao', role: currentUser?.role || null,
-        usuario_nome: currentUser?.full_name || null, usuario_email: currentUser?.email || null,
+      const { error: errTrilha } = await registrarNaTrilha(supabase, {
+        pacoteId, acao: 'correcao', user: currentUser,
       });
+      if (errTrilha) addToast(avisoTrilhaFalhou('correcao', errTrilha), 'error');
       addToast('Correção solicitada. As aprovações anteriores foram retiradas.', 'success');
       onAction?.(); onClose?.();
     } catch (e) { addToast(e.message, 'error'); }

@@ -39,6 +39,45 @@ export function aprovacoesValidas(aprovacoes) {
   return arr.filter(a => a.acao !== 'correcao' && new Date(a.criado_em).getTime() > ultCorrecao);
 }
 
+/**
+ * Grava uma linha na trilha de aprovação — e DEVOLVE o erro.
+ *
+ * Existe porque os seis lugares que gravavam isso faziam
+ * `await supabase.from(...).insert({...})` sem ler o retorno. O supabase-js
+ * DEVOLVE `{error}` em vez de lançar, então uma recusa do banco passava como
+ * sucesso.
+ *
+ * E aqui a falha calada é cara: a trilha é o que `aprovacoesValidas()` conta
+ * para decidir se todos assinaram. Linha faltando = assinatura que não existe.
+ * Do lado da aprovação, o pacote fica preso esperando alguém que já assinou; do
+ * lado da correção, as aprovações anteriores NÃO são anuladas e o pacote pode
+ * seguir para registro sem a reconferência. É o mesmo tipo de defeito que fez
+ * todo processo ser aprovado direto, pulando os supervisores.
+ *
+ * @returns {{ error: any }} nunca lança — quem chama decide o que fazer
+ */
+export async function registrarNaTrilha(supabase, { pacoteId, pacoteIds, acao, user }) {
+  const ids = pacoteIds || [pacoteId];
+  const linhas = ids.filter(Boolean).map((id) => ({
+    pacote_id: id,
+    acao,
+    role: user?.role || null,
+    usuario_nome: user?.full_name || null,
+    usuario_email: user?.email || null,
+  }));
+  if (!linhas.length) return { error: null };
+  const { error } = await supabase.from('emissoes_pacotes_aprovacoes').insert(linhas);
+  return { error };
+}
+
+/** Mensagem única para a falha acima — o usuário precisa saber o que ficou torto. */
+export function avisoTrilhaFalhou(acao, error) {
+  const oQue = acao === 'correcao'
+    ? 'a correção foi registrada, mas a trilha não'
+    : 'a aprovação foi salva, mas a trilha não';
+  return `${oQue}: ${error?.message || error}. Avise o admin — a contagem de assinaturas deste pacote pode ficar errada.`;
+}
+
 // Cargos que ainda faltam aprovar (a partir do pacote.aprovacoes já carregado)
 export function faltamAprovar(pacote) {
   const ap = new Set(aprovacoesValidas(pacote?.aprovacoes).map(a => a.role));

@@ -39,9 +39,13 @@ export default function ResetPasswordPage() {
       // Limpa flag de troca obrigatória (se existir)
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.id) {
-        await supabase.from('profiles')
+        // A senha JÁ foi trocada no passo acima; isto só limpa a flag. Falhando
+        // calado, a pessoa é obrigada a trocar de novo no próximo login, sem
+        // entender por quê. Não derruba o fluxo — avisa e segue.
+        const { error: errFlag } = await supabase.from('profiles')
           .update({ must_change_password: false, password_changed_at: new Date().toISOString() })
           .eq('id', user.id);
+        if (errFlag) console.error('[reset] flag de troca de senha não foi limpa:', errFlag.message);
       }
 
       setDone(true);

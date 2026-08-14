@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
-import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
+import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou } from '@/lib/aprovacaoFluxo';
 import { devolverConjunto, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
 import { useToast } from '@/components/Toast';
@@ -145,10 +145,10 @@ export default function VisaoGerente({ profile }) {
       // RLS bloqueou o update silenciosamente (0 linhas afetadas)
       addToast('Aprovação bloqueada pelas regras de acesso. Avise o admin.', 'error');
     } else {
-      await supabase.from('emissoes_pacotes_aprovacoes').insert({
-        pacote_id: pacote.id, acao: 'aprovacao', role: user?.role || null,
-        usuario_nome: user?.full_name || null, usuario_email: user?.email || null,
+      const { error: errTrilha } = await registrarNaTrilha(supabase, {
+        pacoteId: pacote.id, acao: 'aprovacao', user,
       });
+      if (errTrilha) addToast(avisoTrilhaFalhou('aprovacao', errTrilha), 'error');
       addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success');
       fetchPacotes();
     }
@@ -174,10 +174,10 @@ export default function VisaoGerente({ profile }) {
       addToast('Falha ao solicitar correção.', 'error');
     } else {
       // Marca o ciclo: aprovações anteriores deixam de valer (re-conferência do zero)
-      await supabase.from('emissoes_pacotes_aprovacoes').insert({
-        pacote_id: currentPacote.id, acao: 'correcao', role: user?.role || null,
-        usuario_nome: user?.full_name || null, usuario_email: user?.email || null,
+      const { error: errTrilha } = await registrarNaTrilha(supabase, {
+        pacoteId: currentPacote.id, acao: 'correcao', user,
       });
+      if (errTrilha) addToast(avisoTrilhaFalhou('correcao', errTrilha), 'error');
 
       // O conjunto volta junto: se este condomínio emite em dois vencimentos,
       // deixar um lado aprovado e o outro em correção manda meio mês de boleto.
