@@ -20,8 +20,17 @@
 #    WHERE relnamespace='public'::regnamespace AND relkind='r'
 #      AND NOT relrowsecurity;
 #
-# As linhas 0052–0079 nunca foram registradas aqui. Várias FORAM aplicadas — não
-# dá para saber quais só por este arquivo. Confira no banco antes de confiar.
+# ── 13/08/2026: as 0052–0079 foram CONFERIDAS contra o banco ──
+#
+# Script: CONFERIR_0052_0079.sql (e a versão _RESUMO). Ele não escreve nada —
+# lê information_schema, pg_proc, pg_indexes, pg_policies e storage.buckets, e
+# devolve SIM/NAO por migration. Rodado no SQL Editor da produção.
+#
+# Resultado: 28 de 29 aplicadas. A ÚNICA ausente era a 0075.
+#
+# Isto encerra o "não dá para saber quais" que estava aqui. Continua valendo a
+# regra: o banco é a fonte de verdade, e o script está no repositório para
+# conferir de novo quando surgir dúvida.
 
 0001_schema.sql
 0002_seed_condos.sql
@@ -75,6 +84,40 @@
 0049_email_notificacoes.sql
 0050_email_via_backend_smtp.sql
 0051_notificacao_email_todos.sql
+
+# ── 0052–0079: conferidas no banco em 13/08/2026 (ver cabeçalho) ──
+0052_pacote_auditoria_aprovacao.sql
+0053_pacote_aprovacoes_chain.sql
+0054_vencimentos_reais.sql
+0055_consumos_multiplas_contas.sql
+0056_condominios_caracteristicas.sql
+0057_assistente_gerente.sql
+0058_fix_sync_concessionaria_on_conflict.sql
+# As quatro abaixo reescrevem a MESMA função `email_template`: só a última
+# aplicada é visível no banco. Todas rodaram; a viva é a mais recente.
+0059_email_template_pinguim.sql
+0060_retencao_notificacoes.sql
+0061_auto_registro_solicitacao_correcao.sql
+0062_ocorrencias_reabertura_e_autoresolve.sql
+0063_audit_erros.sql
+0064_hardening_bucket_emissoes.sql
+0065_segundas_vias.sql
+0066_email_template_corporativo.sql
+0067_segundas_vias_bloco.sql
+0068_storage_rls_lockdown.sql
+0069_segundas_vias_integracao.sql
+0070_wa_conversas.sql
+0071_condominos.sql
+0072_email_template_emissaonline.sql
+0073_rls_rateios.sql
+0074_segundas_vias_historico.sql
+# 0075: a ÚNICA que estava faltando. Índices do caminho de abrir arquivo —
+# sem eles, toda abertura de boleto por gerente/assistente varria seis tabelas.
+0075_indices_abrir_arquivo.sql
+0076_cobrancas_snapshot.sql
+0077_fix_notificacao_supervisor_por_role.sql
+0078_resolver_reabertura_ao_liberar.sql
+0079_email_template_logo_vizinhanca.sql
 
 # ── 04/08/2026 — aplicadas com o resultado conferido na tela ──
 # (o ensaio rodou antes, e o interruptor foi confirmado depois:
