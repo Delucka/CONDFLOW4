@@ -914,13 +914,26 @@ export default function VisaoEmissor({ profile }) {
         detalhes: { arquivo_nome: igual.arquivo_nome },
       };
     }
-    // 2) Mesma concessionária / mesma empresa de relatório no mesmo pacote (mesmo mês)
+    // 2) Já existe conta do mesmo serviço no pacote — AVISO, não bloqueio.
+    //
+    // Condomínio com dois hidrômetros, bloco e casa do zelador, duas
+    // instalações: duas contas de SABESP no mesmo mês é situação NORMAL, não
+    // erro. Bloquear obrigava a escrever motivo e anexar comprovante de
+    // "aprovação da repetição" para lançar uma conta legítima — cerimônia de
+    // fraude para trabalho de rotina. Foi o que travou o condomínio 340.
+    //
+    // A cerimônia continua valendo para o caso 1 (MESMO PDF), que é duplicata
+    // de verdade. Aqui basta confirmar que é outra conta.
+    //
+    // O backend já dizia isso na mensagem dele: "Se for outra instalação/conta,
+    // pode anexar normalmente." Era a tela que discordava.
     if (categoria === 'concessionaria') {
       const sub = (extracao?.subtipo || '').toUpperCase();
       const igual = lista.find(a => a.categoria === 'concessionaria' && (a.subtipo || '').toUpperCase() === sub && sub);
       if (igual) return {
-        nivel: 'bloqueio', tipo: 'fatura_ja_existe',
-        mensagem: `Já existe uma fatura de ${sub} anexada nesta emissão.`,
+        nivel: 'aviso', tipo: 'fatura_ja_existe',
+        mensagem: `Já existe uma fatura de ${sub} nesta emissão (${igual.arquivo_nome}). `
+          + 'Se esta for de outra instalação, pode anexar — os valores somam.',
         detalhes: { concessionaria: sub, arquivo_nome: igual.arquivo_nome },
       };
     } else if (categoria === 'relatorio_leitura') {
@@ -930,8 +943,9 @@ export default function VisaoEmissor({ profile }) {
         && (a.relatorio_empresa || '').toUpperCase() === emp && emp
         && (a.relatorio_tipo_servico || 'agua').toLowerCase() === serv);
       if (igual) return {
-        nivel: 'bloqueio', tipo: 'relatorio_ja_existe',
-        mensagem: `Já existe um relatório de ${emp} (${serv}) anexado nesta emissão.`,
+        nivel: 'aviso', tipo: 'relatorio_ja_existe',
+        mensagem: `Já existe um relatório de ${emp} (${serv}) nesta emissão (${igual.arquivo_nome}). `
+          + 'Se este for de outro medidor, pode anexar — os valores somam.',
         detalhes: { empresa_leitura: emp, tipo_servico: serv, arquivo_nome: igual.arquivo_nome },
       };
     }
@@ -2610,16 +2624,27 @@ export default function VisaoEmissor({ profile }) {
       )}
 
       {/* ═══ MODAL DE DUPLICATA / SANCIONAMENTO ═══ */}
-      {duplicataInfo && (
+      {duplicataInfo && (() => {
+        // Nenhum alerta de bloqueio = é só "existe outra conta do mesmo serviço".
+        // Nesse caso não faz sentido pedir motivo nem comprovante: basta confirmar.
+        const soAviso = (duplicataInfo.alertas || []).length > 0
+          && (duplicataInfo.alertas || []).every(a => a.nivel !== 'bloqueio');
+        return (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white border border-rose-500/30 rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div className={`bg-white border rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto ${soAviso ? "border-amber-400/40" : "border-rose-500/30"}`}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center shrink-0">
-                <AlertCircle className="w-6 h-6 text-rose-400" />
+              <div className={`w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 ${soAviso ? 'bg-amber-500/10 border-amber-500/30' : 'bg-rose-500/10 border-rose-500/30'}`}>
+                <AlertCircle className={`w-6 h-6 ${soAviso ? 'text-amber-500' : 'text-rose-400'}`} />
               </div>
               <div>
-                <h3 className="text-lg font-black text-slate-900">Possível duplicata detectada</h3>
-                <p className="text-[11px] text-rose-300/80">Esta emissão não pode prosseguir sem confirmação.</p>
+                <h3 className="text-lg font-black text-slate-900">
+                  {soAviso ? 'Já existe conta deste serviço' : 'Possível duplicata detectada'}
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  {soAviso
+                    ? 'Se for de outra instalação ou medidor, pode anexar — os valores somam.'
+                    : 'Esta emissão não pode prosseguir sem confirmação.'}
+                </p>
               </div>
             </div>
 
@@ -2660,7 +2685,11 @@ export default function VisaoEmissor({ profile }) {
               </div>
             )}
 
-            {/* Sancionamento — exige MOTIVO + ANEXO de aprovação da repetição */}
+            {/* Sancionamento — exige MOTIVO + ANEXO de aprovação da repetição.
+                Só para duplicata DE VERDADE (mesmo PDF). Segunda conta do mesmo
+                serviço é rotina e passa com um clique. */}
+            {!soAviso && (
+            <>
             <div className="mb-4">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1.5">
                 Motivo da repetição <span className="text-rose-400">*</span>
@@ -2683,17 +2712,30 @@ export default function VisaoEmissor({ profile }) {
                   onChange={e => setSancionandoAnexo(e.target.files?.[0] || null)} />
               </label>
             </div>
+            </>
+            )}
             <div className="flex justify-end gap-2">
               <button onClick={() => { setDuplicataInfo(null); setSancionandoMotivo(''); setSancionandoAnexo(null); }} disabled={sancionando}
                 className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50">
                 Cancelar upload
               </button>
-              <button disabled={!sancionandoMotivo.trim() || !sancionandoAnexo || sancionando}
+              <button disabled={sancionando || (!soAviso && (!sancionandoMotivo.trim() || !sancionandoAnexo))}
                 onClick={async () => {
-                  if (!sancionandoMotivo.trim() || !sancionandoAnexo) return;
+                  if (!soAviso && (!sancionandoMotivo.trim() || !sancionandoAnexo)) return;
                   setSancionando(true);
                   try {
                     const meta = duplicataInfo.pendingMeta;
+
+                    // Aviso simples (outra instalação do mesmo serviço): anexa e
+                    // pronto. Não há repetição a sancionar — são duas contas
+                    // legítimas, e o backend soma as duas.
+                    if (soAviso) {
+                      await handleUploadArquivo(duplicataInfo.pendingFile, { ...meta, skipDuplicataCheck: true });
+                      setDuplicataInfo(null);
+                      addToast('Conta anexada. Os valores das duas somam na planilha.', 'success');
+                      return;
+                    }
+
                     // 1) Sobe o documento que comprova a aprovação da repetição
                     const anexo = await uploadAnexoAprovacao(sancionandoAnexo);
                     // 2) Sobe a fatura/relatório repetido
@@ -2720,14 +2762,15 @@ export default function VisaoEmissor({ profile }) {
                     setSancionando(false);
                   }
                 }}
-                className="px-5 py-2 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50 flex items-center gap-2">
+                className={`px-5 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50 flex items-center gap-2 ${soAviso ? 'bg-violet-600 hover:bg-violet-700' : 'bg-rose-600 hover:bg-rose-500'}`}>
                 {sancionando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                Confirmar repetição e prosseguir
+                {soAviso ? 'É outra conta — anexar' : 'Confirmar repetição e prosseguir'}
               </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ═══ MODAL DE PERTENCIMENTO — BLOQUEIO DURO (conta de outro condomínio) ═══ */}
       {pertencimentoInfo && (
