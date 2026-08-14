@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { useRealtime } from '@/lib/realtime';
 import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search, Droplet, GripVertical } from 'lucide-react';
 import { safeStorageName } from '@/lib/storage';
 import StatusBadge from './StatusBadge';
@@ -287,20 +288,18 @@ export default function VisaoEmissor({ profile }) {
 
   useEffect(() => {
     fetchDados();
-    
-    const channel = supabase.channel(`emissor_pacotes_${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => { fetchPacotes(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_arquivos' }, () => {
-        if (activePacote) fetchArquivosDoPacote(activePacote.id);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'processos' }, fetchProcessos)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_preparacao' }, () => fetchPreparacao())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'edicoes_mensais' }, () => fetchEdicoes())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'alteracoes_rateio' }, () => fetchAlteracoes())
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Assinatura compartilhada (lib/realtime.js): uma por tabela na aba inteira.
+  // Esta tela sozinha abria seis canais; somada às outras, um único INSERT em
+  // `emissoes_pacotes` disparava oito rebuscas ao mesmo tempo.
+  useRealtime(['emissoes_pacotes'], () => fetchPacotes());
+  useRealtime(['emissoes_arquivos'], () => { if (activePacote) fetchArquivosDoPacote(activePacote.id); });
+  useRealtime(['processos'], () => fetchProcessos());
+  useRealtime(['emissoes_preparacao'], () => fetchPreparacao());
+  useRealtime(['edicoes_mensais'], () => fetchEdicoes());
+  useRealtime(['alteracoes_rateio'], () => fetchAlteracoes());
 
   // Refaz quando mes/ano mudam — os pacotes também, agora que o recorte de mês
   // é feito no banco.

@@ -7,6 +7,7 @@ import { apiFetcher, apiPost } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { mesAnoVigente } from '@/lib/mesVigente';
+import { useRealtime } from '@/lib/realtime';
 import { useRouter } from 'next/navigation';
 import TagConsumo from '@/components/TagConsumo';
 import TagPrioritario, { ehPrioritario } from '@/components/TagPrioritario';
@@ -294,16 +295,11 @@ export default function DashboardPage() {
   // Status efetivo da Planilha DO MÊS EXIBIDO; sem edição no mês, cai no semestral.
   const statusPlanilha = (condoId) => EDI_TO_PROC[edicaoByCondoMes[`${condoId}|${mesEmissao}`]] || null;
 
-  // Realtime: invalida o cache SWR quando emissoes_pacotes muda
-  useEffect(() => {
-    const channel = supabase.channel(`dash-realtime-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => mutate())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'processos' },         () => mutate())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_config' },   () => mutate())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'edicoes_mensais' },   () => mutateEdicoes())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [mutate, supabase]);
+  // Realtime compartilhado: uma assinatura por tabela na aba inteira, em vez de
+  // uma por componente. Antes, aprovar um pacote disparava rebusca aqui, na
+  // Central, na fila, no sino e nos meses travados — tudo ao mesmo tempo.
+  useRealtime(['emissoes_pacotes', 'processos', 'pipeline_config'], () => mutate());
+  useRealtime(['edicoes_mensais'], () => mutateEdicoes());
 
   const handleQuickView = async (condoId) => {
     try {

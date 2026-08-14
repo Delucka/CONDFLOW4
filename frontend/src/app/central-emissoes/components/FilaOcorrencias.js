@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { AlertTriangle, AlertCircle, Edit, ChevronRight, CheckCircle, Plus, User, Clock, Loader2, Activity, Package, FileCheck2, Receipt, Inbox, XCircle, RefreshCw } from 'lucide-react';
 import { SkeletonList } from '@/components/Skeleton';
+import { useRealtime } from '@/lib/realtime';
 // Curinga no comeco (`ilike '%x%'`) impede o indice de ser usado: cada contagem
 // virava varredura completa, seis vezes por abertura do Painel. As listas cobrem
 // as grafias legadas que motivavam o ilike.
@@ -382,18 +383,14 @@ export default function FilaOcorrencias() {
     fetchOcorrencias();
     fetchAcoes();
     if (profile) fetchCondominios();
-
-    const channel = supabase.channel(`fila_ocorrencias_${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_ocorrencias' }, () => {
-        fetchOcorrencias();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'edicoes_mensais' }, () => fetchAcoes())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => fetchAcoes())
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
+
+  // Assinatura compartilhada: `emissoes_pacotes` é observada por várias telas ao
+  // mesmo tempo, e antes cada uma tinha o seu canal — uma mudança virava várias
+  // rebuscas na mesma aba.
+  useRealtime(['emissoes_ocorrencias'], () => fetchOcorrencias());
+  useRealtime(['edicoes_mensais', 'emissoes_pacotes'], () => fetchAcoes());
 
   useEffect(() => {
     if (formData.condominio_id) {

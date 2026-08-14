@@ -12,6 +12,7 @@ import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { combina } from '@/lib/busca';
+import { useRealtime } from '@/lib/realtime';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 
 export default function VisaoGerente({ profile }) {
@@ -111,13 +112,10 @@ export default function VisaoGerente({ profile }) {
   useEffect(() => {
     fetchPacotes();
 
-    const channel = supabase.channel(`gerente_pacotes_${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, () => fetchPacotes())
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useRealtime(['emissoes_pacotes'], () => fetchPacotes());
 
   // Voltou para a aba: rebusca (o realtime não sobrevive à aba dormindo).
   useRevalidarAoVoltar(() => fetchPacotes());

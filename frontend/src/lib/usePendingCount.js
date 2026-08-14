@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { useRealtime } from '@/lib/realtime';
 import { useAuth } from '@/lib/auth';
 
 /**
@@ -105,11 +106,10 @@ export function usePendingCount() {
     const supabase = createClient();
     let t = null;
     const agendarRefetch = () => { clearTimeout(t); t = setTimeout(fetchCount, 1200); };
-    const ch = supabase.channel(`pending_count_${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, agendarRefetch)
-      .subscribe();
-    return () => { clearTimeout(t); supabase.removeChannel(ch); };
+    return () => { clearTimeout(t); };
   }, [profile?.role, fetchCount]);
+
+  useRealtime(['emissoes_pacotes'], fetchCount);
 
   return { count, loading, refetch: fetchCount };
 }

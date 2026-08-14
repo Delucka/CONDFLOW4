@@ -22,6 +22,7 @@ import { safeStorageName } from '@/lib/storage';
 import { Inbox } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { mesVigente, anoVigente } from '@/lib/mesVigente';
+import { useRealtime } from '@/lib/realtime';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -148,12 +149,10 @@ export default function VisaoMaster() {
   // Rebusca ao trocar de mês: agora o recorte é do banco, não do navegador.
   useEffect(() => {
     fetchPacotes();
-    const channel = supabase.channel(`master_pacotes_${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, fetchPacotes)
-      .subscribe();
-    return () => supabase.removeChannel(channel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mesAtivo, anoAtivo]);
+
+  useRealtime(['emissoes_pacotes'], () => fetchPacotes());
 
   // Voltou para a aba: rebusca (o realtime não sobrevive à aba dormindo).
   useRevalidarAoVoltar(() => fetchPacotes());

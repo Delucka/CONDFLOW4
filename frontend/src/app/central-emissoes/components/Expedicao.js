@@ -6,6 +6,7 @@ import { useToast } from '@/components/Toast';
 import { abrirArquivoSeguro } from '@/lib/arquivo';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 import { anexarGrupos } from '@/lib/conjuntoEmissao';
+import { useRealtime } from '@/lib/realtime';
 import TagPrioritario from '@/components/TagPrioritario';
 import { mesAnoVigente } from '@/lib/mesVigente';
 import { Printer, Check, Loader2, Inbox, Search, RotateCcw, FileText, X } from 'lucide-react';
@@ -100,14 +101,8 @@ export default function Expedicao() {
     }
   }, [supabase, addToast]);
 
-  useEffect(() => {
-    fetchFila();
-    const ch = supabase.channel(`expedicao_${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_arquivos' }, fetchFila)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emissoes_pacotes' }, fetchFila)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [supabase, fetchFila]);
+  useEffect(() => { fetchFila(); }, [fetchFila]);
+  useRealtime(['emissoes_arquivos', 'emissoes_pacotes'], fetchFila);
 
   useRevalidarAoVoltar(fetchFila);
 
