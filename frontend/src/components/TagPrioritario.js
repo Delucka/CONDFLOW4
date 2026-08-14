@@ -20,8 +20,12 @@ import { AlertTriangle } from 'lucide-react';
  *
  * Só conta os dias no mês corrente. Em mês futuro daria "faltam 45 dias"
  * (ruído); em mês passado marcaria como atrasado tudo que saiu no prazo.
+ *
+ * Com `onEditar`, a tag vira botão: quem vê que o prazo mudou corrige ali, na
+ * tela em que está. Sem isso, o motivo só existia no title e corrigir exigia
+ * sair, achar o condomínio na lista e abrir outro painel.
  */
-export default function TagPrioritario({ condo, mes, ano, className = '' }) {
+export default function TagPrioritario({ condo, mes, ano, className = '', onEditar }) {
   const dia = condo?.prazo_expedicao_dia ?? null;
   const motivo = (condo?.prioridade_motivo || '').trim();
   if (!dia && !motivo) return null;
@@ -60,14 +64,29 @@ export default function TagPrioritario({ condo, mes, ano, className = '' }) {
     motivo || null,
   ].filter(Boolean).join(' ');
 
-  return (
-    <span
-      title={titulo}
-      className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${tom} ${className}`}
-    >
+  const conteudo = (
+    <>
       <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
       {dia ? `Prazo dia ${dia}` : 'Prioritário'}{sufixo}
-    </span>
+    </>
+  );
+  const base = `inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${tom} ${className}`;
+
+  if (!onEditar) {
+    return <span title={titulo} className={base}>{conteudo}</span>;
+  }
+
+  return (
+    <button
+      type="button"
+      title={`${titulo} (clique para editar)`}
+      // stopPropagation: a tag costuma ficar dentro de linha clicável — sem isto,
+      // editar a prioridade também abriria a emissão por baixo.
+      onClick={(e) => { e.stopPropagation(); e.preventDefault(); onEditar(condo); }}
+      className={`${base} cursor-pointer hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300`}
+    >
+      {conteudo}
+    </button>
   );
 }
 

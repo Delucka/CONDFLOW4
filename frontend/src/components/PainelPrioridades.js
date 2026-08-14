@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { combina } from '@/lib/busca';
@@ -18,8 +18,13 @@ import { ehPrioritario } from '@/components/TagPrioritario';
  * Escreve direto no Supabase, não pelo endpoint de salvar condomínio: aquele
  * grava a ficha INTEIRA, e mandar 40 fichas completas para mudar dois campos
  * arrisca sobrescrever o que outra pessoa acabou de editar.
+ *
+ * `foco` é o caminho de volta: clicar na tag de um condomínio abre este mesmo
+ * painel já com ele marcado e com prazo e motivo preenchidos, pronto para
+ * corrigir. O painel continua sendo o de sempre — quem veio corrigir um pode
+ * marcar mais quatro sem trocar de tela.
  */
-export default function PainelPrioridades({ open, onClose, condominios, onSalvo }) {
+export default function PainelPrioridades({ open, onClose, condominios, onSalvo, foco }) {
   const supabase = useMemo(() => createClient(), []);
   const { addToast } = useToast();
 
@@ -40,6 +45,19 @@ export default function PainelPrioridades({ open, onClose, condominios, onSalvo 
       .filter(c => !q || combina(q, c.name))
       .slice(0, 400);
   }, [condominios, busca, soPrioritarios]);
+
+  // Abriu focado num condomínio: já vem marcado e com os valores dele nos
+  // campos. Depende de `open` também porque o componente fica montado com o
+  // modal fechado — sem isso, o foco só valeria na primeira abertura.
+  useEffect(() => {
+    if (!open) return;
+    if (!foco?.id) { setSel(new Set()); return; }
+    setSel(new Set([foco.id]));
+    setDia(foco.prazo_expedicao_dia == null ? '' : String(foco.prazo_expedicao_dia));
+    setMotivo(foco.prioridade_motivo || '');
+    setBusca('');
+    setSoPrioritarios(false);
+  }, [open, foco]);
 
   const marcados = sel.size;
 

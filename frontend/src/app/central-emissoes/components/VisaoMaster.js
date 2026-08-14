@@ -52,13 +52,28 @@ export default function VisaoMaster() {
   const [enviandoResposta, setEnviandoResposta] = useState(false);
   const [showRegistroModal, setShowRegistroModal] = useState(false);
   const [dataRegistro, setDataRegistro] = useState('');
-  const [filtroAtivo, setFiltroAtivo] = useState(null);
+  // Filtro e mês podem vir por link (a Fila de Ocorrências manda
+  // ?filtro=aprovado&mes=&ano=). Lido de `window.location` no inicializador do
+  // useState — esta rota é estática, e useSearchParams sem Suspense quebra o
+  // build; efeito com setState dispararia render em cascata.
+  const linkInicial = () => {
+    if (typeof window === 'undefined') return {};
+    const q = new URLSearchParams(window.location.search);
+    const mes = parseInt(q.get('mes') || '', 10);
+    const ano = parseInt(q.get('ano') || '', 10);
+    return {
+      filtro: q.get('filtro') || null,
+      mes: mes >= 1 && mes <= 12 ? mes : null,
+      ano: ano > 2000 ? ano : null,
+    };
+  };
+  const [filtroAtivo, setFiltroAtivo] = useState(() => linkInicial().filtro);
   const [apenasMinhasPendencias, setApenasMinhasPendencias] = useState(false);
 
   // ── Mês ativo ─────────────────────────────────────────────────────────────
   const hoje = new Date();
-  const [mesAtivo, setMesAtivo] = useState(mesVigente());   // trabalhamos 1 mês à frente
-  const [anoAtivo, setAnoAtivo]  = useState(anoVigente());
+  const [mesAtivo, setMesAtivo] = useState(() => linkInicial().mes || mesVigente());   // trabalhamos 1 mês à frente
+  const [anoAtivo, setAnoAtivo]  = useState(() => linkInicial().ano || anoVigente());
 
   function navMes(dir) {
     let m = mesAtivo + dir, a = anoAtivo;

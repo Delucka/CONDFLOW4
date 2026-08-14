@@ -68,6 +68,13 @@ export default function ArrecadacoesPage() {
   const condoId = params.id;
   const urlAno = searchParams.get('ano');
   const selectedYear = urlAno ? parseInt(urlAno) : new Date().getFullYear();
+  // `?mes=` já era mandado pelos links (Aprovações, e agora a emissão aberta) e
+  // esta tela ignorava: caía no ano certo e a pessoa procurava a coluna na mão.
+  // Vale 1..12; qualquer outra coisa vira null e a tela se comporta como antes.
+  const urlMes = (() => {
+    const m = parseInt(searchParams.get('mes') || '', 10);
+    return m >= 1 && m <= 12 ? m : null;
+  })();
 
   const [condo, setCondo] = useState(null);
   const [processo, setProcesso] = useState(null);
@@ -169,7 +176,7 @@ export default function ArrecadacoesPage() {
 
   // ── Celular: edita um mês por vez + atalho "aplicar valor a N meses" ──
   const isMobile = useIsMobile();
-  const [mesSelMobile, setMesSelMobile] = useState(() => mesVigente());
+  const [mesSelMobile, setMesSelMobile] = useState(() => urlMes || mesVigente());
   const [aplicarMesesFor, setAplicarMesesFor] = useState(null); // { rid, valor } | null
   const [aplicarCount, setAplicarCount] = useState(1);
 
@@ -1178,7 +1185,10 @@ export default function ArrecadacoesPage() {
                             const temPrevista = altList.some(a => a.status === 'prevista');
                             const totalAlts = altList.length;
                             return (
-                                <th key={m} className="px-2 py-3 text-center text-[10px] font-semibold text-slate-400  border-r border-slate-200 min-w-[120px] bg-slate-100 relative">
+                                <th key={m} className={`px-2 py-3 text-center text-[10px] font-semibold border-r border-slate-200 min-w-[120px] relative ${
+                                    m === urlMes
+                                      ? 'bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-300'
+                                      : 'bg-slate-100 text-slate-400'}`}>
                                     <div className="flex items-center justify-center gap-1.5">
                                         <span>{MESES[m]} / {String(selectedYear).slice(-2)}</span>
                                     </div>

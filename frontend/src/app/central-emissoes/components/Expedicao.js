@@ -9,7 +9,8 @@ import { anexarGrupos } from '@/lib/conjuntoEmissao';
 import { useRealtime } from '@/lib/realtime';
 import TagPrioritario from '@/components/TagPrioritario';
 import { mesAnoVigente } from '@/lib/mesVigente';
-import { Printer, Check, Loader2, Inbox, Search, RotateCcw, FileText, X } from 'lucide-react';
+import { Printer, Check, Loader2, Inbox, Search, RotateCcw, FileText, X, FolderOpen, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 /**
  * Central de expedição — a fila de impressão dos boletos.
@@ -37,7 +38,7 @@ const fmtData = (iso) => iso
 
 export default function Expedicao() {
   const supabase = useMemo(() => createClient(), []);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { addToast } = useToast();
 
   const [remessas, setRemessas] = useState([]);
@@ -49,6 +50,30 @@ export default function Expedicao() {
   const [busca, setBusca] = useState('');
   const [expandido, setExpandido] = useState(null);
   const [marcando, setMarcando] = useState(null);
+  // Origem: o resto do pacote (planilha, faturas, rateio) da remessa aberta.
+  // Boleto errado é problema de quem imprime, mas a explicação está sempre no
+  // que gerou o boleto — e daqui não havia caminho nenhum até lá.
+  const [origem, setOrigem] = useState(null);   // { pacoteId, arquivos, carregando }
+
+  // Quem emite pode abrir a emissão de verdade; a expedição vê os arquivos.
+  const podeAbrirEmissao = profile?.role === 'master' || profile?.role === 'departamento';
+
+  async function verOrigem(r) {
+    if (origem?.pacoteId === r.id) { setOrigem(null); return; }
+    setOrigem({ pacoteId: r.id, arquivos: [], carregando: true });
+    const { data, error } = await supabase
+      .from('emissoes_arquivos')
+      .select('id, arquivo_nome, arquivo_url, categoria, criado_em')
+      .eq('pacote_id', r.id)
+      .neq('categoria', 'boleto')
+      .order('criado_em');
+    if (error) {
+      addToast('Não consegui abrir a emissão: ' + error.message, 'error');
+      setOrigem(null);
+      return;
+    }
+    setOrigem({ pacoteId: r.id, arquivos: data || [], carregando: false });
+  }
 
   const fetchFila = useCallback(async () => {
       // Spinner de tela cheia SÓ na primeira carga. Antes, todo rebusca (voltar
@@ -276,6 +301,16 @@ export default function Expedicao() {
                     </p>
                   </div>
 
+                  <button type="button" onClick={() => verOrigem(r)}
+                    aria-expanded={origem?.pacoteId === r.id}
+                    title="Ver a emissão que gerou estes boletos"
+                    className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                      origem?.pacoteId === r.id
+                        ? 'border-violet-300 bg-violet-50 text-violet-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'}`}>
+                    <FolderOpen className="w-3.5 h-3.5" /> A emissão
+                  </button>
+
                   {impresso ? (
                     <>
                       <span className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-800 shrink-0"
@@ -307,6 +342,45 @@ export default function Expedicao() {
                     </>
                   )}
                 </div>
+
+                {origem?.pacoteId === r.id && (
+                  <div className="px-4 pb-3 pl-20">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                          O que veio na emissão
+                        </p>
+                        {podeAbrirEmissao && (
+                          <Link
+                            href={`/central-emissoes?tab=upload&condo=${r.condominio_id}&mes=${r.mes_referencia}&ano=${r.ano_referencia}&pacote=${r.id}`}
+                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700 hover:underline">
+                            <ExternalLink className="w-3.5 h-3.5" /> Abrir na emissão
+                          </Link>
+                        )}
+                      </div>
+                      {origem.carregando ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+                      ) : origem.arquivos.length === 0 ? (
+                        <p className="text-xs text-slate-500">Esta emissão não tem outros arquivos além dos boletos.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {origem.arquivos.map(a => (
+                            <button key={a.id} type="button" onClick={() => abrirArquivoSeguro(a.arquivo_url)}
+                              className="flex items-center gap-2 text-xs text-slate-600 hover:text-violet-700 hover:underline text-left">
+                              <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                              <span className="truncate">{a.arquivo_nome}</span>
+                              {a.categoria && (
+                                <span className="shrink-0 rounded border border-slate-200 bg-white px-1 text-[10px] text-slate-500">
+                                  {a.categoria}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Mais de um arquivo: abre a lista em vez de disparar várias
                     abas de uma vez, que o navegador bloquearia. */}

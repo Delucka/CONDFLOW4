@@ -140,6 +140,27 @@ export default function FilaOcorrencias() {
     setPacotesDisponiveis(data || []);
   };
 
+  /**
+   * Mês/ano do pacote mais recente com um destes status.
+   *
+   * A contagem é da base inteira ("4 pacotes aguardando registro" é de todos os
+   * meses), mas o Painel de Gestão mostra UM mês por vez. Sem isto o atalho
+   * levava ao mês vigente, que podia não ter nenhum dos 4 — e a pessoa achava
+   * que o número estava errado.
+   *
+   * LIMIT 1 com ordem por criado_em: uma linha, pelo índice.
+   */
+  const mesDoMaisRecente = async (statusLista) => {
+    const { data } = await supabase
+      .from('emissoes_pacotes')
+      .select('mes_referencia, ano_referencia')
+      .in('status', statusLista)
+      .order('criado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data ? `&mes=${data.mes_referencia}&ano=${data.ano_referencia}` : '';
+  };
+
   const fetchAcoes = async () => {
     if (!profile) return;
     setLoadingAcoes(true);
@@ -263,14 +284,15 @@ export default function FilaOcorrencias() {
           .select('id', { count: 'exact', head: true })
           .eq('status', 'aprovado');
         if (countAprov > 0) {
+          const alvo = await mesDoMaisRecente(['aprovado']);
           lista.push({
             id: 'pacotes-aprovados',
             tipo: 'pacote',
             color: 'blue',
             icon: FileCheck2,
             titulo: `${countAprov} pacote${countAprov !== 1 ? 's' : ''} aguardando registro`,
-            subtitulo: 'Registrar emissões aprovadas',
-            link: '/central-emissoes',
+            subtitulo: 'Abre o painel já filtrado por “aguardando registro”',
+            link: `/central-emissoes?filtro=aprovado${alvo}`,
             count: countAprov,
           });
         }
@@ -281,14 +303,28 @@ export default function FilaOcorrencias() {
           .eq('categoria', 'concessionaria')
           .is('valor_fatura', null);
         if (countFaturas > 0) {
+          // Não existe tela que liste faturas soltas: elas moram dentro da
+          // emissão. O atalho abre a emissão mais recente que tem uma — daí a
+          // fatura é editada onde ela está.
+          const { data: arqFalho } = await supabase
+            .from('emissoes_arquivos')
+            .select('pacote_id, emissoes_pacotes(condominio_id, mes_referencia, ano_referencia)')
+            .eq('categoria', 'concessionaria')
+            .is('valor_fatura', null)
+            .order('criado_em', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const p = arqFalho?.emissoes_pacotes;
           lista.push({
             id: 'faturas-sem-dados',
             tipo: 'fatura',
             color: 'orange',
             icon: Receipt,
             titulo: `${countFaturas} fatura${countFaturas !== 1 ? 's' : ''} sem dados`,
-            subtitulo: 'Concessionárias sem cliente/venc/valor',
-            link: '/central-emissoes',
+            subtitulo: p ? 'Abre a emissão mais recente que tem uma' : 'Concessionárias sem cliente/venc/valor',
+            link: p
+              ? `/central-emissoes?tab=upload&condo=${p.condominio_id}&mes=${p.mes_referencia}&ano=${p.ano_referencia}&pacote=${arqFalho.pacote_id}`
+              : '/central-emissoes?tab=upload',
             count: countFaturas,
           });
         }
@@ -302,14 +338,15 @@ export default function FilaOcorrencias() {
           .select('id', { count: 'exact', head: true })
           .in('status', EM_CORRECAO);
         if (countCorrecao > 0) {
+          const alvo = await mesDoMaisRecente(EM_CORRECAO);
           lista.push({
             id: 'pacotes-correcao',
             tipo: 'pacote',
             color: 'rose',
             icon: Edit,
             titulo: `${countCorrecao} pacote${countCorrecao !== 1 ? 's' : ''} com correção solicitada`,
-            subtitulo: 'Corrigir e reenviar arquivos',
-            link: '/central-emissoes',
+            subtitulo: 'Abre o painel já filtrado por “correção solicitada”',
+            link: `/central-emissoes?filtro=solicitar_correcao${alvo}`,
             count: countCorrecao,
           });
         }
@@ -326,8 +363,10 @@ export default function FilaOcorrencias() {
             color: 'rose',
             icon: AlertCircle,
             titulo: `${countOcorrencia} ocorrência${countOcorrencia !== 1 ? 's' : ''} em aberto`,
-            subtitulo: 'Verificar e resolver problemas',
-            link: '#', 
+            subtitulo: 'Ver a lista aqui mesmo',
+            // As ocorrências estão nas abas desta mesma tela: trocar de aba é o
+            // destino certo. `link: '#'` recarregava a página e não levava a nada.
+            aba: 'ocorrencia',
             count: countOcorrencia,
           });
         }
@@ -597,8 +636,8 @@ export default function FilaOcorrencias() {
                 };
                 const iconCls = COLOR_MAP[a.color] || COLOR_MAP.cyan;
                 return (
-                  <Link key={a.id} href={a.link || '#'}
-                    className="w-full px-4 sm:px-6 py-4 flex items-center justify-between gap-3 hover:bg-slate-100 transition-colors group">
+                  <ItemAcao key={a.id} acao={a} onAba={setAbaAtiva}
+                    className="w-full px-4 sm:px-6 py-4 flex items-center justify-between gap-3 hover:bg-slate-100 transition-colors group text-left">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${iconCls}`}>
                         <ColorIcon className="w-5 h-5" />
@@ -609,7 +648,7 @@ export default function FilaOcorrencias() {
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 shrink-0 text-slate-400 group-hover:text-slate-900 transition-colors" />
-                  </Link>
+                  </ItemAcao>
                 );
               })}
             </div>
@@ -933,4 +972,19 @@ export default function FilaOcorrencias() {
       )}
     </div>
   );
+}
+
+/**
+ * Um item da fila. Leva para outra tela (`link`) ou muda de aba aqui mesmo
+ * (`aba`) — a diferença some para quem clica, que só quer chegar no item.
+ */
+function ItemAcao({ acao, onAba, className, children }) {
+  if (acao.aba) {
+    return (
+      <button type="button" className={className} onClick={() => onAba(acao.aba)}>
+        {children}
+      </button>
+    );
+  }
+  return <Link href={acao.link || '#'} className={className}>{children}</Link>;
 }

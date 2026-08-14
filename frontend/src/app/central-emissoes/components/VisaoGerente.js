@@ -1,12 +1,13 @@
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle, Droplet } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
 import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou } from '@/lib/aprovacaoFluxo';
 import { devolverConjunto, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
+import ComparativoConsumo from './ComparativoConsumo';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
@@ -26,6 +27,7 @@ export default function VisaoGerente({ profile }) {
   const jaCarregouRef = useRef(false);
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [termoBusca, setTermoBusca] = useState('');
+  const [consumoAberto, setConsumoAberto] = useState(null);   // pacote com o comparativo aberto
   const [arquivoAberto, setArquivoAberto] = useState(null);
 
   // Modal de correção
@@ -392,6 +394,29 @@ export default function VisaoGerente({ profile }) {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Consumo do mês anterior — quem aprova decide sem isso hoje.
+                    Sob demanda: montar em toda linha seria uma consulta por
+                    cartão, e a lista tem dezenas. */}
+                <div className="border-t border-slate-200 px-5 py-2">
+                  <button type="button"
+                    onClick={() => setConsumoAberto(v => (v === pacote.id ? null : pacote.id))}
+                    aria-expanded={consumoAberto === pacote.id}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-violet-700 transition-colors">
+                    <Droplet className="w-3.5 h-3.5" />
+                    {consumoAberto === pacote.id ? 'Ocultar consumo' : 'Comparar consumo com o mês anterior'}
+                  </button>
+                  {consumoAberto === pacote.id && (
+                    <div className="mt-3">
+                      <ComparativoConsumo
+                        condominioId={pacote.condominio_id}
+                        mes={pacote.mes_referencia}
+                        ano={pacote.ano_referencia}
+                        arquivosAtuais={pacote.arquivos}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Arquivos */}

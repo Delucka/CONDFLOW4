@@ -38,6 +38,12 @@ export default function CondominiosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [prioridadesOpen, setPrioridadesOpen] = useState(false);
+  // Clicar na tag abre o painel de prioridades já focado neste condomínio.
+  // Guardado em estado (e não montado na hora) porque o painel é o mesmo da
+  // marcação em massa: quem veio corrigir um pode marcar mais alguns sem sair.
+  const [focoPrioridade, setFocoPrioridade] = useState(null);
+  const abrirPrioridadeDe = (condo) => { setFocoPrioridade(condo); setPrioridadesOpen(true); };
+
   const [moradoresDe, setMoradoresDe] = useState(null);   // condomínio do painel de moradores
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false, prazo_expedicao_dia: '', prioridade_motivo: '' });
@@ -549,7 +555,7 @@ export default function CondominiosPage() {
               return (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {condos.map(c => (
-                    <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} onMoradores={setMoradoresDe} />
+                    <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} onMoradores={setMoradoresDe} onPrioridade={abrirPrioridadeDe} />
                   ))}
                 </div>
               );
@@ -559,7 +565,7 @@ export default function CondominiosPage() {
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filtered.map(c => (
-                  <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} onMoradores={setMoradoresDe} />
+                  <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} onMoradores={setMoradoresDe} onPrioridade={abrirPrioridadeDe} />
                 ))}
               </div>
             );
@@ -709,8 +715,9 @@ export default function CondominiosPage() {
 
       <PainelPrioridades
         open={prioridadesOpen}
-        onClose={() => setPrioridadesOpen(false)}
+        onClose={() => { setPrioridadesOpen(false); setFocoPrioridade(null); }}
         condominios={condos}
+        foco={focoPrioridade}
         onSalvo={() => mutateCondos()}
       />
 
@@ -983,7 +990,7 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
 }
 
 // Componente Card para evitar repetição
-function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores }) {
+function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores, onPrioridade }) {
   return (
     <div className="glass-panel p-5 md:p-6 rounded-2xl md:rounded-[2rem] border-slate-200 hover:border-violet-500/30 transition-all group shadow-xl flex flex-col justify-between h-full">
         <div>
@@ -1015,7 +1022,7 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores }) {
                  <Calendar className="w-4 h-4 text-violet-500" />
                  <span className="text-xs font-bold">Vencimento: Dia {c.due_day || '—'}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>
                  {c.tem_consumo && <TagConsumo />}
-                 <TagPrioritario condo={c} />
+                 <TagPrioritario condo={c} onEditar={onPrioridade} />
               </div>
               <div className="flex items-center gap-3 text-slate-400">
                  <ShieldCheck className="w-4 h-4 text-emerald-500" aria-hidden="true" />
@@ -1042,6 +1049,11 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores }) {
            <Link href={`/carteiras/cobrancas?condo=${c.id}`}
              aria-label={`Abrir cobranças extras de ${c.name}`}
              className={cn(btn.pequeno, 'flex-1')}>Cobranças</Link>
+           {/* O histórico de emissões do condomínio: mês a mês, com os arquivos
+               e o caminho de volta para a emissão. */}
+           <Link href={`/condominio/${c.id}/emissoes`}
+             aria-label={`Ver histórico de emissões de ${c.name}`}
+             className={cn(btn.pequeno, 'flex-1')}>Emissões</Link>
            {canEdit && (
              <button onClick={() => onMoradores(c)}
                aria-label={`Ver moradores de ${c.name}`}

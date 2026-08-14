@@ -20,7 +20,13 @@ import { podeRegistrar, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
 import TagPrioritario from '@/components/TagPrioritario';
 import ComparativoConsumo from './ComparativoConsumo';
-import { FileWarning } from 'lucide-react';
+import { FileWarning, AlertTriangle, Table2 } from 'lucide-react';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+
+// Painel de prioridade: só é baixado quando alguém abre. É a mesma tela usada
+// no Painel e em Condomínios — uma regra de marcação, não três.
+const PainelPrioridades = dynamic(() => import('@/components/PainelPrioridades'), { ssr: false });
 
 export default function VisaoEmissor({ profile }) {
   // VERSÃO 4.1 - BOTÃO REGISTRAR ESTABILIZADO
@@ -50,6 +56,7 @@ export default function VisaoEmissor({ profile }) {
   const [gruposCondo, setGruposCondo] = useState([]);
   const [grupoId, setGrupoId] = useState('');
   const grupoDesejadoRef = useRef(null);   // grupo do pacote que acabou de ser aberto
+  const pacoteDesejadoRef = useRef(null); // pacote pedido pela URL (?pacote=), abre quando a lista chegar
   // De qual condomínio os grupos já foram buscados. NÃO dá para usar `grupoId`
   // como sinal de "carregou": condomínio cadastrado depois da 0086 não tem grupo
   // nenhum (o backfill só pegou os que existiam), e aí `grupoId` fica vazio para
@@ -73,6 +80,10 @@ export default function VisaoEmissor({ profile }) {
     else { const a = parseInt(localStorage.getItem('emissor_ano') || '', 10); if (a > 2000) setAno(a); }
 
     if (qCondo) setCondoId(qCondo);
+    // `?pacote=` vem da Expedição ("ver a emissão que gerou este boleto"). Fica
+    // no ref porque os pacotes ainda não chegaram: quem abre é o efeito abaixo,
+    // quando a lista carrega.
+    pacoteDesejadoRef.current = q.get('pacote') || null;
   }, []);
   useEffect(() => { try { localStorage.setItem('emissor_mes', String(mes)); localStorage.setItem('emissor_ano', String(ano)); } catch {} }, [mes, ano]);
 
@@ -117,6 +128,11 @@ export default function VisaoEmissor({ profile }) {
   // Carteiras expandidas
   const [expandedCarteiras, setExpandedCarteiras] = useState({});
   const [buscaCarteira, setBuscaCarteira] = useState('');
+  // Prioridade: clicar na tag abre o painel focado naquele condomínio; o botão
+  // da barra abre vazio, para marcar vários.
+  const [prioridadesOpen, setPrioridadesOpen] = useState(false);
+  const [focoPrioridade, setFocoPrioridade] = useState(null);
+  const abrirPrioridadeDe = (condo) => { setFocoPrioridade(condo); setPrioridadesOpen(true); };
   const [situacao, setSituacao] = useState('todos');   // filtro de situação da lista
 
   // Mapa de status dos processos por condomínio { condoId: { id, status } }
@@ -1342,6 +1358,19 @@ export default function VisaoEmissor({ profile }) {
     fetchArquivosDoPacote(pacote.id);
   }
 
+  // Abre o pacote pedido na URL assim que ele aparece na lista. Uma vez só: o
+  // ref é limpo no primeiro acerto, senão qualquer rebusca reabriria o painel
+  // por cima do que a pessoa estivesse fazendo.
+  useEffect(() => {
+    const alvo = pacoteDesejadoRef.current;
+    if (!alvo || !pacotes.length) return;
+    const p = pacotes.find(x => x.id === alvo);
+    if (!p) return;
+    pacoteDesejadoRef.current = null;
+    abrirPacote(p);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pacotes]);
+
   // Agrupar condomínios por carteira
   const carteiras = useMemo(() => {
     // Ordem NUMÉRICA pelo código, dentro de cada carteira. A consulta traz por
@@ -1485,12 +1514,25 @@ export default function VisaoEmissor({ profile }) {
                 </p>
               </div>
             </div>
-            <button 
-              onClick={() => { setActivePacote(null); setPacoteArquivos([]); }}
-              className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition-all"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Um número estranho na emissão se resolve na planilha do mês. Sem
+                  este atalho era sair daqui, achar o condomínio e achar o mês. */}
+              <Link
+                href={`/condominio/${activePacote.condominio_id}/arrecadacoes?ano=${activePacote.ano_referencia}&mes=${activePacote.mes_referencia}`}
+                target="_blank"
+                title="Abre a planilha deste condomínio no mês da emissão, em outra aba"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-slate-100 hover:text-violet-700 transition-colors"
+              >
+                <Table2 className="w-3.5 h-3.5" />
+                Ver planilha
+              </Link>
+              <button
+                onClick={() => { setActivePacote(null); setPacoteArquivos([]); }}
+                className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Conferência de pendências — o que antes era a "etapa de preparação" */}
@@ -2150,6 +2192,12 @@ export default function VisaoEmissor({ profile }) {
               {f.rotulo}
             </button>
           ))}
+          {/* Marcar prioridade sem sair de Fazer Emissões — é aqui que se
+              descobre que um condomínio tem prazo, montando a emissão dele. */}
+          <button type="button" onClick={() => abrirPrioridadeDe(null)}
+            className="ml-auto rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-100 transition-colors">
+            <AlertTriangle className="w-3 h-3 inline -mt-0.5 mr-1" />Prioridade
+          </button>
         </div>
 
         {buscaCarteira && (
@@ -2211,7 +2259,7 @@ export default function VisaoEmissor({ profile }) {
                       }`}>
                         <div className="flex items-center gap-3 flex-wrap">
                           <span className="text-sm font-bold text-slate-700 truncate max-w-[75vw] sm:max-w-[280px]">{condo.name}</span>
-                          <TagPrioritario condo={condo} mes={mes} ano={ano} />
+                          <TagPrioritario condo={condo} mes={mes} ano={ano} onEditar={abrirPrioridadeDe} />
                           {condo.due_day && <span className="text-[10px] text-slate-400 font-medium">venc. dia {condo.due_day}{condo.due_day_2 ? ` e ${condo.due_day_2}` : ''}</span>}
                           {temAltPrevista && (
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black uppercase tracking-widest animate-pulse"
@@ -2591,6 +2639,14 @@ export default function VisaoEmissor({ profile }) {
           onAction={() => { setArquivoAberto(null); fetchPacotes(); }}
         />
       )}
+
+      <PainelPrioridades
+        open={prioridadesOpen}
+        onClose={() => { setPrioridadesOpen(false); setFocoPrioridade(null); }}
+        condominios={condominios}
+        foco={focoPrioridade}
+        onSalvo={() => fetchDados()}
+      />
 
       {modalPrepCondo && (
         <ModalPreparacao

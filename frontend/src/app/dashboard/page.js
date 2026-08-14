@@ -176,6 +176,12 @@ export default function DashboardPage() {
   const [ordemAsc, setOrdemAsc] = useState(true);
   const [situacao, setSituacao] = useState('todos');
   const [prioridadesOpen, setPrioridadesOpen] = useState(false);
+  // Clicar na tag abre o painel de prioridades já focado neste condomínio.
+  // Guardado em estado (e não montado na hora) porque o painel é o mesmo da
+  // marcação em massa: quem veio corrigir um pode marcar mais alguns sem sair.
+  const [focoPrioridade, setFocoPrioridade] = useState(null);
+  const abrirPrioridadeDe = (condo) => { setFocoPrioridade(condo); setPrioridadesOpen(true); };
+
   const isMobile = useIsMobile();
 
   // Persiste o mês escolhido: mantém ao sair/voltar; só muda quando o usuário troca
@@ -798,7 +804,7 @@ export default function DashboardPage() {
                               <p className={`${tipo.item} group-hover:text-violet-600 transition-colors truncate flex items-center gap-1.5`}>
                                 {c.name}
                                 {c.tem_consumo && <TagConsumo concessionarias={concessionariasPorCondo[c.id]} />}
-                                <TagPrioritario condo={c} mes={mesEmissao} ano={vigente.ano} />
+                                <TagPrioritario condo={c} mes={mesEmissao} ano={vigente.ano} onEditar={abrirPrioridadeDe} />
                               </p>
                               <p className={`${tipo.apoio} flex items-center gap-1.5 flex-wrap`}>
                                 <span>{gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}</span>
@@ -858,7 +864,7 @@ export default function DashboardPage() {
                         <p className={`${tipo.item} break-words flex items-center gap-1.5 flex-wrap`}>
                           {c.name}
                           {c.tem_consumo && <TagConsumo concessionarias={concessionariasPorCondo[c.id]} />}
-                                <TagPrioritario condo={c} mes={mesEmissao} ano={vigente.ano} />
+                                <TagPrioritario condo={c} mes={mesEmissao} ano={vigente.ano} onEditar={abrirPrioridadeDe} />
                         </p>
                         <p className={tipo.apoio}>
                           {gerenteNomePorId[c.gerente_id] || c.gerente_name || '—'}
@@ -941,8 +947,9 @@ export default function DashboardPage() {
           parado esperando — e ninguém lembra por quê. */}
       <PainelPrioridades
         open={prioridadesOpen}
-        onClose={() => setPrioridadesOpen(false)}
+        onClose={() => { setPrioridadesOpen(false); setFocoPrioridade(null); }}
         condominios={condos}
+        foco={focoPrioridade}
         onSalvo={() => mutate()}
       />
 
