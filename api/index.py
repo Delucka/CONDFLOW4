@@ -53,6 +53,11 @@ if _api_dir not in sys.path:
 import api_routes
 app.include_router(api_routes.router, prefix="/api", tags=["API NextJS"])
 
+# Segundas vias (site + integracao + WhatsApp) saiu para um modulo proprio.
+# Mesmo prefixo /api: as URLs nao mudaram, so o arquivo onde elas moram.
+import rotas_segundas_vias
+app.include_router(rotas_segundas_vias.router, prefix="/api", tags=["Segundas vias"])
+
 BASE_DIR = _api_dir
 STATIC = os.path.join(BASE_DIR, "static")
 # os.makedirs(STATIC, exist_ok=True) # Removido para compatibilidade com Vercel (Read-only filesystem)

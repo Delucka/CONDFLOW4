@@ -1,0 +1,117 @@
+"""Base compartilhada das rotas: conexão com o banco, quem é o usuário, e o
+recorte de carteira.
+
+Ficava no topo do `api_routes.py`, que passou de 5.100 linhas. Como cada módulo
+de rota precisa dessas cinco funções, elas viraram um lugar só — senão a
+primeira separação já criaria import circular (rota importando `api_routes`, que
+importa a rota).
+"""
+
+import os
+from typing import Optional
+from fastapi import HTTPException, Header  # type: ignore
+from supabase import create_client, Client  # type: ignore
+
+# Supabase Client setup
+SB_URL = os.getenv("SUPABASE_URL", "")
+SB_SERVICE = os.getenv("SUPABASE_SERVICE_KEY", "")
+
+_db_client = None
+
+def get_db() -> Client:
+    global _db_client
+    if _db_client is None:
+        _db_client = create_client(SB_URL, SB_SERVICE)
+    return _db_client
+
+# ═══ Dependency: Authentication via JWT ══════════════════════════════
+# Cache token→user em memória (TTL curto). Cada request pagava 2 idas ao Supabase
+# (auth.get_user + profiles) ANTES de qualquer query útil — em rajadas de SWR isso
+# dominava a latência. Com TTL de 120s, mudança de role/senha propaga em ≤2 min.
+import time as _auth_time
+import hashlib as _auth_hash
+_user_cache: dict = {}          # sha256(token) -> (user_dict, expira_em)
+_USER_CACHE_TTL = 120
+
+def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token JWT ausente ou inválido")
+
+    token = authorization.split(" ")[1]
+
+    tkey = _auth_hash.sha256(token.encode()).hexdigest()
+    now = _auth_time.time()
+    hit = _user_cache.get(tkey)
+    if hit and hit[1] > now:
+        return dict(hit[0])
+
+    db = get_db()
+
+    # Valida token com o Supabase Auth
+    user_res = db.auth.get_user(token)
+    if not user_res or not user_res.user:
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+
+    user_id = user_res.user.id
+
+    # Busca profile
+    prof_res = db.table("profiles").select("*").eq("id", user_id).single().execute()
+    profile = prof_res.data if prof_res.data else {}
+
+    if len(_user_cache) > 500:  # nunca cresce sem limite (instância serverless)
+        _user_cache.clear()
+
+    result = {
+        "id": user_id,
+        "email": user_res.user.email,
+        "role": profile.get("role", "gerente"),
+        "full_name": profile.get("full_name", ""),
+        "must_change_password": bool(profile.get("must_change_password", False)),
+        # gerente_id do PROFILE (vínculo assistente→gerente, migration 0057).
+        # Já vem no SELECT * acima — evita re-consultar profiles em carteira_gerente_id.
+        "gerente_id": profile.get("gerente_id"),
+        # sinaliza que o profile já foi carregado (mesmo que gerente_id seja None)
+        "_profile_loaded": True,
+    }
+    _user_cache[tkey] = (result, now + _USER_CACHE_TTL)
+    return dict(result)
+
+def get_gerente_id(db: Client, profile_id: str) -> Optional[str]:
+    res = db.table("gerentes").select("id").eq("profile_id", profile_id).execute()
+    if res.data:
+        return res.data[0]["id"]
+    return None
+
+def gerente_condo_ids(db: Client, profile_id: str):
+    """IDs dos condomínios sob a gerência do usuário (lista vazia se não for gerente / sem condos)."""
+    g_id = get_gerente_id(db, profile_id)
+    if not g_id:
+        return []
+    res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
+    return [c["id"] for c in (res.data or [])]
+
+def carteira_gerente_id(db: Client, user: dict):
+    """gerentes.id da carteira do usuário — gerente: a sua; assistente: a do gerente vinculado."""
+    role = user.get("role")
+    if role == "gerente":
+        return get_gerente_id(db, user["id"])
+    if role == "assistente":
+        # Reusa o gerente_id já carregado em get_current_user (evita 2ª consulta a profiles)
+        if user.get("_profile_loaded"):
+            gpid = user.get("gerente_id")
+        else:
+            try:
+                prof = db.table("profiles").select("gerente_id").eq("id", user["id"]).maybe_single().execute()
+                gpid = (prof.data or {}).get("gerente_id")
+            except Exception:
+                gpid = None  # coluna ainda não existe (migration 0057 não rodada)
+        return get_gerente_id(db, gpid) if gpid else None
+    return None
+
+def carteira_condo_ids(db: Client, user: dict):
+    """IDs dos condomínios da carteira do usuário (gerente ou assistente vinculado)."""
+    g_id = carteira_gerente_id(db, user)
+    if not g_id:
+        return []
+    res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
+    return [c["id"] for c in (res.data or [])]
