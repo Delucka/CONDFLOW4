@@ -58,6 +58,11 @@ app.include_router(api_routes.router, prefix="/api", tags=["API NextJS"])
 import rotas_segundas_vias
 app.include_router(rotas_segundas_vias.router, prefix="/api", tags=["Segundas vias"])
 
+# Cobranca das contas de concessionaria (0099): a fila, a suspensao e o disparo
+# diario chamado pelo n8n.
+import rotas_cobranca_contas
+app.include_router(rotas_cobranca_contas.router, prefix="/api", tags=["Cobranca de contas"])
+
 BASE_DIR = _api_dir
 STATIC = os.path.join(BASE_DIR, "static")
 # os.makedirs(STATIC, exist_ok=True) # Removido para compatibilidade com Vercel (Read-only filesystem)

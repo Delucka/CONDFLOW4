@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import useSWR from 'swr';
+import FilaCobrancaContas from '@/components/FilaCobrancaContas';
 import { apiFetcher, apiPost, apiFetch } from '@/lib/api';
 import { safeStorageName } from '@/lib/storage';
 import { useAuth } from '@/lib/auth';
@@ -854,6 +855,10 @@ export default function ConsumosPage() {
           </div>
         )}
       </div>
+
+      {/* A fila de cobrança fica logo abaixo do cabeçalho: é o que tem prazo.
+          A matriz de consumos é consulta; isto é trabalho a fazer hoje. */}
+      <FilaCobrancaContas />
 
       {/* ─── Dashboard: stats cards (abaixo da tabela) ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 order-last">
