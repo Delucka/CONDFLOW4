@@ -1006,7 +1006,9 @@ export default function VisaoEmissor({ profile }) {
   }
 
   async function handleUploadComExtracao(file, categoria) {
-    if (!file || !activePacote) return;
+    // Sem pacote aberto não há onde anexar — mas a fila precisa andar, senão os
+    // arquivos seguintes somem sem ninguém saber.
+    if (!file || !activePacote) { proximoDaFila(); return; }
     setExtraindo(true);
     try {
       const token = await getAccessToken();
