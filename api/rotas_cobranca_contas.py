@@ -23,7 +23,7 @@ apaga o que houve.
 import os
 import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Request  # type: ignore
+from fastapi import APIRouter, Depends, HTTPException, Request, Header  # type: ignore
 from supabase import Client  # type: ignore
 from pydantic import BaseModel  # type: ignore
 
@@ -38,8 +38,8 @@ SITE = "https://emissaonline.com"
 INTERVALO_DIAS = 2
 
 ROLES_VEEM_TUDO = ("master", "departamento", "supervisora",
-                   "supervisora_contabilidade", "supervisor_gerentes")
-ROLES_REATIVAM = ("master", "departamento")
+                   "supervisora_contabilidade", "supervisor_gerentes", "integracao")
+ROLES_REATIVAM = ("master", "departamento", "integracao")
 
 
 def require_api_key(request: Request):
@@ -50,6 +50,25 @@ def require_api_key(request: Request):
     return True
 
 
+def usuario_ou_maquina(request: Request, authorization: Optional[str] = Header(None)) -> dict:
+    """Aceita um usuario logado OU a chave de maquina.
+
+    Existe para o agente do WhatsApp (JARVIS, no n8n) consultar e cobrar sem um
+    login de pessoa. Ele nao tem sessao — mas tem a mesma `x-api-key` que ja
+    protege a integracao.
+
+    A maquina entra com o papel 'integracao', que ve tudo e pode cobrar. O que
+    ela NAO pode e suspender: justificativa tem de ser atribuivel a uma pessoa,
+    senao "suspenso por JARVIS" vira um beco sem responsavel.
+    """
+    key = os.getenv("INTEGRACAO_API_KEY")
+    if key and request.headers.get("x-api-key") == key:
+        return {"id": None, "role": "integracao", "full_name": "JARVIS (n8n)", "maquina": True}
+    if not authorization:
+        raise HTTPException(401, "Faca login ou envie a x-api-key.")
+    return get_current_user(authorization)
+
+
 def _eh_dia_util(d: datetime.date) -> bool:
     return d.weekday() < 5
 
@@ -57,18 +76,30 @@ def _eh_dia_util(d: datetime.date) -> bool:
 # ─────────────────────────── Consulta ───────────────────────────
 
 @router.get("/cobrancas-contas")
-def api_listar_cobrancas(status: Optional[str] = None, user: dict = Depends(get_current_user),
+def api_listar_cobrancas(status: Optional[str] = None, condominio: Optional[str] = None,
+                         user: dict = Depends(usuario_ou_maquina),
                          db: Client = Depends(get_db)):
     """A fila de contas que faltam.
 
     Gerente e assistente veem a propria carteira; os demais papeis veem tudo.
     O recorte e feito AQUI porque o RLS desta tabela libera a leitura (a policy
     da 0099 e `USING (true)`) — sem este filtro o gerente veria a base inteira.
+
+    `condominio` filtra por nome ou codigo, do jeito que a pessoa fala no
+    WhatsApp: "irapuru" ou "436" acham a mesma coisa. E o que o agente usa para
+    responder "o que falta do X?" sem precisar da lista inteira.
     """
     try:
         q = db.table("cobrancas_contas").select("*, condominios(name, gerente_id)")
         if status:
             q = q.eq("status", status)
+
+        if condominio:
+            termo = condominio.strip()
+            alvos = db.table("condominios").select("id").ilike("name", f"%{termo}%").execute().data or []
+            if not alvos:
+                return {"cobrancas": [], "aviso": f"Nenhum condominio casou com '{termo}'."}
+            q = q.in_("condominio_id", [a["id"] for a in alvos])
 
         if user.get("role") not in ROLES_VEEM_TUDO:
             meus = carteira_condo_ids(db, user)
@@ -97,7 +128,7 @@ class NovaCobrancaBody(BaseModel):
 
 
 @router.post("/cobrancas-contas")
-def api_criar_cobranca(data: NovaCobrancaBody, user: dict = Depends(get_current_user),
+def api_criar_cobranca(data: NovaCobrancaBody, user: dict = Depends(usuario_ou_maquina),
                        db: Client = Depends(get_db)):
     """Abre uma pendencia sem esperar a proxima leitura aparecer.
 
@@ -270,7 +301,7 @@ def _corpo_email(condo_nome, concessionaria, mes, ano, previsto_em, cobrancas, r
 
 
 @router.post("/cobrancas-contas/{cob_id}/cobrar")
-def api_cobrar_agora(cob_id: str, user: dict = Depends(get_current_user),
+def api_cobrar_agora(cob_id: str, user: dict = Depends(usuario_ou_maquina),
                      db: Client = Depends(get_db)):
     """Manda o e-mail desta conta agora, sem esperar o disparo diario.
 
@@ -289,6 +320,12 @@ def api_cobrar_agora(cob_id: str, user: dict = Depends(get_current_user),
         raise HTTPException(404, "Cobranca nao encontrada.")
     if c["status"] == "recebida":
         raise HTTPException(400, "Esta conta ja foi recebida.")
+    if c["status"] == "suspensa":
+        # Cobrar por cima da suspensao esvaziaria a justificativa: quem escreveu
+        # o motivo seria cobrado de novo sem resposta. Para voltar a cobrar,
+        # passa pelo /reativar, que exige dizer por que o motivo nao serviu.
+        raise HTTPException(400, "Esta cobranca esta suspensa. Use 'Voltar a cobrar' "
+                                 "e diga por que a justificativa nao foi aceita.")
 
     destinos = _destinatarios(db, c["condominio_id"])
     if not destinos:
@@ -308,8 +345,6 @@ def api_cobrar_agora(cob_id: str, user: dict = Depends(get_current_user),
     db.table("cobrancas_contas").update({
         "cobrancas": (c.get("cobrancas") or 0) + 1,
         "ultima_cobranca_em": datetime.datetime.utcnow().isoformat(),
-        # Cobrou de novo: se estava suspensa, volta a valer como aguardando.
-        "status": "aguardando",
     }).eq("id", cob_id).execute()
 
     return {"ok": True, "enviados_para": enviados}

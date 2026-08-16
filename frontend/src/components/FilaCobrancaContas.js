@@ -276,7 +276,9 @@ export default function FilaCobrancaContas() {
                   </span>
                 )}
 
-                {podeCobrar && (
+                {/* Suspensa não mostra "Cobrar": para voltar a cobrar existe o
+                    caminho com motivo, que responde a quem justificou. */}
+                {podeCobrar && c.status === 'aguardando' && (
                   <button type="button" onClick={() => cobrarAgora(c)} disabled={cobrando === c.id}
                     title={`Manda o e-mail agora para o gerente e o assistente de ${c.condominios?.name || 'este condomínio'}`}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-violet-700 transition-colors disabled:opacity-50">
