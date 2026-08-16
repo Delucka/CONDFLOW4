@@ -156,3 +156,11 @@
 # duplicados (234, 240, 332), corrigidos na mao depois.
 0091_tag_tem_consumo.sql
 0092_ordem_arquivos_emissao.sql
+
+# ── 16/08/2026 — auditoria de RLS ──
+# AUDITAR_RLS_V2.sql (só leitura de catálogo) mostrou que condominio_grupos
+# estava com RLS ligado e ZERO policy desde a 0086: pela chave anon a tabela não
+# existia. Provado com `set local role authenticated; select count(*)` = 0.
+# A 0098 devolve leitura a quem está logado e escrita a master/departamento.
+0098_rls_condominio_grupos.sql
+
