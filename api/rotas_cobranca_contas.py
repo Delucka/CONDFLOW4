@@ -164,6 +164,114 @@ def api_criar_cobranca(data: NovaCobrancaBody, user: dict = Depends(usuario_ou_m
     return {"ok": True, "cobranca": (res.data or [None])[0]}
 
 
+@router.get("/contas-esperadas")
+def api_contas_esperadas(condominio_id: str, mes: int, ano: int,
+                         user: dict = Depends(usuario_ou_maquina),
+                         db: Client = Depends(get_db)):
+    """O que o emissor precisa saber ANTES de abrir a emissao de um condominio.
+
+    Para cada concessionaria daquele condominio, responde tres coisas:
+
+      ja_anexada       a fatura do mes ja esta na emissao?
+      leitura_prevista o dia em que o medidor e lido para formar essa conta
+                       (veio impresso na fatura do mes anterior)
+      cobranca         a pendencia, se existe, com status e quantas cobrancas
+
+    A `leitura_prevista` e o que responde "a fatura ainda nem foi emitida" sem
+    ninguem precisar ligar para a concessionaria: se o dia ainda nao chegou, nao
+    ha o que cobrar; se passou e a conta nao veio, ha.
+    """
+    concs = []
+    try:
+        rows = db.table("condominios_concessionarias").select("concessionaria")                  .eq("condominio_id", condominio_id).execute().data or []
+        concs = sorted({(r.get("concessionaria") or "").strip().upper() for r in rows if r.get("concessionaria")})
+    except Exception as e:
+        print(f"[contas-esperadas] concessionarias: {e}")
+
+    # Mes anterior: e la que mora a data da leitura desta conta.
+    mes_ant, ano_ant = (12, ano - 1) if mes == 1 else (mes - 1, ano)
+
+    leitura = {}
+
+    def _guarda(conc, data_):
+        c = (conc or "").upper()
+        if c and data_ and (c not in leitura or data_ > leitura[c]):
+            leitura[c] = data_
+
+    ant = db.table("consumos_faturas")         .select("concessionaria, proxima_leitura")         .eq("condominio_id", condominio_id).eq("mes_referencia", mes_ant)         .eq("ano_referencia", ano_ant).execute().data or []
+    for r in ant:
+        _guarda(r.get("concessionaria"), r.get("proxima_leitura"))
+
+    # Fallback para o proprio anexo da emissao.
+    #
+    # `consumos_faturas` e alimentada por gatilho, e o gatilho tem condicoes
+    # (subtipo, mes, ano e condominio preenchidos). Anexo que nao satisfaz todas
+    # nao espelha, e a data fica so em `emissoes_arquivos` — que e de onde a tela
+    # de comparativo le. Sem este fallback, a mesma data aparecia num lugar e
+    # sumia no outro, o que e pior do que nao ter.
+    arq = db.table("emissoes_arquivos")         .select("subtipo, proxima_leitura_fatura")         .eq("condominio_id", condominio_id).eq("mes_referencia", mes_ant)         .eq("ano_referencia", ano_ant).eq("categoria", "concessionaria")         .not_.is_("proxima_leitura_fatura", "null").execute().data or []
+    for r in arq:
+        _guarda(r.get("subtipo"), r.get("proxima_leitura_fatura"))
+
+    atuais = db.table("consumos_faturas").select("concessionaria")         .eq("condominio_id", condominio_id).eq("mes_referencia", mes)         .eq("ano_referencia", ano).execute().data or []
+    anexadas = {(r.get("concessionaria") or "").upper() for r in atuais}
+
+    cobs = db.table("cobrancas_contas")         .select("id, concessionaria, status, cobrancas, ultima_cobranca_em, suspensa_motivo")         .eq("condominio_id", condominio_id).eq("mes_referencia", mes)         .eq("ano_referencia", ano).execute().data or []
+    por_conc = {(c.get("concessionaria") or "").upper(): c for c in cobs}
+
+    # Concessionaria que so aparece na fatura (o cadastro de 2025 nao cobre
+    # todas) tambem entra: o que importa e o que a operacao ve chegando.
+    for c in set(leitura) | anexadas | set(por_conc):
+        if c and c not in concs:
+            concs.append(c)
+
+    hoje = datetime.date.today().isoformat()
+    return {"contas": [{
+        "concessionaria": c,
+        "ja_anexada": c in anexadas,
+        "leitura_prevista": leitura.get(c),
+        "leitura_passou": bool(leitura.get(c) and leitura[c] < hoje),
+        "cobranca": por_conc.get(c),
+    } for c in sorted(concs)]}
+
+
+class CobrarDiretoBody(BaseModel):
+    condominio_id: str
+    concessionaria: str
+    mes_referencia: int
+    ano_referencia: int
+
+
+@router.post("/cobrancas-contas/cobrar-direto")
+def api_cobrar_direto(data: CobrarDiretoBody, user: dict = Depends(usuario_ou_maquina),
+                      db: Client = Depends(get_db)):
+    """Cobra a conta a partir do condominio+mes, criando a pendencia se preciso.
+
+    Existe para o emissor cobrar no exato momento em que descobre que falta —
+    ao abrir a emissao — sem ter de ir a outra tela abrir a pendencia primeiro.
+    Um clique: abre (ou reaproveita) e manda.
+    """
+    if user.get("role") not in ROLES_REATIVAM:
+        raise HTTPException(403, "Apenas master e emissao cobram.")
+
+    conc = (data.concessionaria or "").strip().upper()
+    linha = db.table("cobrancas_contas").select("id, status")         .eq("condominio_id", data.condominio_id).eq("concessionaria", conc)         .eq("mes_referencia", data.mes_referencia).eq("ano_referencia", data.ano_referencia)         .maybe_single().execute().data
+
+    if not linha:
+        criada = db.table("cobrancas_contas").insert({
+            "condominio_id": data.condominio_id,
+            "concessionaria": conc,
+            "mes_referencia": data.mes_referencia,
+            "ano_referencia": data.ano_referencia,
+            "previsto_em": datetime.date.today().isoformat(),
+        }).execute()
+        linha = (criada.data or [None])[0]
+        if not linha:
+            raise HTTPException(500, "Nao consegui abrir a cobranca.")
+
+    return api_cobrar_agora(linha["id"], user=user, db=db)
+
+
 # ─────────────────────────── Suspender / reativar ───────────────────────────
 
 class SuspenderBody(BaseModel):

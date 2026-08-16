@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
-import { apiFetcher, apiPost } from '@/lib/api';
+import { apiFetcher, apiPost, apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { mesAnoVigente } from '@/lib/mesVigente';
@@ -243,6 +243,46 @@ export default function DashboardPage() {
 
   // Confirmação antes de sair para a emissão: { condo, concessionarias }
   const [confirmarConsumo, setConfirmarConsumo] = useState(null);
+  // O que a API sabe das contas daquele mês: se já foi anexada, quando é a
+  // leitura, e se já existe cobrança. É a informação que decide se dá para
+  // emitir agora ou se é hora de cobrar.
+  const [contasDoModal, setContasDoModal] = useState(null);   // null = carregando
+  const [cobrandoConta, setCobrandoConta] = useState(null);
+
+  useEffect(() => {
+    if (!confirmarConsumo) { setContasDoModal(null); return; }
+    let vivo = true;
+    (async () => {
+      try {
+        const r = await apiFetch(`/api/contas-esperadas?condominio_id=${confirmarConsumo.condo.id}&mes=${mesEmissao}&ano=${vigente.ano}`);
+        if (vivo) setContasDoModal(r?.contas || []);
+      } catch {
+        if (vivo) setContasDoModal([]);   // sem isto o modal ficaria girando para sempre
+      }
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmarConsumo, mesEmissao]);
+
+  async function cobrarConta(conc) {
+    setCobrandoConta(conc);
+    try {
+      const r = await apiPost('/api/cobrancas-contas/cobrar-direto', {
+        condominio_id: confirmarConsumo.condo.id,
+        concessionaria: conc,
+        mes_referencia: mesEmissao,
+        ano_referencia: vigente.ano,
+      });
+      const para = (r?.enviados_para || []).join(', ');
+      addToast(para ? `Cobrança enviada para ${para}.` : 'Cobrança enviada.', 'success');
+      const novo = await apiFetch(`/api/contas-esperadas?condominio_id=${confirmarConsumo.condo.id}&mes=${mesEmissao}&ano=${vigente.ano}`);
+      setContasDoModal(novo?.contas || []);
+    } catch (e) {
+      addToast('Não consegui cobrar: ' + (e.message || e), 'error');
+    } finally {
+      setCobrandoConta(null);
+    }
+  }
 
   function irParaEmissao(condo) {
     const q = `condo=${condo.id}&mes=${mesEmissao}&ano=${vigente.ano}&tab=upload`;
@@ -998,6 +1038,66 @@ export default function DashboardPage() {
                 Você já tem a <strong>fatura</strong> e o <strong>relatório de leitura</strong> em mãos?
                 Sem eles a emissão abre, mas fica parada.
               </p>
+            </div>
+
+            {/* O estado de cada conta, com a data da leitura e o botão de
+                cobrar. É aqui que o emissor descobre que falta — então é aqui
+                que ele tem de poder cobrar, sem ir a outra tela. */}
+            <div className="rounded-xl border border-slate-200 divide-y divide-slate-100">
+              {contasDoModal === null ? (
+                <p className="px-3 py-2.5 text-[11px] text-slate-500 flex items-center gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Conferindo o que já chegou…
+                </p>
+              ) : contasDoModal.length === 0 ? (
+                <p className="px-3 py-2.5 text-[11px] text-slate-500">
+                  Nada registrado ainda para este mês.
+                </p>
+              ) : contasDoModal.map(ct => (
+                <div key={ct.concessionaria} className="px-3 py-2.5 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-slate-800 w-20 shrink-0">{ct.concessionaria}</span>
+
+                  {ct.ja_anexada ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> anexada
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-slate-500">
+                      {ct.leitura_prevista ? (
+                        <>
+                          leitura {new Date(ct.leitura_prevista + 'T12:00:00').toLocaleDateString('pt-BR')}
+                          {ct.leitura_passou
+                            ? <span className="text-amber-700 font-semibold"> · já passou, conta não veio</span>
+                            : <span className="text-slate-400"> · a conta ainda não foi emitida</span>}
+                        </>
+                      ) : 'sem data de leitura registrada'}
+                    </span>
+                  )}
+
+                  {ct.cobranca?.cobrancas > 0 && (
+                    <span className="text-[11px] text-slate-400">
+                      · {ct.cobranca.cobrancas}ª cobrança
+                    </span>
+                  )}
+
+                  {!ct.ja_anexada && ct.cobranca?.status !== 'suspensa' && (
+                    <button type="button" onClick={() => cobrarConta(ct.concessionaria)}
+                      disabled={cobrandoConta === ct.concessionaria}
+                      title={`Manda o e-mail agora para o gerente e o assistente de ${confirmarConsumo.condo.name}`}
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors">
+                      {cobrandoConta === ct.concessionaria
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <Send className="w-3 h-3" />}
+                      Cobrar
+                    </button>
+                  )}
+
+                  {ct.cobranca?.status === 'suspensa' && (
+                    <span className="ml-auto text-[11px] text-slate-500" title={ct.cobranca.suspensa_motivo}>
+                      cobrança suspensa
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
 
             <div className="flex gap-3">
