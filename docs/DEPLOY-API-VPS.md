@@ -98,3 +98,24 @@ Foi o que pegou `SB_SERVICE` e `_user_cache` ao separar o `api_routes.py`.
 
 Chave `~/.ssh/condoflow_vps` (pública cadastrada no painel da Hostinger, VPS
 `srv1788797`). O Traefik é dono das portas 80/443 — **não instale nginx**.
+
+**O SSH é só por chave** desde 16/08/2026 (`PasswordAuthentication no`,
+`PermitRootLogin prohibit-password`). Antes disso o servidor aceitava login de
+root por senha pela internet.
+
+Duas coisas a saber:
+
+* Se a chave se perder, a entrada é o **Web console do painel da Hostinger**,
+  que não passa pelo `sshd`. É a saída de emergência.
+* A senha ficou desligada em `/etc/ssh/sshd_config.d/50-cloud-init.conf`, e não
+  num arquivo `99-`: dentro de `sshd_config.d` **vale o primeiro valor lido**, e
+  o `50-` vem antes. Um `99-hardening.conf` pareceria certo e não teria efeito
+  nenhum. Também existe `/etc/cloud/cloud.cfg.d/99-desliga-senha-ssh.cfg` com
+  `ssh_pwauth: false` — sem ele o cloud-init reescreve o `50-` no próximo boot e
+  a senha volta sozinha.
+
+Sempre valide antes de recarregar, senão um erro de digitação tranca o acesso:
+
+```bash
+ssh -i ~/.ssh/condoflow_vps root@76.13.174.12 "sshd -t && systemctl reload ssh"
+```
