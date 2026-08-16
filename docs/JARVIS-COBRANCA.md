@@ -33,35 +33,56 @@ senão "suspenso por JARVIS" vira um beco sem responsável.
 **HTTP Request Tool** — `Consultar contas que faltam`
 
 ```
-GET https://api.emissaonline.com/api/cobrancas-contas
+GET https://api.emissaonline.com/api/contas-esperadas/mes
 Header: x-api-key = {{ $env.INTEGRACAO_API_KEY }}
-Query (opcionais):
+Query (todos opcionais):
   condominio = {{ $fromAI("condominio") }}   nome ou código, como a pessoa fala
-  status     = aguardando | suspensa | recebida
+  situacao   = {{ $fromAI("situacao") }}     cobrar | esperando | sem_informacao | chegaram
+  mes, ano                                   sem eles, assume o mês de trabalho
 ```
 
 Descrição para o agente:
 
-> Lista as contas de concessionária que ainda não chegaram. Use `condominio` para
-> filtrar por nome ou número (ex.: "irapuru", "436"). Cada item traz: condomínio,
-> concessionária, mês de referência, data da leitura (`previsto_em`), `status`,
-> quantas cobranças já saíram (`cobrancas`), se está atrasada, e a justificativa
-> quando existe.
+> Mostra as contas de concessionária esperadas no mês e o estado de cada uma.
+> Filtre com `condominio` (nome ou número, ex.: "irapuru", "436") e com
+> `situacao`:
+> **cobrar** = a leitura já aconteceu e a conta não chegou (é o que se cobra);
+> **esperando** = a leitura ainda não aconteceu, a conta nem foi emitida;
+> **sem_informacao** = não sabemos a data da leitura;
+> **chegaram** = já anexada.
+> Cada item traz condominio_id, concessionaria, leitura_prevista, leitura_passou,
+> ja_anexada e, quando existe, a cobrança com quantas já foram enviadas.
+> NUNCA cobre um item com situacao "esperando": a concessionária ainda não emitiu
+> a conta, e cobrar o gerente por isso é cobrar pelo que ele não pode entregar.
+
+**Por que este e não `/api/cobrancas-contas`:** aquele lista só as cobranças já
+abertas. Este mostra o mês inteiro — inclusive o que ainda ninguém cobrou, que é
+justamente o que se quer descobrir.
 
 ## Substitua o nó "Enviar email"
 
 **HTTP Request Tool** — `Cobrar a conta`
 
 ```
-POST https://api.emissaonline.com/api/cobrancas-contas/{{ $fromAI("cobrancaId") }}/cobrar
+POST https://api.emissaonline.com/api/cobrancas-contas/cobrar-direto
 Header: x-api-key = {{ $env.INTEGRACAO_API_KEY }}
+Body (JSON):
+  condominio_id  = {{ $fromAI("condominioId") }}
+  concessionaria = {{ $fromAI("concessionaria") }}
+  mes_referencia = {{ $fromAI("mes") }}
+  ano_referencia = {{ $fromAI("ano") }}
 ```
 
 Descrição para o agente:
 
-> Manda o e-mail de cobrança daquela conta para o gerente e o assistente do
-> condomínio. Use o `id` vindo da consulta. Responde com a lista de e-mails que
-> receberam. Só depois da confirmação do usuário.
+> Manda o e-mail de cobrança para o gerente e o assistente do condomínio. Use o
+> `condominio_id`, a `concessionaria`, o `mes` e o `ano` vindos da consulta.
+> Responde com a lista de e-mails que receberam. Só chame depois da confirmação
+> explícita do usuário.
+
+Este endpoint abre a pendência se ela ainda não existir — por isso serve tanto
+para a primeira cobrança quanto para a insistência, sem o agente precisar saber
+a diferença.
 
 Por que não é o Gmail direto: aqui o e-mail sai com o template do sistema, para
 os destinatários corretos resolvidos pela carteira, **e a cobrança fica

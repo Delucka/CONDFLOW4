@@ -236,7 +236,9 @@ def api_contas_esperadas(condominio_id: str, mes: int, ano: int,
 
 
 @router.get("/contas-esperadas/mes")
-def api_contas_esperadas_mes(mes: int, ano: int,
+def api_contas_esperadas_mes(mes: Optional[int] = None, ano: Optional[int] = None,
+                             condominio: Optional[str] = None,
+                             situacao: Optional[str] = None,
                              user: dict = Depends(usuario_ou_maquina),
                              db: Client = Depends(get_db)):
     """O panorama do mes inteiro: toda conta esperada, de todo condominio.
@@ -250,6 +252,14 @@ def api_contas_esperadas_mes(mes: int, ano: int,
     """
     if user.get("role") not in ROLES_VEEM_TUDO:
         raise HTTPException(403, "Sem permissao para ver a cobranca de todos.")
+
+    # Sem mes/ano, assume o mes de trabalho — o agente do WhatsApp pergunta "o
+    # que falta?" sem dizer de quando, e a resposta esperada e "deste mes".
+    if not mes or not ano:
+        hoje = datetime.date.today()
+        # Trabalhamos um mes a frente (mesma regra de mesVigente no front).
+        mes = mes or (1 if hoje.month == 12 else hoje.month + 1)
+        ano = ano or (hoje.year + 1 if hoje.month == 12 else hoje.year)
 
     mes_ant, ano_ant = (12, ano - 1) if mes == 1 else (mes - 1, ano)
 
@@ -324,7 +334,22 @@ def api_contas_esperadas_mes(mes: int, ano: int,
         l["leitura_prevista"] or "9999-99-99",
         l["condominio"],
     ))
-    return {"contas": linhas, "mes": mes, "ano": ano}
+
+    # Filtros de conversa: e assim que a pergunta chega pelo WhatsApp — "o que
+    # falta do Irapuru?", "o que esta atrasado?" — e nao como uma consulta.
+    if condominio:
+        termo = condominio.strip().lower()
+        linhas = [l for l in linhas if termo in l["condominio"].lower()]
+    if situacao == "cobrar":
+        linhas = [l for l in linhas if not l["ja_anexada"] and l["leitura_passou"]]
+    elif situacao == "esperando":
+        linhas = [l for l in linhas if not l["ja_anexada"] and l["leitura_prevista"] and not l["leitura_passou"]]
+    elif situacao == "sem_informacao":
+        linhas = [l for l in linhas if not l["ja_anexada"] and not l["leitura_prevista"]]
+    elif situacao == "chegaram":
+        linhas = [l for l in linhas if l["ja_anexada"]]
+
+    return {"contas": linhas, "mes": mes, "ano": ano, "total": len(linhas)}
 
 
 class CobrarDiretoBody(BaseModel):
