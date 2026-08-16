@@ -148,8 +148,19 @@ export default function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
                   <input type="date" value={leituraAtual} onChange={e => setLeituraAtual(e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Próxima leitura</label>
-                  <input type="date" value={proximaLeitura} onChange={e => setProximaLeitura(e.target.value)} className={inputCls} />
+                  {/* Este campo alimenta a cobrança: é ele que diz quando a
+                      conta do mês que vem se forma, e portanto a partir de
+                      quando faz sentido cobrar quem não mandou. Quando a
+                      extração falha, é aqui que ele entra à mão — por isso o
+                      rótulo diz para que serve, em vez de só nomear o campo. */}
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-violet-500">
+                    Próxima leitura
+                  </label>
+                  <input type="date" value={proximaLeitura} onChange={e => setProximaLeitura(e.target.value)}
+                    className={inputCls} />
+                  <p className="mt-0.5 text-[9px] text-slate-400 leading-tight">
+                    vem impressa na conta · agenda a cobrança do mês que vem
+                  </p>
                 </div>
               </div>
             </>

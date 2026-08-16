@@ -30,8 +30,15 @@ import {
  * ainda não emitiu — é assim que uma cobrança automática perde a credibilidade
  * em duas semanas.
  *
- * "Sem data" não é falha da tela: é fatura antiga cujo campo ninguém extraiu.
- * A tela diz isso em vez de fingir que está tudo certo.
+ * O DADO ENTRA PELOS DOIS CAMINHOS
+ *
+ * A data é extraída da fatura ao anexar. Quando a extração não consegue ler —
+ * conta escaneada torta, PDF ruim — a tela de revisão pede o campo à mão. Então
+ * "ainda não temos a informação" nunca é um beco: é uma fatura anexada antes de
+ * o sistema ler esse campo (16/08/2026), e se resolve na próxima que entrar.
+ *
+ * Dizer isso é melhor do que esconder. Uma tela que mostra 204 linhas sem data
+ * como se fossem atrasos faz a pessoa cobrar errado 204 vezes.
  */
 
 const MESES = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -42,7 +49,7 @@ const fmt = (iso) => (iso ? new Date(iso + 'T12:00:00').toLocaleDateString('pt-B
 const FILTROS = [
   { id: 'cobrar',   rotulo: 'A cobrar' },
   { id: 'esperando', rotulo: 'Esperando leitura' },
-  { id: 'sem_data', rotulo: 'Sem data' },
+  { id: 'sem_data', rotulo: 'Sem informação' },
   { id: 'anexadas', rotulo: 'Já chegaram' },
   { id: 'todas',    rotulo: 'Todas' },
 ];
@@ -171,8 +178,8 @@ export default function CentralCobrancas() {
           </p>
           {filtro === 'cobrar' && contagem.sem_data > 0 && (
             <p className="text-xs text-slate-400 mt-1">
-              {contagem.sem_data} conta{contagem.sem_data > 1 ? 's' : ''} sem data de leitura —
-              veja a aba &ldquo;Sem data&rdquo;.
+              {contagem.sem_data} conta{contagem.sem_data > 1 ? 's' : ''} ainda sem a informação da
+              leitura — veja o filtro ao lado.
             </p>
           )}
         </div>
@@ -203,8 +210,9 @@ export default function CentralCobrancas() {
                     {c.leitura_passou && ' · não veio'}
                   </span>
                 ) : (
-                  <span className="text-[11px] text-slate-400 shrink-0" title="A fatura anterior não teve a próxima leitura extraída">
-                    sem data de leitura
+                  <span className="text-[11px] text-slate-400 shrink-0"
+                        title="A fatura anterior não trouxe a data, e ninguém preencheu à mão">
+                    ainda não temos a informação
                   </span>
                 )}
 
@@ -242,10 +250,11 @@ export default function CentralCobrancas() {
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" aria-hidden="true" />
           <p className="text-[11px] text-slate-600 leading-relaxed">
-            Estas contas não têm data porque a fatura anterior foi anexada antes de o sistema
-            passar a ler a &ldquo;próxima leitura&rdquo; (16/08/2026), ou veio escaneada e o campo
-            não foi extraído. Dá para cobrar assim mesmo — só não há como saber se a conta já
-            deveria existir. A partir da próxima fatura anexada, a data passa a existir sozinha.
+            Ainda não temos a informação da leitura destas contas: a fatura anterior foi anexada
+            antes de o sistema passar a ler esse campo (16/08/2026), ou veio escaneada e a extração
+            não achou. Dá para cobrar assim mesmo — só não dá para saber se a conta já deveria
+            existir. Isso se resolve sozinho: ao anexar a próxima fatura, o campo é lido, e quando
+            a leitura falha a tela pede para preencher à mão.
           </p>
         </div>
       )}

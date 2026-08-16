@@ -1069,7 +1069,7 @@ export default function DashboardPage() {
                             ? <span className="text-amber-700 font-semibold"> · já passou, conta não veio</span>
                             : <span className="text-slate-400"> · a conta ainda não foi emitida</span>}
                         </>
-                      ) : 'sem data de leitura registrada'}
+                      ) : 'ainda não temos a informação da leitura'}
                     </span>
                   )}
 
