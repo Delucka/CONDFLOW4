@@ -86,6 +86,53 @@ def api_listar_cobrancas(status: Optional[str] = None, user: dict = Depends(get_
         raise HTTPException(500, f"Nao consegui ler a fila de cobrancas: {e}")
 
 
+# ─────────────────────────── Abrir a mao ───────────────────────────
+
+class NovaCobrancaBody(BaseModel):
+    condominio_id: str
+    concessionaria: str
+    mes_referencia: int
+    ano_referencia: int
+    previsto_em: Optional[str] = None
+
+
+@router.post("/cobrancas-contas")
+def api_criar_cobranca(data: NovaCobrancaBody, user: dict = Depends(get_current_user),
+                       db: Client = Depends(get_db)):
+    """Abre uma pendencia sem esperar a proxima leitura aparecer.
+
+    A fila automatica depende da data impressa na fatura anterior, e essa data
+    so passou a ser capturada em 16/08/2026 — entao ela nasce quase vazia. Este
+    endpoint existe para a operacao poder cobrar HOJE, no que ja sabe estar
+    faltando, em vez de esperar um ciclo inteiro.
+
+    Sem `previsto_em` a cobranca ja comeca valendo (data de hoje).
+    """
+    if user.get("role") not in ROLES_REATIVAM:
+        raise HTTPException(403, "Apenas master e emissao abrem cobranca.")
+
+    conc = (data.concessionaria or "").strip().upper()
+    if not conc:
+        raise HTTPException(400, "Informe a concessionaria.")
+    if not (1 <= data.mes_referencia <= 12):
+        raise HTTPException(400, "Mes invalido.")
+
+    linha = {
+        "condominio_id": data.condominio_id,
+        "concessionaria": conc,
+        "mes_referencia": data.mes_referencia,
+        "ano_referencia": data.ano_referencia,
+        "previsto_em": data.previsto_em or datetime.date.today().isoformat(),
+    }
+    try:
+        res = db.table("cobrancas_contas").upsert(
+            linha, on_conflict="condominio_id,concessionaria,mes_referencia,ano_referencia"
+        ).execute()
+    except Exception as e:
+        raise HTTPException(400, f"Nao consegui abrir a cobranca: {e}")
+    return {"ok": True, "cobranca": (res.data or [None])[0]}
+
+
 # ─────────────────────────── Suspender / reativar ───────────────────────────
 
 class SuspenderBody(BaseModel):
@@ -220,6 +267,52 @@ def _corpo_email(condo_nome, concessionaria, mes, ano, previsto_em, cobrancas, r
         f"<p>Se houver motivo para atrasar, registre em <a href='{SITE}/consumos'>Consumos</a> "
         "— com a justificativa escrita, a cobranca suspende.</p>"
     )
+
+
+@router.post("/cobrancas-contas/{cob_id}/cobrar")
+def api_cobrar_agora(cob_id: str, user: dict = Depends(get_current_user),
+                     db: Client = Depends(get_db)):
+    """Manda o e-mail desta conta agora, sem esperar o disparo diario.
+
+    O modo manual e o padrao por enquanto, a pedido da operacao: quem cobra
+    escolhe a hora e sabe exatamente o que saiu. O executor agendado continua
+    existindo para quando fizer sentido ligar.
+
+    Nao respeita o intervalo de 2 dias nem o fim de semana — quem clicou decidiu
+    cobrar agora. Mas conta a cobranca, entao o historico continua honesto.
+    """
+    if user.get("role") not in ROLES_REATIVAM:
+        raise HTTPException(403, "Apenas master e emissao cobram.")
+
+    c = db.table("cobrancas_contas").select("*, condominios(name)").eq("id", cob_id)           .maybe_single().execute().data
+    if not c:
+        raise HTTPException(404, "Cobranca nao encontrada.")
+    if c["status"] == "recebida":
+        raise HTTPException(400, "Esta conta ja foi recebida.")
+
+    destinos = _destinatarios(db, c["condominio_id"])
+    if not destinos:
+        raise HTTPException(400, "Este condominio nao tem gerente com e-mail cadastrado.")
+
+    condo_nome = (c.get("condominios") or {}).get("name") or "condominio"
+    html = _corpo_email(condo_nome, c["concessionaria"], c["mes_referencia"],
+                        c["ano_referencia"], c.get("previsto_em"),
+                        c.get("cobrancas") or 0, c.get("reativada_motivo"))
+    assunto = (f"Falta a conta {c['concessionaria']} — {condo_nome} "
+               f"({str(c['mes_referencia']).zfill(2)}/{c['ano_referencia']})")
+
+    enviados = [e for e, _n in destinos if _enviar_email_smtp(e, assunto, html)]
+    if not enviados:
+        raise HTTPException(502, "Nenhum e-mail saiu. Confira as credenciais de envio.")
+
+    db.table("cobrancas_contas").update({
+        "cobrancas": (c.get("cobrancas") or 0) + 1,
+        "ultima_cobranca_em": datetime.datetime.utcnow().isoformat(),
+        # Cobrou de novo: se estava suspensa, volta a valer como aguardando.
+        "status": "aguardando",
+    }).eq("id", cob_id).execute()
+
+    return {"ok": True, "enviados_para": enviados}
 
 
 @router.post("/cobrancas-contas/executar")
