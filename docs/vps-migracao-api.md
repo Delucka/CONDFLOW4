@@ -1,5 +1,12 @@
 # Migração da API (FastAPI) para a VPS Hostinger
 
+> ⚠️ **Este documento é o plano, não o que existe.** A migração foi feita de outro
+> jeito: a API roda em **Docker**, atrás do **Traefik** que já servia o n8n — não
+> em `systemd` + `nginx` como está descrito aqui. Para **atualizar a API**, siga
+> **[DEPLOY-API-VPS.md](DEPLOY-API-VPS.md)**, que foi conferido no servidor.
+>
+> O que continua valendo aqui: o porquê da migração e o desenho geral.
+
 > **Objetivo:** matar o *cold start* do Vercel (causa nº1 da navegação lenta), fazer os caches em memória passarem a valer, e habilitar OCR nativo. O **Next.js continua no Vercel** (CDN/edge); só a **API** vai pra VPS.
 
 ## Arquitetura final

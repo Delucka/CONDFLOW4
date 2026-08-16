@@ -47,6 +47,17 @@ cd api
 uvicorn index:app --reload --port 8001   # Local dev (requires .env with Supabase creds)
 ```
 
+**Deploy da API — não é a Vercel.** A API roda em Docker na VPS
+(`api.emissaonline.com`), atrás do Traefik do n8n. Nem `git push` nem
+`npx vercel --prod` atualizam ela: o código fica *dentro* da imagem, então
+atualizar exige copiar os arquivos e **reconstruir**. O procedimento conferido
+está em **`docs/DEPLOY-API-VPS.md`** — inclusive a checagem que compara as rotas
+do código com as que estão no ar.
+
+Isso já custou 6 semanas de atraso silencioso: o site funcionava e oito rotas
+mais novas respondiam 404, porque ninguém tinha reconstruído a imagem desde
+julho. Mexeu em `api/`? O deploy é outro.
+
 ---
 
 ## Antes de escrever no banco: leia `docs/ESQUEMA-BANCO.md`
