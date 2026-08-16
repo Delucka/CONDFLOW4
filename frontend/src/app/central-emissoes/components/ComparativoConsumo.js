@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Droplet, Flame, Zap, TrendingUp, TrendingDown, Minus, Loader2, FileText } from 'lucide-react';
+import { Droplet, Flame, Zap, TrendingUp, TrendingDown, Minus, Loader2, FileText, CalendarClock } from 'lucide-react';
 import { abrirArquivoSeguro } from '@/lib/arquivo';
 
 /**
@@ -51,7 +51,15 @@ function resumir(arquivos) {
   for (const a of arquivos || []) {
     const s = servicoDoArquivo(a);
     if (!s) continue;
-    mapa[s] = mapa[s] || { valor: null, consumo: null, fatura: null, relatorio: null, contas: 0 };
+    mapa[s] = mapa[s] || { valor: null, consumo: null, fatura: null, relatorio: null, contas: 0, proxima: null };
+
+    // A próxima leitura vem na fatura do mês ANTERIOR: é ela que diz quando a
+    // conta deste mês se forma. Guardada aqui, o emissor sabe o que esperar
+    // antes de ter a conta em mãos — e quem cobra tem data para cobrar.
+    // A mais distante manda: com duas instalações, o fechamento é a última.
+    if (a.proxima_leitura_fatura && (!mapa[s].proxima || a.proxima_leitura_fatura > mapa[s].proxima)) {
+      mapa[s].proxima = a.proxima_leitura_fatura;
+    }
 
     // SOMA, não sobrescreve. Um condomínio pode ter mais de uma conta do mesmo
     // serviço no mesmo mês — dois hidrômetros, bloco e casa do zelador, duas
@@ -86,6 +94,30 @@ function resumir(arquivos) {
  * número sozinho não resolve; para decidir se é vazamento ou fatura trocada,
  * é preciso abrir a conta.
  */
+/**
+ * "leitura prevista 12/09" — a data que a fatura do mês anterior informou.
+ *
+ * Muda de cor quando a data já passou: se a leitura era para ter acontecido e a
+ * conta não chegou, é hora de cobrar, não de esperar.
+ */
+function PrevisaoLeitura({ data }) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const passou = data < hoje;
+  return (
+    <span
+      title={passou
+        ? 'A leitura já deveria ter acontecido e a conta não chegou — vale cobrar o responsável.'
+        : 'Data em que a concessionária lê o medidor. A conta chega depois disso.'}
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+        passou ? 'border-amber-300 bg-amber-50 text-amber-800'
+               : 'border-violet-200 bg-violet-50 text-violet-700'}`}
+    >
+      <CalendarClock className="w-3 h-3" aria-hidden="true" />
+      {passou ? 'leitura era ' : 'leitura '}{new Date(data + 'T12:00:00').toLocaleDateString('pt-BR')}
+    </span>
+  );
+}
+
 function Lado({ rotulo, valor, consumo, doc, vazio, forte, contas, onAbrir, abrindo }) {
   const conteudo = (
     <>
@@ -131,7 +163,7 @@ export default function ComparativoConsumo({ condominioId, mes, ano, arquivosAtu
     (async () => {
       const { data, error } = await supabase
         .from('emissoes_arquivos')
-        .select('subtipo, categoria, valor_fatura, relatorio_tipo_servico, relatorio_consumo_total, relatorio_valor_total, arquivo_url, arquivo_nome')
+        .select('subtipo, categoria, valor_fatura, relatorio_tipo_servico, relatorio_consumo_total, relatorio_valor_total, arquivo_url, arquivo_nome, proxima_leitura_fatura')
         .eq('condominio_id', condominioId)
         .eq('mes_referencia', mesAnt)
         .eq('ano_referencia', anoAnt)
@@ -214,6 +246,12 @@ export default function ComparativoConsumo({ condominioId, mes, ano, arquivosAtu
 
               <Lado rotulo="agora" valor={vAtual} consumo={atual?.consumo} doc={atual?.fatura || atual?.relatorio}
                     vazio="ainda não anexada" forte contas={atual?.contas} onAbrir={abrir} abrindo={abrindo} />
+
+              {/* A data que a conta do mês passado prometeu. Só aparece enquanto
+                  a conta deste mês não chegou — depois disso ela já cumpriu o
+                  papel, e o número real ocupa o lugar. É por esta data que se
+                  cobra quem tem de mandar a fatura. */}
+              {!atual && ant?.proxima && <PrevisaoLeitura data={ant.proxima} />}
 
               {varia != null && (
                 <span className={`ml-auto inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
