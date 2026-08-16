@@ -23,8 +23,7 @@ import ComparativoConsumo from './ComparativoConsumo';
 import FaturaInlineForm from './FaturaInlineForm';
 import RevisaoExtracaoModal from './RevisaoExtracaoModal';
 import { nomeArquivoPadrao } from './faturaCampos';
-import { FileWarning, AlertTriangle, Table2, CalendarClock } from 'lucide-react';
-import Link from 'next/link';
+import { FileWarning, AlertTriangle, CalendarClock } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 // Painel de prioridade: só é baixado quando alguém abre. É a mesma tela usada
@@ -1553,25 +1552,17 @@ export default function VisaoEmissor({ profile }) {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Um número estranho na emissão se resolve na planilha do mês. Sem
-                  este atalho era sair daqui, achar o condomínio e achar o mês. */}
-              <Link
-                href={`/condominio/${activePacote.condominio_id}/arrecadacoes?ano=${activePacote.ano_referencia}&mes=${activePacote.mes_referencia}`}
-                target="_blank"
-                title="Abre a planilha deste condomínio no mês da emissão, em outra aba"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-slate-100 hover:text-violet-700 transition-colors"
-              >
-                <Table2 className="w-3.5 h-3.5" />
-                Ver planilha
-              </Link>
-              <button
-                onClick={() => { setActivePacote(null); setPacoteArquivos([]); }}
-                className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition-all"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            {/* Aqui existia um "Ver planilha" que abria outra aba. Saiu: a
+                planilha do mês já está NESTE painel, em "Referência do gerente",
+                logo abaixo. O botão abria uma segunda aba do sistema inteiro —
+                com as suas assinaturas de tempo real e o seu consumo de memória —
+                para mostrar o que já estava na tela. */}
+            <button
+              onClick={() => { setActivePacote(null); setPacoteArquivos([]); }}
+              className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-900 transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           {/* Conferência de pendências — o que antes era a "etapa de preparação" */}

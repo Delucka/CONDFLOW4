@@ -95,10 +95,15 @@ function resumir(arquivos) {
  * é preciso abrir a conta.
  */
 /**
- * "leitura prevista 12/09" — a data que a fatura do mês anterior informou.
+ * "leitura atual 08/08/2026" — a data que a conta a caminho vai trazer.
  *
- * Muda de cor quando a data já passou: se a leitura era para ter acontecido e a
- * conta não chegou, é hora de cobrar, não de esperar.
+ * O nome importa. Na fatura do mês passado ela vem impressa como "próxima
+ * leitura", mas aqui ela já é a leitura ATUAL da conta que se espera: é o dia em
+ * que o medidor é lido para formar essa conta. Chamar de "próxima" nesta tela
+ * jogaria o leitor um mês à frente do que ele está montando.
+ *
+ * Muda de cor quando a data já passou: se a leitura aconteceu e a conta não
+ * chegou, é hora de cobrar, não de esperar.
  */
 function PrevisaoLeitura({ data }) {
   const hoje = new Date().toISOString().slice(0, 10);
@@ -106,14 +111,15 @@ function PrevisaoLeitura({ data }) {
   return (
     <span
       title={passou
-        ? 'A leitura já deveria ter acontecido e a conta não chegou — vale cobrar o responsável.'
-        : 'Data em que a concessionária lê o medidor. A conta chega depois disso.'}
+        ? 'A leitura desta conta já aconteceu e a fatura não chegou — vale cobrar o responsável.'
+        : 'Dia em que a concessionária lê o medidor desta conta. A fatura chega depois disso.'}
       className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
         passou ? 'border-amber-300 bg-amber-50 text-amber-800'
                : 'border-violet-200 bg-violet-50 text-violet-700'}`}
     >
       <CalendarClock className="w-3 h-3" aria-hidden="true" />
-      {passou ? 'leitura era ' : 'leitura '}{new Date(data + 'T12:00:00').toLocaleDateString('pt-BR')}
+      leitura atual {new Date(data + 'T12:00:00').toLocaleDateString('pt-BR')}
+      {passou && ' · não chegou'}
     </span>
   );
 }

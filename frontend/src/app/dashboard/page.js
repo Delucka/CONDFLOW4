@@ -210,6 +210,18 @@ export default function DashboardPage() {
   const fazEmissao = profile?.role === 'departamento'
     || (profile?.role === 'master' && visaoMaster === 'emissao');
 
+  // Clicar na linha abre a emissão para QUEM EMITE, nas duas visões.
+  //
+  // Antes isso dependia do alternador: o master que um dia escolheu "Gerência"
+  // ficava com a escolha gravada no navegador, e a partir daí clicar na linha
+  // não fazia nada. Sem retorno nenhum na tela, a conclusão natural era "o
+  // atalho não funciona" — e a pessoa passava a ir pelo menu, caindo no Painel
+  // de Gestão em vez da emissão.
+  //
+  // O alternador continua valendo para o que MOSTRA (os atalhos de planilha e
+  // cobranças na linha). O que ele não faz mais é desligar o clique.
+  const podeEmitir = profile?.role === 'departamento' || profile?.role === 'master';
+
   // Concessionárias por condomínio (0036) — quem tem água/gás/energia precisa de
   // fatura e relatório antes de emitir, e é o que a tela pergunta ao abrir.
   const [concessionariasPorCondo, setConcessionariasPorCondo] = useState({});
@@ -675,8 +687,8 @@ export default function DashboardPage() {
               {podeAlternarVisao && (
                 <div className={`inline-flex border border-slate-200 ${raio.controle} overflow-hidden`} role="group" aria-label="Visão do painel">
                   {[
-                    { id: 'emissao',  rotulo: 'Emissão',  dica: 'A linha abre a emissão do condomínio' },
-                    { id: 'gerencia', rotulo: 'Gerência', dica: 'Atalhos de planilha e cobranças na linha' },
+                    { id: 'emissao',  rotulo: 'Emissão',  dica: 'Linha limpa, focada em montar a emissão' },
+                    { id: 'gerencia', rotulo: 'Gerência', dica: 'Mostra também atalhos de planilha e cobranças (clicar na linha continua abrindo a emissão)' },
                   ].map(v => (
                     <button
                       key={v.id}
@@ -788,12 +800,12 @@ export default function DashboardPage() {
 
                     return (
                       <tr key={c.id}
-                        onClick={fazEmissao ? () => abrirEmissao(c) : undefined}
-                        role={fazEmissao ? 'button' : undefined}
-                        tabIndex={fazEmissao ? 0 : undefined}
-                        onKeyDown={fazEmissao ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirEmissao(c); } } : undefined}
-                        title={fazEmissao ? `Montar a emissão de ${c.name}` : undefined}
-                        className={`hover:bg-slate-100 transition-colors group ${fazEmissao ? 'cursor-pointer' : ''}`}>
+                        onClick={podeEmitir ? () => abrirEmissao(c) : undefined}
+                        role={podeEmitir ? 'button' : undefined}
+                        tabIndex={podeEmitir ? 0 : undefined}
+                        onKeyDown={podeEmitir ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirEmissao(c); } } : undefined}
+                        title={podeEmitir ? `Montar a emissão de ${c.name}` : undefined}
+                        className={`hover:bg-slate-100 transition-colors group ${podeEmitir ? 'cursor-pointer' : ''}`}>
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             {isLocked
@@ -854,8 +866,8 @@ export default function DashboardPage() {
                 const isLocked      = procStatus === 'Edição finalizada';
                 return (
                   <div key={c.id}
-                    onClick={fazEmissao ? () => abrirEmissao(c) : undefined}
-                    className={`p-3 active:bg-slate-100 transition-colors ${fazEmissao ? 'cursor-pointer' : ''}`}>
+                    onClick={podeEmitir ? () => abrirEmissao(c) : undefined}
+                    className={`p-3 active:bg-slate-100 transition-colors ${podeEmitir ? 'cursor-pointer' : ''}`}>
                     <div className="flex items-start gap-2">
                       {isLocked
                         ? <Lock className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-1" />
