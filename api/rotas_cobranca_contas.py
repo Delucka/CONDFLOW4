@@ -299,6 +299,44 @@ def api_contas_esperadas_mes(mes: Optional[int] = None, ano: Optional[int] = Non
                              .eq("mes_referencia", mes).eq("ano_referencia", ano)
                              .eq("categoria", "concessionaria").execute().data or [])}
 
+    # Quem receberia a cobranca de cada condominio.
+    #
+    # Vai na resposta para o agente do WhatsApp poder mostrar a previa de VERDADE
+    # antes de enviar. Sem isto ele so teria duas saidas: nao dizer para quem vai
+    # (previa inutil) ou inventar um e-mail (pior).
+    #
+    # Tres consultas em bloco, nao uma por condominio.
+    gid_por_condo = {c["id"]: c.get("gerente_id") for c in condos if c.get("gerente_id")}
+    gids = list({g for g in gid_por_condo.values() if g})
+    # Sem gerente nenhum, nao ha o que consultar. A versao anterior mandava um
+    # placeholder "-" para o `.in_()` e o Postgres devolvia 22P02 (uuid
+    # invalido) — a lista vazia tem de ser tratada aqui, nao no banco.
+    gerentes = (db.table("gerentes").select("id, profile_id").in_("id", gids).execute().data or []) if gids else []
+    profile_por_gerente = {g["id"]: g.get("profile_id") for g in gerentes if g.get("profile_id")}
+    pids = list({p for p in profile_por_gerente.values() if p})
+    perfis = (db.table("profiles").select("id, email, full_name, gerente_id")
+                .or_(f"id.in.({','.join(pids)}),gerente_id.in.({','.join(pids)})")
+                .execute().data or []) if pids else []
+    por_id = {p["id"]: p for p in perfis}
+    assist_por_gerente = {}
+    for p in perfis:
+        if p.get("gerente_id"):
+            assist_por_gerente.setdefault(p["gerente_id"], []).append(p)
+
+    def _destinos(cid):
+        gid = gid_por_condo.get(cid)
+        pid = profile_por_gerente.get(gid) if gid else None
+        if not pid:
+            return []
+        saida = []
+        ger = por_id.get(pid)
+        if ger and ger.get("email"):
+            saida.append({"nome": ger.get("full_name"), "email": ger["email"], "papel": "gerente"})
+        for a_ in assist_por_gerente.get(pid, []):
+            if a_.get("email"):
+                saida.append({"nome": a_.get("full_name"), "email": a_["email"], "papel": "assistente"})
+        return saida
+
     cobs = {(c["condominio_id"], (c.get("concessionaria") or "").upper()): c
             for c in (db.table("cobrancas_contas")
                         .select("id, condominio_id, concessionaria, status, cobrancas, ultima_cobranca_em, suspensa_motivo, suspensa_por_nome")
@@ -325,6 +363,7 @@ def api_contas_esperadas_mes(mes: Optional[int] = None, ano: Optional[int] = Non
             "leitura_passou": bool(d and d < hoje),
             "tem_consumo": cid in com_consumo,
             "cobranca": cobs.get((cid, conc)),
+            "destinatarios": _destinos(cid),
         })
 
     # Ordem: o que esta atrasado primeiro, depois por data, depois por nome.
@@ -357,6 +396,10 @@ class CobrarDiretoBody(BaseModel):
     concessionaria: str
     mes_referencia: int
     ano_referencia: int
+    # Recado de quem esta cobrando ("precisamos ate dia 20"). Entra no e-mail
+    # como bloco proprio, separado do texto do sistema — quem le sabe o que e
+    # regra e o que e pedido de alguem.
+    observacao: Optional[str] = None
 
 
 @router.post("/cobrancas-contas/cobrar-direto")
@@ -386,7 +429,7 @@ def api_cobrar_direto(data: CobrarDiretoBody, user: dict = Depends(usuario_ou_ma
         if not linha:
             raise HTTPException(500, "Nao consegui abrir a cobranca.")
 
-    return api_cobrar_agora(linha["id"], user=user, db=db)
+    return api_cobrar_agora(linha["id"], observacao=data.observacao, user=user, db=db)
 
 
 # ─────────────────────────── Suspender / reativar ───────────────────────────
@@ -496,7 +539,7 @@ def _destinatarios(db: Client, condominio_id: str):
     return [(p["email"], p.get("full_name")) for p in perfis if p.get("email")]
 
 
-def _corpo_email(condo_nome, concessionaria, mes, ano, previsto_em, cobrancas, reativada_motivo):
+def _corpo_email(condo_nome, concessionaria, mes, ano, previsto_em, cobrancas, reativada_motivo, observacao=None):
     atraso = ""
     if previsto_em:
         try:
@@ -513,10 +556,17 @@ def _corpo_email(condo_nome, concessionaria, mes, ano, previsto_em, cobrancas, r
 
     insistencia = "" if cobrancas < 1 else f"<p style='color:#96530a'><b>{cobrancas + 1}ª cobranca desta conta.</b></p>"
 
+    # Recado de quem cobrou, em bloco proprio: quem le distingue o que e regra do
+    # sistema do que e pedido de uma pessoa.
+    recado = ""
+    if observacao and observacao.strip():
+        recado = ("<p style='background:#eef2fb;border-left:3px solid #1e3a8a;padding:10px 12px'>"
+                  f"{observacao.strip()}</p>")
+
     return (
         f"<p>Falta a conta da <b>{concessionaria}</b> de <b>{condo_nome}</b>, "
         f"referencia <b>{str(mes).zfill(2)}/{ano}</b>.</p>"
-        f"{atraso}{recusa}{insistencia}"
+        f"{atraso}{recusa}{insistencia}{recado}"
         "<p>Sem ela a emissao do mes fica parada.</p>"
         f"<p>Se ja enviou, basta anexar em <a href='{SITE}/central-emissoes'>Central de Emissoes</a> "
         "que esta cobranca para sozinha.</p>"
@@ -526,7 +576,8 @@ def _corpo_email(condo_nome, concessionaria, mes, ano, previsto_em, cobrancas, r
 
 
 @router.post("/cobrancas-contas/{cob_id}/cobrar")
-def api_cobrar_agora(cob_id: str, user: dict = Depends(usuario_ou_maquina),
+def api_cobrar_agora(cob_id: str, observacao: Optional[str] = None,
+                     user: dict = Depends(usuario_ou_maquina),
                      db: Client = Depends(get_db)):
     """Manda o e-mail desta conta agora, sem esperar o disparo diario.
 
@@ -559,7 +610,7 @@ def api_cobrar_agora(cob_id: str, user: dict = Depends(usuario_ou_maquina),
     condo_nome = (c.get("condominios") or {}).get("name") or "condominio"
     html = _corpo_email(condo_nome, c["concessionaria"], c["mes_referencia"],
                         c["ano_referencia"], c.get("previsto_em"),
-                        c.get("cobrancas") or 0, c.get("reativada_motivo"))
+                        c.get("cobrancas") or 0, c.get("reativada_motivo"), observacao)
     assunto = (f"Falta a conta {c['concessionaria']} — {condo_nome} "
                f"({str(c['mes_referencia']).zfill(2)}/{c['ano_referencia']})")
 

@@ -222,15 +222,24 @@ export default function CentralCobrancas() {
                   </span>
                 )}
 
+                {/* Sem gerente com e-mail não há para quem cobrar. Melhor
+                    dizer aqui do que deixar a pessoa clicar e tomar erro. */}
+                {!c.ja_anexada && (c.destinatarios || []).length === 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[11px] font-semibold text-rose-700 shrink-0"
+                        title="O condomínio não tem gerente com e-mail cadastrado — confira o cadastro">
+                    <AlertTriangle className="w-3 h-3" aria-hidden="true" /> sem destinatário
+                  </span>
+                )}
+
                 {suspensa ? (
                   <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 shrink-0"
                         title={`${c.cobranca.suspensa_motivo}${c.cobranca.suspensa_por_nome ? ` — ${c.cobranca.suspensa_por_nome}` : ''}`}>
                     <PauseCircle className="w-3.5 h-3.5" /> suspensa
                   </span>
-                ) : !c.ja_anexada && (
+                ) : !c.ja_anexada && (c.destinatarios || []).length > 0 && (
                   <button type="button" onClick={() => cobrar(c)} disabled={cobrando === k}
                     title={c.leitura_passou
-                      ? `Manda o e-mail agora para o gerente e o assistente de ${c.condominio}`
+                      ? `Manda o e-mail agora para ${(c.destinatarios || []).map(d => d.nome || d.email).join(' e ')}`
                       : 'A leitura ainda não aconteceu — a conta pode nem existir ainda'}
                     className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-50 ${
                       c.leitura_passou
