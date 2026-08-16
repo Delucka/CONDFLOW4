@@ -23,7 +23,7 @@ import ComparativoConsumo from './ComparativoConsumo';
 import FaturaInlineForm from './FaturaInlineForm';
 import RevisaoExtracaoModal from './RevisaoExtracaoModal';
 import { nomeArquivoPadrao } from './faturaCampos';
-import { FileWarning, AlertTriangle, Table2 } from 'lucide-react';
+import { FileWarning, AlertTriangle, Table2, CalendarClock } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -245,6 +245,10 @@ export default function VisaoEmissor({ profile }) {
       const { error } = await supabase.from('emissoes_arquivos').update({
         nome_condominio_fatura: payload.nome_condominio_fatura || null,
         vencimento_fatura: payload.vencimento_fatura || null,
+        // A coluna existe desde a 0041 e um trigger a espelha em
+        // `consumos_faturas.proxima_leitura` — o dado fica guardado nos dois
+        // lugares sem código extra.
+        proxima_leitura_fatura: payload.proxima_leitura_fatura || null,
         valor_fatura: payload.valor_fatura,
         dados_extraidos_em: new Date().toISOString(),
       }).eq('id', arq.id);
@@ -974,6 +978,33 @@ export default function VisaoEmissor({ profile }) {
   // 1) backend lê o PDF e já checa duplicata. 2) bloqueia -> modal sancionamento.
   // 3) confiança baixa / empresa não identificada -> modal de revisão pré-preenchido.
   // 4) confiança alta + sem bloqueio -> anexa direto.
+  // ── Fila de anexos ────────────────────────────────────────────────────
+  //
+  // Cada fatura pode parar num modal (pertencimento, duplicata, revisão), e o
+  // modal só resolve quando a pessoa decide. Por isso um `for` com await não
+  // serve: ele dispararia os três de uma vez e o último sobrescreveria os
+  // outros — que é exatamente o que acontecia quando se escolhia várias contas.
+  //
+  // A fila guarda o resto e só anda quando o arquivo da vez termina, seja
+  // anexado ou descartado.
+  const filaRef = useRef([]);
+  const [fila, setFila] = useState({ feitos: 0, total: 0 });
+
+  function enfileirarExtracao(files, categoria) {
+    const lista = Array.from(files || []);
+    if (!lista.length) return;
+    filaRef.current = lista.map(f => ({ file: f, categoria }));
+    setFila({ feitos: 0, total: lista.length });
+    proximoDaFila();
+  }
+
+  function proximoDaFila() {
+    const proximo = filaRef.current.shift();
+    setFila(f => ({ ...f, feitos: f.total - filaRef.current.length - (proximo ? 1 : 0) }));
+    if (!proximo) { setFila({ feitos: 0, total: 0 }); return; }
+    handleUploadComExtracao(proximo.file, proximo.categoria);
+  }
+
   async function handleUploadComExtracao(file, categoria) {
     if (!file || !activePacote) return;
     setExtraindo(true);
@@ -1062,8 +1093,10 @@ export default function VisaoEmissor({ profile }) {
       if (extracao?.desbloqueado) addToast('🔓 PDF protegido foi desbloqueado automaticamente.', 'info');
       const avisos = (alertas || []).filter(a => a.nivel === 'aviso');
       if (avisos.length) addToast(`⚠ ${avisos[0].mensagem}`, 'warning');
+      proximoDaFila();          // anexou sem perguntar nada: segue a fila
     } catch (e) {
       addToast('Erro na leitura do PDF: ' + (e.message || e), 'error');
+      proximoDaFila();          // um arquivo ruim não pode travar os outros
     } finally {
       setExtraindo(false);
     }
@@ -1076,6 +1109,7 @@ export default function VisaoEmissor({ profile }) {
     const nomeArquivo = nomeArquivoPadrao(categoria, subtipo, extras, file.name,
       condominios.find(c => c.id === activePacote?.condominio_id)?.name);
     await handleUploadArquivo(file, { categoria, subtipo, extras, skipDuplicataCheck: false, nomeArquivo });
+    proximoDaFila();
   }
 
   async function handleDeleteArquivo(e, id, path) {
@@ -1891,6 +1925,17 @@ export default function VisaoEmissor({ profile }) {
                           {arq.valor_fatura != null ? (
                             <span className="text-amber-300/90 font-bold"><span className="text-amber-500/60 font-normal">total:</span> R$ {Number(arq.valor_fatura).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           ) : null}
+                          {/* Próxima leitura: é ela que diz quando a conta do mês
+                              seguinte chega. Fica em destaque porque é a data
+                              pela qual se cobra o responsável — o resto da linha
+                              é conferência, esta é agenda. */}
+                          {arq.proxima_leitura_fatura ? (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 py-0.5 font-semibold text-violet-700"
+                                  title="Data da próxima leitura informada na fatura">
+                              <CalendarClock className="w-3 h-3" aria-hidden="true" />
+                              próxima leitura {new Date(arq.proxima_leitura_fatura + 'T12:00:00').toLocaleDateString('pt-BR')}
+                            </span>
+                          ) : null}
                           {['rascunho', 'solicitar_correcao'].includes(activePacote.status) && (
                             <button
                               onClick={() => setEditandoFaturaId(arq.id)}
@@ -1970,13 +2015,13 @@ export default function VisaoEmissor({ profile }) {
 
                 {/* CONCESSIONÁRIA (laranja) — extração automática do PDF */}
                 <div className="relative border-2 border-dashed border-amber-500/20 hover:border-amber-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-amber-500/5 group">
-                  <input type="file" disabled={isUploading || extraindo}
+                  <input type="file" multiple disabled={isUploading || extraindo}
                     className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-wait"
                     accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={async e => {
-                      const f = e.target.files?.[0];
+                    onChange={e => {
+                      const files = e.target.files;
                       e.target.value = '';
-                      if (f) await handleUploadComExtracao(f, 'concessionaria');
+                      enfileirarExtracao(files, 'concessionaria');
                     }}
                   />
                   <div className="flex flex-col items-center gap-1 text-amber-400 group-hover:text-amber-300">
@@ -1988,13 +2033,13 @@ export default function VisaoEmissor({ profile }) {
 
                 {/* RELATÓRIO DE LEITURA (azul) — extração automática do PDF */}
                 <div className="relative border-2 border-dashed border-violet-500/20 hover:border-violet-500/60 rounded-2xl p-4 text-center cursor-pointer transition-all bg-violet-500/5 group">
-                  <input type="file" disabled={isUploading || extraindo}
+                  <input type="file" multiple disabled={isUploading || extraindo}
                     className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-wait"
                     accept=".pdf"
-                    onChange={async e => {
-                      const f = e.target.files?.[0];
+                    onChange={e => {
+                      const files = e.target.files;
                       e.target.value = '';
-                      if (f) await handleUploadComExtracao(f, 'relatorio_leitura');
+                      enfileirarExtracao(files, 'relatorio_leitura');
                     }}
                   />
                   <div className="flex flex-col items-center gap-1 text-violet-400 group-hover:text-violet-300">
@@ -2667,6 +2712,9 @@ export default function VisaoEmissor({ profile }) {
           <div className="bg-white border border-violet-500/30 rounded-2xl px-8 py-6 shadow-2xl flex flex-col items-center gap-3">
             <Sparkles className="w-8 h-8 text-violet-400 animate-pulse" />
             <p className="text-sm font-black text-slate-900 uppercase tracking-widest">{ocrProg ? 'Decifrando a imagem (OCR)…' : 'Lendo PDF…'}</p>
+            {fila.total > 1 && (
+              <p className="text-[11px] font-bold text-violet-600">conta {Math.min(fila.feitos + 1, fila.total)} de {fila.total}</p>
+            )}
             <p className="text-[11px] text-slate-500">{ocrProg ? `Página ${ocrProg.p} de ${ocrProg.n} · no seu navegador, sem créditos` : 'Extraindo dados automaticamente'}</p>
           </div>
         </div>
@@ -2676,7 +2724,7 @@ export default function VisaoEmissor({ profile }) {
       {revisaoInfo && (
         <RevisaoExtracaoModal
           info={revisaoInfo}
-          onCancel={() => setRevisaoInfo(null)}
+          onCancel={() => { setRevisaoInfo(null); proximoDaFila(); }}
           onConfirm={confirmarRevisao}
         />
       )}
@@ -2773,7 +2821,7 @@ export default function VisaoEmissor({ profile }) {
             </>
             )}
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setDuplicataInfo(null); setSancionandoMotivo(''); setSancionandoAnexo(null); }} disabled={sancionando}
+              <button onClick={() => { setDuplicataInfo(null); setSancionandoMotivo(''); setSancionandoAnexo(null); proximoDaFila(); }} disabled={sancionando}
                 className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50">
                 Cancelar upload
               </button>
@@ -2791,6 +2839,7 @@ export default function VisaoEmissor({ profile }) {
                       await handleUploadArquivo(duplicataInfo.pendingFile, { ...meta, skipDuplicataCheck: true });
                       setDuplicataInfo(null);
                       addToast('Conta anexada. Os valores das duas somam na planilha.', 'success');
+                      proximoDaFila();
                       return;
                     }
 
@@ -2814,6 +2863,7 @@ export default function VisaoEmissor({ profile }) {
                     });
                     addToast('Repetição sancionada com anexo de aprovação.', 'success');
                     setDuplicataInfo(null); setSancionandoMotivo(''); setSancionandoAnexo(null);
+                    proximoDaFila();
                   } catch (e) {
                     addToast('Erro: ' + e.message, 'error');
                   } finally {
@@ -2864,7 +2914,7 @@ export default function VisaoEmissor({ profile }) {
             </p>
 
             <div className="flex justify-end">
-              <button onClick={() => setPertencimentoInfo(null)}
+              <button onClick={() => { setPertencimentoInfo(null); proximoDaFila(); }}
                 className="px-5 py-2 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 flex items-center gap-2">
                 <X className="w-4 h-4" /> Entendi, vou retirar a conta
               </button>
@@ -2938,6 +2988,25 @@ export default function VisaoEmissor({ profile }) {
                       <span className="mx-1 text-slate-400">→</span>
                       <span className="font-mono font-bold text-emerald-600">R$ {Number(l.novo).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
                     </p>
+                    {/* De onde saiu o total. Com duas contas do mesmo serviço, o
+                        número sozinho não explica nada — e é preciso saber o que
+                        remover para ele baixar. */}
+                    {(l.contas || []).length > 1 && (
+                      <ul className="mt-1 space-y-0.5">
+                        {l.contas.map((c, k) => (
+                          <li key={k} className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                            <span className="text-slate-400">+</span>
+                            <span className="truncate max-w-[260px]" title={c.nome}>{c.nome}</span>
+                            <span className="font-mono text-slate-600">
+                              R$ {Number(c.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                            </span>
+                          </li>
+                        ))}
+                        <li className="text-[10px] text-slate-400 italic">
+                          soma de {l.contas.length} contas — remova um anexo e abra de novo para o total baixar
+                        </li>
+                      </ul>
+                    )}
                   </div>
                 </label>
               ))}

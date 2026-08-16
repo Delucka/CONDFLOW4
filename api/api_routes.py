@@ -1595,34 +1595,56 @@ def _servico_rateio(nome):
     if 'ENERGIA' in n or 'ELETRIC' in n or 'LUZ' in n or 'ENEL' in n: return 'energia'
     return None
 
-def _consumos_do_pacote(db: Client, pacote_id: str):
+def _consumos_do_pacote(db: Client, pacote_id: str, detalhe: bool = False):
     """Valor por serviço a partir dos anexos do pacote: relatório de leitura tem
-    prioridade; se não houver, usa a conta da concessionária (SABESP/COMGÁS/ENEL)."""
+    prioridade; se não houver, usa a conta da concessionária (SABESP/COMGÁS/ENEL).
+
+    Um condomínio pode ter MAIS DE UMA conta do mesmo serviço no mês — duas
+    instalações de água, por exemplo. Os valores somam, e é por isso que tirar um
+    anexo baixa o total: a conta é sempre refeita a partir do que está anexado
+    AGORA, nunca de um número guardado.
+
+    Com `detalhe=True` devolve também de onde cada total veio, para a tela poder
+    dizer "soma de 2 contas" em vez de só mostrar um número maior."""
     arqs = db.table("emissoes_arquivos").select(
-        "categoria, subtipo, relatorio_tipo_servico, relatorio_valor_total, valor_fatura"
+        "arquivo_nome, categoria, subtipo, relatorio_tipo_servico, relatorio_valor_total, valor_fatura"
     ).eq("pacote_id", pacote_id).execute().data or []
     rel = {'agua': 0.0, 'gas': 0.0, 'energia': 0.0}
     fat = {'agua': 0.0, 'gas': 0.0, 'energia': 0.0}
+    origem = {'agua': [], 'gas': [], 'energia': []}   # [{nome, valor, tipo}]
     for a in arqs:
         cat = a.get('categoria')
         if cat == 'relatorio_leitura':
             ts = (a.get('relatorio_tipo_servico') or '').lower()
             v = float(a.get('relatorio_valor_total') or 0)
-            rel['gas' if 'gas' in ts or 'gás' in ts else 'agua'] += v
+            serv = 'gas' if 'gas' in ts or 'gás' in ts else 'agua'
+            rel[serv] += v
+            if v: origem[serv].append({"nome": a.get('arquivo_nome'), "valor": v, "tipo": "relatorio"})
         elif cat == 'concessionaria':
             st = _norm_txt(a.get('subtipo'))
             v = float(a.get('valor_fatura') or 0)
-            if 'SABESP' in st: fat['agua'] += v
-            elif 'COMGAS' in st: fat['gas'] += v
-            elif 'ENEL' in st or 'ELETROPAULO' in st or 'ENERGIA' in st: fat['energia'] += v
-    return {s: round(rel[s] if rel[s] > 0 else fat[s], 2) for s in ('agua', 'gas', 'energia')}
+            serv = None
+            if 'SABESP' in st: serv = 'agua'
+            elif 'COMGAS' in st: serv = 'gas'
+            elif 'ENEL' in st or 'ELETROPAULO' in st or 'ENERGIA' in st: serv = 'energia'
+            if serv:
+                fat[serv] += v
+                if v: origem[serv].append({"nome": a.get('arquivo_nome'), "valor": v, "tipo": "fatura"})
+    totais = {s: round(rel[s] if rel[s] > 0 else fat[s], 2) for s in ('agua', 'gas', 'energia')}
+    if not detalhe:
+        return totais
+    # Só interessa a origem que de fato formou o total: se há relatório, a conta
+    # da concessionária não entrou na soma e citá-la confundiria.
+    usadas = {s: [o for o in origem[s] if o["tipo"] == ("relatorio" if rel[s] > 0 else "fatura")]
+              for s in ('agua', 'gas', 'energia')}
+    return totais, usadas
 
 @router.get("/condominio/{condo_id}/consumos-planilha")
 def api_consumos_planilha_preview(condo_id: str, pacote_id: str, mes: int, ano: int,
                                   user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     if user.get("role") not in ("master", "departamento"):
         raise HTTPException(403, "Apenas master/emissor")
-    consumos = _consumos_do_pacote(db, pacote_id)
+    consumos, origens = _consumos_do_pacote(db, pacote_id, detalhe=True)
     rateios = db.table("rateios_config").select("id, nome, ordem").eq("condominio_id", condo_id).order("ordem").execute().data or []
     r_ids = [r["id"] for r in rateios]
     atuais = {}
@@ -1641,6 +1663,7 @@ def api_consumos_planilha_preview(condo_id: str, pacote_id: str, mes: int, ano: 
         linhas.append({
             "rateio_id": r["id"], "nome": r["nome"], "servico": serv,
             "atual": atuais.get(r["id"], 0), "novo": novo,
+            "contas": origens.get(serv, []),
         })
     return {"linhas": linhas}
 

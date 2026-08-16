@@ -216,5 +216,27 @@ export function parseFaturaOcr(text) {
   if (rm) referencia = `${rm[1]}/${rm[2]}`;
   else { const nm = t.match(/\b(\d{2})\/(\d{4})\b/); if (nm) referencia = `${nm[1]}/${nm[2]}`; }
 
-  return { subtipo, vencimento, valor, referencia };
+  // Leitura atual e PRÓXIMA leitura.
+  //
+  // A próxima leitura é o que diz quando a conta do mês que vem chega — é por
+  // ela que dá para cobrar o responsável na data certa, em vez de perguntar
+  // "já veio?" toda semana. O backend já extraía isso (pdf_extractor.py); aqui
+  // não, então toda fatura lida por OCR no navegador perdia o dado calada.
+  //
+  // Os rótulos mudam por concessionária, e a COMGÁS usa ponto na data:
+  //   SABESP  "Próxima Leitura: 12/09/2026"
+  //   COMGÁS  "Data da próxima leitura: 12.09.2026"
+  //   ENEL    "PRÓXIMA LEITURA 12/09/2026"
+  const dataDepoisDe = (re) => {
+    const m = t.match(re);
+    return m ? dataBR(m[1].replace(/\./g, '/')) : null;
+  };
+  const leitura_atual = dataDepoisDe(
+    /(?:DATA\s+(?:DA\s+)?)?LEITURA\s+ATUAL[:\s]{0,12}(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})/i
+  );
+  const proxima_leitura = dataDepoisDe(
+    /(?:DATA\s+DA\s+)?PR[OÓ]XIMA\s+LEITURA[:\s]{0,12}(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})/i
+  );
+
+  return { subtipo, vencimento, valor, referencia, leitura_atual, proxima_leitura };
 }

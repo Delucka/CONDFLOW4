@@ -29,10 +29,16 @@ export default function CentralEmissoesPage() {
   // dispara render em cascata (o lint pega). Sem `window` no servidor cai em
   // 'default', e isso não causa divergência de hidratação — enquanto o auth
   // carrega, os dois lados renderizam o mesmo spinner, e a aba nem chega ao DOM.
+  //
+  // Sem `?tab=`, cada papel abre onde trabalha: quem emite cai em Fazer
+  // Emissões, o master no Painel. O Painel virou aba de todos quando o emissor
+  // ganhou acesso a ele, e com isso o emissor passou a cair numa tela de
+  // consulta antes de chegar na de trabalho — dois cliques a mais, o dia todo.
   const [activeView, setActiveView] = useState(() => {
     if (typeof window === 'undefined') return 'default';
     const tab = new URLSearchParams(window.location.search).get('tab');
-    return ['upload', 'registro', 'expedicao'].includes(tab) ? tab : 'default';
+    if (['upload', 'registro', 'expedicao'].includes(tab)) return tab;
+    return null;   // decidido abaixo, quando o papel já é conhecido
   });
 
   if (loading || !profile) {
@@ -46,6 +52,9 @@ export default function CentralEmissoesPage() {
   // Acesso restrito a master e departamento (emissor)
   const isMaster = profile.role === 'master';
   const isDepartamento = profile.role === 'departamento';
+
+  // `activeView` só é null quando o link não pediu aba nenhuma.
+  const vistaAtual = activeView ?? (isDepartamento && !isMaster ? 'upload' : 'default');
   // A expedicao entra so para imprimir: nao ve painel, nao faz emissao,
   // nao mexe no registro.
   const isExpedicao = profile.role === 'expedicao';
@@ -78,7 +87,7 @@ export default function CentralEmissoesPage() {
           key={tab.id}
           onClick={() => setActiveView(tab.id)}
           className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-medium transition-all flex items-center gap-2 ${
-            activeView === tab.id ? tab.activeClass : 'bg-slate-50 text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+            vistaAtual === tab.id ? tab.activeClass : 'bg-slate-50 text-slate-500 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           {tab.icon && <Archive className="w-4 h-4" />}
@@ -91,11 +100,11 @@ export default function CentralEmissoesPage() {
   // Conteúdo
   let content = null;
 
-  if (activeView === 'expedicao' || isExpedicao) {
+  if (vistaAtual === 'expedicao' || isExpedicao) {
     content = <Expedicao />;
-  } else if (activeView === 'registro') {
+  } else if (vistaAtual === 'registro') {
     content = <RegistroEmissoes profile={profile} />;
-  } else if (activeView === 'upload') {
+  } else if (vistaAtual === 'upload') {
     content = <VisaoEmissor profile={profile} />;
   } else if (isMaster || isDepartamento) {
     content = <VisaoMaster profile={profile} />;
