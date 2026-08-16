@@ -223,7 +223,8 @@ def _corpo_email(condo_nome, concessionaria, mes, ano, previsto_em, cobrancas, r
 
 
 @router.post("/cobrancas-contas/executar")
-def api_executar_cobrancas(request: Request, _: bool = Depends(require_api_key),
+def api_executar_cobrancas(request: Request, simular: bool = False,
+                           _: bool = Depends(require_api_key),
                            db: Client = Depends(get_db)):
     """Dispara os e-mails do dia. Chamado pelo n8n, uma vez por dia.
 
@@ -233,9 +234,13 @@ def api_executar_cobrancas(request: Request, _: bool = Depends(require_api_key),
 
     Fim de semana nao dispara. E-mail de cobranca no sabado nao e pressao, e
     ruido — e faz a pessoa parar de ler os da semana.
+
+    `?simular=true` roda a selecao inteira e devolve o que SERIA enviado, para
+    quem, sem mandar nada e sem gravar. Serve para conferir a fila antes de
+    agendar — inclusive no fim de semana, quando o disparo real nao roda.
     """
     hoje = datetime.date.today()
-    if not _eh_dia_util(hoje):
+    if not _eh_dia_util(hoje) and not simular:
         return {"ok": True, "pulado": "fim de semana", "enviados": 0}
 
     corte = (datetime.datetime.utcnow() - datetime.timedelta(days=INTERVALO_DIAS)).isoformat()
@@ -247,6 +252,7 @@ def api_executar_cobrancas(request: Request, _: bool = Depends(require_api_key),
         .execute().data or []
 
     enviados, sem_destino, falhas = 0, 0, 0
+    previa = []
     for c in linhas:
         ultima = c.get("ultima_cobranca_em")
         if ultima and ultima > corte:
@@ -255,9 +261,25 @@ def api_executar_cobrancas(request: Request, _: bool = Depends(require_api_key),
         destinos = _destinatarios(db, c["condominio_id"])
         if not destinos:
             sem_destino += 1
+            if simular:
+                previa.append({"condominio": (c.get("condominios") or {}).get("name"),
+                               "concessionaria": c["concessionaria"],
+                               "para": [], "problema": "condominio sem gerente com e-mail"})
             continue
 
         condo_nome = (c.get("condominios") or {}).get("name") or "condominio"
+
+        if simular:
+            previa.append({
+                "condominio": condo_nome,
+                "concessionaria": c["concessionaria"],
+                "referencia": f"{str(c['mes_referencia']).zfill(2)}/{c['ano_referencia']}",
+                "leitura_em": c.get("previsto_em"),
+                "cobranca_numero": (c.get("cobrancas") or 0) + 1,
+                "para": [e for e, _n in destinos],
+            })
+            enviados += 1
+            continue
         html = _corpo_email(condo_nome, c["concessionaria"], c["mes_referencia"],
                             c["ano_referencia"], c.get("previsto_em"),
                             c.get("cobrancas") or 0, c.get("reativada_motivo"))
@@ -277,6 +299,11 @@ def api_executar_cobrancas(request: Request, _: bool = Depends(require_api_key),
             "ultima_cobranca_em": datetime.datetime.utcnow().isoformat(),
         }).eq("id", c["id"]).execute()
         enviados += 1
+
+    if simular:
+        return {"ok": True, "simulacao": True, "seriam_enviados": enviados,
+                "sem_destinatario": sem_destino, "candidatas": len(linhas),
+                "previa": previa}
 
     return {"ok": True, "enviados": enviados, "sem_destinatario": sem_destino,
             "falhas_envio": falhas, "candidatas": len(linhas)}
