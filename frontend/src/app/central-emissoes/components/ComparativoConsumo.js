@@ -51,7 +51,7 @@ function resumir(arquivos) {
   for (const a of arquivos || []) {
     const s = servicoDoArquivo(a);
     if (!s) continue;
-    mapa[s] = mapa[s] || { valor: null, consumo: null, fatura: null, relatorio: null, contas: 0, proxima: null };
+    mapa[s] = mapa[s] || { valor: null, consumo: null, fatura: null, relatorio: null, contas: 0, proxima: null, rel: 0, fat: 0, rel_contas: 0, fat_contas: 0 };
 
     // A próxima leitura vem na fatura do mês ANTERIOR: é ela que diz quando a
     // conta deste mês se forma. Guardada aqui, o emissor sabe o que esperar
@@ -61,18 +61,23 @@ function resumir(arquivos) {
       mapa[s].proxima = a.proxima_leitura_fatura;
     }
 
-    // SOMA, não sobrescreve. Um condomínio pode ter mais de uma conta do mesmo
-    // serviço no mesmo mês — dois hidrômetros, bloco e casa do zelador, duas
-    // instalações. Atribuindo, o comparativo mostrava só a última anexada e
-    // dava a entender que o consumo tinha caído pela metade.
+    // Soma DENTRO do mesmo tipo de documento, nunca entre tipos.
     //
-    // O backend (`_consumos_do_pacote`) já somava; era só aqui que divergia.
-    if (a.valor_fatura != null) {
-      mapa[s].valor = (mapa[s].valor || 0) + Number(a.valor_fatura);
-      mapa[s].contas += 1;
-    } else if (a.relatorio_valor_total != null) {
-      mapa[s].valor = (mapa[s].valor || 0) + Number(a.relatorio_valor_total);
-      mapa[s].contas += 1;
+    // A distinção é a regra do negócio, e o backend sempre a teve
+    // (`_consumos_do_pacote`): o relatório de leitura e a fatura da
+    // concessionária são o MESMO gasto visto de dois jeitos. O relatório é o
+    // que vai para o rateio; a fatura é o documento da concessionária. Somar os
+    // dois conta o mês em dobro.
+    //
+    // Dentro de um tipo, aí sim soma: um condomínio pode ter dois hidrômetros,
+    // ou bloco e casa do zelador em instalações separadas. Foi para cobrir isso
+    // que a soma entrou — e ela passou por cima da separação por tipo.
+    const ehRelatorio = a.categoria === 'relatorio_leitura';
+    const bucket = ehRelatorio ? 'rel' : 'fat';
+    const v = ehRelatorio ? a.relatorio_valor_total : a.valor_fatura;
+    if (v != null) {
+      mapa[s][bucket] = (mapa[s][bucket] || 0) + Number(v);
+      mapa[s][`${bucket}_contas`] = (mapa[s][`${bucket}_contas`] || 0) + 1;
     }
     if (a.relatorio_consumo_total != null) {
       mapa[s].consumo = (mapa[s].consumo || 0) + Number(a.relatorio_consumo_total);
@@ -85,6 +90,17 @@ function resumir(arquivos) {
     if (a.arquivo_url && a.categoria === 'relatorio_leitura' && !mapa[s].relatorio) {
       mapa[s].relatorio = { url: a.arquivo_url, nome: a.arquivo_nome };
     }
+  }
+
+  // Fecha cada serviço com a MESMA regra do backend: o relatório manda; a fatura
+  // entra só quando não há relatório. Assim o número aqui é o número que vai
+  // para a planilha — divergir seria pior do que não mostrar nada.
+  for (const s of Object.keys(mapa)) {
+    const m = mapa[s];
+    const usaRelatorio = (m.rel || 0) > 0;
+    m.valor  = usaRelatorio ? m.rel : (m.fat ?? null);
+    m.contas = usaRelatorio ? (m.rel_contas || 0) : (m.fat_contas || 0);
+    if (m.valor === undefined) m.valor = null;
   }
   return mapa;
 }
