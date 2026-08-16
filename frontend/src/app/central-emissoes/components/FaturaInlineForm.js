@@ -22,8 +22,13 @@ export default function FaturaInlineForm({ arq, condoNome, maskValor, parseValor
       : ''
   );
 
+  // Obrigatória: é a data que agenda a cobrança do mês seguinte. Sem ela a
+  // conta some da fila e o atraso só aparece com a emissão travada.
+  const faltaProxima = !proxLeitura;
+
   function handleSubmit(e) {
     e.preventDefault();
+    if (faltaProxima) return;
     onSave({
       nome_condominio_fatura: nome.trim() || null,
       vencimento_fatura: venc || null,
@@ -54,7 +59,9 @@ export default function FaturaInlineForm({ arq, condoNome, maskValor, parseValor
         />
       </div>
       <div className="md:col-span-2">
-        <label className="text-[9px] font-bold uppercase tracking-wider text-amber-400/70">Próxima leitura</label>
+        <label className="text-[9px] font-bold uppercase tracking-wider text-amber-400/70">
+          Próxima leitura <span className="text-rose-500">*</span>
+        </label>
         <input
           type="date"
           value={proxLeitura}
@@ -84,7 +91,8 @@ export default function FaturaInlineForm({ arq, condoNome, maskValor, parseValor
         </button>
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || faltaProxima}
+          title={faltaProxima ? 'Preencha a próxima leitura — é ela que agenda a cobrança do mês seguinte' : undefined}
           className="flex-1 px-2 py-1.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-400 rounded-lg disabled:opacity-50"
         >
           {saving ? '...' : 'Salvar'}

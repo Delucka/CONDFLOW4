@@ -1081,8 +1081,15 @@ export default function VisaoEmissor({ profile }) {
         return;
       }
 
-      // 2) Baixa confiança / não identificou -> revisão manual pré-preenchida
-      if (!extracao?.subtipo || (extracao?.confianca || 0) < 0.8) {
+      // 2) Baixa confiança, não identificou, OU fatura sem a próxima leitura
+      //    -> revisão manual pré-preenchida.
+      //
+      // A data da próxima leitura entrou nesta condição porque ela virou
+      // obrigatória: sem ela a conta do mês seguinte não entra na fila de
+      // cobrança, e ninguém descobre isso até a emissão travar. Extração com
+      // confiança alta que não achou a data ainda precisa de olho humano.
+      const faltaLeitura = categoria === 'concessionaria' && !extracao?.proxima_leitura;
+      if (!extracao?.subtipo || (extracao?.confianca || 0) < 0.8 || faltaLeitura) {
         setRevisaoInfo({ extracao: extracao || {}, categoria, alertas: alertas || [], file });
         return;
       }

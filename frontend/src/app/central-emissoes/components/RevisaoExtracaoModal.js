@@ -34,8 +34,17 @@ export default function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
   const empresaFinal = empresa === 'Outra' ? empresaOutra.trim() : empresa;
   const confPct = Math.round((extracao?.confianca || 0) * 100);
 
+  // Próxima leitura é obrigatória na fatura de concessionária.
+  //
+  // É ela que agenda a cobrança do mês seguinte: sem a data, a conta some da
+  // fila e ninguém cobra — o que só se descobre no mês que vem, com a emissão
+  // parada. Um campo a mais agora evita uma emissão travada depois.
+  //
+  // Vale só para FATURA. O relatório de leitura não traz essa informação.
+  const faltaProximaLeitura = ehFatura && !proximaLeitura;
+
   async function handleConfirm() {
-    if (!empresaFinal) return;
+    if (!empresaFinal || faltaProximaLeitura) return;
     setSalvando(true);
     const baseExtras = {
       extracao_status: 'sucesso',
@@ -154,12 +163,14 @@ export default function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
                       extração falha, é aqui que ele entra à mão — por isso o
                       rótulo diz para que serve, em vez de só nomear o campo. */}
                   <label className="text-[10px] font-bold uppercase tracking-wider text-violet-500">
-                    Próxima leitura
+                    Próxima leitura <span className="text-rose-500">*</span>
                   </label>
                   <input type="date" value={proximaLeitura} onChange={e => setProximaLeitura(e.target.value)}
                     className={inputCls} />
-                  <p className="mt-0.5 text-[9px] text-slate-400 leading-tight">
-                    vem impressa na conta · agenda a cobrança do mês que vem
+                  <p className={`mt-0.5 text-[9px] leading-tight ${faltaProximaLeitura ? 'text-rose-500 font-bold' : 'text-slate-400'}`}>
+                    {faltaProximaLeitura
+                      ? 'obrigatório — procure na conta, costuma vir perto da leitura atual'
+                      : 'vem impressa na conta · agenda a cobrança do mês que vem'}
                   </p>
                 </div>
               </div>
@@ -209,7 +220,8 @@ export default function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
             className="px-4 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-700 disabled:opacity-50">
             Cancelar
           </button>
-          <button onClick={handleConfirm} disabled={salvando || !empresaFinal}
+          <button onClick={handleConfirm} disabled={salvando || !empresaFinal || faltaProximaLeitura}
+            title={faltaProximaLeitura ? 'Preencha a próxima leitura — é ela que agenda a cobrança' : undefined}
             className={`px-5 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50 flex items-center gap-2 ${ehFatura ? 'bg-amber-600 hover:bg-amber-500' : 'bg-violet-600 hover:bg-violet-500'}`}>
             {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
             Anexar
