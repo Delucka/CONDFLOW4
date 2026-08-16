@@ -17,6 +17,7 @@ const VisaoEmissor = dynamic(() => import('./components/VisaoEmissor'), { loadin
 const VisaoMaster = dynamic(() => import('./components/VisaoMaster'), { loading: ViewLoader, ssr: false });
 const RegistroEmissoes = dynamic(() => import('./components/RegistroEmissoes'), { loading: ViewLoader, ssr: false });
 const Expedicao = dynamic(() => import('./components/Expedicao'), { loading: ViewLoader, ssr: false });
+const CentralCobrancas = dynamic(() => import('./components/CentralCobrancas'), { loading: ViewLoader, ssr: false });
 
 export default function CentralEmissoesPage() {
   const { profile, loading } = useAuth();
@@ -37,7 +38,7 @@ export default function CentralEmissoesPage() {
   const [activeView, setActiveView] = useState(() => {
     if (typeof window === 'undefined') return 'default';
     const tab = new URLSearchParams(window.location.search).get('tab');
-    if (['upload', 'registro', 'expedicao'].includes(tab)) return tab;
+    if (['upload', 'registro', 'expedicao', 'cobranca'].includes(tab)) return tab;
     return null;   // decidido abaixo, quando o papel já é conhecido
   });
 
@@ -68,6 +69,12 @@ export default function CentralEmissoesPage() {
   if (isMaster || isDepartamento) {
     tabs.push({ id: 'default', label: 'Painel de Gestão', activeClass: 'bg-violet-500 text-white ' });
     tabs.push({ id: 'upload', label: 'Fazer Emissões', activeClass: 'bg-violet-600 text-white ' });
+  }
+
+  // Cobrança de contas: vem logo depois de Fazer Emissões porque é o passo
+  // ANTERIOR a emitir — sem a conta da concessionária a emissão fica parada.
+  if (isMaster || isDepartamento) {
+    tabs.push({ id: 'cobranca', label: 'Cobrança de Contas', activeClass: 'bg-violet-600 text-white ' });
   }
 
   // Aba Expedição — a fila de impressão. Vem antes do Registro porque é o
@@ -104,6 +111,8 @@ export default function CentralEmissoesPage() {
     content = <Expedicao />;
   } else if (vistaAtual === 'registro') {
     content = <RegistroEmissoes profile={profile} />;
+  } else if (vistaAtual === 'cobranca') {
+    content = <CentralCobrancas />;
   } else if (vistaAtual === 'upload') {
     content = <VisaoEmissor profile={profile} />;
   } else if (isMaster || isDepartamento) {

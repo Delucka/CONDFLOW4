@@ -235,6 +235,98 @@ def api_contas_esperadas(condominio_id: str, mes: int, ano: int,
     } for c in sorted(concs)]}
 
 
+@router.get("/contas-esperadas/mes")
+def api_contas_esperadas_mes(mes: int, ano: int,
+                             user: dict = Depends(usuario_ou_maquina),
+                             db: Client = Depends(get_db)):
+    """O panorama do mes inteiro: toda conta esperada, de todo condominio.
+
+    E a mesma pergunta de `/contas-esperadas`, feita para a base toda de uma vez
+    — para a central de cobranca poder mostrar tudo sem abrir emissao nenhuma.
+
+    Cinco consultas em bloco e o cruzamento na memoria, em vez de quatro
+    consultas POR CONDOMINIO. Com 300 condominios a diferenca e entre uma tela
+    que abre e uma tela que trava.
+    """
+    if user.get("role") not in ROLES_VEEM_TUDO:
+        raise HTTPException(403, "Sem permissao para ver a cobranca de todos.")
+
+    mes_ant, ano_ant = (12, ano - 1) if mes == 1 else (mes - 1, ano)
+
+    condos = db.table("condominios").select("id, name, tem_consumo").order("name").execute().data or []
+    nome = {c["id"]: c["name"] for c in condos}
+    com_consumo = {c["id"] for c in condos if c.get("tem_consumo")}
+
+    cadastro = db.table("condominios_concessionarias")         .select("condominio_id, concessionaria").execute().data or []
+
+    def _mapa_leitura(rows, campo_conc, campo_data):
+        m = {}
+        for r in rows:
+            k = (r["condominio_id"], (r.get(campo_conc) or "").upper())
+            d = r.get(campo_data)
+            if k[1] and d and (k not in m or d > m[k]):
+                m[k] = d
+        return m
+
+    leitura = _mapa_leitura(
+        db.table("consumos_faturas").select("condominio_id, concessionaria, proxima_leitura")
+          .eq("mes_referencia", mes_ant).eq("ano_referencia", ano_ant).execute().data or [],
+        "concessionaria", "proxima_leitura")
+    # Mesmo fallback do endpoint por condominio: o gatilho que espelha em
+    # consumos_faturas tem condicoes, e nem todo anexo as satisfaz.
+    leitura.update(_mapa_leitura(
+        db.table("emissoes_arquivos").select("condominio_id, subtipo, proxima_leitura_fatura")
+          .eq("mes_referencia", mes_ant).eq("ano_referencia", ano_ant)
+          .eq("categoria", "concessionaria").not_.is_("proxima_leitura_fatura", "null")
+          .execute().data or [],
+        "subtipo", "proxima_leitura_fatura"))
+
+    anexadas = {(r["condominio_id"], (r.get("concessionaria") or "").upper())
+                for r in (db.table("consumos_faturas").select("condominio_id, concessionaria")
+                            .eq("mes_referencia", mes).eq("ano_referencia", ano).execute().data or [])}
+    anexadas |= {(r["condominio_id"], (r.get("subtipo") or "").upper())
+                 for r in (db.table("emissoes_arquivos").select("condominio_id, subtipo")
+                             .eq("mes_referencia", mes).eq("ano_referencia", ano)
+                             .eq("categoria", "concessionaria").execute().data or [])}
+
+    cobs = {(c["condominio_id"], (c.get("concessionaria") or "").upper()): c
+            for c in (db.table("cobrancas_contas")
+                        .select("id, condominio_id, concessionaria, status, cobrancas, ultima_cobranca_em, suspensa_motivo, suspensa_por_nome")
+                        .eq("mes_referencia", mes).eq("ano_referencia", ano).execute().data or [])}
+
+    # Um condominio entra na lista se tem concessionaria cadastrada, se esta
+    # marcado com consumo, ou se ja apareceu em qualquer um dos mapas acima.
+    chaves = {(r["condominio_id"], (r.get("concessionaria") or "").upper())
+              for r in cadastro if r.get("concessionaria")}
+    chaves |= set(leitura) | anexadas | set(cobs)
+
+    hoje = datetime.date.today().isoformat()
+    linhas = []
+    for (cid, conc) in chaves:
+        if cid not in nome:
+            continue
+        d = leitura.get((cid, conc))
+        linhas.append({
+            "condominio_id": cid,
+            "condominio": nome[cid],
+            "concessionaria": conc,
+            "ja_anexada": (cid, conc) in anexadas,
+            "leitura_prevista": d,
+            "leitura_passou": bool(d and d < hoje),
+            "tem_consumo": cid in com_consumo,
+            "cobranca": cobs.get((cid, conc)),
+        })
+
+    # Ordem: o que esta atrasado primeiro, depois por data, depois por nome.
+    linhas.sort(key=lambda l: (
+        l["ja_anexada"],
+        not l["leitura_passou"],
+        l["leitura_prevista"] or "9999-99-99",
+        l["condominio"],
+    ))
+    return {"contas": linhas, "mes": mes, "ano": ano}
+
+
 class CobrarDiretoBody(BaseModel):
     condominio_id: str
     concessionaria: str
