@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRealtime } from '@/lib/realtime';
+import { statusEstaEm, COM_GERENTE, COM_SUP_GERENTES, COM_SUP_CONTABILIDADE } from '@/lib/statusEmissao';
 import { useAuth } from '@/lib/auth';
 
 /**
@@ -56,15 +57,9 @@ export function usePendingCount() {
           return s !== 'registrado' && s !== 'expedida';
         });
       } else if (role === 'supervisor_gerentes') {
-        filtered = all.filter(p => {
-          const s = (p.status || '').toLowerCase();
-          return s.includes('sup. gerentes') || s.includes('chefe');
-        });
+        filtered = all.filter(p => statusEstaEm(p.status, COM_SUP_GERENTES));
       } else if (role === 'supervisora_contabilidade' || role === 'supervisora') {
-        filtered = all.filter(p => {
-          const s = (p.status || '').toLowerCase();
-          return s.includes('supervisor') && !s.includes('sup. gerentes') && !s.includes('chefe');
-        });
+        filtered = all.filter(p => statusEstaEm(p.status, COM_SUP_CONTABILIDADE));
       } else if (role === 'gerente') {
         // Acha condominio_ids do gerente
         const { data: gerData } = await supabase
@@ -76,8 +71,7 @@ export function usePendingCount() {
           const myCondos = new Set((condosData || []).map(c => c.id));
           filtered = all.filter(p => {
             const s = (p.status || '').toLowerCase();
-            const isGerentePending = s === 'pendente' || (s.includes('gerente') && !s.includes('sup'));
-            return isGerentePending && myCondos.has(p.condominio_id);
+            return statusEstaEm(p.status, COM_GERENTE) && myCondos.has(p.condominio_id);
           });
         }
       } else if (role === 'departamento') {
@@ -115,17 +109,23 @@ export function usePendingCount() {
 }
 
 /**
- * Helper: verifica se um status de pacote pende da ação do role atual.
+ * Verifica se um status de pacote pende da ação do role atual.
  * Usado no toggle "Só minhas pendências" do Painel de Gestão.
+ *
+ * Compara por LISTA (lib/statusEmissao.js), nunca por pedaço de texto. Antes era
+ * `includes('sup. gerentes')`, com ponto e espaço, enquanto a grafia real é
+ * `pendente_sup_gerentes`, com underline: o sino dos dois supervisores ficou
+ * marcando ZERO desde que a grafia nova entrou. Eles simplesmente não eram
+ * avisados de nada.
  */
 export function isPendingForRole(status, role) {
   const s = (status || '').toLowerCase();
   if (!s || !role) return false;
   if (role === 'master')                                return s !== 'registrado' && s !== 'expedida' && s !== 'rascunho';
-  if (role === 'supervisor_gerentes')                   return s.includes('sup. gerentes') || s.includes('chefe');
+  if (role === 'supervisor_gerentes')                   return statusEstaEm(status, COM_SUP_GERENTES);
   if (role === 'supervisora_contabilidade' || role === 'supervisora')
-                                                         return s.includes('supervisor') && !s.includes('sup. gerentes') && !s.includes('chefe');
-  if (role === 'gerente')                               return s === 'pendente' || (s.includes('gerente') && !s.includes('sup'));
+                                                         return statusEstaEm(status, COM_SUP_CONTABILIDADE);
+  if (role === 'gerente')                               return statusEstaEm(status, COM_GERENTE);
   if (role === 'departamento')                          return s === 'aprovado';
   return false;
 }

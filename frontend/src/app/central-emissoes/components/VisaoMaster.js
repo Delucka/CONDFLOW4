@@ -23,6 +23,7 @@ import { Inbox } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { mesVigente, anoVigente } from '@/lib/mesVigente';
 import { useRealtime } from '@/lib/realtime';
+import { statusEstaEm, COM_GERENTE, COM_SUP_GERENTES, COM_SUP_CONTABILIDADE } from '@/lib/statusEmissao';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -127,9 +128,23 @@ export default function VisaoMaster() {
     rascunho:         pacotesAtivos.filter(p => (p.status||'').toLowerCase() === 'rascunho').length,
     aprovado:         pacotesAtivos.filter(p => (p.status||'').toLowerCase() === 'aprovado').length,
     registrado:       pacotesAtivos.filter(p => (p.status||'').toLowerCase() === 'registrado').length,
-    gerente:          pacotesAtivos.filter(p => { const s=(p.status||'').toLowerCase(); return s.includes('gerente')||s==='pendente'; }).length,
-    supGerente:       pacotesAtivos.filter(p => { const s=(p.status||'').toLowerCase(); return s.includes('chefe')||s.includes('sup. gerentes'); }).length,
-    supContabilidade: pacotesAtivos.filter(p => (p.status||'').toLowerCase().includes('supervisor')).length,
+    // Comparação por LISTA, não por pedaço de texto.
+    //
+    // Antes era `includes('supervisor')`, `includes('sup. gerentes')` — e a
+    // grafia real é `pendente_sup_contabilidade` e `pendente_sup_gerentes`, com
+    // underline. Nenhuma das duas casava, então o contador de Sup.
+    // Contabilidade mostrava 0 com um pacote parado ali, à vista, na lista
+    // logo abaixo.
+    //
+    // E havia um erro pior, silencioso: `pendente_sup_gerentes` CONTÉM
+    // "gerente", então esses pacotes eram contados como "com o gerente" —
+    // número errado, não faltando.
+    //
+    // `statusEstaEm` compara com as listas de lib/statusEmissao.js, que já
+    // guardam as grafias novas e as legadas no mesmo lugar.
+    gerente:          pacotesAtivos.filter(p => statusEstaEm(p.status, COM_GERENTE)).length,
+    supGerente:       pacotesAtivos.filter(p => statusEstaEm(p.status, COM_SUP_GERENTES)).length,
+    supContabilidade: pacotesAtivos.filter(p => statusEstaEm(p.status, COM_SUP_CONTABILIDADE)).length,
   }), [pacotesAtivos]);
 
   const pacotesFiltrados = useMemo(() => {
@@ -144,9 +159,11 @@ export default function VisaoMaster() {
     if (filtroAtivo) {
       lista = lista.filter(p => {
         const s = (p.status || '').toLowerCase();
-        if (filtroAtivo === 'pendente_gerente')           return s.includes('gerente') || s === 'pendente';
-        if (filtroAtivo === 'pendente_sup_gerentes')      return s.includes('chefe') || s.includes('sup. gerentes');
-        if (filtroAtivo === 'pendente_sup_contabilidade') return s.includes('supervisor');
+        // Mesmas listas da contagem: se o número diz 3, o filtro tem de
+        // mostrar 3. Divergir aqui é pior do que os dois estarem errados.
+        if (filtroAtivo === 'pendente_gerente')           return statusEstaEm(p.status, COM_GERENTE);
+        if (filtroAtivo === 'pendente_sup_gerentes')      return statusEstaEm(p.status, COM_SUP_GERENTES);
+        if (filtroAtivo === 'pendente_sup_contabilidade') return statusEstaEm(p.status, COM_SUP_CONTABILIDADE);
         return s === filtroAtivo;
       });
     }
