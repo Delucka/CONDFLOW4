@@ -2048,7 +2048,10 @@ export default function VisaoEmissor({ profile }) {
                     className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-wait"
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={e => {
-                      const files = e.target.files;
+                      // Array.from ANTES de limpar o value: `e.target.files` é
+                      // uma FileList viva do input, e zerar o value esvazia ela.
+                      // Copiando para array, os File sobrevivem à limpeza.
+                      const files = Array.from(e.target.files || []);
                       e.target.value = '';
                       enfileirarExtracao(files, 'concessionaria');
                     }}
@@ -2066,7 +2069,7 @@ export default function VisaoEmissor({ profile }) {
                     className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-wait"
                     accept=".pdf"
                     onChange={e => {
-                      const files = e.target.files;
+                      const files = Array.from(e.target.files || []);   // ver o comentário acima
                       e.target.value = '';
                       enfileirarExtracao(files, 'relatorio_leitura');
                     }}
