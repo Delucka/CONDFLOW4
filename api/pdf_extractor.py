@@ -179,10 +179,44 @@ class SabespExtractor:
             'leitura_atual': parse_date_br(find_first(text, [
                 r'Leitura\s+Atual[:\s]+(\d{1,2}/\d{1,2}/\d{2,4})',
             ])),
+            'instalacao': achar_instalacao(text),
             'proxima_leitura': parse_date_br(find_first(text, [
                 r'Pr[óo]xima\s+Leitura[:\s]+(\d{1,2}/\d{1,2}/\d{2,4})',
             ])),
         }
+
+
+def achar_instalacao(text: str):
+    """Numero da instalacao/medidor, do jeito que cada concessionaria imprime.
+
+    POR QUE ISTO IMPORTA
+
+    Um condominio pode ter duas contas do mesmo servico — o gas do predio e o
+    da piscina, por exemplo. Elas so se distinguem pela instalacao: o nome do
+    cliente e o mesmo nos dois papeis. E esse numero que amarra cada conta a
+    sua verba no rateio, e que faz a fatura do mes seguinte herdar a escolha
+    em vez de perguntar de novo.
+
+    A COMGAS nao imprime um rotulo "Instalacao": o numero aparece dentro do
+    bloco de identificacao, colado a outros digitos (…-14978755200003460453702…
+    carrega 0034604537). Por isso a busca por rotulo vem primeiro, e o bloco e
+    o plano B.
+    """
+    import re
+    for rx in [
+        r'Instala[çc][ãa]o[:\s#n\u00ba\.]*([\d]{6,12})',
+        r'C[óo]digo\s+do\s+Cliente[:\s#]*([\d]{6,12})',
+        r'(?:N[ºo°]\s*)?(?:do\s+)?Medidor[:\s#]*([\d]{6,12})',
+    ]:
+        m = re.search(rx, text or '', re.I)
+        if m:
+            return m.group(1).lstrip('0') or m.group(1)
+
+    # Plano B: bloco de identificacao da COMGAS.
+    m = re.search(r'-\d{11}(\d{10})', text or '')
+    if m:
+        return m.group(1).lstrip('0') or m.group(1)
+    return None
 
 
 class ComgasExtractor:
@@ -211,6 +245,7 @@ class ComgasExtractor:
             'leitura_atual': parse_date_br(find_first(text, [
                 r'Data\s+(?:da\s+)?leitura\s+atual[:\s]+(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4})',
             ])),
+            'instalacao': achar_instalacao(text),
             'proxima_leitura': parse_date_br(find_first(text, [
                 r'Data\s+da\s+pr[óo]xima\s+leitura[:\s]+(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4})',
             ])),
@@ -245,6 +280,7 @@ class EnelExtractor:
             'leitura_atual': parse_date_br(find_first(text, [
                 r'LEITURA\s+ATUAL[:\s]+(\d{1,2}/\d{1,2}/\d{2,4})',
             ])),
+            'instalacao': achar_instalacao(text),
             'proxima_leitura': parse_date_br(find_first(text, [
                 r'PR[OÓ]XIMA\s+LEITURA[:\s]+(\d{1,2}/\d{1,2}/\d{2,4})',
             ])),

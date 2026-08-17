@@ -1644,7 +1644,19 @@ def api_consumos_planilha_preview(condo_id: str, pacote_id: str, mes: int, ano: 
                                   user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     if user.get("role") not in ("master", "departamento"):
         raise HTTPException(403, "Apenas master/emissor")
-    consumos, origens = _consumos_do_pacote(db, pacote_id, detalhe=True)
+    # O CASO QUE OBRIGOU A MUDANCA
+    #
+    # Um condominio pode ter duas contas do MESMO servico, em instalacoes
+    # diferentes: o gas do predio e o gas da piscina, cada um com a sua verba.
+    # O codigo antigo resolvia a verba pelo NOME ('GAS' in nome -> 'gas') e
+    # devolvia um total por servico — entao as duas verbas recebiam a SOMA das
+    # duas contas. Aconteceu no 0302: R$ 9.909,45 do bloco e R$ 1.387,42 da
+    # piscina viraram o mesmo numero nas duas linhas.
+    #
+    # Agora cada anexo carrega a sua verba (emissoes_arquivos.rateio_id, 0100).
+    # Servico com UMA verba so — a maioria — nao muda: nao ha escolha a fazer.
+    # Com duas ou mais, cada conta precisa de dono, e as sem dono voltam em
+    # `sem_verba` para a tela perguntar.
     rateios = db.table("rateios_config").select("id, nome, ordem").eq("condominio_id", condo_id).order("ordem").execute().data or []
     r_ids = [r["id"] for r in rateios]
     atuais = {}
@@ -1652,25 +1664,105 @@ def api_consumos_planilha_preview(condo_id: str, pacote_id: str, mes: int, ano: 
         vals = db.table("rateios_valores").select("rateio_id, valor").in_("rateio_id", r_ids).eq("month", int(mes)).eq("ano", int(ano)).execute().data or []
         for v in vals:
             atuais[v["rateio_id"]] = float(v.get("valor") or 0)
-    linhas = []
+
+    verbas_do_servico = {}
     for r in rateios:
         serv = _servico_rateio(r["nome"])
+        if serv:
+            verbas_do_servico.setdefault(serv, []).append(r)
+
+    arqs = db.table("emissoes_arquivos").select(
+        "id, arquivo_nome, categoria, subtipo, relatorio_tipo_servico, "
+        "relatorio_valor_total, valor_fatura, instalacao, rateio_id"
+    ).eq("pacote_id", pacote_id).execute().data or []
+
+    def _servico_do_arquivo(a):
+        if a.get("categoria") == "relatorio_leitura":
+            ts = (a.get("relatorio_tipo_servico") or "").lower()
+            return "gas" if ("gas" in ts or "gás" in ts) else "agua"
+        st = _norm_txt(a.get("subtipo"))
+        if "SABESP" in st:
+            return "agua"
+        if "COMGAS" in st:
+            return "gas"
+        if "ENEL" in st or "ELETROPAULO" in st or "ENERGIA" in st:
+            return "energia"
+        return None
+
+    # Sugestao herdada: instalacao -> verba escolhida no mes anterior. Ninguem
+    # deveria responder a mesma pergunta todo mes.
+    mes_ant, ano_ant = (12, int(ano) - 1) if int(mes) == 1 else (int(mes) - 1, int(ano))
+    heranca = {}
+    try:
+        antigos = db.table("emissoes_arquivos").select("instalacao, rateio_id") \
+            .eq("condominio_id", condo_id).eq("mes_referencia", mes_ant) \
+            .eq("ano_referencia", ano_ant).not_.is_("rateio_id", "null").execute().data or []
+        for a in antigos:
+            if a.get("instalacao"):
+                heranca[str(a["instalacao"])] = a["rateio_id"]
+    except Exception as e:
+        print("[consumos-planilha] heranca indisponivel: %s" % e)
+
+    por_verba = {}
+    sem_verba = []
+    for a in arqs:
+        serv = _servico_do_arquivo(a)
         if not serv:
             continue
-        novo = consumos.get(serv, 0)
-        if novo <= 0:
+        valor = a.get("relatorio_valor_total") if a.get("categoria") == "relatorio_leitura" else a.get("valor_fatura")
+        if valor is None:
             continue
-        linhas.append({
-            "rateio_id": r["id"], "nome": r["nome"], "servico": serv,
-            "atual": atuais.get(r["id"], 0), "novo": novo,
-            "contas": origens.get(serv, []),
-        })
-    return {"linhas": linhas}
+        verbas = verbas_do_servico.get(serv, [])
+        if not verbas:
+            continue
+
+        conta = {
+            "arquivo_id": a["id"], "nome": a.get("arquivo_nome"), "valor": float(valor),
+            "instalacao": a.get("instalacao"), "servico": serv,
+            "tipo": "relatorio" if a.get("categoria") == "relatorio_leitura" else "fatura",
+        }
+
+        alvo = a.get("rateio_id") or heranca.get(str(a.get("instalacao") or ""))
+        if len(verbas) == 1:
+            alvo = verbas[0]["id"]
+        if alvo and any(v["id"] == alvo for v in verbas):
+            conta["herdado"] = not a.get("rateio_id")
+            por_verba.setdefault(alvo, []).append(conta)
+        else:
+            sem_verba.append(conta)
+
+    linhas = []
+    for serv, verbas in verbas_do_servico.items():
+        for r in verbas:
+            contas = por_verba.get(r["id"], [])
+            if not contas:
+                continue
+            # Relatorio de leitura manda sobre a fatura: sao o MESMO gasto visto
+            # de dois jeitos, e somar os dois conta o mes em dobro.
+            rel = [c for c in contas if c["tipo"] == "relatorio"]
+            usadas = rel if rel else contas
+            linhas.append({
+                "rateio_id": r["id"], "nome": r["nome"], "servico": serv,
+                "atual": atuais.get(r["id"], 0),
+                "novo": round(sum(c["valor"] for c in usadas), 2),
+                "contas": usadas,
+                "escolha_possivel": len(verbas) > 1,
+            })
+
+    return {
+        "linhas": linhas,
+        "sem_verba": sem_verba,
+        "verbas": [{"rateio_id": r["id"], "nome": r["nome"], "servico": s}
+                   for s, vs in verbas_do_servico.items() for r in vs],
+    }
 
 class PreencherConsumosBody(BaseModel):
     mes: int
     ano: int
     itens: list
+    # [{arquivo_id, rateio_id}] — de qual verba e cada conta. Guardado no anexo
+    # para a fatura do mes seguinte, na mesma instalacao, herdar a escolha.
+    atribuicoes: Optional[list] = None
 
 @router.post("/condominio/{condo_id}/consumos-planilha")
 def api_consumos_planilha_aplicar(condo_id: str, data: PreencherConsumosBody,
@@ -1689,6 +1781,15 @@ def api_consumos_planilha_aplicar(condo_id: str, data: PreencherConsumosBody,
         else:
             db.table("rateios_valores").insert({"rateio_id": rid, "month": int(data.mes), "ano": int(data.ano), "valor": valor}).execute()
         aplicados += 1
+
+    for at in (data.atribuicoes or []):
+        aid, rid = at.get("arquivo_id"), at.get("rateio_id")
+        if aid and rid:
+            try:
+                db.table("emissoes_arquivos").update({"rateio_id": rid}).eq("id", aid).execute()
+            except Exception as e:
+                print("[consumos-planilha] atribuicao %s: %s" % (aid, e))
+
     return {"ok": True, "aplicados": aplicados}
 
 

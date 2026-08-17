@@ -279,16 +279,51 @@ export default function VisaoEmissor({ profile }) {
     } catch { /* silencioso */ }
   }
 
-  async function oferecerPreenchimentoConsumos() {
+  async function oferecerPreenchimentoConsumos({ forcar = false } = {}) {
     if (!activePacote?.condominio_id) return;
     try {
       const d = await apiFetch(`/api/condominio/${activePacote.condominio_id}/consumos-planilha?pacote_id=${activePacote.id}&mes=${activePacote.mes_referencia}&ano=${activePacote.ano_referencia}`);
       const linhas = (d?.linhas || [])
-        .filter(l => Number(l.novo) > 0)
         .map(l => ({ ...l, aplicar: Number(l.atual || 0) !== Number(l.novo) }));
-      if (!linhas.some(l => l.aplicar)) return; // nada a mudar
-      setConsumoPreview({ linhas, mes: activePacote.mes_referencia, ano: activePacote.ano_referencia });
+      const semVerba = d?.sem_verba || [];
+      // `forcar` vem de quem REMOVEU um anexo: aí a prévia tem de abrir mesmo
+      // que não haja o que mudar, porque o que mudou foi para MENOS e a planilha
+      // continua com o valor antigo até alguém reaplicar.
+      if (!forcar && !linhas.some(l => l.aplicar) && !semVerba.length) return;
+      setConsumoPreview({
+        linhas, semVerba, verbas: d?.verbas || [], atribuicoes: {},
+        mes: activePacote.mes_referencia, ano: activePacote.ano_referencia,
+      });
     } catch { /* não atrapalha o anexo */ }
+  }
+
+  // Diz de qual verba é uma conta que o sistema não soube resolver, e recarrega
+  // a prévia já com ela no lugar certo.
+  async function atribuirConta(arquivoId, rateioId) {
+    if (!rateioId) return;
+    setConsumoPreview(p => ({ ...p, atribuicoes: { ...(p.atribuicoes || {}), [arquivoId]: rateioId } }));
+    try {
+      await apiPost(`/api/condominio/${activePacote.condominio_id}/consumos-planilha`, {
+        mes: consumoPreview.mes, ano: consumoPreview.ano, itens: [],
+        atribuicoes: [{ arquivo_id: arquivoId, rateio_id: rateioId }],
+      });
+      await oferecerPreenchimentoConsumos({ forcar: true });
+    } catch (e) {
+      addToast('Não consegui guardar a verba: ' + (e.message || ''), 'error');
+    }
+  }
+
+  // Tira a conta da verba — para quando a fatura foi parar no lugar errado.
+  // Ela volta para "de qual verba é?" em vez de sumir.
+  async function tirarConta(arquivoId) {
+    try {
+      const { error } = await supabase.from('emissoes_arquivos')
+        .update({ rateio_id: null }).eq('id', arquivoId);
+      if (error) throw error;
+      await oferecerPreenchimentoConsumos({ forcar: true });
+    } catch (e) {
+      addToast('Não consegui tirar: ' + (e.message || e), 'error');
+    }
   }
 
   async function aplicarConsumos() {
@@ -297,7 +332,11 @@ export default function VisaoEmissor({ profile }) {
     if (!itens.length) { setConsumoPreview(null); return; }
     setAplicandoConsumo(true);
     try {
-      await apiPost(`/api/condominio/${activePacote.condominio_id}/consumos-planilha`, { mes: consumoPreview.mes, ano: consumoPreview.ano, itens });
+      const atribuicoes = Object.entries(consumoPreview.atribuicoes || {})
+        .map(([arquivo_id, rateio_id]) => ({ arquivo_id, rateio_id }));
+      await apiPost(`/api/condominio/${activePacote.condominio_id}/consumos-planilha`, {
+        mes: consumoPreview.mes, ano: consumoPreview.ano, itens, atribuicoes,
+      });
       addToast('Consumos preenchidos na planilha!', 'success');
       setConsumoPreview(null);
       await recarregarConferencia();
@@ -912,6 +951,9 @@ export default function VisaoEmissor({ profile }) {
         ...base,
         nome_condominio_fatura: extracao?.cliente || null,
         vencimento_fatura: extracao?.vencimento || null,
+        // Amarra a conta a sua instalacao: e por ela que o mes seguinte sabe
+        // que esta fatura e a da piscina, e nao a do bloco.
+        instalacao: extracao?.instalacao || null,
         valor_fatura: extracao?.valor ?? null,
         leitura_atual_fatura: extracao?.leitura_atual || null,
         proxima_leitura_fatura: extracao?.proxima_leitura || null,
@@ -1129,7 +1171,7 @@ export default function VisaoEmissor({ profile }) {
     proximoDaFila();
   }
 
-  async function handleDeleteArquivo(e, id, path) {
+  async function handleDeleteArquivo(e, id, path, arq) {
     e.stopPropagation();
     if (confirmDeleteArqId !== id) {
       setConfirmDeleteArqId(id);
@@ -1148,6 +1190,19 @@ export default function VisaoEmissor({ profile }) {
       addToast('Arquivo removido.', 'success');
       await fetchArquivosDoPacote(activePacote.id);
       fetchPacotes();
+
+      // Fatura errada removida: o valor que ela colocou na planilha CONTINUA lá.
+      //
+      // Apagar o anexo não desfaz o que já foi aplicado — e ninguém lembra
+      // disso na hora. Reabrir a prévia é o que fecha o ciclo: ela recalcula a
+      // partir do que sobrou e mostra "atual → novo" para reaplicar.
+      //
+      // `forcar` é obrigatório aqui: sem ele a prévia se cala quando o novo
+      // valor não é maior que o atual, que é exatamente o caso de uma remoção.
+      const ehConsumo = ['concessionaria', 'relatorio_leitura'].includes(arq?.categoria);
+      if (ehConsumo) {
+        await oferecerPreenchimentoConsumos({ forcar: true });
+      }
     } catch (err) {
       addToast('Erro: ' + err.message, 'error');
     }
@@ -1987,7 +2042,7 @@ export default function VisaoEmissor({ profile }) {
                     </button>
                     {['rascunho', 'solicitar_correcao'].includes(activePacote.status) && (
                       <button 
-                        onClick={(e) => handleDeleteArquivo(e, arq.id, arq.arquivo_url)}
+                        onClick={(e) => handleDeleteArquivo(e, arq.id, arq.arquivo_url, arq)}
                         className={`p-2 rounded-lg border transition-all ${
                           confirmDeleteArqId === arq.id 
                             ? 'bg-rose-500 border-rose-500 text-white animate-pulse' 
@@ -3008,39 +3063,104 @@ export default function VisaoEmissor({ profile }) {
               </div>
             </div>
             <div className="p-4 space-y-2 max-h-[55vh] overflow-y-auto">
+              {/* Contas sem verba definida: o condomínio tem duas verbas para o
+                  mesmo serviço (gás do prédio e da piscina, por exemplo) e o
+                  sistema não tem como adivinhar de qual é cada fatura. Perguntar
+                  uma vez é melhor do que somar as duas e errar todo mês. */}
+              {(consumoPreview.semVerba || []).length > 0 && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <p className="text-[11px] font-bold text-amber-900">
+                    De qual verba é cada conta?
+                  </p>
+                  {consumoPreview.semVerba.map((c) => (
+                    <div key={c.arquivo_id} className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] text-slate-700 truncate max-w-[240px]" title={c.nome}>
+                        {c.nome}
+                      </span>
+                      {c.instalacao && (
+                        <span className="text-[10px] text-slate-500 font-mono">inst. {c.instalacao}</span>
+                      )}
+                      <span className="font-mono text-[11px] font-bold text-slate-700">
+                        R$ {Number(c.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                      </span>
+                      <select
+                        value={consumoPreview.atribuicoes?.[c.arquivo_id] || ''}
+                        onChange={e => atribuirConta(c.arquivo_id, e.target.value)}
+                        className="ml-auto bg-white border border-amber-300 rounded-lg px-2 py-1 text-[11px] text-slate-800 outline-none focus:border-violet-500">
+                        <option value="">Escolha a verba…</option>
+                        {(consumoPreview.verbas || [])
+                          .filter(v => v.servico === c.servico)
+                          .map(v => <option key={v.rateio_id} value={v.rateio_id}>{v.nome}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-amber-800">
+                    A escolha fica guardada: no mês que vem, a fatura desta mesma instalação já vem certa.
+                  </p>
+                </div>
+              )}
+
               {consumoPreview.linhas.map((l, i) => (
-                <label key={l.rateio_id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${l.aplicar ? 'border-violet-300 bg-violet-50' : 'border-slate-200 hover:bg-slate-50'}`}>
-                  <input type="checkbox" checked={l.aplicar}
-                    onChange={e => setConsumoPreview(p => ({ ...p, linhas: p.linhas.map((x, j) => j === i ? { ...x, aplicar: e.target.checked } : x) }))}
-                    className="w-4 h-4 accent-violet-600 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-800 truncate">{l.nome}</p>
-                    <p className="text-[11px] text-slate-500">
-                      atual <span className="font-mono">R$ {Number(l.atual||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-                      <span className="mx-1 text-slate-400">→</span>
-                      <span className="font-mono font-bold text-emerald-600">R$ {Number(l.novo).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-                    </p>
-                    {/* De onde saiu o total. Com duas contas do mesmo serviço, o
-                        número sozinho não explica nada — e é preciso saber o que
-                        remover para ele baixar. */}
-                    {(l.contas || []).length > 1 && (
-                      <ul className="mt-1 space-y-0.5">
-                        {l.contas.map((c, k) => (
-                          <li key={k} className="text-[10px] text-slate-500 flex items-center gap-1.5">
-                            <span className="text-slate-400">+</span>
-                            <span className="truncate max-w-[260px]" title={c.nome}>{c.nome}</span>
-                            <span className="font-mono text-slate-600">
-                              R$ {Number(c.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
-                            </span>
-                          </li>
-                        ))}
-                        <li className="text-[10px] text-slate-400 italic">
-                          soma de {l.contas.length} contas — remova um anexo e abra de novo para o total baixar
-                        </li>
-                      </ul>
-                    )}
+                <div key={l.rateio_id} className={`px-3 py-2.5 rounded-xl border transition-colors ${l.aplicar ? 'border-violet-300 bg-violet-50' : 'border-slate-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" checked={l.aplicar}
+                      onChange={e => setConsumoPreview(p => ({ ...p, linhas: p.linhas.map((x, j) => j === i ? { ...x, aplicar: e.target.checked } : x) }))}
+                      className="w-4 h-4 accent-violet-600 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-800 truncate">{l.nome}</p>
+                      <p className="text-[11px] text-slate-500">
+                        atual <span className="font-mono">R$ {Number(l.atual||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                        <span className="mx-1 text-slate-400">→</span>
+                      </p>
+                    </div>
+                    {/* Valor editável: a fatura pode vir errada, pode ter crédito,
+                        pode haver acerto combinado com o síndico. Quem monta a
+                        emissão precisa poder corrigir sem ir na planilha. */}
+                    <div className="shrink-0 flex items-center gap-1">
+                      <span className="text-[11px] text-slate-500">R$</span>
+                      <input
+                        value={l.novoMask ?? Number(l.novo).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                        onChange={e => {
+                          const mask = maskValor(e.target.value);
+                          setConsumoPreview(p => ({ ...p, linhas: p.linhas.map((x, j) =>
+                            j === i ? { ...x, novoMask: mask, novo: parseValor(mask) ?? 0, editado: true, aplicar: true } : x) }));
+                        }}
+                        inputMode="numeric"
+                        className={`w-28 text-right font-mono text-sm rounded-lg border px-2 py-1 outline-none focus:border-violet-500 ${
+                          l.editado ? 'border-amber-400 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-emerald-700'}`} />
+                    </div>
                   </div>
-                </label>
+
+                  {(l.contas || []).length > 0 && (
+                    <ul className="mt-1.5 pl-7 space-y-0.5">
+                      {l.contas.map((c, k) => (
+                        <li key={k} className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                          <span className="text-slate-400">{l.contas.length > 1 ? '+' : '·'}</span>
+                          <span className="truncate max-w-[240px]" title={c.nome}>{c.nome}</span>
+                          {c.instalacao && <span className="font-mono text-slate-400">inst. {c.instalacao}</span>}
+                          <span className="font-mono text-slate-600">
+                            R$ {Number(c.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                          </span>
+                          {c.herdado && (
+                            <span className="text-[9px] text-violet-600" title="Verba herdada da fatura do mês passado, na mesma instalação">
+                              herdado
+                            </span>
+                          )}
+                          <button type="button" onClick={() => tirarConta(c.arquivo_id)}
+                            title="Tirar esta conta desta verba"
+                            className="text-slate-300 hover:text-rose-500 transition-colors">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </li>
+                      ))}
+                      {l.editado && (
+                        <li className="text-[10px] text-amber-700 italic">
+                          valor alterado à mão — as contas acima somam R$ {(l.contas.reduce((s2,c)=>s2+Number(c.valor||0),0)).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
               ))}
             </div>
             <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-end gap-2">
