@@ -380,9 +380,18 @@ export default function VisaoEmissor({ profile }) {
         const d = await resp.json();
         if (cancel) return;
         setConfData(d);
-        const ids = (d.cobrancas_extras || []).map(c => c.id);
+        // Cobrança sem documento nunca entra sozinha na seleção.
+        //
+        // Extra é dinheiro cobrado do condômino, e sem o comprovante ninguém
+        // responde "por que estou pagando isso?". Já aconteceu de a mesma
+        // cobrança entrar duas vezes — uma com anexo e outra sem — e não haver
+        // como saber qual era a boa.
+        const temDoc = (c) => (c.attachments || []).length > 0;
+        const ids = (d.cobrancas_extras || []).filter(temDoc).map(c => c.id);
         const salvas = activePacote.cobrancas_incluidas;
-        // Seleção inicial: o que já foi salvo no pacote, senão todas marcadas
+        // Seleção inicial: o que já foi salvo no pacote, senão todas as que têm
+        // documento. Salva antiga sem anexo também é descartada — o que valia
+        // ontem não vale agora que a regra existe.
         setCobrancasSel(new Set(Array.isArray(salvas) ? salvas.filter(id => ids.includes(id)) : ids));
       } catch { /* referência é opcional, não bloqueia a emissão */ }
       finally { if (!cancel) setConfLoading(false); }
@@ -1750,10 +1759,18 @@ export default function VisaoEmissor({ profile }) {
                   return (
                     <div className="space-y-1.5">
                       {cobrancas.map(c => {
-                        const checked = sel.has(c.id);
+                        const semDoc = !(c.attachments?.length > 0);
+                        const checked = sel.has(c.id) && !semDoc;
                         return (
-                          <label key={c.id} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg border cursor-pointer transition-colors ${checked ? 'bg-violet-50 border-violet-200' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
-                            <input type="checkbox" checked={checked} onChange={() => toggleCobranca(c.id)} className="w-4 h-4 accent-violet-600 shrink-0" />
+                          <label key={c.id}
+                            title={semDoc ? 'Sem documento anexado — não pode entrar na emissão' : undefined}
+                            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg border transition-colors ${
+                              semDoc ? 'bg-rose-50/60 border-rose-200 cursor-not-allowed'
+                                : checked ? 'bg-violet-50 border-violet-200 cursor-pointer'
+                                : 'bg-slate-50 border-slate-200 hover:border-slate-300 cursor-pointer'}`}>
+                            <input type="checkbox" checked={checked} disabled={semDoc}
+                              onChange={() => !semDoc && toggleCobranca(c.id)}
+                              className="w-4 h-4 accent-violet-600 shrink-0 disabled:opacity-40" />
                             <div className="flex-1 min-w-0">
                               <p className={`text-xs font-bold truncate ${checked ? 'text-slate-800' : 'text-slate-500'}`}>{c.descricao}</p>
                               {/* Parcelamento: a 3ª de 6 é outra coisa que uma
@@ -1769,7 +1786,11 @@ export default function VisaoEmissor({ profile }) {
                               {c.unidades && (
                                 <p className="text-[10px] text-violet-600 font-bold truncate">🏠 unid.: {c.unidades}</p>
                               )}
-                              {c.attachments?.length > 0 && (
+                              {semDoc ? (
+                                <p className="text-[10px] font-bold text-rose-600 inline-flex items-center gap-1">
+                                  <Ban className="w-2.5 h-2.5" /> sem documento — não entra na emissão
+                                </p>
+                              ) : (
                                 <a href={c.attachments[0]} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
                                   className="text-[10px] text-violet-500 hover:underline inline-flex items-center gap-1">
                                   <Paperclip className="w-2.5 h-2.5" /> anexo
@@ -1780,8 +1801,16 @@ export default function VisaoEmissor({ profile }) {
                           </label>
                         );
                       })}
+                      {cobrancas.some(c => !(c.attachments?.length > 0)) && (
+                        <p className="text-[10px] text-rose-600 leading-relaxed pt-1">
+                          Cobrança sem documento não entra na emissão. Se ela é legítima, anexe o
+                          comprovante em Lançar Cobranças; se foi lançada por engano, cancele por lá.
+                        </p>
+                      )}
                       <div className="flex items-center justify-between text-xs pt-2">
-                        <span className="font-black uppercase tracking-widest text-[10px] text-slate-500">{sel.size} de {cobrancas.length} selecionadas</span>
+                        <span className="font-black uppercase tracking-widest text-[10px] text-slate-500">
+                          {sel.size} de {cobrancas.filter(c => c.attachments?.length > 0).length} selecionadas
+                        </span>
                         <span className="font-mono font-black text-emerald-600">
                           R$ {cobrancas.filter(c => sel.has(c.id)).reduce((s,c)=>s+Number(c.valor||0),0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}
                         </span>

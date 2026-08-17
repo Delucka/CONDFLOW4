@@ -2673,6 +2673,18 @@ def api_lancar_cobranca_extra(
     if not (data.unidades and data.unidades.strip()):
         raise HTTPException(400, "Informe a(s) unidade(s) do condomínio.")
 
+    # Documento obrigatório.
+    #
+    # Cobrança extra é dinheiro cobrado do condômino: sem o documento que a
+    # justifica, ninguém consegue responder "por que estou pagando isso?" — nem
+    # o gerente, nem a emissão, nem o síndico seis meses depois.
+    #
+    # Foi assim que a mesma cobrança entrou duas vezes num condomínio: uma com
+    # anexo e outra sem, e não havia como saber qual era a boa.
+    if not (data.attachments and any(str(a_).strip() for a_ in data.attachments)):
+        raise HTTPException(400, "Anexe o documento que comprova a cobrança. "
+                                 "Cobrança extra sem documento não pode ser lançada.")
+
     import uuid
     grupo_id = str(uuid.uuid4())
     valor_parcela = round(data.valor_total / data.parcelas, 2)

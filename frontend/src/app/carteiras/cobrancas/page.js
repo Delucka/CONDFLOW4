@@ -151,6 +151,13 @@ function ModalLancar({ condominioId, condominioNome, onClose, onSaved }) {
       addToast('Informe a(s) unidade(s) do condomínio.', 'error');
       return;
     }
+    // Documento obrigatório: cobrança extra é dinheiro cobrado do condômino, e
+    // sem o comprovante ninguém consegue responder "por que estou pagando
+    // isso?" — nem seis meses depois, quando a memória de quem lançou já foi.
+    if (!selectedFile) {
+      addToast('Anexe o documento que comprova a cobrança.', 'error');
+      return;
+    }
     if (parcelasEmMesBloqueado.length > 0) {
       addToast('Alguma parcela cai em mês bloqueado. Escolha outro mês inicial.', 'error');
       return;
@@ -330,7 +337,13 @@ className="w-5 h-5 text-slate-500 group-hover:text-amber-400" />}
                     <div className="text-center">
                         <p className="text-xs font-bold text-slate-700">
                             {selectedFile ? selectedFile.name : 'Anexar comprovante/NF'}
+                            {!selectedFile && <span className="text-rose-500"> *</span>}
                         </p>
+                        {!selectedFile && (
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                                obrigatório — sem ele a cobrança não pode ser lançada
+                            </p>
+                        )}
                     </div>
                     {selectedFile && (
                         <button onClick={(e) => { e.preventDefault(); setSelectedFile(null); }} 
@@ -341,7 +354,8 @@ className="text-[10px] text-rose-400 font-bold hover:underline">Remover arquivo<
         </div>
 
         <div className="pt-2">
-            <button type="submit" disabled={loading}
+            <button type="submit" disabled={loading || !selectedFile}
+              title={!selectedFile ? 'Anexe o documento que comprova a cobrança' : undefined}
               className="w-full py-3 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-500 transition-colors flex justify-center items-center gap-2 disabled:opacity-50">
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-4 h-4" />}
               Lançar Cobrança
