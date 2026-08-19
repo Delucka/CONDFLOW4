@@ -116,15 +116,37 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             except Exception as e:
                 print(f"[dashboard] emissoes_pacotes falhou (segue sem): {e}")
                 pacotes = []
+            # Comparacao por LISTA, nao por pedaco de texto.
+            #
+            # Era `"supervisor" in s` e `"sup. gerentes" in s` — e as grafias
+            # reais sao `pendente_sup_contabilidade` e `pendente_sup_gerentes`,
+            # com underline. Nenhuma casava, entao Sup. Contabilidade contava
+            # ZERO. Pior: `pendente_sup_gerentes` CONTEM "gerente", entao esses
+            # pacotes iam para a conta do gerente — numero errado, nao faltando.
+            #
+            # Mesmo defeito que estava no frontend (VisaoMaster, usePendingCount),
+            # repetido aqui no servidor.
+            COM_GERENTE = {"pendente_gerente", "aguardando gerente", "pendente"}
+            COM_SPG     = {"pendente_sup_gerentes", "aguardando chefe"}
+            COM_SPC     = {"pendente_sup_contabilidade", "aguardando supervisor"}
+
             for p in pacotes:
-                s = (p.get("status") or "").lower()
-                if "gerente" in s or s == "pendente": emissao_stats["gerente"] += 1
-                elif "chefe" in s or "sup. gerentes" in s: emissao_stats["supGerente"] += 1
-                elif "supervisor" in s: emissao_stats["supContabilidade"] += 1
+                s = (p.get("status") or "").lower().strip()
+                if s in COM_GERENTE: emissao_stats["gerente"] += 1
+                elif s in COM_SPG:   emissao_stats["supGerente"] += 1
+                elif s in COM_SPC:   emissao_stats["supContabilidade"] += 1
                 elif s == "aprovado": emissao_stats["aguardando"] += 1
                 elif s == "registrado": emissao_stats["registrada"] += 1
+
                 cid = p.get("condominio_id")
-                if cid and cid not in emissao_by_condo:
+                if not cid:
+                    continue
+                # Cancelada nao representa o condominio no mes: existe uma nova
+                # no lugar dela. So entra se for a unica que houver, e af o
+                # painel mostra "cancelada" em vez de fingir que nao ha emissao.
+                if s == "cancelada":
+                    emissao_by_condo.setdefault(cid, "cancelada")
+                elif emissao_by_condo.get(cid) in (None, "cancelada"):
                     emissao_by_condo[cid] = p.get("status") or "sem_processo"
 
         # (pipeline_config já carregado em paralelo acima)

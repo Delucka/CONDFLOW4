@@ -108,12 +108,23 @@ export default function VisaoMaster() {
     [pacotes, mesAtivo, anoAtivo],
   );
 
-  // Pacotes ativos no painel = tudo do mês exceto os estados finais.
-  // 'cancelada' (0101) é final como 'expedida': a emissão foi descartada de
-  // propósito e não é trabalho pendente de ninguém. Contá-la faria o painel
-  // cobrar uma emissão que alguém já decidiu refazer.
+  // CONTAR e MOSTRAR são coisas diferentes, e a cancelada mostra a diferença.
+  //
+  // Ela não é trabalho pendente de ninguém — contá-la faria o painel cobrar uma
+  // emissão que alguém já decidiu refazer. Mas sumir também é ruim: quem abre o
+  // mês precisa ver que houve uma cancelada, senão a informação só existe em
+  // outra tela.
+  //
+  // `pacotesAtivos` alimenta os CONTADORES e as ações em lote (registrar,
+  // expedir) — cancelada fora, como expedida.
   const pacotesAtivos = useMemo(
     () => pacotesDoMes.filter(p => !['expedida', 'cancelada'].includes((p.status || '').toLowerCase())),
+    [pacotesDoMes],
+  );
+
+  // `pacotesVisiveis` alimenta a LISTA: inclui a cancelada, com tarja.
+  const pacotesVisiveis = useMemo(
+    () => pacotesDoMes.filter(p => (p.status || '').toLowerCase() !== 'expedida'),
     [pacotesDoMes],
   );
 
@@ -154,7 +165,7 @@ export default function VisaoMaster() {
   }), [pacotesAtivos]);
 
   const pacotesFiltrados = useMemo(() => {
-    let lista = pacotesAtivos;
+    let lista = pacotesVisiveis;
 
     // Filtro: só minhas pendências (baseado no role do usuário logado)
     if (apenasMinhasPendencias && profile?.role) {
@@ -175,7 +186,7 @@ export default function VisaoMaster() {
     }
 
     return lista;
-  }, [pacotesAtivos, filtroAtivo, apenasMinhasPendencias, profile?.role]);
+  }, [pacotesVisiveis, filtroAtivo, apenasMinhasPendencias, profile?.role]);
 
   // Quantidade de pendências MINHAS no mês atual (pra mostrar no toggle)
   const totalMinhasPendencias = useMemo(() => {
@@ -771,7 +782,10 @@ export default function VisaoMaster() {
               const numArq = pacote.arquivos?.length || 0;
               const statusLower = (pacote.status || '').toLowerCase();
               const isRegistrado = statusLower === 'registrado';
-              const emFluxo = !['registrado', 'aprovado', 'rascunho', 'solicitar_correcao', 'expedida'].includes(statusLower);
+              // 'cancelada' entra aqui: sem ela, o botão de APROVAR aparecia
+              // numa emissão cancelada — e aprovar uma emissão descartada é
+              // ressuscitar o erro que motivou o cancelamento.
+              const emFluxo = !['registrado', 'aprovado', 'rascunho', 'solicitar_correcao', 'expedida', 'cancelada'].includes(statusLower);
               return (
                 <div key={pacote.id} className={`bg-white rounded-2xl border p-3.5 ${isRegistrado ? 'border-violet-200' : 'border-slate-200'}`}>
                   <div className="flex items-start gap-2.5 mb-2">
@@ -994,18 +1008,42 @@ export default function VisaoMaster() {
             const isRegistrado = statusLower === 'registrado';
             const roleAutorizado = profile?.role === 'master' || profile?.role === 'departamento';
 
+            const ehCancelada = statusLower === 'cancelada';
+
             return (
-              <div key={pacote.id} className={`hover:bg-slate-100 transition-colors ${isRegistrado ? 'border-l-2 border-violet-500/30' : ''}`}>
+              <div key={pacote.id} className={`transition-colors ${
+                ehCancelada ? 'bg-rose-50/40 hover:bg-rose-50/60 border-l-4 border-rose-500'
+                : isRegistrado ? 'hover:bg-slate-100 border-l-2 border-violet-500/30'
+                : 'hover:bg-slate-100'}`}>
                 <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isRegistrado ? 'bg-violet-500/10' : 'bg-slate-50'}`}>
-                      <Package className={`w-5 h-5 ${isRegistrado ? 'text-violet-400' : 'text-violet-400'}`} />
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      ehCancelada ? 'bg-rose-500/10' : isRegistrado ? 'bg-violet-500/10' : 'bg-slate-50'}`}>
+                      {ehCancelada
+                        ? <Ban className="w-5 h-5 text-rose-500" />
+                        : <Package className="w-5 h-5 text-violet-400" />}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 text-sm flex items-center gap-2 flex-wrap">
+                      <p className={`font-bold text-sm flex items-center gap-2 flex-wrap ${
+                        ehCancelada ? 'text-slate-600' : 'text-slate-900'}`}>
                         {pacote.condominios?.name}
                         <SeloGrupo pacote={pacote} />
+                        {/* A tarja tem de estar em toda tela que lista emissão:
+                            quem olha o mês precisa ver que houve uma cancelada
+                            sem ter de abrir outra aba para descobrir. */}
+                        {ehCancelada && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-rose-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                            <Ban className="w-3 h-3" aria-hidden="true" />
+                            Cancelada · {String(pacote.mes_referencia).padStart(2, '0')}/{pacote.ano_referencia}
+                          </span>
+                        )}
                       </p>
+                      {ehCancelada && pacote.cancelamento_motivo && (
+                        <p className="mt-1 text-[11px] text-slate-600 border-l-2 border-rose-300 pl-2 max-w-xl">
+                          {pacote.cancelada_por_nome ? `${pacote.cancelada_por_nome}: ` : ''}
+                          {pacote.cancelamento_motivo}
+                        </p>
+                      )}
                       <p className="text-[10px] text-slate-500">
                         {String(pacote.mes_referencia).padStart(2,'0')}/{pacote.ano_referencia} • {numArq} arquivo{numArq !== 1 ? 's' : ''}
                         {isRegistrado && pacote.planilha_snapshot && (
@@ -1052,7 +1090,7 @@ export default function VisaoMaster() {
                       )}
 
                       {/* Solicitar correção */}
-                      {statusLower !== 'registrado' && statusLower !== 'rascunho' && statusLower !== 'aprovado' && statusLower !== 'expedida' && (
+                      {!['registrado', 'rascunho', 'aprovado', 'expedida', 'cancelada'].includes(statusLower) && (
                         <button onClick={() => handleRejeitar(pacote)} className="p-2 rounded-lg bg-slate-50 text-rose-400 hover:bg-rose-500/20 transition-all" title="Solicitar Correção">
                           <XCircle className="w-4 h-4" />
                         </button>
@@ -1066,7 +1104,7 @@ export default function VisaoMaster() {
                       )}
 
                       {/* Notificar novamente quem precisa aprovar */}
-                      {statusLower !== 'registrado' && statusLower !== 'aprovado' && statusLower !== 'rascunho' && statusLower !== 'solicitar_correcao' && (
+                      {!['registrado', 'aprovado', 'rascunho', 'solicitar_correcao', 'expedida', 'cancelada'].includes(statusLower) && (
                         <button onClick={() => handleRenotificar(pacote)} disabled={notificandoId === pacote.id}
                           className="p-2 rounded-lg bg-violet-600/15 text-violet-500 hover:bg-violet-600/30 border border-violet-500/30 transition-all disabled:opacity-50"
                           title="Notificar novamente quem precisa aprovar (sino + e-mail)">
@@ -1075,7 +1113,7 @@ export default function VisaoMaster() {
                       )}
 
                       {/* Aprovar manualmente (em fluxo de aprovação) */}
-                      {statusLower !== 'registrado' && statusLower !== 'aprovado' && statusLower !== 'rascunho' && statusLower !== 'solicitar_correcao' && (
+                      {!['registrado', 'aprovado', 'rascunho', 'solicitar_correcao', 'expedida', 'cancelada'].includes(statusLower) && (
                         <button onClick={() => handleAprovar(pacote)} className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-all" title="Aprovação">
                           <CheckCircle className="w-4 h-4" />
                         </button>

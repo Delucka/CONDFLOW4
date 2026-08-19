@@ -915,7 +915,10 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         const modoPacote = !!arquivo?.pacote_id;
         const podeAcao = podeAprovar && (arquivo?.processo_id || arquivo?.pacote_id);
         // Status terminais do pacote ocultam os botoes
-        const statusTerminal = ['aprovado','registrado','expedida','rascunho','solicitar_correcao'].includes((arquivo?.pacote_status || '').toLowerCase());
+        // 'cancelada' entra na lista: sem ela, quem abrisse o arquivo de uma
+        // emissão cancelada veria os botões de aprovar e pedir correção — e
+        // aprovar uma emissão descartada ressuscitaria o erro.
+        const statusTerminal = ['aprovado','registrado','expedida','rascunho','solicitar_correcao','cancelada'].includes((arquivo?.pacote_status || '').toLowerCase());
         if (!podeAcao) return null;
         if (modoPacote && statusTerminal) return null;
 

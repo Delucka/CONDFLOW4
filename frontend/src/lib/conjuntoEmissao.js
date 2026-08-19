@@ -23,7 +23,15 @@ import { registrarNaTrilha } from '@/lib/aprovacaoFluxo';
  */
 
 // Status que já saíram do fluxo de aprovação — não são devolvidos nem cobrados.
-const JA_SAIU = ['registrado', 'expedida'];
+//
+// 'cancelada' (0101) entra aqui, e é essencial: sem ela, `pendentesDoConjunto`
+// contaria a emissão cancelada como pendente e `podeRegistrar` BLOQUEARIA o
+// registro da emissão nova que veio substituí-la. O condomínio ficaria travado
+// para sempre, esperando a aprovação de uma emissão que foi descartada.
+//
+// É o mesmo cuidado que a 0101 tomou no gatilho do banco — as duas travas
+// existem e as duas precisavam saber disso.
+const JA_SAIU = ['registrado', 'expedida', 'cancelada'];
 
 // Status de quem ainda nem foi enviado. Devolver um rascunho não faz sentido:
 // ele já está aberto para edição.

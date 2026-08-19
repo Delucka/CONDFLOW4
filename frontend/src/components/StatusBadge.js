@@ -20,9 +20,13 @@ const EMISSAO_STATUS = {
   'aprovado':                  { label: 'Aguardando registro',  classes: 'bg-violet-50 text-violet-700 border-violet-200',    dot: 'bg-violet-500' },
   'registrado':                { label: 'Registrada',           classes: 'bg-emerald-50 text-emerald-700 border-emerald-200',    dot: 'bg-emerald-500' },
   'expedida':                  { label: 'Expedida',             classes: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-  // Cancelada (0101): estado final, como expedida — mas do outro lado. Cinza e
-  // não vermelho: cancelar é uma decisão tomada, não um alarme pendente.
-  'cancelada':                 { label: 'Cancelada',            classes: 'bg-slate-100 text-slate-600 border-slate-300',      dot: 'bg-slate-400' },
+  // Cancelada (0101): vermelho sólido, de propósito.
+  //
+  // Comecei com cinza — cancelar é decisão tomada, não alarme. Mas a operação
+  // precisa reconhecer uma emissão cancelada em QUALQUER tela, de relance, e
+  // cinza num sistema cheio de cinza não faz isso. Como todas as telas usam
+  // este badge, mudar aqui resolve em todas de uma vez.
+  'cancelada':                 { label: 'Cancelada',            classes: 'bg-rose-600 text-white border-rose-700 font-bold',  dot: 'bg-white' },
 };
 
 // Código de cores (uma regra só, para a lista de 300 linhas ser lida de relance):
