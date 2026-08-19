@@ -121,6 +121,22 @@ export async function proximoStatusAprovacao(supabase, pacoteId, nivel, userRole
  *                        trilha (aí o chamador segue o caminho normal)
  */
 export async function statusDeVoltaAposCorrecao(supabase, pacoteId) {
+  // 1) O MARCO: o status em que a emissão estava quando a correção foi pedida.
+  //
+  // É a fonte certa porque não depende de quem clicou. No 302 a correção saiu
+  // como "Correção por Administrador Master" — o master pediu em nome do
+  // gerente, e olhar o PAPEL de quem pediu mandava a emissão para o lugar
+  // errado. O marco diz que ela estava com o gerente, e é para lá que volta.
+  const { data: pac } = await supabase
+    .from('emissoes_pacotes')
+    .select('status_pre_correcao')
+    .eq('id', pacoteId)
+    .maybeSingle();
+  if (pac?.status_pre_correcao) return pac.status_pre_correcao;
+
+  // 2) Sem o marco (correções abertas antes da 0102), cai no papel de quem
+  //    pediu. Serve para gerente e supervisores; para master devolve null e o
+  //    chamador segue o caminho normal do nível.
   const { data, error } = await supabase
     .from('emissoes_pacotes_aprovacoes')
     .select('role, acao, criado_em')
@@ -130,8 +146,5 @@ export async function statusDeVoltaAposCorrecao(supabase, pacoteId) {
     .limit(1);
 
   if (error || !data?.length) return null;
-  const role = data[0].role;
-  // Correção pedida por quem não é aprovador (master, emissão) não define
-  // volta: nesse caso o caminho normal do nível é o certo.
-  return PENDING_BY_ROLE[role] || null;
+  return PENDING_BY_ROLE[data[0].role] || null;
 }

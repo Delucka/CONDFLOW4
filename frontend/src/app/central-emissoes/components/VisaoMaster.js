@@ -570,6 +570,10 @@ export default function VisaoMaster() {
     const agora = new Date().toISOString();
     const { data, error } = await supabase.from('emissoes_pacotes')
       .update({ status: 'solicitar_correcao', comentario_correcao: reason, atualizado_em: agora,
+        // Ver o comentário em VisaoGerente: guarda o marco, não quem pediu.
+        // É este campo que impede a emissão de pular para a supervisora quando
+        // quem pede a correção é o master.
+        status_pre_correcao: pacote.status,
         correcao_por_nome: user?.full_name || user?.email || null,
         correcao_em: agora })
       .eq('id', pacote.id)

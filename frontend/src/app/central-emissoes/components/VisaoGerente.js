@@ -166,6 +166,10 @@ export default function VisaoGerente({ profile }) {
     const { error } = await supabase
       .from('emissoes_pacotes')
       .update({ status: 'solicitar_correcao', comentario_correcao: comment, atualizado_em: new Date().toISOString(),
+        // De onde a emissão saiu — é para cá que ela volta depois de corrigida.
+        // Guardar o MARCO, e não o papel de quem pediu, é o que faz a volta
+        // funcionar mesmo quando o master pede em nome de outra pessoa.
+        status_pre_correcao: currentPacote.status,
         correcao_por_nome: user?.full_name || user?.email || null,
         correcao_em: new Date().toISOString() })
       .eq('id', currentPacote.id);

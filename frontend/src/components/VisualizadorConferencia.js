@@ -267,6 +267,8 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         .from('emissoes_pacotes')
         .update({
           status: 'solicitar_correcao',
+          // Marco de onde a emissão saiu (0102) — para cá ela volta corrigida.
+          status_pre_correcao: arquivo?.pacote_status || null,
           comentario_correcao: comentario.trim(),
           correcao_arquivo_url: correcaoUrl,
           correcao_arquivo_nome: correcaoNome,
