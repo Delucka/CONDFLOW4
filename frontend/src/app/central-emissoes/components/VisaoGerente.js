@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle, Droplet } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
-import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou } from '@/lib/aprovacaoFluxo';
+import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou, pedirCorrecao } from '@/lib/aprovacaoFluxo';
 import { devolverConjunto, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
 import ComparativoConsumo from './ComparativoConsumo';
@@ -163,16 +163,24 @@ export default function VisaoGerente({ profile }) {
   async function confirmarCorrecao() {
     if (!comment) return addToast('Comentário é obrigatório.', 'warning');
 
-    const { error } = await supabase
-      .from('emissoes_pacotes')
-      .update({ status: 'solicitar_correcao', comentario_correcao: comment, atualizado_em: new Date().toISOString(),
-        // De onde a emissão saiu — é para cá que ela volta depois de corrigida.
-        // Guardar o MARCO, e não o papel de quem pediu, é o que faz a volta
-        // funcionar mesmo quando o master pede em nome de outra pessoa.
-        status_pre_correcao: currentPacote.status,
-        correcao_por_nome: user?.full_name || user?.email || null,
-        correcao_em: new Date().toISOString() })
-      .eq('id', currentPacote.id);
+    // De onde a emissão saiu — é para cá que ela volta depois de corrigida.
+    // Guardar o MARCO, e não o papel de quem pediu, é o que faz a volta
+    // funcionar mesmo quando o master pede em nome de outra pessoa.
+    //
+    // `pedirCorrecao` tolera a coluna do marco não existir ainda: sem isso, um
+    // campo novo derruba o pedido de correção inteiro até a migration rodar.
+    const { error, semMarco } = await pedirCorrecao(supabase, currentPacote.id, {
+      status: 'solicitar_correcao',
+      comentario_correcao: comment,
+      atualizado_em: new Date().toISOString(),
+      status_pre_correcao: currentPacote.status,
+      correcao_por_nome: user?.full_name || user?.email || null,
+      correcao_em: new Date().toISOString(),
+    });
+    if (semMarco) {
+      addToast('Correção enviada, mas o banco ainda não tem a coluna do marco (rode a 0102) — '
+             + 'a volta pode não ser para você.', 'warning');
+    }
 
     if (error) {
       addToast('Falha ao solicitar correção.', 'error');

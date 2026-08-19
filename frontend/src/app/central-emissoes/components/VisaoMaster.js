@@ -4,9 +4,9 @@ import { createClient } from '@/utils/supabase/client';
 import {
   CheckCircle, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle,
   User, ShieldCheck, Send, X, FileCheck, Building, Edit, ChevronLeft, ChevronRight,
-  Lock, Send as SendIcon, Rocket, Upload, AlertTriangle, BellRing,
-} from 'lucide-react';
+  Lock, Send as SendIcon, Rocket, Upload, AlertTriangle, BellRing, Route } from 'lucide-react';
 import StatusBadge from './StatusBadge';
+import ModalDirecionarEmissao from './ModalDirecionarEmissao';
 import { apiPost } from '@/lib/api';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { useToast } from '@/components/Toast';
@@ -15,7 +15,7 @@ import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { useAuth } from '@/lib/auth';
 import { isPendingForRole } from '@/lib/usePendingCount';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
-import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou } from '@/lib/aprovacaoFluxo';
+import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou, pedirCorrecao } from '@/lib/aprovacaoFluxo';
 import { podeRegistrar, carregarConjunto, arrastadasPelaRecusa, devolverConjunto, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
 import { safeStorageName } from '@/lib/storage';
@@ -69,6 +69,7 @@ export default function VisaoMaster() {
     };
   };
   const [filtroAtivo, setFiltroAtivo] = useState(() => linkInicial().filtro);
+  const [direcionando, setDirecionando] = useState(null);   // pacote a direcionar
   const [apenasMinhasPendencias, setApenasMinhasPendencias] = useState(false);
 
   // ── Mês ativo ─────────────────────────────────────────────────────────────
@@ -568,18 +569,21 @@ export default function VisaoMaster() {
     if (!reason) return;
 
     const agora = new Date().toISOString();
-    const { data, error } = await supabase.from('emissoes_pacotes')
-      .update({ status: 'solicitar_correcao', comentario_correcao: reason, atualizado_em: agora,
-        // Ver o comentário em VisaoGerente: guarda o marco, não quem pediu.
-        // É este campo que impede a emissão de pular para a supervisora quando
-        // quem pede a correção é o master.
-        status_pre_correcao: pacote.status,
-        correcao_por_nome: user?.full_name || user?.email || null,
-        correcao_em: agora })
-      .eq('id', pacote.id)
-      .select('id');
+    // Guarda o marco, não quem pediu: é este campo que impede a emissão de pular
+    // para a supervisora quando é o master que pede a correção em nome de outro.
+    const { error, semMarco } = await pedirCorrecao(supabase, pacote.id, {
+      status: 'solicitar_correcao',
+      comentario_correcao: reason,
+      atualizado_em: agora,
+      status_pre_correcao: pacote.status,
+      correcao_por_nome: user?.full_name || user?.email || null,
+      correcao_em: agora,
+    });
     if (error) return addToast('Falha ao solicitar correção: ' + error.message, 'error');
-    if (!data?.length) return addToast('Correção bloqueada pelas regras de acesso (0 linhas).', 'error');
+    if (semMarco) {
+      addToast('Correção enviada, mas falta rodar a migration 0102 — sem ela a emissão '
+             + 'corrigida não sabe para qual etapa voltar.', 'warning');
+    }
 
     // Marca o ciclo: as aprovações anteriores deixam de valer.
     const { error: errTrilha } = await registrarNaTrilha(supabase, {
@@ -1025,6 +1029,19 @@ export default function VisaoMaster() {
                         </button>
                       )}
 
+                      {/* Direcionar para qualquer etapa — só o master.
+                          Existe para os casos que o fluxo normal não cobre: a
+                          emissão que foi parar na etapa errada, a que precisa
+                          voltar para alguém específico. Sem isso, cada caso
+                          desses virava um UPDATE no banco, sem rastro. */}
+                      {profile?.role === 'master' && !['registrado', 'expedida', 'cancelada'].includes(statusLower) && (
+                        <button onClick={() => setDirecionando(pacote)}
+                          className="p-2 rounded-lg bg-slate-50 text-violet-500 hover:bg-violet-500/20 transition-all"
+                          title="Direcionar para outra etapa">
+                          <Route className="w-4 h-4" />
+                        </button>
+                      )}
+
                       {/* Solicitar correção */}
                       {statusLower !== 'registrado' && statusLower !== 'rascunho' && statusLower !== 'aprovado' && statusLower !== 'expedida' && (
                         <button onClick={() => handleRejeitar(pacote)} className="p-2 rounded-lg bg-slate-50 text-rose-400 hover:bg-rose-500/20 transition-all" title="Solicitar Correção">
@@ -1255,6 +1272,14 @@ export default function VisaoMaster() {
       )}
 
       {/* ═══ MODAL EXPEDIR MÊS ═══ */}
+      {direcionando && (
+        <ModalDirecionarEmissao
+          pacote={direcionando}
+          onFechar={() => setDirecionando(null)}
+          onPronto={() => fetchPacotes()}
+        />
+      )}
+
       {showFecharMesModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-8 shadow-2xl">

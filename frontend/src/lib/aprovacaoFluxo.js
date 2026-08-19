@@ -36,7 +36,10 @@ export function aprovacoesValidas(aprovacoes) {
       if (t > ultCorrecao) ultCorrecao = t;
     }
   }
-  return arr.filter(a => a.acao !== 'correcao' && new Date(a.criado_em).getTime() > ultCorrecao);
+  // Só 'aprovacao' conta como assinatura. Antes era "tudo que não é correcao",
+  // e isso transformaria qualquer ação nova da trilha — um direcionamento, por
+  // exemplo — em aprovação de quem a executou. Assinatura tem de ser explícita.
+  return arr.filter(a => a.acao === 'aprovacao' && new Date(a.criado_em).getTime() > ultCorrecao);
 }
 
 /**
@@ -147,4 +150,31 @@ export async function statusDeVoltaAposCorrecao(supabase, pacoteId) {
 
   if (error || !data?.length) return null;
   return PENDING_BY_ROLE[data[0].role] || null;
+}
+
+/**
+ * Grava o pedido de correção — e não quebra se a coluna do marco não existir.
+ *
+ * `status_pre_correcao` chegou na 0102. Enquanto a migration não roda, mandar
+ * esse campo faz o Postgres recusar o UPDATE INTEIRO (PGRST204), e o pedido de
+ * correção falha por completo — um campo novo derrubando uma função que
+ * funcionava.
+ *
+ * É a armadilha que o docs/ESQUEMA-BANCO.md descreve: código citando coluna que
+ * o banco ainda não tem. Aqui ela é tratada em vez de suposta — tenta com o
+ * marco, e se o banco disser que não conhece a coluna, repete sem ele.
+ *
+ * @returns {{ error: any, semMarco: boolean }}
+ */
+export async function pedirCorrecao(supabase, pacoteId, payload) {
+  const { error } = await supabase.from('emissoes_pacotes').update(payload).eq('id', pacoteId);
+  if (!error) return { error: null, semMarco: false };
+
+  const msg = String(error.message || '') + String(error.code || '');
+  const colunaFaltando = msg.includes('status_pre_correcao') || msg.includes('PGRST204');
+  if (!colunaFaltando) return { error, semMarco: false };
+
+  const { status_pre_correcao, ...semColuna } = payload;
+  const { error: err2 } = await supabase.from('emissoes_pacotes').update(semColuna).eq('id', pacoteId);
+  return { error: err2, semMarco: true };
 }
