@@ -476,8 +476,12 @@ export default function RegistroEmissoes({ profile }) {
                 const numArq = p.arquivos?.length || 0;
                 const ehCancelada = (p.status || '').toLowerCase() === 'cancelada';
                 return (
-                  <div key={p.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-4 items-center transition-colors ${
-                    ehCancelada ? 'bg-slate-50 hover:bg-slate-100' : 'hover:bg-slate-100'}`}>
+                  <div key={p.id} className={`relative grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-4 items-center transition-colors ${
+                    ehCancelada ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-100'}`}>
+                    {/* Tarja: a linha inteira precisa gritar "cancelada" antes
+                        de alguém ler o texto. Cor de fundo sozinha some numa
+                        lista longa. */}
+                    {ehCancelada && <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-rose-500" aria-hidden="true" />}
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
                         ehCancelada ? 'bg-slate-100 border-slate-300' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
@@ -490,6 +494,15 @@ export default function RegistroEmissoes({ profile }) {
                           ehCancelada ? 'text-slate-600' : 'text-slate-900'}`}>
                           {p.condominios?.name}
                           <SeloGrupo pacote={p} />
+                          {/* O mês entra no selo porque é a primeira pergunta
+                              de quem vê uma cancelada: "de qual mês?". A coluna
+                              de competência existe, mas fica longe do nome. */}
+                          {ehCancelada && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-rose-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                              <Ban className="w-3 h-3" aria-hidden="true" />
+                              Cancelada · {String(p.mes_referencia).padStart(2, '0')}/{p.ano_referencia}
+                            </span>
+                          )}
                         </p>
                         <p className="text-[10px] text-slate-500">1 emissão • {numArq} arquivo{numArq !== 1 ? 's' : ''}</p>
                         {/* O motivo é a razão de a emissão cancelada continuar
@@ -509,14 +522,24 @@ export default function RegistroEmissoes({ profile }) {
                         )}
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-violet-400">{String(p.mes_referencia).padStart(2,'0')}/{p.ano_referencia}</span>
+                    <span className={`text-sm font-bold ${ehCancelada ? 'text-rose-600' : 'text-violet-400'}`}>
+                      {String(p.mes_referencia).padStart(2,'0')}/{p.ano_referencia}
+                    </span>
                     <span className="text-xs text-slate-500">
                       {p.lacrada_em ? new Date(p.lacrada_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).replace(',', ' às') : '—'}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-semibold text-emerald-400  flex items-center gap-1">
-                        <Lock className="w-3 h-3" /> Expedida
-                      </span>
+                      {/* Era "Expedida" fixo — uma emissão cancelada apareceria
+                          como expedida, que é o contrário do que aconteceu. */}
+                      {ehCancelada ? (
+                        <span className="px-2 py-1 rounded-lg bg-rose-500/10 border border-rose-500/30 text-[9px] font-semibold text-rose-600 flex items-center gap-1">
+                          <Ban className="w-3 h-3" /> Cancelada
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-semibold text-emerald-400  flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> Expedida
+                        </span>
+                      )}
                       {p.eh_retificacao && (
                         <span className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[9px] font-semibold text-amber-400 ">Retif.</span>
                       )}
