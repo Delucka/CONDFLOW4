@@ -4,9 +4,10 @@ import { createClient } from '@/utils/supabase/client';
 import {
   CheckCircle, FileText, ExternalLink, Activity, Loader2, Trash2, Package, XCircle,
   User, ShieldCheck, Send, X, FileCheck, Building, Edit, ChevronLeft, ChevronRight,
-  Lock, Send as SendIcon, Rocket, Upload, AlertTriangle, BellRing, Route } from 'lucide-react';
+  Lock, Send as SendIcon, Rocket, Upload, AlertTriangle, BellRing, Route, Ban } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import ModalDirecionarEmissao from './ModalDirecionarEmissao';
+import ModalCancelarEmissao from './ModalCancelarEmissao';
 import { apiPost } from '@/lib/api';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { useToast } from '@/components/Toast';
@@ -70,6 +71,7 @@ export default function VisaoMaster() {
   };
   const [filtroAtivo, setFiltroAtivo] = useState(() => linkInicial().filtro);
   const [direcionando, setDirecionando] = useState(null);   // pacote a direcionar
+  const [cancelandoEmissao, setCancelandoEmissao] = useState(null);
   const [apenasMinhasPendencias, setApenasMinhasPendencias] = useState(false);
 
   // ── Mês ativo ─────────────────────────────────────────────────────────────
@@ -823,8 +825,15 @@ export default function VisaoMaster() {
                     {(statusLower === 'rascunho' || statusLower === 'solicitar_correcao') && (
                       <button onClick={() => handleConcluirRapido(pacote)} className={`${actBtn} bg-emerald-600 text-white`}><SendIcon className="w-3.5 h-3.5" /> Enviar</button>
                     )}
+                    {(pacote.status || '').toLowerCase() !== 'cancelada' && (
+                      <button onClick={() => setCancelandoEmissao(pacote)}
+                        className="ml-auto tap rounded-lg flex items-center justify-center bg-slate-50 text-slate-400"
+                        aria-label="Cancelar emissão">
+                        <Ban className="w-4 h-4" />
+                      </button>
+                    )}
                     <button onClick={(e) => handleDelete(e, pacote.id)}
-                      className={`ml-auto tap rounded-lg flex items-center justify-center ${confirmDeleteId === pacote.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-50 text-rose-400'}`}
+                      className={`tap rounded-lg flex items-center justify-center ${confirmDeleteId === pacote.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-50 text-rose-400'}`}
                       aria-label={confirmDeleteId === pacote.id ? 'Confirmar exclusão' : 'Excluir'}>
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1073,6 +1082,23 @@ export default function VisaoMaster() {
                       )}
                     </div>
 
+                    {/* Cancelar e excluir são coisas diferentes, e as duas
+                        continuam aqui.
+                        EXCLUIR apaga: serve para o pacote criado por engano, que
+                        não deveria ter existido.
+                        CANCELAR guarda: a emissão saiu errada, e o que ela tem
+                        — arquivos, trilha, o motivo — é o que explica o erro
+                        depois. Vale inclusive para emissão já registrada; a
+                        antiga fica como cancelada e uma nova nasce no lugar.
+                        Cancelamento é raro, então vem discreto ao lado. */}
+                    {statusLower !== 'cancelada' && (
+                      <button onClick={() => setCancelandoEmissao(pacote)}
+                        className="p-2 rounded-lg bg-slate-50 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-all"
+                        title="Cancelar emissão (guarda a antiga e abre uma nova)">
+                        <Ban className="w-4 h-4" />
+                      </button>
+                    )}
+
                     <button onClick={(e) => handleDelete(e, pacote.id)}
                       className={`p-2 rounded-lg transition-all ${confirmDeleteId === pacote.id ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-50 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10'}`}
                       title={confirmDeleteId === pacote.id ? 'Clique para confirmar' : 'Excluir'}>
@@ -1272,6 +1298,14 @@ export default function VisaoMaster() {
       )}
 
       {/* ═══ MODAL EXPEDIR MÊS ═══ */}
+      {cancelandoEmissao && (
+        <ModalCancelarEmissao
+          pacote={cancelandoEmissao}
+          onFechar={() => setCancelandoEmissao(null)}
+          onPronto={() => fetchPacotes()}
+        />
+      )}
+
       {direcionando && (
         <ModalDirecionarEmissao
           pacote={direcionando}

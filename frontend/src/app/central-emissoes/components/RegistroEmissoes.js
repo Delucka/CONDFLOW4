@@ -512,14 +512,22 @@ export default function RegistroEmissoes({ profile }) {
                           <RefreshCw className="w-4 h-4" />
                         </button>
                       )}
-                      {/* Cancelar, não excluir. Excluir apagava os arquivos, a
-                          trilha e o pacote — e é justamente o histórico do erro
-                          que se quer poder olhar depois. */}
+                      {/* Cancelar guarda, excluir apaga. As duas existem, e a
+                          diferença importa: cancelamento é raro e preserva o
+                          histórico do erro; exclusão é para o pacote criado por
+                          engano, que não deveria ter existido. */}
                       {canDelete && (p.status || '').toLowerCase() !== 'cancelada' && (
                         <button onClick={() => setCancelando(p)}
-                          className="p-2 rounded-lg border bg-slate-50 border-slate-200 text-rose-400/60 hover:text-rose-500 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all"
-                          title="Cancelar emissão">
+                          className="p-2 rounded-lg border bg-slate-50 border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all"
+                          title="Cancelar emissão (guarda a antiga e abre uma nova)">
                           <Ban className="w-4 h-4" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button onClick={() => handleDelete(p)}
+                          className={`p-2 rounded-lg border transition-all ${confirmDeleteId === p.id ? 'bg-rose-500 border-rose-500 text-white animate-pulse' : 'bg-slate-50 border-slate-200 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30'}`}
+                          title={confirmDeleteId === p.id ? 'Clique para confirmar' : 'Excluir emissão'}>
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
