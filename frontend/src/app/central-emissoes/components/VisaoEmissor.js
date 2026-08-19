@@ -17,6 +17,7 @@ import { mesVigente, anoVigente, mesFechado } from '@/lib/mesVigente';
 import { combina } from '@/lib/busca';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 import { podeRegistrar, anexarGrupos } from '@/lib/conjuntoEmissao';
+import { statusDeVoltaAposCorrecao } from '@/lib/aprovacaoFluxo';
 import SeloGrupo from './SeloGrupo';
 import TagPrioritario from '@/components/TagPrioritario';
 import ComparativoConsumo from './ComparativoConsumo';
@@ -1385,6 +1386,23 @@ export default function VisaoEmissor({ profile }) {
       nivel_aprovacao: String(nivelAprovacao),
       atualizado_em: new Date().toISOString(),
     };
+
+    // Correção corrigida volta para QUEM PEDIU, não para o começo do fluxo.
+    //
+    // O código acima recomeça o nível — e o nível vem do modal, não do pacote.
+    // Com o modal em 1, o gerente pedia correção, o emissor corrigia, e a
+    // emissão pulava direto para a supervisora de contabilidade. Quem apontou o
+    // erro nunca via se foi resolvido.
+    //
+    // O nível do pacote também é preservado: reenviar não é hora de mudar o
+    // fluxo de aprovação, é hora de responder a um apontamento.
+    if (ehRespostaCorrecao) {
+      const volta = await statusDeVoltaAposCorrecao(supabase, activePacote.id);
+      if (volta) {
+        updatePayload.status = volta;
+        delete updatePayload.nivel_aprovacao;
+      }
+    }
 
     // Upload da resposta de correcao se aplicavel
     if (ehRespostaCorrecao && respostaCorrecaoFile) {

@@ -105,9 +105,12 @@ export default function VisaoMaster() {
     [pacotes, mesAtivo, anoAtivo],
   );
 
-  // Pacotes ativos no painel = tudo do mês exceto as já expedidas (estado final)
+  // Pacotes ativos no painel = tudo do mês exceto os estados finais.
+  // 'cancelada' (0101) é final como 'expedida': a emissão foi descartada de
+  // propósito e não é trabalho pendente de ninguém. Contá-la faria o painel
+  // cobrar uma emissão que alguém já decidiu refazer.
   const pacotesAtivos = useMemo(
-    () => pacotesDoMes.filter(p => (p.status || '').toLowerCase() !== 'expedida'),
+    () => pacotesDoMes.filter(p => !['expedida', 'cancelada'].includes((p.status || '').toLowerCase())),
     [pacotesDoMes],
   );
 

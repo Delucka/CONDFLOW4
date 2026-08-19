@@ -20,6 +20,9 @@ const EMISSAO_STATUS = {
   'aprovado':                  { label: 'Aguardando registro',  classes: 'bg-violet-50 text-violet-700 border-violet-200',    dot: 'bg-violet-500' },
   'registrado':                { label: 'Registrada',           classes: 'bg-emerald-50 text-emerald-700 border-emerald-200',    dot: 'bg-emerald-500' },
   'expedida':                  { label: 'Expedida',             classes: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  // Cancelada (0101): estado final, como expedida — mas do outro lado. Cinza e
+  // não vermelho: cancelar é uma decisão tomada, não um alarme pendente.
+  'cancelada':                 { label: 'Cancelada',            classes: 'bg-slate-100 text-slate-600 border-slate-300',      dot: 'bg-slate-400' },
 };
 
 // Código de cores (uma regra só, para a lista de 300 linhas ser lida de relance):

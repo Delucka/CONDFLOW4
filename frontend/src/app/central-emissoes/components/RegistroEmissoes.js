@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import ModalCancelarEmissao from './ModalCancelarEmissao';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
-import { Archive, Search, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, FileText, AlertTriangle, Loader2, Building, Download, FileDown, Trash2 } from 'lucide-react';
+import { Archive, Search, Eye, RefreshCw, ChevronLeft, ChevronRight, X, Lock, FileText, AlertTriangle, Loader2, Building, Download, FileDown, Trash2, Ban } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
@@ -54,7 +55,10 @@ export default function RegistroEmissoes({ profile }) {
       let query = supabase
         .from('emissoes_pacotes')
         .select('*, condominios(name)')
-        .or('status.eq.expedida,and(status.eq.registrado,lacrada.eq.true)')
+        // 'cancelada' entra aqui (0101): a emissão cancelada precisa ficar
+        // VISÍVEL, com o motivo, senão cancelar volta a ser o mesmo que apagar
+        // — e o erro que motivou o cancelamento se perde.
+        .or('status.eq.expedida,status.eq.cancelada,and(status.eq.registrado,lacrada.eq.true)')
         .order('lacrada_em', { ascending: false });
 
       // Gerentes veem apenas os condomínios da sua carteira
@@ -156,6 +160,7 @@ export default function RegistroEmissoes({ profile }) {
   const canRetif = ['master', 'departamento'].includes(profile?.role);
   const canDelete = profile?.role === 'master';
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [cancelando, setCancelando] = useState(null);   // pacote a cancelar
 
   async function handleDelete(pacote) {
     if (confirmDeleteId !== pacote.id) {
@@ -443,18 +448,39 @@ export default function RegistroEmissoes({ profile }) {
             <div className="divide-y divide-slate-200">
               {pacotesPaginados.map(p => {
                 const numArq = p.arquivos?.length || 0;
+                const ehCancelada = (p.status || '').toLowerCase() === 'cancelada';
                 return (
-                  <div key={p.id} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-4 items-center hover:bg-slate-100 transition-colors">
+                  <div key={p.id} className={`grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-4 items-center transition-colors ${
+                    ehCancelada ? 'bg-slate-50 hover:bg-slate-100' : 'hover:bg-slate-100'}`}>
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                        <Building className="w-4 h-4 text-emerald-400" />
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
+                        ehCancelada ? 'bg-slate-100 border-slate-300' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+                        {ehCancelada
+                          ? <Ban className="w-4 h-4 text-slate-500" />
+                          : <Building className="w-4 h-4 text-emerald-400" />}
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-900 text-sm flex items-center gap-2 flex-wrap">
+                      <div className="min-w-0">
+                        <p className={`font-bold text-sm flex items-center gap-2 flex-wrap ${
+                          ehCancelada ? 'text-slate-600' : 'text-slate-900'}`}>
                           {p.condominios?.name}
                           <SeloGrupo pacote={p} />
                         </p>
                         <p className="text-[10px] text-slate-500">1 emissão • {numArq} arquivo{numArq !== 1 ? 's' : ''}</p>
+                        {/* O motivo é a razão de a emissão cancelada continuar
+                            aqui: sem ele, cancelar seria o mesmo que apagar. */}
+                        {ehCancelada && p.cancelamento_motivo && (
+                          <p className="mt-1 text-[11px] text-slate-600 border-l-2 border-slate-300 pl-2">
+                            <span className="font-semibold">Cancelada</span>
+                            {p.cancelada_por_nome ? ` por ${p.cancelada_por_nome}` : ''}
+                            {p.cancelada_em ? ` em ${new Date(p.cancelada_em).toLocaleDateString('pt-BR')}` : ''}
+                            : {p.cancelamento_motivo}
+                            {p.substituida_por && (
+                              <span className="block text-[10px] text-violet-600">
+                                uma nova emissão foi aberta no lugar
+                              </span>
+                            )}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <span className="text-sm font-bold text-violet-400">{String(p.mes_referencia).padStart(2,'0')}/{p.ano_referencia}</span>
@@ -486,11 +512,14 @@ export default function RegistroEmissoes({ profile }) {
                           <RefreshCw className="w-4 h-4" />
                         </button>
                       )}
-                      {canDelete && (
-                        <button onClick={() => handleDelete(p)}
-                          className={`p-2 rounded-lg border transition-all ${confirmDeleteId === p.id ? 'bg-rose-500 border-rose-500 text-white animate-pulse' : 'bg-slate-50 border-slate-200 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30'}`}
-                          title={confirmDeleteId === p.id ? 'Clique para confirmar' : 'Excluir emissão'}>
-                          <Trash2 className="w-4 h-4" />
+                      {/* Cancelar, não excluir. Excluir apagava os arquivos, a
+                          trilha e o pacote — e é justamente o histórico do erro
+                          que se quer poder olhar depois. */}
+                      {canDelete && (p.status || '').toLowerCase() !== 'cancelada' && (
+                        <button onClick={() => setCancelando(p)}
+                          className="p-2 rounded-lg border bg-slate-50 border-slate-200 text-rose-400/60 hover:text-rose-500 hover:bg-rose-500/10 hover:border-rose-500/30 transition-all"
+                          title="Cancelar emissão">
+                          <Ban className="w-4 h-4" />
                         </button>
                       )}
                     </div>
@@ -683,6 +712,14 @@ export default function RegistroEmissoes({ profile }) {
       )}
 
       {/* ═══ OVERLAY DE PROGRESSO DA EXTRAÇÃO ═══ */}
+      {cancelando && (
+        <ModalCancelarEmissao
+          pacote={cancelando}
+          onFechar={() => setCancelando(null)}
+          onPronto={() => fetchRegistradas()}
+        />
+      )}
+
       {extraindo && extProg && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 shadow-2xl text-center max-w-xs">

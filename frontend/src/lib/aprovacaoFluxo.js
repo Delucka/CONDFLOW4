@@ -104,3 +104,34 @@ export async function proximoStatusAprovacao(supabase, pacoteId, nivel, userRole
   if (faltam.length === 0) return 'aprovado';
   return PENDING_BY_ROLE[faltam[0]] || 'pendente_sup_contabilidade';
 }
+
+/**
+ * Para quem a emissão volta depois de corrigida: quem PEDIU a correção.
+ *
+ * O fluxo antigo recomeçava do início do nível — e o nível vinha do modal, não
+ * do pacote. Resultado: o gerente pedia correção, o emissor corrigia, e a
+ * emissão ia parar na supervisora de contabilidade sem passar pelo gerente. A
+ * pessoa que apontou o erro nunca via se ele foi resolvido.
+ *
+ * Quem pediu a correção é o primeiro a reconferir. Os demais vêm depois, na
+ * ordem normal, porque `aprovacoesValidas()` já anula as assinaturas anteriores
+ * à correção — ninguém "herda" uma aprovação dada antes do erro.
+ *
+ * @returns {string|null} status de espera, ou null quando não há correção na
+ *                        trilha (aí o chamador segue o caminho normal)
+ */
+export async function statusDeVoltaAposCorrecao(supabase, pacoteId) {
+  const { data, error } = await supabase
+    .from('emissoes_pacotes_aprovacoes')
+    .select('role, acao, criado_em')
+    .eq('pacote_id', pacoteId)
+    .eq('acao', 'correcao')
+    .order('criado_em', { ascending: false })
+    .limit(1);
+
+  if (error || !data?.length) return null;
+  const role = data[0].role;
+  // Correção pedida por quem não é aprovador (master, emissão) não define
+  // volta: nesse caso o caminho normal do nível é o certo.
+  return PENDING_BY_ROLE[role] || null;
+}
