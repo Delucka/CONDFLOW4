@@ -23,6 +23,7 @@ export default function RegistroEmissoes({ profile }) {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
   const [competencia, setCompetencia] = useState('');
+  const [situacao, setSituacao] = useState('todas');   // todas | registradas | canceladas
   const [pagina, setPagina] = useState(1);
   const ITENS_POR_PAGINA = 10;
 
@@ -59,7 +60,11 @@ export default function RegistroEmissoes({ profile }) {
         // VISÍVEL, com o motivo, senão cancelar volta a ser o mesmo que apagar
         // — e o erro que motivou o cancelamento se perde.
         .or('status.eq.expedida,status.eq.cancelada,and(status.eq.registrado,lacrada.eq.true)')
-        .order('lacrada_em', { ascending: false });
+        // nullsFirst: false — emissão cancelada que nunca foi lacrada tem
+        // `lacrada_em` vazio, e no Postgres DESC joga nulo para o TOPO. Sem
+        // isto, cancelar uma emissão a colocaria acima de tudo que foi
+        // registrado de verdade.
+        .order('lacrada_em', { ascending: false, nullsFirst: false });
 
       // Gerentes veem apenas os condomínios da sua carteira
       if (profile?.role === 'gerente') {
@@ -150,9 +155,19 @@ export default function RegistroEmissoes({ profile }) {
         const [mes, ano] = competencia.split('/');
         if (String(p.mes_referencia).padStart(2,'0') !== mes || String(p.ano_referencia) !== ano) return false;
       }
+      // Cancelada é rara e some no meio das registradas. Sem um filtro, achar
+      // "aquela que foi cancelada mês passado" vira rolagem.
+      const ehCanc = (p.status || '').toLowerCase() === 'cancelada';
+      if (situacao === 'canceladas' && !ehCanc) return false;
+      if (situacao === 'registradas' && ehCanc) return false;
       return true;
     });
-  }, [pacotes, busca, competencia]);
+  }, [pacotes, busca, competencia, situacao]);
+
+  const totalCanceladas = useMemo(
+    () => pacotes.filter(p => (p.status || '').toLowerCase() === 'cancelada').length,
+    [pacotes],
+  );
 
   const totalPaginas = Math.ceil(pacotesFiltrados.length / ITENS_POR_PAGINA);
   const pacotesPaginados = pacotesFiltrados.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA);
@@ -394,6 +409,17 @@ export default function RegistroEmissoes({ profile }) {
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-500 transition-all appearance-none">
               <option value="" className="bg-white">Todas</option>
               {competenciasDisponiveis.map(c => <option key={c} value={c} className="bg-white">{c}</option>)}
+            </select>
+          </div>
+          <div className="min-w-[160px]">
+            <label className="block text-[10px] font-semibold text-slate-500 mb-2">Situação</label>
+            <select value={situacao} onChange={e => { setSituacao(e.target.value); setPagina(1); }}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-500 transition-all appearance-none">
+              <option value="todas" className="bg-white">Todas</option>
+              <option value="registradas" className="bg-white">Só registradas</option>
+              <option value="canceladas" className="bg-white">
+                Só canceladas{totalCanceladas ? ` (${totalCanceladas})` : ''}
+              </option>
             </select>
           </div>
           {temFiltros && (
