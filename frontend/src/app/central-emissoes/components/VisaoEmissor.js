@@ -19,6 +19,7 @@ import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 import { podeRegistrar, anexarGrupos } from '@/lib/conjuntoEmissao';
 import { statusDeVoltaAposCorrecao } from '@/lib/aprovacaoFluxo';
 import SeloGrupo from './SeloGrupo';
+import SeloCancelada from '@/components/SeloCancelada';
 import TagPrioritario from '@/components/TagPrioritario';
 import ComparativoConsumo from './ComparativoConsumo';
 import FaturaInlineForm from './FaturaInlineForm';
@@ -2440,6 +2441,11 @@ export default function VisaoEmissor({ profile }) {
                                 <SeloGrupo pacote={p} />
                                 <span className="text-[10px] font-bold text-slate-500">{p.numArquivos || 0} arquivo{(p.numArquivos || 0) !== 1 ? 's' : ''}</span>
                                 <StatusBadge status={p.status} />
+                                {/* Motivo curto na linha; o texto inteiro no title.
+                                    Quem vai anexar precisa saber que aquela
+                                    emissão foi descartada ANTES de subir arquivo
+                                    nela. */}
+                                <SeloCancelada pacote={p} mostrarMotivo={false} />
                                 {((p.status || '').toLowerCase() === 'rascunho' || (p.status || '').toLowerCase() === 'solicitar_correcao') && (
                                   <button
                                     onClick={() => handleConcluirRapido(p)}

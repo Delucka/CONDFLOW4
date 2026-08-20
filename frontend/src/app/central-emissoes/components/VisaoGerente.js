@@ -7,6 +7,7 @@ import TrilhaAprovacao from '@/components/TrilhaAprovacao';
 import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou, pedirCorrecao } from '@/lib/aprovacaoFluxo';
 import { devolverConjunto, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
+import SeloCancelada from '@/components/SeloCancelada';
 import ComparativoConsumo from './ComparativoConsumo';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
@@ -377,6 +378,10 @@ export default function VisaoGerente({ profile }) {
                     <div className="min-w-0">
                       <h4 className="font-semibold text-slate-900 text-sm truncate">{pacote.condominios?.name || '—'}</h4>
                       <SeloGrupo pacote={pacote} className="my-1" />
+                      {/* Quem aprova precisa ver o cancelamento e o motivo: sem
+                          isso, olharia uma emissão descartada como se ainda
+                          estivesse em jogo. */}
+                      <SeloCancelada pacote={pacote} className="my-1" />
                       <p className="text-[10px] font-bold text-violet-400 ">
                         {String(pacote.mes_referencia).padStart(2, '0')}/{pacote.ano_referencia}
                         {' • '}{numArquivos} arquivo{numArquivos !== 1 ? 's' : ''}

@@ -22,6 +22,7 @@ import { useToast } from '@/components/Toast';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { anexarGrupos } from '@/lib/conjuntoEmissao';
 import StatusBadge from '@/app/central-emissoes/components/StatusBadge';
+import SeloCancelada from '@/components/SeloCancelada';
 import {
   FileText, Download, Calendar, Building2, Loader2, Inbox, ExternalLink, Archive,
 } from 'lucide-react';
@@ -69,7 +70,11 @@ export default function CondominioEmissoesPage() {
 
         const { data: pacs, error } = await supabase
           .from('emissoes_pacotes')
-          .select('id, mes_referencia, ano_referencia, status, grupo_id, criado_em, lacrada_em')
+          // As colunas do cancelamento vêm junto: sem elas o selo apareceria sem o
+          // motivo, e é justamente o motivo que faz a emissão cancelada valer a
+          // pena continuar no histórico.
+          .select('id, mes_referencia, ano_referencia, status, grupo_id, criado_em, lacrada_em, '
+                + 'cancelamento_motivo, cancelada_por_nome, cancelada_em, substituida_por')
           .eq('condominio_id', condoId)
           .order('ano_referencia', { ascending: false })
           .order('mes_referencia', { ascending: false });
@@ -208,6 +213,9 @@ export default function CondominioEmissoesPage() {
                     )}
 
                     <StatusBadge status={p.status} />
+                    {/* No histórico é onde se vai procurar "o que aconteceu
+                        naquele mês" — o motivo tem de estar aqui. */}
+                    <SeloCancelada pacote={p} />
 
                     <span className="text-[11px] text-slate-500">
                       {p.arquivos.length} arquivo{p.arquivos.length !== 1 ? 's' : ''}
