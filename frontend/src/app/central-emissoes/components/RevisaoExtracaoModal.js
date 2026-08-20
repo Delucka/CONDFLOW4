@@ -179,7 +179,7 @@ export default function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
             <>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tipo de serviço</label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
+                <div className="grid grid-cols-3 gap-2 mt-1">
                   <button type="button" onClick={() => setTipoServico('agua')}
                     className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${tipoServico === 'agua' ? 'bg-violet-500/20 border-violet-500/50 text-violet-300' : 'bg-slate-100 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
                     💧 Água
@@ -187,6 +187,13 @@ export default function RevisaoExtracaoModal({ info, onCancel, onConfirm }) {
                   <button type="button" onClick={() => setTipoServico('gas')}
                     className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${tipoServico === 'gas' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' : 'bg-slate-100 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
                     🔥 Gás
+                  </button>
+                  <button type="button" onClick={() => setTipoServico('energia')}
+
+                    className={`py-2 rounded-lg text-xs font-black uppercase tracking-widest border transition-all ${tipoServico === 'energia' ? 'bg-violet-500/20 border-violet-500/50 text-violet-300' : 'bg-slate-100 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+
+                    ⚡ Energia
+
                   </button>
                 </div>
               </div>

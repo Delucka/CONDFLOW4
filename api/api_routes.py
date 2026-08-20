@@ -1637,9 +1637,11 @@ def _consumos_do_pacote(db: Client, pacote_id: str, detalhe: bool = False):
     for a in arqs:
         cat = a.get('categoria')
         if cat == 'relatorio_leitura':
-            ts = (a.get('relatorio_tipo_servico') or '').lower()
+            ts = _norm_txt(a.get('relatorio_tipo_servico'))
             v = float(a.get('relatorio_valor_total') or 0)
-            serv = 'gas' if 'gas' in ts or 'gás' in ts else 'agua'
+            # Mesma regra de _servico_do_arquivo: energia tem verba própria e
+            # não pode cair em água.
+            serv = 'gas' if 'GAS' in ts else ('energia' if ('ENERGIA' in ts or 'ELETRIC' in ts or 'LUZ' in ts) else 'agua')
             rel[serv] += v
             if v: origem[serv].append({"nome": a.get('arquivo_nome'), "valor": v, "tipo": "relatorio"})
         elif cat == 'concessionaria':
@@ -1700,8 +1702,15 @@ def api_consumos_planilha_preview(condo_id: str, pacote_id: str, mes: int, ano: 
 
     def _servico_do_arquivo(a):
         if a.get("categoria") == "relatorio_leitura":
-            ts = (a.get("relatorio_tipo_servico") or "").lower()
-            return "gas" if ("gas" in ts or "gás" in ts) else "agua"
+            # Era `gas se tiver "gas", senao agua` — um relatorio de ENERGIA
+            # caia em agua e o valor ia para a verba errada, calado. Condominio
+            # com "consumo de energia (nr)" mostra isso na hora.
+            ts = _norm_txt(a.get("relatorio_tipo_servico"))
+            if "GAS" in ts:
+                return "gas"
+            if "ENERGIA" in ts or "ELETRIC" in ts or "LUZ" in ts:
+                return "energia"
+            return "agua"
         st = _norm_txt(a.get("subtipo"))
         if "SABESP" in st:
             return "agua"

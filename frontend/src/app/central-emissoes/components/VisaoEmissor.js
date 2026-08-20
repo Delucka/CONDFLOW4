@@ -888,8 +888,15 @@ export default function VisaoEmissor({ profile }) {
       await fetchArquivosDoPacote(activePacote.id);
       fetchPacotes();
 
-      // Relatório de leitura já vem com valor → oferece preencher a planilha
-      if (categoria === 'relatorio_leitura') oferecerPreenchimentoConsumos();
+      // Relatório de leitura já vem com valor → oferece preencher a planilha.
+      //
+      // A fatura de concessionária também entra: quando o condomínio tem mais
+      // de uma verba do mesmo serviço (água do R e do NR, energia das lojas), é
+      // aqui que a tela pergunta em qual delas o valor entra. Sem isso, a
+      // pergunta só apareceria na próxima vez que alguém abrisse a prévia.
+      if (['relatorio_leitura', 'concessionaria'].includes(categoria)) {
+        oferecerPreenchimentoConsumos();
+      }
 
       // Para concessionaria: ja deixa o form de dados aberto pra preencher
       if (categoria === 'concessionaria' && inserted?.id) {
