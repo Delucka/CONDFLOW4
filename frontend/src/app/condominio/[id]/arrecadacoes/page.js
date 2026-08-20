@@ -1664,29 +1664,59 @@ export default function ArrecadacoesPage() {
                          </button>
                      </div>
                      
-                     {/* GRUPO — só aparece quando o condomínio tem mais de um */}
-                     {grupos.length > 1 && (
-                       <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                         <label htmlFor="verba-grupo" className="text-xs font-medium text-slate-600 block mb-1.5">
-                           Grupo de emissão
-                         </label>
-                         <select
-                           id="verba-grupo"
-                           value={r.grupo_id || (grupos[0]?.id ?? '')}
-                           onChange={e => handleRateioChange(r.id, 'grupo_id', e.target.value)}
-                           className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500 cursor-pointer"
-                         >
-                           {grupos.map(g => (
-                             <option key={g.id} value={g.id}>
-                               {g.nome}{g.due_day ? ` — vence dia ${g.due_day}` : ''}
-                             </option>
-                           ))}
-                         </select>
-                         <p className="text-xs text-slate-400 mt-1.5">
-                           Define em qual vencimento esta verba entra, e em qual emissão ela sai.
+                     {/* GRUPO — aparece SEMPRE.
+                         Antes só com dois grupos ou mais, e isso criava um beco:
+                         quem vinha aqui separar as verbas em blocos não achava a
+                         opção, porque ela só nasce depois do segundo grupo
+                         existir. A opção de criar o grupo passa a estar no mesmo
+                         lugar onde a pessoa foi procurar. */}
+                     <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                       <label htmlFor="verba-grupo" className="text-xs font-medium text-slate-600 block mb-1.5">
+                         Grupo de emissão
+                       </label>
+                       {grupos.length > 0 ? (
+                         <div className="flex gap-2">
+                           <select
+                             id="verba-grupo"
+                             value={r.grupo_id || (grupos[0]?.id ?? '')}
+                             onChange={e => handleRateioChange(r.id, 'grupo_id', e.target.value)}
+                             className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-violet-500 cursor-pointer"
+                           >
+                             {grupos.map(g => (
+                               <option key={g.id} value={g.id}>
+                                 {g.nome}{g.due_day ? ` — vence dia ${g.due_day}` : ''}
+                               </option>
+                             ))}
+                           </select>
+                           {canEdit && (
+                             <button
+                               type="button"
+                               onClick={() => { setEditingRateioId(null); setEditandoGrupo({ id: null, nome: '', due_day: '' }); }}
+                               title="Criar um novo grupo (bloco / vencimento separado)"
+                               className="shrink-0 rounded-lg border border-violet-300 bg-white px-3 py-2.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-50"
+                             >
+                               + Novo
+                             </button>
+                           )}
+                         </div>
+                       ) : (
+                         <p className="text-xs text-slate-500">
+                           Este condomínio ainda não tem grupo de emissão.{' '}
+                           {canEdit && (
+                             <button type="button"
+                               onClick={() => { setEditingRateioId(null); setEditandoGrupo({ id: null, nome: '', due_day: '' }); }}
+                               className="font-bold text-violet-700 underline decoration-dotted">
+                               Criar o primeiro
+                             </button>
+                           )}
                          </p>
-                       </div>
-                     )}
+                       )}
+                       <p className="text-xs text-slate-400 mt-1.5">
+                         {grupos.length > 1
+                           ? 'Define em qual vencimento esta verba entra, e em qual emissão ela sai.'
+                           : 'Com um grupo só, todas as verbas saem juntas. Crie outro para separar bloco ou vencimento.'}
+                       </p>
+                     </div>
 
                      <div className="grid grid-cols-12 gap-6 mb-6">
                          {/* CONTA CONTABIL */}
