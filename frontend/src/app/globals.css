@@ -210,6 +210,22 @@ html.dark {
 .dark .border-slate-200 { border-color: var(--color-border-default) !important; }
 .dark .border-slate-300 { border-color: var(--color-border-strong) !important; }
 
+/* Bordas herdadas do design escuro ANTIGO.
+   
+   Quando o fundo era #0b1120, `border-slate-700` (#334155) era uma borda
+   discreta. Com a base grafite (#16181d nos cartões), #334155 passou a ser MAIS
+   CLARO que o fundo — e uma borda mais clara que a superfície lê como contorno
+   branco. São 51 lugares no app, e nenhum estava coberto: o remapeamento
+   cuidava só das bordas do tema claro (100/200/300).
+
+   Valor literal, não var(): medindo no navegador, um input com a borda vinda de
+   `var(--color-border-default)` resolveu para o valor CLARO mesmo com o token
+   escuro correto no próprio elemento. Não consegui explicar o mecanismo, e num
+   caso assim o literal é o que não depende de explicação. */
+.dark .border-slate-500 { border-color: #3f4550 !important; }
+.dark .border-slate-600 { border-color: #2e323b !important; }
+.dark .border-slate-700 { border-color: #2e323b !important; }
+
 /* Fundos suaves de acento (claros → tingidos escuros) */
 .dark .bg-violet-50  { background-color: rgba(91,141,239,.13) !important; }
 .dark .bg-emerald-50 { background-color: rgba(16,185,129,.12) !important; }
