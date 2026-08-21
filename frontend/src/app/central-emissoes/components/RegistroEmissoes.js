@@ -60,10 +60,11 @@ export default function RegistroEmissoes({ profile }) {
         // VISÍVEL, com o motivo, senão cancelar volta a ser o mesmo que apagar
         // — e o erro que motivou o cancelamento se perde.
         .or('status.eq.expedida,status.eq.cancelada,and(status.eq.registrado,lacrada.eq.true)')
-        // nullsFirst: false — emissão cancelada que nunca foi lacrada tem
-        // `lacrada_em` vazio, e no Postgres DESC joga nulo para o TOPO. Sem
-        // isto, cancelar uma emissão a colocaria acima de tudo que foi
-        // registrado de verdade.
+        // A ordenação de verdade é feita no cliente (ver `ordenarPorData`
+        // abaixo): emissão cancelada pode não ter `lacrada_em`, e ordenar só
+        // por ela empurra a cancelada para uma das pontas — no topo se os nulos
+        // vierem primeiro, na ÚLTIMA PÁGINA se vierem por último. Nas duas
+        // formas, a linha que a pessoa procura não está onde ela olha.
         .order('lacrada_em', { ascending: false, nullsFirst: false });
 
       // Gerentes veem apenas os condomínios da sua carteira
@@ -87,6 +88,12 @@ export default function RegistroEmissoes({ profile }) {
       const { data, error } = await query;
 
       if (error) { addToast('Erro ao carregar registros: ' + error.message, 'error'); return; }
+
+      // Cada linha tem a SUA data: a expedida foi lacrada, a cancelada foi
+      // cancelada. Ordenar pelas duas juntas põe cada uma no lugar cronológico
+      // certo — que é onde alguém procura "o que aconteceu esta semana".
+      const quando = (p) => p.cancelada_em || p.lacrada_em || p.atualizado_em || p.criado_em || '';
+      (data || []).sort((a, b) => String(quando(b)).localeCompare(String(quando(a))));
 
       // Buscar arquivos
       const ids = (data || []).map(p => p.id);
