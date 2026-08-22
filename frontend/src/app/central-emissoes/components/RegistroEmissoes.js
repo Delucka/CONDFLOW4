@@ -532,8 +532,17 @@ export default function RegistroEmissoes({ profile }) {
                     <span className={`text-sm font-bold ${ehCancelada ? 'text-rose-600' : 'text-violet-400'}`}>
                       {String(p.mes_referencia).padStart(2,'0')}/{p.ano_referencia}
                     </span>
+                    {/* A coluna é "Expedida em", e a cancelada tem lacre antigo:
+                        mostrar essa data crua fazia a linha exibir 17/08 ao
+                        lado de um cancelamento do dia 18 — e é pela data do
+                        cancelamento que a lista está ordenada. */}
                     <span className="text-xs text-slate-500">
-                      {p.lacrada_em ? new Date(p.lacrada_em).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).replace(',', ' às') : '—'}
+                      {(() => {
+                        const dt = ehCancelada ? (p.cancelada_em || p.lacrada_em) : p.lacrada_em;
+                        if (!dt) return '—';
+                        const txt = new Date(dt).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }).replace(',', ' às');
+                        return ehCancelada ? <>cancelada em<br />{txt}</> : txt;
+                      })()}
                     </span>
                     <div className="flex items-center gap-2">
                       {/* Era "Expedida" fixo — uma emissão cancelada apareceria
