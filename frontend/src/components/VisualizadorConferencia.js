@@ -676,7 +676,22 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             <Droplet className="w-3.5 h-3.5 text-violet-500" aria-hidden="true" />
             Conferência de consumos
           </span>
-          {SERVICOS_CONF.map(({ id, rotulo }) => {
+          {/* Fora do modo, um botão só. O seletor de serviço aparece depois de
+              entrar — escolher água ou gás antes de ver a tela dividida é pedir
+              uma decisão sobre algo que ainda não está na frente da pessoa. */}
+          {!servicoPar && (
+            <button type="button"
+              onClick={() => {
+                const primeiro = SERVICOS_CONF
+                  .map(x => x.id)
+                  .find(id => paresConsumo[id].faturas.length + paresConsumo[id].relatorios.length > 0);
+                if (primeiro) { setServicoPar(primeiro); setFaturaIdx(0); }
+              }}
+              className="rounded-lg border border-violet-400 bg-violet-500/10 px-3 py-1 text-[11px] font-bold text-violet-700 transition-colors hover:bg-violet-500/20">
+              Abrir lado a lado
+            </button>
+          )}
+          {servicoPar && SERVICOS_CONF.map(({ id, rotulo }) => {
             const par = paresConsumo[id];
             const n = par.faturas.length + par.relatorios.length;
             const ativo = servicoPar === id;
@@ -704,7 +719,11 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       )}
 
       {/* Split view */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden">
+      {/* No modo pareado a área do documento fica com a largura inteira: dois
+          PDFs dentro de 1.3fr davam meia coluna a cada um, e fatura de água
+          nesse tamanho não se lê. A lateral volta ao sair do modo. */}
+      <div className={`flex-1 min-h-0 grid grid-cols-1 gap-3 p-3 overflow-auto lg:overflow-hidden ${
+        servicoPar ? '' : 'lg:grid-cols-[1.3fr_1fr]'}`}>
 
         {/* PDF - um documento, ou o par de consumos lado a lado */}
         <div className={`flex flex-col relative min-h-[60vh] lg:min-h-0 ${servicoPar ? '' : 'bg-white border border-slate-800 rounded-xl overflow-hidden'} ${isMobile && abaAtiva !== 'doc' ? 'hidden' : ''}`}>
@@ -715,7 +734,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
           )}
 
           {servicoPar ? (
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-2">
               {/* Relatório de leitura */}
               <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-800 bg-white">
                 <div className="shrink-0 border-b border-slate-200 px-3 py-2">
@@ -809,7 +828,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
 
         {/* Painel lateral - usa flex height, nao calc() */}
-        <div className={`flex flex-col gap-3 pr-2 conf-scroll min-h-0 lg:h-full lg:overflow-y-auto overflow-x-hidden ${isMobile && abaAtiva === 'doc' ? 'hidden' : ''}`}>
+        <div className={`flex flex-col gap-3 pr-2 conf-scroll min-h-0 lg:h-full lg:overflow-y-auto overflow-x-hidden ${servicoPar ? 'hidden' : ''} ${isMobile && abaAtiva === 'doc' ? 'hidden' : ''}`}>
 
           {/* Observações do condomínio — clique para abrir e conferir */}
           <div className={`bg-white border border-slate-800 rounded-xl overflow-hidden shrink-0 ${isMobile && abaAtiva !== 'planilha' ? 'hidden' : ''}`}>
