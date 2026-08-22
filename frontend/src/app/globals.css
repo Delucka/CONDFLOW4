@@ -499,3 +499,11 @@ html.dark {
    Uma regra no container evita repetir `relative` em cada filho. */
 .tem-marca-dagua > *                        { position: relative; }
 .tem-marca-dagua > .marca-dagua-cancelada   { position: absolute; }
+
+/* Faixa de progresso da troca de documento no visualizador.
+   Substitui a cortina branca que cobria o PDF: ela apagava o que a pessoa
+   estava lendo, o clique parecia não ter pego, e vinha o segundo clique. */
+@keyframes barra {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}

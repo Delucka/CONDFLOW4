@@ -51,6 +51,58 @@ const SERVICOS_CONF = [
 const brl = (v) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dataBr = (d) => (d ? new Date(String(d).length <= 10 ? d + 'T00:00:00' : d).toLocaleDateString('pt-BR') : null);
 
+/**
+ * Um PDF que troca sem piscar.
+ *
+ * Trocar o `src` de um iframe descarrega o documento antigo ANTES de o novo
+ * chegar: a tela fica branca por um instante, e quem estava lendo acha que o
+ * clique não pegou e clica de novo — o que troca duas vezes e piora.
+ *
+ * Aqui existem dois iframes. O novo documento carrega no que está invisível e
+ * só vira o visível depois do `onLoad`. O antigo continua na tela até lá, então
+ * nunca há um quadro em branco. O `src` de cada iframe nunca muda depois de
+ * definido — se mudasse, o próprio elemento recarregaria e a piscada voltaria.
+ */
+function PdfSuave({ url, title }) {
+  const [slots, setSlots] = useState([url || null, null]);
+  const [ativo, setAtivo] = useState(0);
+  const [trocando, setTrocando] = useState(false);
+
+  useEffect(() => {
+    if (!url || url === slots[ativo]) { setTrocando(false); return; }
+    const outro = ativo === 0 ? 1 : 0;
+    setTrocando(true);
+    setSlots((s) => { const n = [...s]; n[outro] = url; return n; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]);
+
+  function aoCarregar(i) {
+    if (i === ativo) { setTrocando(false); return; }
+    if (slots[i] === url) { setAtivo(i); setTrocando(false); }
+  }
+
+  return (
+    <div className="relative h-full w-full bg-white">
+      {[0, 1].map((i) => (slots[i] ? (
+        <iframe
+          key={i}
+          src={slots[i]}
+          title={title || 'Documento'}
+          onLoad={() => aoCarregar(i)}
+          className={`absolute inset-0 h-full w-full bg-white ${
+            i === ativo ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        />
+      ) : null))}
+      {/* Sinal de que algo está vindo, sem tapar o que se está lendo. */}
+      {trocando && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-violet-500/20">
+          <div className="h-full w-1/3 animate-[barra_1s_ease-in-out_infinite] bg-violet-500" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function VisualizadorConferencia({ arquivo, arquivos = [], currentUser, onClose, onAction }) {
   const { addToast } = useToast();
   const supabase = createClient();
@@ -332,6 +384,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const hasNext = currentIndex >= 0 && currentIndex < docList.length - 1;
 
   async function openArquivo(a) {
+    if (loadingFile) return;
     setLoadingFile(true);
     try {
       const path = a.arquivo_url || a.path;
@@ -417,6 +470,11 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   }, [hasNext, hasPrev, currentIndex, docList, loadingFile]);
 
   async function handleNavigate(direction) {
+    // Reentrada: o botão fica desabilitado enquanto carrega, mas a seta do
+    // teclado repete sozinha se a tecla ficar presa, e dois pedidos em voo
+    // fazem o segundo terminar depois do primeiro — abrindo o documento
+    // errado. Uma trava aqui é mais barata do que descobrir isso depois.
+    if (loadingFile) return;
     const nextIndex = currentIndex + direction;
     if (nextIndex < 0 || nextIndex >= docList.length) return;
 
@@ -727,9 +785,14 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
         {/* PDF - um documento, ou o par de consumos lado a lado */}
         <div className={`flex flex-col relative min-h-[60vh] lg:min-h-0 ${servicoPar ? '' : 'bg-white border border-slate-800 rounded-xl overflow-hidden'} ${isMobile && abaAtiva !== 'doc' ? 'hidden' : ''}`}>
+          {/* Era uma cortina branca sobre o documento inteiro enquanto a URL
+              assinada era buscada. Como ela apagava o que estava na tela, o
+              clique parecia não ter pego — e a pessoa clicava de novo. Agora é
+              um selo no canto: avisa sem esconder. */}
           {(loadingFile || carregandoPar) && (
-            <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm flex items-center justify-center">
-              <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+            <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-lg bg-slate-900/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+              abrindo
             </div>
           )}
 
@@ -752,7 +815,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   </p>
                 </div>
                 {urlPar.relatorio
-                  ? <iframe src={urlPar.relatorio} title={relatorioAtivo?.arquivo_nome || 'Relatório'} className="min-h-0 w-full flex-1 bg-white" />
+                  ? <div className="min-h-0 flex-1"><PdfSuave url={urlPar.relatorio} title={relatorioAtivo?.arquivo_nome || 'Relatório'} /></div>
                   : <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-slate-500">
                       <div><FileText className="mx-auto mb-2 h-8 w-8 opacity-30" aria-hidden="true" />Sem relatório de leitura neste serviço</div>
                     </div>}
@@ -797,7 +860,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                   </p>
                 </div>
                 {urlPar.fatura
-                  ? <iframe src={urlPar.fatura} title={faturaAtiva?.arquivo_nome || 'Fatura'} className="min-h-0 w-full flex-1 bg-white" />
+                  ? <div className="min-h-0 flex-1"><PdfSuave url={urlPar.fatura} title={faturaAtiva?.arquivo_nome || 'Fatura'} /></div>
                   : <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-slate-500">
                       <div><Receipt className="mx-auto mb-2 h-8 w-8 opacity-30" aria-hidden="true" />Sem fatura neste serviço</div>
                     </div>}
@@ -820,7 +883,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
               </div>
             </div>
           ) : currentFile?.url
-            ? <iframe src={currentFile.url} title={currentFile.nome} className="w-full h-full bg-white" />
+            ? <PdfSuave url={currentFile.url} title={currentFile.nome} />
             : <div className="flex-1 flex items-center justify-center text-slate-500 text-center">
                 <div><FileText className="w-12 h-12 mx-auto mb-2 opacity-30" /><p className="text-sm">Sem URL disponível</p></div>
               </div>
