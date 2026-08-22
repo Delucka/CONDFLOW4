@@ -1853,7 +1853,12 @@ export default function VisaoEmissor({ profile }) {
                               onChange={() => !semDoc && toggleCobranca(c.id)}
                               className="w-4 h-4 accent-violet-600 shrink-0 disabled:opacity-40" />
                             <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-bold truncate ${checked ? 'text-slate-800' : 'text-slate-500'}`}>{c.descricao}</p>
+                              {/* A cobrança sem documento é a que mais precisa
+                                  ser lida — é a que trava a emissão. Deixá-la
+                                  no cinza mais fraco a tornava a linha menos
+                                  legível da tela. */}
+                              <p className={`text-xs font-bold truncate ${
+                                checked ? 'text-slate-800' : semDoc ? 'text-slate-700' : 'text-slate-500'}`}>{c.descricao}</p>
                               {/* Parcelamento: a 3ª de 6 é outra coisa que uma
                                   cobrança avulsa de mesmo valor. Antes isso só
                                   existia embutido no texto da descrição. */}
