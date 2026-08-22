@@ -471,6 +471,7 @@ export default function DashboardPage() {
 
   // Hooks SEMPRE antes de qualquer return condicional (Regras dos Hooks)
   const condos = data?.condos || [];
+  const temCanceladasNoMes = Object.keys(canceladasPorCondo).length > 0;
   // Filtro por situação — o mesmo de Fazer Emissões, porque o painel virou a
   // tela de trabalho de quem emite: a linha inteira já leva para a emissão.
   const SITUACOES = [
@@ -480,6 +481,9 @@ export default function DashboardPage() {
     { id: 'sem_emissao', rotulo: 'Sem emissão' },
     { id: 'em_emissao',  rotulo: 'Em emissão' },
     { id: 'prioritarios', rotulo: 'Prioritários' },
+    // Só aparece quando existe alguma no mês: um filtro que nunca acha nada é
+    // pior do que não existir — ensina que a busca não funciona.
+    ...(temCanceladasNoMes ? [{ id: 'canceladas', rotulo: 'Canceladas' }] : []),
   ];
 
   const condosOrdenados = useMemo(() => {
@@ -497,6 +501,7 @@ export default function DashboardPage() {
         case 'sem_emissao':  return !emis;
         case 'em_emissao':   return !!emis;
         case 'prioritarios': return ehPrioritario(c);
+        case 'canceladas':   return (canceladasPorCondo[c.id] || 0) > 0;
         default: return true;
       }
     };
@@ -512,7 +517,7 @@ export default function DashboardPage() {
       ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name)
     ));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [condos, ordemAsc, buscaCondo, situacao, processos, emissaoByCondominio]);
+  }, [condos, ordemAsc, buscaCondo, situacao, processos, emissaoByCondominio, canceladasPorCondo]);
   const pendingProcesses = useMemo(() => {
     if (!data?.processos) return [];
     const out = [];

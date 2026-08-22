@@ -164,6 +164,7 @@ export default function VisaoMaster() {
 
   const stats = useMemo(() => ({
     total:            pacotesAtivos.length,
+    cancelada:        pacotesDoMes.filter(p => (p.status||'').toLowerCase() === 'cancelada').length,
     rascunho:         pacotesAtivos.filter(p => (p.status||'').toLowerCase() === 'rascunho').length,
     aprovado:         pacotesAtivos.filter(p => (p.status||'').toLowerCase() === 'aprovado').length,
     registrado:       pacotesAtivos.filter(p => (p.status||'').toLowerCase() === 'registrado').length,
@@ -184,7 +185,7 @@ export default function VisaoMaster() {
     gerente:          pacotesAtivos.filter(p => statusEstaEm(p.status, COM_GERENTE)).length,
     supGerente:       pacotesAtivos.filter(p => statusEstaEm(p.status, COM_SUP_GERENTES)).length,
     supContabilidade: pacotesAtivos.filter(p => statusEstaEm(p.status, COM_SUP_CONTABILIDADE)).length,
-  }), [pacotesAtivos]);
+  }), [pacotesAtivos, pacotesDoMes]);
 
   const pacotesFiltrados = useMemo(() => {
     let lista = pacotesVisiveis;
@@ -946,7 +947,9 @@ export default function VisaoMaster() {
       </div>
 
       {/* ── Cards de Métricas ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
+      {/* 8 colunas quando há cancelada no mês — o card extra não pode
+          espremer os outros sete numa fila de largura fixa. */}
+      <div className={`grid grid-cols-2 sm:grid-cols-3 gap-4 ${stats.cancelada > 0 ? 'lg:grid-cols-8' : 'lg:grid-cols-7'}`}>
         {[
           { label: 'Total no Mês',       value: stats.total,            icon: Building,    color: 'text-slate-500',    bg: 'bg-slate-50',             filter: null                           },
           { label: 'Em edição',          value: stats.rascunho,         icon: Edit,        color: 'text-violet-400',    bg: 'bg-violet-500/10',         filter: 'rascunho'                     },
@@ -955,6 +958,12 @@ export default function VisaoMaster() {
           { label: 'Com o Gerente',      value: stats.gerente,          icon: User,        color: 'text-rose-400',    bg: 'bg-rose-500/10',         filter: 'pendente_gerente'             },
           { label: 'Com o Sup. Gerente', value: stats.supGerente,       icon: Activity,    color: 'text-amber-400',   bg: 'bg-amber-500/10',        filter: 'pendente_sup_gerentes'        },
           { label: 'Sup. Contabilidade', value: stats.supContabilidade, icon: ShieldCheck, color: 'text-amber-400',  bg: 'bg-amber-500/10',       filter: 'pendente_sup_contabilidade'   },
+          // Só entra na fila de cards quando existe alguma cancelada no mês: um
+          // filtro que nunca acha nada ensina que a busca não funciona. Fora da
+          // contagem de "Total no Mês" — cancelada não é trabalho pendente.
+          ...(stats.cancelada > 0
+            ? [{ label: 'Canceladas', value: stats.cancelada, icon: Ban, color: 'text-rose-500', bg: 'bg-rose-500/10', filter: 'cancelada' }]
+            : []),
         ].map((stat, i) => (
           <button key={i}
             onClick={() => setFiltroAtivo(filtroAtivo === stat.filter ? null : stat.filter)}

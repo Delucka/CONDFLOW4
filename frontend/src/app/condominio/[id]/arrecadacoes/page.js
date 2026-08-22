@@ -6,12 +6,13 @@ import { apiPost, apiFetch } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { useAuth } from '@/lib/auth';
+import { useCondoNaCarteira } from '@/lib/carteira';
 import { useToast } from '@/components/Toast';
 import {
   Save, Lock, ArrowLeft, PlusCircle, X, Search,
   ChevronDown, ChevronRight, Layers, Building, Calendar, Info,
   Printer, Send, Trash2, CheckCircle2, Settings, Timer, FileWarning,
-  Copy, Minus, Plus
+  Copy, Minus, Plus, ShieldAlert
 } from 'lucide-react';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -66,6 +67,7 @@ export default function ArrecadacoesPage() {
   const { addToast } = useToast();
 
   const condoId = params.id;
+  const carteira = useCondoNaCarteira(condoId);
   const urlAno = searchParams.get('ano');
   const selectedYear = urlAno ? parseInt(urlAno) : new Date().getFullYear();
   // `?mes=` já era mandado pelos links (Aprovações, e agora a emissão aberta) e
@@ -631,6 +633,27 @@ export default function ArrecadacoesPage() {
           addToast('Erro ao enviar para aprovação: ' + error.message, 'error');
       }
   };
+
+  // A lista só oferece os condomínios da carteira, mas o id vai na URL — e URL
+  // se digita, se guarda nos favoritos e se manda por mensagem. Sem esta
+  // checagem, um gerente que troque o id na barra de endereços abre a planilha
+  // de outro. O RLS destas tabelas é `USING (true)`: o banco entrega.
+  if (carteira.carregando) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20">
+        <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+  if (!carteira.permitido) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 p-20 text-center">
+        <ShieldAlert className="h-10 w-10 text-rose-500" aria-hidden="true" />
+        <p className="text-sm font-bold text-slate-800">Este condomínio não está na sua carteira</p>
+        <p className="text-xs text-slate-500">Se você deveria ter acesso a ele, peça ao administrador para vinculá-lo.</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

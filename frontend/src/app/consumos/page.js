@@ -5,6 +5,7 @@ import FilaCobrancaContas from '@/components/FilaCobrancaContas';
 import { apiFetcher, apiPost, apiFetch } from '@/lib/api';
 import { safeStorageName } from '@/lib/storage';
 import { useAuth } from '@/lib/auth';
+import { condosDaCarteira } from '@/lib/carteira';
 import { useToast } from '@/components/Toast';
 import { mesVigente, anoVigente } from '@/lib/mesVigente';
 import { createClient } from '@/utils/supabase/client';
@@ -397,15 +398,23 @@ export default function ConsumosPage() {
   const { data: condosData, mutate: mutateCondos, isLoading: loadingCondos } = useSWR('/api/consumos/condominios-com-faturas', apiFetcher);
   const condosComFaturas = condosData?.condominios || [];
 
-  // Para master/emissor: lista completa de condos pra escolher "novo condo"
+  // Lista de condos pra escolher "novo condo".
+  //
+  // O assistente também pode adicionar, e a lista vinha inteira: 325 nomes,
+  // incluindo os de outras carteiras — e adicionar um consumo em condomínio
+  // alheio era um clique. Para ele o recorte é a carteira do gerente a que
+  // está vinculado; para master/departamento continua a base toda.
   const [todosCondos, setTodosCondos] = useState([]);
   useEffect(() => {
     if (!podeAdicionar) return;
     (async () => {
-      const { data } = await supabase.from('condominios').select('id, name').order('name');
+      const ids = await condosDaCarteira(supabase, profile);
+      let q = supabase.from('condominios').select('id, name').order('name');
+      if (ids) q = q.in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+      const { data } = await q;
       setTodosCondos(data || []);
     })();
-  }, [supabase, podeAdicionar]);
+  }, [supabase, podeAdicionar, profile?.id, profile?.role, profile?.gerente_profile_id]);
 
   const [condoSel, setCondoSel] = useState('');
   const [anoSel, setAnoSel] = useState(new Date().getFullYear());

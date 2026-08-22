@@ -282,6 +282,7 @@ export default function VisaoGerente({ profile }) {
     aprovado:           pacotes.filter(p => (p.status||'').toLowerCase() === 'aprovado').length,
     solicitar_correcao: pacotes.filter(p => (p.status||'').toLowerCase() === 'solicitar_correcao').length,
     todos:              pacotes.filter(p => (p.status||'').toLowerCase() !== 'rascunho').length,
+    cancelada:          pacotes.filter(p => (p.status||'').toLowerCase() === 'cancelada').length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [pacotes, role]);
 
@@ -294,6 +295,10 @@ export default function VisaoGerente({ profile }) {
     { value: 'aprovado',           label: 'Aprovado'                 },
     { value: 'solicitar_correcao', label: 'Correção'                 },
     { value: 'todos',              label: 'Todos'                    },
+    // Quem aprova também precisa achar a cancelada: é onde está o motivo que
+    // explica por que existe uma emissão nova do mesmo mês. Só aparece quando
+    // há alguma.
+    ...(counts.cancelada > 0 ? [{ value: 'cancelada', label: 'Canceladas' }] : []),
   ];
 
   return (

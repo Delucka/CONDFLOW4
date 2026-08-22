@@ -3328,8 +3328,16 @@ def api_listar_edicoes(
         if mes:
             q = q.eq("mes_referencia", mes)
 
-        if user.get("role") == "gerente":
-            g_id = get_gerente_id(db, user["id"])
+        # Assistente entra aqui junto com o gerente.
+        #
+        # Era so `== "gerente"`, e o assistente abria o painel puxando a fila
+        # INTEIRA — as planilhas de todos os gerentes. Nao aparecia na tela
+        # (a lista de condominios ja vem recortada), mas o dado chegava ao
+        # navegador dele. `carteira_gerente_id` resolve os dois casos: a
+        # propria carteira do gerente, e a do gerente a que o assistente esta
+        # vinculado (profiles.gerente_id, 0057).
+        if user.get("role") in ("gerente", "assistente"):
+            g_id = carteira_gerente_id(db, user)
             if not g_id:
                 return None
             q = q.eq("gerente_id", g_id)

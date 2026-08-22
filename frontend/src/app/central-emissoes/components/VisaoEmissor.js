@@ -1579,6 +1579,10 @@ export default function VisaoEmissor({ profile }) {
   // Filtro por situação, junto da busca. Responde as perguntas que se faz de
   // manhã: o que o gerente já liberou, o que ainda está com ele, o que já virou
   // emissão, e o que tem prazo apertando.
+  const temCanceladaNoMes = Object.entries(pacotesPorCondo)
+    .some(([k, lista]) => k.endsWith(`_${mes}_${ano}`)
+      && (lista || []).some(p => (p.status || '').toLowerCase() === 'cancelada'));
+
   const SITUACOES = [
     { id: 'todos',     rotulo: 'Todos' },
     { id: 'liberados', rotulo: 'Liberados' },
@@ -1586,6 +1590,9 @@ export default function VisaoEmissor({ profile }) {
     { id: 'sem_emissao', rotulo: 'Sem emissão' },
     { id: 'em_emissao',  rotulo: 'Em emissão' },
     { id: 'prazo',       rotulo: 'Prazo apertando' },
+    // Só quando existe alguma no mês: filtro que nunca acha nada ensina que a
+    // busca não funciona.
+    ...(temCanceladaNoMes ? [{ id: 'canceladas', rotulo: 'Canceladas' }] : []),
   ];
 
   function passaNaSituacao(condo) {
@@ -1602,6 +1609,7 @@ export default function VisaoEmissor({ profile }) {
       case 'com_gerente':  return editando;
       case 'sem_emissao':  return lista.length === 0;
       case 'em_emissao':   return lista.length > 0;
+      case 'canceladas':   return lista.some(p => (p.status || '').toLowerCase() === 'cancelada');
       case 'prazo': {
         const dia = condo.prazo_expedicao_dia;
         if (!dia) return false;

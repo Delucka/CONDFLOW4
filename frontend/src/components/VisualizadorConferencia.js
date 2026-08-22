@@ -9,7 +9,7 @@ import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
 import { proximoStatusAprovacao } from '@/lib/aprovacaoFluxo';
 import { safeStorageName } from '@/lib/storage';
-import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen, Droplet, AlertTriangle, ClipboardList, StickyNote } from 'lucide-react';
+import { FileText, Building2, Receipt, Loader2, X, Check, AlertCircle, ExternalLink, PenTool, ChevronLeft, ChevronRight, Package, FolderOpen, Droplet, AlertTriangle, ClipboardList, StickyNote, Ban } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
 const MESES_LONG_VC = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -418,16 +418,35 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   ];
   const abaAtiva = mobileTabs.some(t => t.id === mobileTab) ? mobileTab : 'doc';
 
+  // Emissão cancelada aberta aqui dentro: o visualizador é o lugar onde se
+  // confere documento a documento, e nada na tela dizia que aqueles arquivos
+  // pertencem a uma emissão descartada. Conferir a errada é o erro que isto
+  // impede — o fundo vermelho não deixa esquecer de qual emissão se trata.
+  const ehCanceladaVC = (arquivo?.pacote_status || '').toLowerCase() === 'cancelada';
+
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex flex-col">
+    <div className={`fixed inset-0 z-50 backdrop-blur-sm flex flex-col ${
+      ehCanceladaVC ? 'bg-rose-950/60' : 'bg-slate-900/40'}`}>
 
       {/* Header */}
-      <div className="px-4 h-[52px] border-b border-slate-800 bg-white flex items-center justify-between gap-3 shrink-0">
+      <div className={`px-4 h-[52px] border-b flex items-center justify-between gap-3 shrink-0 ${
+        ehCanceladaVC ? 'border-rose-400 bg-rose-100' : 'border-slate-800 bg-white'}`}>
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <FileText className="w-4 h-4 text-violet-400 shrink-0" />
+          {ehCanceladaVC
+            ? <Ban className="w-4 h-4 text-rose-600 shrink-0" aria-hidden="true" />
+            : <FileText className="w-4 h-4 text-violet-400 shrink-0" />}
           <div className="min-w-0">
-            <h3 className="text-sm text-slate-900 font-bold truncate leading-tight">{currentFile?.nome || 'Documento'}</h3>
-            <p className="text-[9px] uppercase tracking-widest text-slate-500">Conferência{currentFile?.mes ? ` · ${MESES_LONG_VC[currentFile.mes]}/${currentFile.ano || ''}` : ''}{docList.length > 1 ? ` · doc ${currentIndex + 1} de ${docList.length}` : ''}</p>
+            <h3 className="text-sm text-slate-900 font-bold truncate leading-tight flex items-center gap-2">
+              {currentFile?.nome || 'Documento'}
+              {ehCanceladaVC && (
+                <span className="shrink-0 rounded-md bg-rose-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                  Emissão cancelada
+                </span>
+              )}
+            </h3>
+            <p className={`text-[9px] uppercase tracking-widest ${ehCanceladaVC ? 'text-rose-700' : 'text-slate-500'}`}>
+              {ehCanceladaVC ? 'Emissão cancelada' : 'Conferência'}{currentFile?.mes ? ` · ${MESES_LONG_VC[currentFile.mes]}/${currentFile.ano || ''}` : ''}{docList.length > 1 ? ` · doc ${currentIndex + 1} de ${docList.length}` : ''}
+            </p>
           </div>
         </div>
 

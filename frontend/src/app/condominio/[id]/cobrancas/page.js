@@ -5,8 +5,10 @@ import { useParams, useSearchParams } from 'next/navigation';
 import StatusBadge from '@/components/StatusBadge';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useCondoNaCarteira } from '@/lib/carteira';
 import { useToast } from '@/components/Toast';
-import { Receipt, FileText, UploadCloud, Trash2, ArrowLeft, Lock, Timer } from 'lucide-react';
+import { Receipt, FileText, UploadCloud, Trash2, ArrowLeft, Lock, Timer, ShieldAlert
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
 
@@ -17,6 +19,7 @@ export default function CobrancasPage() {
   const { addToast } = useToast();
 
   const condoId = params.id;
+  const carteira = useCondoNaCarteira(condoId);
   const [data, setData] = useState({ condo: null, cobrancas: [], arquivos: [], processo: null });
   const [loading, setLoading] = useState(true);
   
@@ -103,6 +106,27 @@ export default function CobrancasPage() {
     } catch(err) {
       addToast(err.message, 'error');
     }
+  }
+
+  // A lista só oferece os condomínios da carteira, mas o id vai na URL — e URL
+  // se digita, se guarda nos favoritos e se manda por mensagem. Sem esta
+  // checagem, um gerente que troque o id na barra de endereços abre a planilha
+  // de outro. O RLS destas tabelas é `USING (true)`: o banco entrega.
+  if (carteira.carregando) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20">
+        <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+  if (!carteira.permitido) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 p-20 text-center">
+        <ShieldAlert className="h-10 w-10 text-rose-500" aria-hidden="true" />
+        <p className="text-sm font-bold text-slate-800">Este condomínio não está na sua carteira</p>
+        <p className="text-xs text-slate-500">Se você deveria ter acesso a ele, peça ao administrador para vinculá-lo.</p>
+      </div>
+    );
   }
 
   if (loading) return <div className="flex w-full justify-center p-20"><div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div></div>;

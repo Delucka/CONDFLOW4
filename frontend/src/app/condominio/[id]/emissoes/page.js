@@ -18,13 +18,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useCondoNaCarteira } from '@/lib/carteira';
 import { useToast } from '@/components/Toast';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { anexarGrupos } from '@/lib/conjuntoEmissao';
 import StatusBadge from '@/app/central-emissoes/components/StatusBadge';
 import SeloCancelada, { AvisoCanceladas, MarcaDaguaCancelada } from '@/components/SeloCancelada';
 import {
-  FileText, Download, Calendar, Building2, Loader2, Inbox, ExternalLink, Archive,
+  FileText, Download, Calendar, Building2, Loader2, Inbox, ExternalLink, Archive, ShieldAlert
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -46,6 +47,7 @@ const formatSize = (bytes) => {
 export default function CondominioEmissoesPage() {
   const params = useParams();
   const condoId = params.id;
+  const carteira = useCondoNaCarteira(condoId);
   const { profile } = useAuth();
   const { addToast } = useToast();
   const supabase = useMemo(() => createClient(), []);
@@ -145,6 +147,27 @@ export default function CondominioEmissoesPage() {
     }
     return [...mapa.entries()].sort((a, b) => b[0] - a[0]);
   }, [pacotes]);
+
+  // A lista só oferece os condomínios da carteira, mas o id vai na URL — e URL
+  // se digita, se guarda nos favoritos e se manda por mensagem. Sem esta
+  // checagem, um gerente que troque o id na barra de endereços abre a planilha
+  // de outro. O RLS destas tabelas é `USING (true)`: o banco entrega.
+  if (carteira.carregando) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20">
+        <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+  if (!carteira.permitido) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 p-20 text-center">
+        <ShieldAlert className="h-10 w-10 text-rose-500" aria-hidden="true" />
+        <p className="text-sm font-bold text-slate-800">Este condomínio não está na sua carteira</p>
+        <p className="text-xs text-slate-500">Se você deveria ter acesso a ele, peça ao administrador para vinculá-lo.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in w-full pb-20 space-y-6">
