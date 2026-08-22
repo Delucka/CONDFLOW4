@@ -408,6 +408,52 @@ export default function DashboardPage() {
     }
   };
 
+  // Os arquivos da emissão cancelada.
+  //
+  // Cancelar não apaga: os anexos continuam lá, presos ao pacote cancelado. Só
+  // que a prévia do painel abre o arquivo MAIS RECENTE do condomínio, que é da
+  // emissão nova — então a cancelada era a única cujos arquivos não tinham
+  // porta de entrada nenhuma nesta tela.
+  const handleVerCancelada = async (condoId) => {
+    try {
+      const { data: p, error } = await supabase
+        .from('emissoes_pacotes')
+        .select('id, status, nivel_aprovacao, processo_id, mes_referencia, ano_referencia, eh_retificacao, cancelamento_motivo, cancelada_por_nome, cancelada_em')
+        .eq('condominio_id', condoId)
+        .eq('mes_referencia', mesEmissao)
+        .eq('ano_referencia', vigente.ano)
+        .eq('status', 'cancelada')
+        .order('cancelada_em', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) { addToast('Não foi possível abrir a cancelada: ' + error.message, 'error'); return; }
+      if (!p) { addToast('Emissão cancelada não encontrada neste mês.', 'warning'); return; }
+
+      const { data: arquivos } = await supabase
+        .from('emissoes_arquivos').select('*').eq('pacote_id', p.id);
+      const lista = arquivos || [];
+      if (!lista.length) { addToast('A emissão cancelada não tem arquivos anexados.', 'warning'); return; }
+
+      const url = await getArquivoUrlSeguro(lista[0].arquivo_url);
+      setArquivoConferencia({
+        id: lista[0].id,
+        nome: lista[0].arquivo_nome || 'Documento',
+        url,
+        condominio_id: condoId,
+        processo_id: p.processo_id || null,
+        pacote_id: p.id,
+        pacote_status: p.status,
+        pacote_nivel: p.nivel_aprovacao,
+        mes: p.mes_referencia,
+        ano: p.ano_referencia,
+        eh_retificacao: p.eh_retificacao || false,
+        arquivos: lista,
+      });
+    } catch (err) {
+      addToast('Não foi possível abrir os arquivos da emissão cancelada.', 'error');
+    }
+  };
+
   const handleAction = async (processoId, action, comment = '') => {
     try {
       setProcessing(processoId);
@@ -617,10 +663,15 @@ export default function DashboardPage() {
               return (
                 <div key={c.id} className="bg-white rounded-2xl border border-slate-200 p-3.5">
                   {(canceladasPorCondo[c.id] || 0) > 0 && (
-                    <span className="mb-1.5 inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleVerCancelada(c.id); }}
+                      title="Ver os arquivos da emissão cancelada"
+                      className="mb-1.5 inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700 active:bg-rose-100">
                       <Ban className="h-3 w-3" aria-hidden="true" />
                       {(canceladasPorCondo[c.id] || 0) === 1 ? 'Há emissão cancelada neste mês' : `Há ${canceladasPorCondo[c.id]} emissões canceladas neste mês`}
-                    </span>
+                      <span className="font-bold normal-case tracking-normal opacity-80">· ver arquivos</span>
+                    </button>
                   )}
                   {/* Nome */}
                   <div className="flex items-center gap-2.5 mb-1">
@@ -855,10 +906,15 @@ export default function DashboardPage() {
                       {nCanceladas > 0 && (
                         <tr>
                           <td colSpan={99} className="px-4 pt-2">
-                            <span className="inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleVerCancelada(c.id); }}
+                              title="Ver os arquivos da emissão cancelada"
+                              className="inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700 transition-colors hover:bg-rose-100">
                               <Ban className="h-3 w-3" aria-hidden="true" />
                               {nCanceladas === 1 ? 'Há emissão cancelada neste mês' : `Há ${nCanceladas} emissões canceladas neste mês`}
-                            </span>
+                              <span className="font-bold normal-case tracking-normal opacity-80">· ver arquivos</span>
+                            </button>
                           </td>
                         </tr>
                       )}
@@ -933,10 +989,15 @@ export default function DashboardPage() {
                     onClick={podeEmitir ? () => abrirEmissao(c) : undefined}
                     className={`p-3 active:bg-slate-100 transition-colors ${podeEmitir ? 'cursor-pointer' : ''}`}>
                     {(canceladasPorCondo[c.id] || 0) > 0 && (
-                      <span className="mb-1.5 inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleVerCancelada(c.id); }}
+                        title="Ver os arquivos da emissão cancelada"
+                        className="mb-1.5 inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700 active:bg-rose-100">
                         <Ban className="h-3 w-3" aria-hidden="true" />
                         {(canceladasPorCondo[c.id] || 0) === 1 ? 'Há emissão cancelada neste mês' : `Há ${canceladasPorCondo[c.id]} emissões canceladas neste mês`}
-                      </span>
+                        <span className="font-bold normal-case tracking-normal opacity-80">· ver arquivos</span>
+                      </button>
                     )}
                     <div className="flex items-start gap-2">
                       {isLocked
