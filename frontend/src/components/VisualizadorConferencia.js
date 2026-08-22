@@ -20,6 +20,37 @@ function fmt(v) {
   return (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/**
+ * Conferência de consumos: qual serviço é cada documento.
+ *
+ * A informação está espalhada — o relatório traz `relatorio_tipo_servico`
+ * ("Água", "Gás"), a fatura traz `subtipo` (SABESP, COMGAS, ENEL) e, quando o
+ * OCR falhou, sobra o nome do arquivo. Olhar os três é o que faz o par se
+ * formar mesmo quando um dos lados veio incompleto.
+ *
+ * A ordem importa: "COMGAS" contém "GAS", então gás é testado antes de água,
+ * senão uma fatura da COMGÁS entraria como conta de água.
+ */
+const norm = (t) => String(t || '')
+  .normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+
+function servicoDoArquivo(a) {
+  const txt = norm(`${a?.relatorio_tipo_servico || ''} ${a?.subtipo || ''} ${a?.relatorio_empresa || ''} ${a?.arquivo_nome || a?.nome || ''}`);
+  if (/GAS|COMGAS/.test(txt))                 return 'gas';
+  if (/ENERGIA|ENEL|ELETRIC|ELETROPAULO|LUZ/.test(txt)) return 'energia';
+  if (/AGUA|SABESP|SANEAMENTO|HIDROMETR/.test(txt))     return 'agua';
+  return null;
+}
+
+const SERVICOS_CONF = [
+  { id: 'agua',    rotulo: 'Água' },
+  { id: 'gas',     rotulo: 'Gás' },
+  { id: 'energia', rotulo: 'Energia' },
+];
+
+const brl = (v) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const dataBr = (d) => (d ? new Date(String(d).length <= 10 ? d + 'T00:00:00' : d).toLocaleDateString('pt-BR') : null);
+
 export default function VisualizadorConferencia({ arquivo, arquivos = [], currentUser, onClose, onAction }) {
   const { addToast } = useToast();
   const supabase = createClient();
@@ -28,6 +59,12 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
   const [currentFile, setCurrentFile] = useState(arquivo);
   const [loadingFile, setLoadingFile] = useState(false);
+  // Conferência de consumos: o serviço escolhido, qual fatura dele está aberta,
+  // e as duas URLs assinadas do par. `null` = modo normal, um documento só.
+  const [servicoPar, setServicoPar] = useState(null);
+  const [faturaIdx, setFaturaIdx]   = useState(0);
+  const [urlPar, setUrlPar]         = useState({ relatorio: null, fatura: null });
+  const [carregandoPar, setCarregandoPar] = useState(false);
   const [docList, setDocList] = useState(arquivos);   // lista de navegação (troca quando abrimos outro mês)
   
   // Se o arquivo tiver snapshot congelado (emissão registrada), não busca dados ao vivo
@@ -406,6 +443,48 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   // Snapshot: exibe somente o mês emitido (congelado). Ao vivo: exibe todos.
   const mesesParaExibir = planilha?.meses || [];
 
+  // Os pares por serviço, montados da mesma lista que a navegação já usa.
+  const paresConsumo = useMemo(() => {
+    const m = { agua: { faturas: [], relatorios: [] },
+                gas: { faturas: [], relatorios: [] },
+                energia: { faturas: [], relatorios: [] } };
+    (docList || []).forEach((a) => {
+      const s = servicoDoArquivo(a);
+      if (!s || !m[s]) return;
+      if (a.categoria === 'concessionaria')          m[s].faturas.push(a);
+      else if (a.categoria === 'relatorio_leitura')  m[s].relatorios.push(a);
+    });
+    return m;
+  }, [docList]);
+
+  const parAtivo   = servicoPar ? paresConsumo[servicoPar] : null;
+  const faturaAtiva = parAtivo?.faturas[Math.min(faturaIdx, Math.max(parAtivo.faturas.length - 1, 0))] || null;
+  const relatorioAtivo = parAtivo?.relatorios[0] || null;
+  const somaFaturas = (parAtivo?.faturas || []).reduce((t, a) => t + Number(a.valor_fatura || 0), 0);
+
+  // As duas URLs assinadas do par. Trocar de serviço ou de fatura refaz as duas
+  // — a assinatura do Supabase é por arquivo e expira, então não dá para
+  // guardá-las na lista.
+  useEffect(() => {
+    if (!servicoPar) { setUrlPar({ relatorio: null, fatura: null }); return; }
+    let cancelado = false;
+    (async () => {
+      setCarregandoPar(true);
+      const resolver = async (a) => {
+        if (!a) return null;
+        if (a.url) return a.url;
+        const p = a.arquivo_url || a.path;
+        return p ? await getArquivoUrlSeguro(p) : null;
+      };
+      const [rel, fat] = await Promise.all([resolver(relatorioAtivo), resolver(faturaAtiva)]);
+      if (cancelado) return;
+      setUrlPar({ relatorio: rel, fatura: fat });
+      setCarregandoPar(false);
+    })();
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [servicoPar, relatorioAtivo?.id, faturaAtiva?.id]);
+
   // Abas do celular: quais seções existem
   const temConsumos = docList.some(a => a.categoria === 'concessionaria' || a.categoria === 'relatorio_leitura');
   const temAnexos   = docList.some(a => a.categoria === 'outros');
@@ -589,17 +668,139 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         </div>
       )}
 
+      {/* Conferência de consumos - a barra que troca o par inteiro.
+          So aparece quando ha consumo anexado; o resto da tela nao muda. */}
+      {temConsumos && (
+        <div className="px-3 pt-3 flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-600">
+            <Droplet className="w-3.5 h-3.5 text-violet-500" aria-hidden="true" />
+            Conferência de consumos
+          </span>
+          {SERVICOS_CONF.map(({ id, rotulo }) => {
+            const par = paresConsumo[id];
+            const n = par.faturas.length + par.relatorios.length;
+            const ativo = servicoPar === id;
+            return (
+              <button key={id} type="button" disabled={n === 0}
+                onClick={() => { setServicoPar(ativo ? null : id); setFaturaIdx(0); }}
+                title={n === 0 ? `Nada anexado de ${rotulo.toLowerCase()} nesta emissão`
+                               : `Ver o relatório e a fatura de ${rotulo.toLowerCase()} lado a lado`}
+                className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                  n === 0 ? 'border-slate-200 text-slate-400 cursor-not-allowed'
+                  : ativo ? 'border-violet-500 bg-violet-500/10 text-violet-700'
+                  : 'border-slate-300 text-slate-600 hover:border-violet-400'}`}>
+                {rotulo}
+                <span className="ml-1 opacity-60">{n}</span>
+              </button>
+            );
+          })}
+          {servicoPar && (
+            <button type="button" onClick={() => setServicoPar(null)}
+              className="ml-auto inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-100">
+              <X className="w-3 h-3" aria-hidden="true" /> Voltar ao documento
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Split view */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-3 p-3 overflow-auto lg:overflow-hidden">
 
-        {/* PDF */}
-        <div className={`bg-white border border-slate-800 rounded-xl overflow-hidden flex flex-col relative min-h-[60vh] lg:min-h-0 ${isMobile && abaAtiva !== 'doc' ? 'hidden' : ''}`}>
-          {loadingFile && (
-            <div className="absolute inset-0 z-10 bg-white backdrop-blur-sm flex items-center justify-center">
+        {/* PDF - um documento, ou o par de consumos lado a lado */}
+        <div className={`flex flex-col relative min-h-[60vh] lg:min-h-0 ${servicoPar ? '' : 'bg-white border border-slate-800 rounded-xl overflow-hidden'} ${isMobile && abaAtiva !== 'doc' ? 'hidden' : ''}`}>
+          {(loadingFile || carregandoPar) && (
+            <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm flex items-center justify-center">
               <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
             </div>
           )}
-          {currentFile?.url
+
+          {servicoPar ? (
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+              {/* Relatório de leitura */}
+              <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-800 bg-white">
+                <div className="shrink-0 border-b border-slate-200 px-3 py-2">
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <FileText className="w-3.5 h-3.5 text-violet-500 shrink-0" aria-hidden="true" />
+                    Relatório{relatorioAtivo?.relatorio_empresa ? ` · ${relatorioAtivo.relatorio_empresa}` : ''}
+                  </p>
+                  <p className="text-[10px] text-slate-500 truncate">
+                    {relatorioAtivo
+                      ? [dataBr(relatorioAtivo.relatorio_data_leitura) && `leitura ${dataBr(relatorioAtivo.relatorio_data_leitura)}`,
+                         relatorioAtivo.relatorio_unidades && `${relatorioAtivo.relatorio_unidades} unid.`,
+                         relatorioAtivo.relatorio_consumo_total && `${relatorioAtivo.relatorio_consumo_total} m³`,
+                        ].filter(Boolean).join(' · ')
+                      : 'nenhum relatório anexado'}
+                  </p>
+                </div>
+                {urlPar.relatorio
+                  ? <iframe src={urlPar.relatorio} title={relatorioAtivo?.arquivo_nome || 'Relatório'} className="min-h-0 w-full flex-1 bg-white" />
+                  : <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-slate-500">
+                      <div><FileText className="mx-auto mb-2 h-8 w-8 opacity-30" aria-hidden="true" />Sem relatório de leitura neste serviço</div>
+                    </div>}
+                {relatorioAtivo && (
+                  <div className="shrink-0 flex items-center justify-between border-t border-slate-200 px-3 py-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Valor do relatório</span>
+                    <span className="font-mono text-sm font-bold text-slate-800">R$ {brl(relatorioAtivo.relatorio_valor_total)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Fatura da concessionária */}
+              <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-800 bg-white">
+                <div className="shrink-0 border-b border-slate-200 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex items-center gap-1.5 text-xs font-bold text-slate-800 min-w-0">
+                      <Receipt className="w-3.5 h-3.5 text-violet-500 shrink-0" aria-hidden="true" />
+                      <span className="truncate">Fatura{faturaAtiva?.subtipo ? ` · ${faturaAtiva.subtipo}` : ''}</span>
+                    </p>
+                    {/* Mais de uma fatura no mesmo serviço: escolhe qual abrir.
+                        A soma embaixo e de todas, nao so da que esta a vista. */}
+                    {parAtivo.faturas.length > 1 && (
+                      <div className="flex shrink-0 gap-1">
+                        {parAtivo.faturas.map((fa, i) => (
+                          <button key={fa.id} type="button" onClick={() => setFaturaIdx(i)}
+                            title={`${fa.arquivo_nome || 'Fatura'} - R$ ${brl(fa.valor_fatura)}`}
+                            className={`rounded-md border px-1.5 py-0.5 text-[10px] font-black ${
+                              i === faturaIdx ? 'border-violet-500 bg-violet-500/10 text-violet-700'
+                                              : 'border-slate-300 text-slate-500 hover:border-violet-400'}`}>
+                            {i + 1}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 truncate">
+                    {faturaAtiva
+                      ? [dataBr(faturaAtiva.vencimento_fatura) && `vence ${dataBr(faturaAtiva.vencimento_fatura)}`,
+                         parAtivo.faturas.length > 1 && `fatura ${faturaIdx + 1} de ${parAtivo.faturas.length}`,
+                        ].filter(Boolean).join(' · ')
+                      : 'nenhuma fatura anexada'}
+                  </p>
+                </div>
+                {urlPar.fatura
+                  ? <iframe src={urlPar.fatura} title={faturaAtiva?.arquivo_nome || 'Fatura'} className="min-h-0 w-full flex-1 bg-white" />
+                  : <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-slate-500">
+                      <div><Receipt className="mx-auto mb-2 h-8 w-8 opacity-30" aria-hidden="true" />Sem fatura neste serviço</div>
+                    </div>}
+                {parAtivo.faturas.length > 0 && (
+                  <div className="shrink-0 border-t border-slate-200 px-3 py-1.5">
+                    {parAtivo.faturas.length > 1 && parAtivo.faturas.map((fa, i) => (
+                      <div key={fa.id} className={`flex items-center justify-between text-[10px] ${i === faturaIdx ? 'text-slate-700' : 'text-slate-400'}`}>
+                        <span className="truncate">Fatura {i + 1}{dataBr(fa.vencimento_fatura) ? ` · ${dataBr(fa.vencimento_fatura)}` : ''}</span>
+                        <span className="font-mono">R$ {brl(fa.valor_fatura)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        {parAtivo.faturas.length > 1 ? 'Soma das faturas' : 'Total da fatura'}
+                      </span>
+                      <span className="font-mono text-sm font-bold text-slate-800">R$ {brl(somaFaturas)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : currentFile?.url
             ? <iframe src={currentFile.url} title={currentFile.nome} className="w-full h-full bg-white" />
             : <div className="flex-1 flex items-center justify-center text-slate-500 text-center">
                 <div><FileText className="w-12 h-12 mx-auto mb-2 opacity-30" /><p className="text-sm">Sem URL disponível</p></div>
