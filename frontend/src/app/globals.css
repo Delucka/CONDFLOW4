@@ -485,3 +485,17 @@ html.dark {
 .dark .text-violet-200\/70,
 .dark .text-violet-200\/90,
 .dark .text-violet-300\/80  { color:#a8c3ff !important; }
+
+/* Marca d'água da emissão cancelada.
+   Fora do Tailwind de propósito: a cor precisa de alfa, e utilitária com
+   modificador de alfa (`text-rose-600/10`) não é remapeada no tema escuro —
+   foi essa a armadilha corrigida no bloco acima. */
+.marca-dagua-cancelada      { color: rgba(190,18,60,.10); }
+.dark .marca-dagua-cancelada { color: rgba(251,113,133,.13); }
+
+/* O conteúdo por cima da marca d'água.
+   Elemento em fluxo normal pinta ABAIXO de um elemento posicionado, então sem
+   isto a marca d'água cobriria o painel inteiro em vez de ficar atrás dele.
+   Uma regra no container evita repetir `relative` em cada filho. */
+.tem-marca-dagua > *                        { position: relative; }
+.tem-marca-dagua > .marca-dagua-cancelada   { position: absolute; }

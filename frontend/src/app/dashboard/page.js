@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import useSWR from 'swr';
 import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
@@ -18,7 +18,7 @@ import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
   AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2,
   FileCheck, User, Activity, Zap, Lock, Unlock, Timer, TrendingUp,
-  ClipboardList, CalendarClock, BarChart3, ChevronRight, ArrowUpDown, Search, X
+  ClipboardList, CalendarClock, BarChart3, ChevronRight, ArrowUpDown, Search, X, Ban
 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
@@ -326,6 +326,10 @@ export default function DashboardPage() {
   const pipelineConfig      = data?.pipeline_config || null;
   const emissaoStats        = data?.emissao_stats   || { gerente: 0, supGerente: 0, supContabilidade: 0, aguardando: 0, registrada: 0 };
   const emissaoByCondominio = data?.emissao_by_condo || {};
+  // Quantas emissões canceladas cada condomínio tem no mês. Separado do
+  // status porque a cancelada perde a vaga para a emissão que a substituiu:
+  // sem este contador, ela some justamente da tela onde se decide o mês.
+  const canceladasPorCondo = data?.canceladas_by_condo || {};
   // Sobe para cá porque o `useMemo` do filtro lê isto durante o render — e
   // useMemo executa na hora. Declarado depois, cairia na zona morta do const
   // e derrubaria o painel no primeiro clique de filtro.
@@ -612,6 +616,12 @@ export default function DashboardPage() {
               const isLocked      = procStatus === 'Edição finalizada';
               return (
                 <div key={c.id} className="bg-white rounded-2xl border border-slate-200 p-3.5">
+                  {(canceladasPorCondo[c.id] || 0) > 0 && (
+                    <span className="mb-1.5 inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700">
+                      <Ban className="h-3 w-3" aria-hidden="true" />
+                      {(canceladasPorCondo[c.id] || 0) === 1 ? 'Há emissão cancelada neste mês' : `Há ${canceladasPorCondo[c.id]} emissões canceladas neste mês`}
+                    </span>
+                  )}
                   {/* Nome */}
                   <div className="flex items-center gap-2.5 mb-1">
                     {isLocked
@@ -838,8 +848,21 @@ export default function DashboardPage() {
                     const emissaoStatus = emissaoByCondominio[c.id] || null;
                     const isLocked     = procStatus === 'Edição finalizada';
 
+                    const nCanceladas = canceladasPorCondo[c.id] || 0;
+
                     return (
-                      <tr key={c.id}
+                      <Fragment key={c.id}>
+                      {nCanceladas > 0 && (
+                        <tr>
+                          <td colSpan={99} className="px-4 pt-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700">
+                              <Ban className="h-3 w-3" aria-hidden="true" />
+                              {nCanceladas === 1 ? 'Há emissão cancelada neste mês' : `Há ${nCanceladas} emissões canceladas neste mês`}
+                            </span>
+                          </td>
+                        </tr>
+                      )}
+                      <tr
                         onClick={podeEmitir ? () => abrirEmissao(c) : undefined}
                         role={podeEmitir ? 'button' : undefined}
                         tabIndex={podeEmitir ? 0 : undefined}
@@ -891,6 +914,7 @@ export default function DashboardPage() {
                           </div>
                         </td>
                       </tr>
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -908,6 +932,12 @@ export default function DashboardPage() {
                   <div key={c.id}
                     onClick={podeEmitir ? () => abrirEmissao(c) : undefined}
                     className={`p-3 active:bg-slate-100 transition-colors ${podeEmitir ? 'cursor-pointer' : ''}`}>
+                    {(canceladasPorCondo[c.id] || 0) > 0 && (
+                      <span className="mb-1.5 inline-flex items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700">
+                        <Ban className="h-3 w-3" aria-hidden="true" />
+                        {(canceladasPorCondo[c.id] || 0) === 1 ? 'Há emissão cancelada neste mês' : `Há ${canceladasPorCondo[c.id]} emissões canceladas neste mês`}
+                      </span>
+                    )}
                     <div className="flex items-start gap-2">
                       {isLocked
                         ? <Lock className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-1" />

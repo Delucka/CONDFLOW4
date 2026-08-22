@@ -104,6 +104,13 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         condo_ids = [c["id"] for c in raw_condos]
         emissao_stats = {"gerente": 0, "supGerente": 0, "supContabilidade": 0, "aguardando": 0, "registrada": 0}
         emissao_by_condo = {}
+        # Quantas emissoes canceladas o condominio tem no mes.
+        #
+        # Separado de `emissao_by_condo` de proposito: aquele guarda UM status,
+        # e a cancelada perde a vaga para a emissao que a substituiu — que e o
+        # certo, mas faz a cancelada sumir do painel exatamente onde a pessoa
+        # decide o que fazer no mes. Este contador sobrevive a substituicao.
+        canceladas_by_condo = {}
         if condo_ids:
             pacotes_q = db.table("emissoes_pacotes").select("status, condominio_id, criado_em, mes_referencia, ano_referencia") \
                 .in_("condominio_id", condo_ids) \
@@ -145,6 +152,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                 # no lugar dela. So entra se for a unica que houver, e af o
                 # painel mostra "cancelada" em vez de fingir que nao ha emissao.
                 if s == "cancelada":
+                    canceladas_by_condo[cid] = canceladas_by_condo.get(cid, 0) + 1
                     emissao_by_condo.setdefault(cid, "cancelada")
                 elif emissao_by_condo.get(cid) in (None, "cancelada"):
                     emissao_by_condo[cid] = p.get("status") or "sem_processo"
@@ -160,6 +168,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             "gerentes": gerentes,
             "emissao_stats": emissao_stats,
             "emissao_by_condo": emissao_by_condo,
+            "canceladas_by_condo": canceladas_by_condo,
             "emissao_mes": int(mes) if mes else None,
             "emissao_ano": emis_ano,
             "pipeline_config": pipeline_config,
@@ -2922,6 +2931,50 @@ def api_executar_cancelamento(
         return {"success": True}
     except Exception as e:
         raise HTTPException(400, str(e))
+
+
+class DocumentoCobrancaSchema(BaseModel):
+    attachments: list
+
+
+@router.post("/cobrancas-extras/{cobranca_id}/documento")
+def api_anexar_documento_cobranca(
+    cobranca_id: str,
+    data: DocumentoCobrancaSchema,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db)
+):
+    """Anexa o documento que faltou numa cobranca extra ja lancada.
+
+    A trava de documento obrigatorio so vale para o que nasce depois dela — e
+    35 cobrancas foram lancadas antes, 31 delas no mes que esta sendo emitido
+    agora. Sem esta rota, cada uma delas fica travada para sempre: nao entra na
+    emissao por falta de documento e nao ha onde anexar o documento.
+
+    Nao substitui o que ja existe: acrescenta. Trocar um comprovante por outro
+    e outra operacao, e apagar o anterior calado seria pior do que nao ter.
+    """
+    require_role(user, ROLES_LANCA_COBRANCA + ["departamento"])
+
+    novos = [str(a).strip() for a in (data.attachments or []) if str(a).strip()]
+    if not novos:
+        raise HTTPException(400, "Nenhum documento recebido.")
+
+    row = db.table("cobrancas_extras")         .select("id, condominio_id, attachments, status")         .eq("id", cobranca_id).maybe_single().execute().data
+    if not row:
+        raise HTTPException(404, "Cobranca nao encontrada.")
+
+    # Gerente/assistente so mexem na propria carteira — a mesma regra do lancar.
+    if user["role"] in ("gerente", "assistente"):
+        if row.get("condominio_id") not in carteira_condo_ids(db, user):
+            raise HTTPException(403, "Este condominio nao esta na sua carteira.")
+
+    atuais = row.get("attachments") or []
+    res = db.table("cobrancas_extras")         .update({"attachments": atuais + novos})         .eq("id", cobranca_id).execute()
+    if not res.data:
+        raise HTTPException(400, "O documento nao foi gravado.")
+
+    return {"success": True, "attachments": atuais + novos}
 
 
 @router.get("/cobrancas-extras/cancelamentos-pendentes")

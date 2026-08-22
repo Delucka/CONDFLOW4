@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { MarcaDaguaCancelada } from '@/components/SeloCancelada';
 import ModalCancelarEmissao from './ModalCancelarEmissao';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth';
@@ -483,12 +484,13 @@ export default function RegistroEmissoes({ profile }) {
                 const numArq = p.arquivos?.length || 0;
                 const ehCancelada = (p.status || '').toLowerCase() === 'cancelada';
                 return (
-                  <div key={p.id} className={`relative grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-4 items-center transition-colors ${
+                  <div key={p.id} className={`tem-marca-dagua relative overflow-hidden grid grid-cols-[2fr_1fr_1fr_1fr_auto] px-6 py-4 items-center transition-colors ${
                     ehCancelada ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-100'}`}>
                     {/* Tarja: a linha inteira precisa gritar "cancelada" antes
                         de alguém ler o texto. Cor de fundo sozinha some numa
                         lista longa. */}
-                    {ehCancelada && <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-rose-500" aria-hidden="true" />}
+                    {ehCancelada && <span className="absolute left-0 top-0 bottom-0 w-1.5 bg-rose-500 z-10" aria-hidden="true" />}
+                    {ehCancelada && <MarcaDaguaCancelada />}
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
                         ehCancelada ? 'bg-slate-100 border-slate-300' : 'bg-emerald-500/10 border-emerald-500/20'}`}>

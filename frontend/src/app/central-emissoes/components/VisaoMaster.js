@@ -20,6 +20,7 @@ import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou, pedirCorr
 import { podeRegistrar, carregarConjunto, arrastadasPelaRecusa, devolverConjunto, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
 import { safeStorageName } from '@/lib/storage';
+import { AvisoCanceladas, MarcaDaguaCancelada } from '@/components/SeloCancelada';
 import { Inbox } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { mesVigente, anoVigente } from '@/lib/mesVigente';
@@ -127,6 +128,27 @@ export default function VisaoMaster() {
     () => pacotesDoMes.filter(p => (p.status || '').toLowerCase() !== 'expedida'),
     [pacotesDoMes],
   );
+
+  // Canceladas do mês, por condomínio: é o que permite avisar na linha da
+  // emissão ATIVA que aquele condomínio já teve uma descartada.
+  const canceladasPorCondo = useMemo(() => {
+    const m = {};
+    pacotesDoMes.forEach(p => {
+      if ((p.status || '').toLowerCase() !== 'cancelada') return;
+      (m[p.condominio_id] = m[p.condominio_id] || []).push(p);
+    });
+    return m;
+  }, [pacotesDoMes]);
+
+  // Levar até a cancelada, em vez de só dizer que ela existe: a lista tem 56
+  // linhas e procurar à mão é o que ninguém faz.
+  function irParaCancelada(p) {
+    const el = document.getElementById(`pacote-${p.id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ring-2', 'ring-rose-500');
+    setTimeout(() => el.classList.remove('ring-2', 'ring-rose-500'), 2500);
+  }
 
   // Prontos para registrar = aprovados
   const prontosParaRegistro = useMemo(
@@ -1009,12 +1031,24 @@ export default function VisaoMaster() {
             const roleAutorizado = profile?.role === 'master' || profile?.role === 'departamento';
 
             const ehCancelada = statusLower === 'cancelada';
+            // A emissão que substituiu a cancelada é outra linha da lista, e
+            // nada dizia que uma tem a ver com a outra. Quem abre o mês tem de
+            // ver as duas juntas — e chegar a ela por um clique.
+            const canceladasDoCondo = ehCancelada
+              ? []
+              : (canceladasPorCondo[pacote.condominio_id] || []);
 
             return (
-              <div key={pacote.id} className={`transition-colors ${
+              <div key={pacote.id} id={`pacote-${pacote.id}`} className={`tem-marca-dagua relative overflow-hidden transition-colors ${
                 ehCancelada ? 'bg-rose-50/40 hover:bg-rose-50/60 border-l-4 border-rose-500'
                 : isRegistrado ? 'hover:bg-slate-100 border-l-2 border-violet-500/30'
                 : 'hover:bg-slate-100'}`}>
+                {ehCancelada && <MarcaDaguaCancelada />}
+                {canceladasDoCondo.length > 0 && (
+                  <div className="px-6 pt-3">
+                    <AvisoCanceladas canceladas={canceladasDoCondo} onVer={irParaCancelada} />
+                  </div>
+                )}
                 <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex items-center gap-4 min-w-0">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${

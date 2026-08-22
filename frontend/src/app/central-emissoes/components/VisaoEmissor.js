@@ -19,7 +19,7 @@ import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 import { podeRegistrar, anexarGrupos } from '@/lib/conjuntoEmissao';
 import { statusDeVoltaAposCorrecao } from '@/lib/aprovacaoFluxo';
 import SeloGrupo from './SeloGrupo';
-import SeloCancelada from '@/components/SeloCancelada';
+import SeloCancelada, { AvisoCanceladas, MarcaDaguaCancelada } from '@/components/SeloCancelada';
 import TagPrioritario from '@/components/TagPrioritario';
 import ComparativoConsumo from './ComparativoConsumo';
 import FaturaInlineForm from './FaturaInlineForm';
@@ -221,6 +221,11 @@ export default function VisaoEmissor({ profile }) {
   // Referência do gerente (planilha do mês + cobranças extras) na tela de anexos
   const [confData, setConfData]       = useState(null);  // { planilha, cobrancas_extras }
   const [confLoading, setConfLoading] = useState(false);
+  // Recarrega a referência do gerente sob demanda: anexar o documento que
+  // faltava numa cobrança muda a lista, e sem isto o cartão continuaria
+  // vermelho até alguém fechar e reabrir a emissão.
+  const [confReload, setConfReload] = useState(0);
+  const [anexandoDoc, setAnexandoDoc] = useState(null);   // id da cobrança em upload
   const [cobrancasSel, setCobrancasSel] = useState(null); // Set de ids selecionados (null = ainda carregando)
 
   // Form inline para dados manuais da fatura de concessionaria
@@ -438,7 +443,30 @@ export default function VisaoEmissor({ profile }) {
       finally { if (!cancel) setConfLoading(false); }
     })();
     return () => { cancel = true; };
-  }, [activePacote?.id]);
+  }, [activePacote?.id, confReload]);
+
+  // O documento que faltou, anexado aqui — na tela onde a falta aparece.
+  //
+  // A trava de documento obrigatório só vale para cobrança nascida depois
+  // dela. As lançadas antes ficaram num beco: não entram na emissão por falta
+  // de documento, e não havia onde anexar o documento. São 31 só no mês que
+  // está sendo emitido.
+  async function anexarDocumentoCobranca(cobranca, file) {
+    if (!file) return;
+    setAnexandoDoc(cobranca.id);
+    try {
+      const caminho = `cobrancas_extras/${activePacote.condominio_id}/${Date.now()}_${safeStorageName(file.name)}`;
+      const { error: upErr } = await supabase.storage.from('emissoes').upload(caminho, file);
+      if (upErr) throw upErr;
+      await apiPost(`/api/cobrancas-extras/${cobranca.id}/documento`, { attachments: [caminho] });
+      addToast('Documento anexado. A cobrança já pode entrar na emissão.', 'success');
+      setConfReload(n => n + 1);
+    } catch (err) {
+      addToast('Não foi possível anexar: ' + (err?.message || err), 'error');
+    } finally {
+      setAnexandoDoc(null);
+    }
+  }
 
   // ── Conferência de pendências, DENTRO da emissão ──
   // Antes isto era porteiro: sem marcar "pronto p/ emitir" a emissão nem abria.
@@ -1623,8 +1651,15 @@ export default function VisaoEmissor({ profile }) {
       
       {/* ═══ PAINEL DO PACOTE ATIVO ═══ */}
       {activePacote ? (
-        <div className="border border-violet-500/30 rounded-2xl md:rounded-3xl bg-violet-500/5 p-4 md:p-6 shadow-2xl animate-fade-in">
-          <div className="flex items-center justify-between gap-2 mb-6">
+        <div className={`tem-marca-dagua relative overflow-hidden rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-2xl animate-fade-in ${
+          (activePacote.status || '').toLowerCase() === 'cancelada'
+            ? 'border border-rose-500/40 bg-rose-500/5'
+            : 'border border-violet-500/30 bg-violet-500/5'}`}>
+          {/* Painel aberto de uma cancelada: a marca d'água atravessa tudo.
+              Aqui é onde se anexa arquivo, e anexar na emissão descartada é o
+              erro que o selo sozinho não impede. */}
+          {(activePacote.status || '').toLowerCase() === 'cancelada' && <MarcaDaguaCancelada />}
+          <div className="relative flex items-center justify-between gap-2 mb-6">
             <div className="flex items-center gap-3 md:gap-4 min-w-0">
               <div className="w-11 h-11 md:w-12 md:h-12 bg-violet-500/20 rounded-xl md:rounded-2xl flex items-center justify-center border border-violet-500/30 shrink-0">
                 <Package className="w-5 h-5 md:w-6 md:h-6 text-violet-400" />
@@ -1873,9 +1908,29 @@ export default function VisaoEmissor({ profile }) {
                                 <p className="text-[10px] text-violet-600 font-bold truncate">🏠 unid.: {c.unidades}</p>
                               )}
                               {semDoc ? (
-                                <p className="text-[10px] font-bold text-rose-600 inline-flex items-center gap-1">
-                                  <Ban className="w-2.5 h-2.5" /> sem documento — não entra na emissão
-                                </p>
+                                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <span className="text-[10px] font-bold text-rose-600 inline-flex items-center gap-1">
+                                    <Ban className="w-2.5 h-2.5" /> sem documento — não entra na emissão
+                                  </span>
+                                  <label
+                                    onClick={e => e.stopPropagation()}
+                                    className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-rose-400 bg-white px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-700 hover:bg-rose-100">
+                                    {anexandoDoc === c.id
+                                      ? <><Loader2 className="w-2.5 h-2.5 animate-spin" /> enviando…</>
+                                      : <><Paperclip className="w-2.5 h-2.5" /> anexar documento</>}
+                                    <input
+                                      type="file"
+                                      accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
+                                      disabled={anexandoDoc === c.id}
+                                      onClick={e => e.stopPropagation()}
+                                      onChange={e => {
+                                        const f = e.target.files?.[0] || null;
+                                        e.target.value = '';
+                                        anexarDocumentoCobranca(c, f);
+                                      }}
+                                      className="hidden" />
+                                  </label>
+                                </span>
                               ) : (
                                 <a href={c.attachments[0]} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
                                   className="text-[10px] text-violet-500 hover:underline inline-flex items-center gap-1">
@@ -2417,8 +2472,22 @@ export default function VisaoEmissor({ profile }) {
                     const editandoAgora = gerenteEditando(condo.id);
                     const canCreate = !temAltPrevista && (!editandoAgora || !!pacote);
 
+                    // A cancelada é uma linha entre outras 55. Quem abre o mês
+                    // para anexar precisa saber ANTES de agir que aquele
+                    // condomínio já teve uma emissão descartada — o motivo dela
+                    // costuma ser exatamente o que se vai repetir sem querer.
+                    const canceladasDoCondo = listaPacotes.filter(
+                      p => (p.status || '').toLowerCase() === 'cancelada'
+                    );
+
                     return (
-                      <div key={condo.id} className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-3 border-b border-slate-200 last:border-b-0 transition-colors ${
+                      <div key={condo.id} className="border-b border-slate-200 last:border-b-0">
+                      {canceladasDoCondo.length > 0 && (
+                        <div className="px-4 pt-2.5 sm:px-6">
+                          <AvisoCanceladas canceladas={canceladasDoCondo} onVer={abrirPacote} />
+                        </div>
+                      )}
+                      <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-3 transition-colors ${
                         temAltPrevista ? 'bg-amber-500/[0.05] hover:bg-amber-500/[0.08]'
                           : !pacote && !editandoAgora ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.07]'
                           : 'hover:bg-slate-100'
@@ -2620,6 +2689,7 @@ export default function VisaoEmissor({ profile }) {
                             </>
                           ))}
                         </div>
+                      </div>
                       </div>
                     );
                   })}

@@ -22,7 +22,7 @@ import { useToast } from '@/components/Toast';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { anexarGrupos } from '@/lib/conjuntoEmissao';
 import StatusBadge from '@/app/central-emissoes/components/StatusBadge';
-import SeloCancelada from '@/components/SeloCancelada';
+import SeloCancelada, { AvisoCanceladas, MarcaDaguaCancelada } from '@/components/SeloCancelada';
 import {
   FileText, Download, Calendar, Building2, Loader2, Inbox, ExternalLink, Archive,
 } from 'lucide-react';
@@ -200,7 +200,11 @@ export default function CondominioEmissoesPage() {
 
             <div className="divide-y divide-slate-200">
               {lista.map(p => (
-                <div key={p.id}>
+                <div key={p.id}
+                  className={(p.status || '').toLowerCase() === 'cancelada'
+                    ? 'tem-marca-dagua relative overflow-hidden bg-rose-50/40 border-l-4 border-rose-500'
+                    : undefined}>
+                  {(p.status || '').toLowerCase() === 'cancelada' && <MarcaDaguaCancelada />}
                   <div className="px-5 py-3 flex items-center gap-3 flex-wrap">
                     <span className="w-24 shrink-0 text-sm font-medium text-slate-800">
                       {MESES[p.mes_referencia]}

@@ -7,7 +7,7 @@ import TrilhaAprovacao from '@/components/TrilhaAprovacao';
 import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou, pedirCorrecao } from '@/lib/aprovacaoFluxo';
 import { devolverConjunto, anexarGrupos } from '@/lib/conjuntoEmissao';
 import SeloGrupo from './SeloGrupo';
-import SeloCancelada from '@/components/SeloCancelada';
+import SeloCancelada, { AvisoCanceladas, MarcaDaguaCancelada } from '@/components/SeloCancelada';
 import ComparativoConsumo from './ComparativoConsumo';
 import { useToast } from '@/components/Toast';
 import VisualizadorConferencia from '@/components/VisualizadorConferencia';
@@ -366,9 +366,26 @@ export default function VisaoGerente({ profile }) {
             const numArquivos = pacote.arquivos?.length || 0;
             const s = (pacote.status || '').toLowerCase();
             const aguardandoGerente = isMinhaAprovacao(s);
+            // Aprovar sem saber que a emissão anterior do mesmo mês foi
+            // cancelada é aprovar sem o motivo — e o motivo é justamente o que
+            // ficou guardado quando ela foi descartada.
+            const canceladasDoCondo = s === 'cancelada'
+              ? []
+              : pacotes.filter(o =>
+                  o.condominio_id === pacote.condominio_id
+                  && o.mes_referencia === pacote.mes_referencia
+                  && o.ano_referencia === pacote.ano_referencia
+                  && (o.status || '').toLowerCase() === 'cancelada');
 
             return (
-              <div key={pacote.id} className="border border-slate-200 rounded-2xl bg-white overflow-hidden">
+              <div key={pacote.id} className={`tem-marca-dagua relative overflow-hidden rounded-2xl bg-white ${
+                s === 'cancelada' ? 'border border-rose-300' : 'border border-slate-200'}`}>
+                {s === 'cancelada' && <MarcaDaguaCancelada />}
+                {canceladasDoCondo.length > 0 && (
+                  <div className="px-5 pt-4">
+                    <AvisoCanceladas canceladas={canceladasDoCondo} />
+                  </div>
+                )}
                 {/* Header */}
                 <div className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex items-center gap-4 min-w-0">
