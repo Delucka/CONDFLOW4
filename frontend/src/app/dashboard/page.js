@@ -344,8 +344,13 @@ export default function DashboardPage() {
   // por isso a chamada continua aqui, condicional: some sozinha quando o campo
   // aparece na resposta, sem versao quebrada no meio do caminho.
   const edicoesJuntas = data?.edicoes;
+  // Enquanto o painel nao respondeu, `data` e undefined — e a condicao anterior
+  // (`edicoesJuntas ? null : url`) disparava a chamada antiga nesse instante,
+  // que e justamente o instante da abertura. O pedido so faz sentido DEPOIS de
+  // saber que a resposta veio sem o campo, ou seja, com a API antiga no ar.
+  const precisaEdicoesSeparadas = !!data && data.edicoes === undefined;
   const { data: edicoesData, mutate: mutateEdicoes } = useSWR(
-    edicoesJuntas ? null : `/api/edicoes-mensais?ano=${vigente.ano}`,
+    precisaEdicoesSeparadas ? `/api/edicoes-mensais?ano=${vigente.ano}` : null,
     apiFetcher,
     { revalidateOnFocus: true, dedupingInterval: 30000, keepPreviousData: true },
   );

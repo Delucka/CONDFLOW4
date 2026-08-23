@@ -261,11 +261,47 @@ export default function FilaOcorrencias() {
       // MASTER + DEPARTAMENTO (EMISSOR)
       // ========================================
       if (role === 'master' || role === 'departamento') {
-        // Reaberturas pendentes
-        const { count: countReab } = await supabase
-          .from('edicoes_mensais')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'reabertura_solicitada');
+        // As cinco contagens saem JUNTAS.
+        //
+        // Estavam em fila, uma esperando a outra terminar. Cada ida ao Supabase
+        // custa 250-500 ms na instância atual (medido), então oito consultas em
+        // sequência eram dois segundos — refeitos a cada evento de tempo real,
+        // porque este bloco roda de novo a cada mudança em pacotes ou edições.
+        //
+        // Em paralelo o custo passa a ser o da mais lenta, não a soma de todas.
+        // O que precisa do resultado da contagem (o atalho para o mês certo, a
+        // emissão que tem a fatura falha) vai numa segunda rodada, também junta.
+        const [rReab, rAprov, rFaturas, rCorrecao, rOcorrencia] = await Promise.all([
+          supabase.from('edicoes_mensais').select('id', { count: 'exact', head: true })
+            .eq('status', 'reabertura_solicitada'),
+          supabase.from('emissoes_pacotes').select('id', { count: 'exact', head: true })
+            .eq('status', 'aprovado'),
+          supabase.from('emissoes_arquivos').select('id', { count: 'exact', head: true })
+            .eq('categoria', 'concessionaria').is('valor_fatura', null),
+          supabase.from('emissoes_pacotes').select('id', { count: 'exact', head: true })
+            .in('status', EM_CORRECAO),
+          supabase.from('emissoes_ocorrencias').select('id', { count: 'exact', head: true })
+            .eq('status', 'aberta'),
+        ]);
+
+        const countReab      = rReab.count;
+        const countAprov     = rAprov.count;
+        const countFaturas   = rFaturas.count;
+        const countCorrecao  = rCorrecao.count;
+        const countOcorrencia = rOcorrencia.count;
+
+        const [alvoAprov, arqFalho, alvoCorrecao] = await Promise.all([
+          countAprov > 0 ? mesDoMaisRecente(['aprovado']) : Promise.resolve(''),
+          countFaturas > 0
+            ? supabase.from('emissoes_arquivos')
+                .select('pacote_id, emissoes_pacotes(condominio_id, mes_referencia, ano_referencia)')
+                .eq('categoria', 'concessionaria').is('valor_fatura', null)
+                .order('criado_em', { ascending: false }).limit(1).maybeSingle()
+                .then(r => r.data)
+            : Promise.resolve(null),
+          countCorrecao > 0 ? mesDoMaisRecente(EM_CORRECAO) : Promise.resolve(''),
+        ]);
+
         if (countReab > 0) {
           lista.push({
             id: 'reab-pendentes',
@@ -278,13 +314,8 @@ export default function FilaOcorrencias() {
             count: countReab,
           });
         }
-        // Pacotes aguardando registro (status='aprovado')
-        const { count: countAprov } = await supabase
-          .from('emissoes_pacotes')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'aprovado');
+
         if (countAprov > 0) {
-          const alvo = await mesDoMaisRecente(['aprovado']);
           lista.push({
             id: 'pacotes-aprovados',
             tipo: 'pacote',
@@ -292,28 +323,15 @@ export default function FilaOcorrencias() {
             icon: FileCheck2,
             titulo: `${countAprov} pacote${countAprov !== 1 ? 's' : ''} aguardando registro`,
             subtitulo: 'Abre o painel já filtrado por “aguardando registro”',
-            link: `/central-emissoes?filtro=aprovado${alvo}`,
+            link: `/central-emissoes?filtro=aprovado${alvoAprov}`,
             count: countAprov,
           });
         }
-        // Faturas de concessionária sem dados
-        const { count: countFaturas } = await supabase
-          .from('emissoes_arquivos')
-          .select('id', { count: 'exact', head: true })
-          .eq('categoria', 'concessionaria')
-          .is('valor_fatura', null);
+
         if (countFaturas > 0) {
           // Não existe tela que liste faturas soltas: elas moram dentro da
           // emissão. O atalho abre a emissão mais recente que tem uma — daí a
           // fatura é editada onde ela está.
-          const { data: arqFalho } = await supabase
-            .from('emissoes_arquivos')
-            .select('pacote_id, emissoes_pacotes(condominio_id, mes_referencia, ano_referencia)')
-            .eq('categoria', 'concessionaria')
-            .is('valor_fatura', null)
-            .order('criado_em', { ascending: false })
-            .limit(1)
-            .maybeSingle();
           const p = arqFalho?.emissoes_pacotes;
           lista.push({
             id: 'faturas-sem-dados',
@@ -328,17 +346,8 @@ export default function FilaOcorrencias() {
             count: countFaturas,
           });
         }
-        
-        // Pacotes aguardando correção. Era `select('id, status')` SEM filtro nem
-        // limite, contando no navegador: o PostgREST corta em 1000 linhas por
-        // padrão, então a partir daí a conta passava a mentir para baixo — em
-        // silêncio. Agora conta no banco.
-        const { count: countCorrecao } = await supabase
-          .from('emissoes_pacotes')
-          .select('id', { count: 'exact', head: true })
-          .in('status', EM_CORRECAO);
+
         if (countCorrecao > 0) {
-          const alvo = await mesDoMaisRecente(EM_CORRECAO);
           lista.push({
             id: 'pacotes-correcao',
             tipo: 'pacote',
@@ -346,16 +355,11 @@ export default function FilaOcorrencias() {
             icon: Edit,
             titulo: `${countCorrecao} pacote${countCorrecao !== 1 ? 's' : ''} com correção solicitada`,
             subtitulo: 'Abre o painel já filtrado por “correção solicitada”',
-            link: `/central-emissoes?filtro=solicitar_correcao${alvo}`,
+            link: `/central-emissoes?filtro=solicitar_correcao${alvoCorrecao}`,
             count: countCorrecao,
           });
         }
 
-        // Ocorrências abertas
-        const { count: countOcorrencia } = await supabase
-          .from('emissoes_ocorrencias')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'aberta');
         if (countOcorrencia > 0) {
           lista.push({
             id: 'ocorrencias-abertas',
