@@ -224,10 +224,7 @@ export default function DashboardPage() {
 
   // Concessionárias por condomínio (0036) — quem tem água/gás/energia precisa de
   // fatura e relatório antes de emitir, e é o que a tela pergunta ao abrir.
-  // Vem dentro do painel. Era uma consulta direta do navegador ao Supabase para
-  // um mapa que a resposta do painel ja podia trazer — e cada ida daquelas
-  // custa 250-500 ms partindo do navegador.
-  const concessionariasPorCondo = data?.concessionarias_por_condo || {};
+
 
   // Confirmação antes de sair para a emissão: { condo, concessionarias }
   const [confirmarConsumo, setConfirmarConsumo] = useState(null);
@@ -318,6 +315,14 @@ export default function DashboardPage() {
   // status porque a cancelada perde a vaga para a emissão que a substituiu:
   // sem este contador, ela some justamente da tela onde se decide o mês.
   const canceladasPorCondo = data?.canceladas_by_condo || {};
+  // Vem dentro do painel. Era uma consulta direta do navegador ao Supabase para
+  // um mapa que a resposta já podia trazer.
+  //
+  // Fica AQUI, e não lá em cima junto do estado que ela substituiu: `data` só
+  // existe a partir do useSWR acima, e ler antes disso é a zona morta do
+  // const — o build passa, e a tela morre no navegador com "Cannot access
+  // before initialization". Foi exatamente o que aconteceu.
+  const concessionariasPorCondo = data?.concessionarias_por_condo || {};
   // Sobe para cá porque o `useMemo` do filtro lê isto durante o render — e
   // useMemo executa na hora. Declarado depois, cairia na zona morta do const
   // e derrubaria o painel no primeiro clique de filtro.
