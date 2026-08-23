@@ -26,6 +26,14 @@ def api_health():
     # Endpoint leve (sem auth, sem DB) só para "acordar" a função e tirar o cold start.
     return {"ok": True}
 
+# As mesmas listas de frontend/src/lib/statusEmissao.js. Um status escrito de
+# tres jeitos ao longo do tempo continua sendo o mesmo status, e contar so a
+# grafia nova faz o numero mentir para baixo — calado.
+EM_CORRECAO_SQL = ["solicitar_correcao", "Solicitar alteração", "Solicitar correção"]
+COM_SUP_GERENTES_SQL = ["pendente_sup_gerentes", "Aguardando Chefe"]
+COM_SUP_CONTAB_SQL = ["pendente_sup_contabilidade", "Aguardando Supervisor"]
+
+
 @router.get("/dashboard")
 def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, ano: Optional[int] = None, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:
@@ -97,12 +105,132 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             except Exception as e:
                 print(f"[dashboard] edicoes_mensais falhou (segue sem): {e}")
                 return []
-        with ThreadPoolExecutor(max_workers=4) as _ex:
+        # ── O que o NAVEGADOR buscava sozinho ──────────────────────────────
+        #
+        # A Fila de Conferencia, o sino e as etiquetas de consumo faziam 15
+        # consultas diretas ao Supabase para pintar a mesma tela que esta
+        # resposta ja pinta. Cada uma pagava o pedagio de ida e volta (250-500
+        # ms na instancia atual, medido) do navegador do usuario, que fica mais
+        # longe do banco do que este servidor.
+        #
+        # Tudo vem junto aqui, em paralelo. O que a tela faz com os numeros
+        # continua sendo decidido la: o backend manda contagem, nao texto de
+        # tela — assim mudar a frase de um card nao exige tocar na API.
+        def _q_ocorrencias():
+            try:
+                q = db.table("emissoes_ocorrencias").select("*, condominios(name)")
+                if user.get("role") in ("gerente", "assistente"):
+                    ids = carteira_condo_ids(db, user)
+                    if not ids:
+                        return []
+                    q = q.in_("condominio_id", ids)
+                return q.order("criado_em", desc=True).limit(200).execute().data or []
+            except Exception as e:
+                print(f"[dashboard] ocorrencias falhou (segue sem): {e}")
+                return []
+
+        def _q_concessionarias():
+            try:
+                rows = db.table("condominios_concessionarias") \
+                         .select("condominio_id, concessionaria").execute().data or []
+                m = {}
+                for r in rows:
+                    m.setdefault(r["condominio_id"], []).append(r.get("concessionaria"))
+                return m
+            except Exception as e:
+                print(f"[dashboard] concessionarias falhou (segue sem): {e}")
+                return {}
+
+        def _q_notificacoes():
+            try:
+                return db.table("notificacoes").select("*") \
+                         .eq("user_id", user["id"]) \
+                         .order("created_at", desc=True).limit(30).execute().data or []
+            except Exception as e:
+                print(f"[dashboard] notificacoes falhou (segue sem): {e}")
+                return []
+
+        def _q_fila():
+            """Contagens da Fila de Conferencia, por papel.
+
+            Cada `count='exact', head=True` volta so o numero, sem linha
+            nenhuma — e as cinco saem na mesma rodada de threads das outras.
+            """
+            papel = user.get("role")
+            out = {}
+            try:
+                def conta(tabela, aplica):
+                    q = db.table(tabela).select("id", count="exact").limit(1)
+                    return (aplica(q).execute().count or 0)
+
+                if papel in ("master", "departamento"):
+                    out["reaberturas_pendentes"] = conta(
+                        "edicoes_mensais", lambda q: q.eq("status", "reabertura_solicitada"))
+                    out["pacotes_aprovado"] = conta(
+                        "emissoes_pacotes", lambda q: q.eq("status", "aprovado"))
+                    out["faturas_sem_dados"] = conta(
+                        "emissoes_arquivos",
+                        lambda q: q.eq("categoria", "concessionaria").is_("valor_fatura", "null"))
+                    out["pacotes_correcao"] = conta(
+                        "emissoes_pacotes", lambda q: q.in_("status", EM_CORRECAO_SQL))
+                    out["ocorrencias_abertas"] = conta(
+                        "emissoes_ocorrencias", lambda q: q.eq("status", "aberta"))
+
+                    # Atalhos: para qual mes o painel deve abrir.
+                    for chave, filtro in (("alvo_aprovado", ["aprovado"]),
+                                          ("alvo_correcao", EM_CORRECAO_SQL)):
+                        r = db.table("emissoes_pacotes") \
+                              .select("mes_referencia, ano_referencia") \
+                              .in_("status", filtro) \
+                              .order("atualizado_em", desc=True).limit(1).execute().data
+                        out[chave] = r[0] if r else None
+
+                    r = db.table("emissoes_arquivos") \
+                          .select("pacote_id, emissoes_pacotes(condominio_id, mes_referencia, ano_referencia)") \
+                          .eq("categoria", "concessionaria").is_("valor_fatura", "null") \
+                          .order("criado_em", desc=True).limit(1).execute().data
+                    out["fatura_falha"] = r[0] if r else None
+
+                if papel in ("gerente", "assistente"):
+                    g_id = carteira_gerente_id(db, user)
+                    if g_id:
+                        out["edicoes_em_edicao"] = conta(
+                            "edicoes_mensais",
+                            lambda q: q.eq("gerente_id", g_id).eq("status", "em_edicao"))
+                        from datetime import datetime as _d, timedelta as _t
+                        sete = (_d.now() - _t(days=7)).isoformat()
+                        reabs = db.table("edicoes_mensais") \
+                                  .select("reabertura_aprovada") \
+                                  .eq("gerente_id", g_id) \
+                                  .not_.is_("reabertura_respondida_em", "null") \
+                                  .gte("reabertura_respondida_em", sete).execute().data or []
+                        out["reaberturas_aprovadas"] = sum(1 for r in reabs if r.get("reabertura_aprovada") is True)
+                        out["reaberturas_negadas"] = sum(1 for r in reabs if r.get("reabertura_aprovada") is False)
+
+                if papel in ("supervisora", "supervisor_gerentes"):
+                    out["pacotes_sup_gerentes"] = conta(
+                        "emissoes_pacotes",
+                        lambda q: q.in_("status", COM_SUP_GERENTES_SQL))
+                if papel in ("supervisora", "supervisora_contabilidade"):
+                    out["pacotes_sup_contabilidade"] = conta(
+                        "emissoes_pacotes",
+                        lambda q: q.in_("status", COM_SUP_CONTAB_SQL))
+            except Exception as e:
+                print(f"[dashboard] fila falhou (segue sem): {e}")
+            return out
+
+        with ThreadPoolExecutor(max_workers=8) as _ex:
             _fc, _fg, _fp = _ex.submit(_q_condos), _ex.submit(_q_gerentes), _ex.submit(_q_pipeline)
             _fe = _ex.submit(_q_edicoes)
+            _fo, _fk, _fn, _ff = (_ex.submit(_q_ocorrencias), _ex.submit(_q_concessionarias),
+                                  _ex.submit(_q_notificacoes), _ex.submit(_q_fila))
             raw_condos = _fc.result()
             gerentes = _fg.result()
             edicoes_ano = _fe.result()
+            ocorrencias = _fo.result()
+            concessionarias = _fk.result()
+            notificacoes = _fn.result()
+            fila_contagens = _ff.result()
             pipeline_config = _fp.result()
 
         condos = []
@@ -196,6 +324,11 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             "canceladas_by_condo": canceladas_by_condo,
             # Junto na mesma resposta: era a segunda chamada do painel.
             "edicoes": edicoes_ano,
+            # Junto tambem: eram 15 consultas diretas do navegador.
+            "ocorrencias": ocorrencias,
+            "concessionarias_por_condo": concessionarias,
+            "notificacoes": notificacoes,
+            "fila_contagens": fila_contagens,
             "emissao_mes": int(mes) if mes else None,
             "emissao_ano": emis_ano,
             "pipeline_config": pipeline_config,

@@ -11,7 +11,14 @@ import { useRealtime } from '@/lib/realtime';
 import { COM_GERENTE, COM_SUP_GERENTES, COM_SUP_CONTABILIDADE, EM_CORRECAO } from '@/lib/statusEmissao';
 import Link from 'next/link';
 
-export default function FilaOcorrencias() {
+/**
+ * @param {{ocorrencias?: Array, contagens?: Object}} [semente]
+ *   O que o painel ja trouxe dentro de /api/dashboard. Com isto a fila NAO
+ *   consulta nada ao abrir: eram 13 idas ao Supabase partindo do navegador
+ *   para numeros que a resposta do painel ja tinha. Sem a semente (Central de
+ *   Emissoes), ela busca por conta propria, como sempre fez.
+ */
+export default function FilaOcorrencias({ semente = null }) {
   const supabase = createClient();
   const { profile } = useAuth();
   const [ocorrencias, setOcorrencias] = useState([]);
@@ -150,291 +157,242 @@ export default function FilaOcorrencias() {
    *
    * LIMIT 1 com ordem por criado_em: uma linha, pelo índice.
    */
-  const mesDoMaisRecente = async (statusLista) => {
-    const { data } = await supabase
-      .from('emissoes_pacotes')
-      .select('mes_referencia, ano_referencia')
-      .in('status', statusLista)
-      .order('criado_em', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    return data ? `&mes=${data.mes_referencia}&ano=${data.ano_referencia}` : '';
-  };
+  /**
+   * As contagens da fila — no mesmo formato, venha de onde vier.
+   *
+   * O painel ja manda estes numeros dentro de /api/dashboard, calculados no
+   * servidor, que fica ao lado do banco. Esta funcao existe para as telas que
+   * nao recebem a semente (a Central de Emissoes) e como plano B se o campo
+   * nao vier. Um formato so para as duas origens: se divergirem, a fila passa
+   * a mostrar coisas diferentes dependendo de por onde a pessoa chegou.
+   */
+  async function buscarContagens(role) {
+    const out = {};
 
-  const fetchAcoes = async () => {
+    if (role === 'gerente' || role === 'assistente') {
+      const [gId, meusCondos] = await Promise.all([carteiraGerenteId(), condosDaCarteira()]);
+      if (gId) {
+        const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        // Carteira vazia conta zero — nunca a base toda.
+        const alvo = meusCondos && meusCondos.length ? meusCondos : ['00000000-0000-0000-0000-000000000000'];
+        const [rEd, rReab, rPac] = await Promise.all([
+          supabase.from('edicoes_mensais').select('id', { count: 'exact', head: true })
+            .eq('gerente_id', gId).eq('status', 'em_edicao'),
+          supabase.from('edicoes_mensais').select('reabertura_aprovada')
+            .eq('gerente_id', gId)
+            .not('reabertura_respondida_em', 'is', null)
+            .gte('reabertura_respondida_em', seteDiasAtras),
+          supabase.from('emissoes_pacotes').select('id', { count: 'exact', head: true })
+            .in('status', COM_GERENTE).in('condominio_id', alvo),
+        ]);
+        out.edicoes_em_edicao = rEd.count || 0;
+        out.reaberturas_aprovadas = (rReab.data || []).filter(r => r.reabertura_aprovada === true).length;
+        out.reaberturas_negadas   = (rReab.data || []).filter(r => r.reabertura_aprovada === false).length;
+        out.pacotes_gerente = rPac.count || 0;
+      }
+    }
+
+    if (role === 'master' || role === 'departamento') {
+      const [rReab, rAprov, rFaturas, rCorrecao, rOcorrencia] = await Promise.all([
+        supabase.from('edicoes_mensais').select('id', { count: 'exact', head: true })
+          .eq('status', 'reabertura_solicitada'),
+        supabase.from('emissoes_pacotes').select('id', { count: 'exact', head: true })
+          .eq('status', 'aprovado'),
+        supabase.from('emissoes_arquivos').select('id', { count: 'exact', head: true })
+          .eq('categoria', 'concessionaria').is('valor_fatura', null),
+        supabase.from('emissoes_pacotes').select('id', { count: 'exact', head: true })
+          .in('status', EM_CORRECAO),
+        supabase.from('emissoes_ocorrencias').select('id', { count: 'exact', head: true })
+          .eq('status', 'aberta'),
+      ]);
+      out.reaberturas_pendentes = rReab.count || 0;
+      out.pacotes_aprovado      = rAprov.count || 0;
+      out.faturas_sem_dados     = rFaturas.count || 0;
+      out.pacotes_correcao      = rCorrecao.count || 0;
+      out.ocorrencias_abertas   = rOcorrencia.count || 0;
+
+      const alvoDe = async (statusLista) => {
+        const { data } = await supabase.from('emissoes_pacotes')
+          .select('mes_referencia, ano_referencia').in('status', statusLista)
+          .order('criado_em', { ascending: false }).limit(1).maybeSingle();
+        return data || null;
+      };
+      const [alvoA, arqFalho, alvoC] = await Promise.all([
+        out.pacotes_aprovado > 0 ? alvoDe(['aprovado']) : Promise.resolve(null),
+        out.faturas_sem_dados > 0
+          ? supabase.from('emissoes_arquivos')
+              .select('pacote_id, emissoes_pacotes(condominio_id, mes_referencia, ano_referencia)')
+              .eq('categoria', 'concessionaria').is('valor_fatura', null)
+              .order('criado_em', { ascending: false }).limit(1).maybeSingle().then(r => r.data)
+          : Promise.resolve(null),
+        out.pacotes_correcao > 0 ? alvoDe(EM_CORRECAO) : Promise.resolve(null),
+      ]);
+      out.alvo_aprovado = alvoA;
+      out.alvo_correcao = alvoC;
+      out.fatura_falha  = arqFalho;
+    }
+
+    if (['supervisora', 'supervisor_gerentes'].includes(role)) {
+      const { count } = await supabase.from('emissoes_pacotes')
+        .select('id', { count: 'exact', head: true }).in('status', COM_SUP_GERENTES);
+      out.pacotes_sup_gerentes = count || 0;
+    }
+    if (['supervisora_contabilidade', 'supervisora'].includes(role)) {
+      const { count } = await supabase.from('emissoes_pacotes')
+        .select('id', { count: 'exact', head: true }).in('status', COM_SUP_CONTABILIDADE);
+      out.pacotes_sup_contabilidade = count || 0;
+    }
+
+    return out;
+  }
+
+  const fetchAcoes = async (contagensProntas = null) => {
     if (!profile) return;
     setLoadingAcoes(true);
     const role = profile.role;
     const lista = [];
 
     try {
-      // ========================================
-      // GERENTE
-      // ========================================
-      // O assistente trabalha a carteira do gerente a que está vinculado, e via
-      // esta mesma fila vazia — não havia ramo nenhum para ele.
-      if (role === 'gerente' || role === 'assistente') {
-        const gId = await carteiraGerenteId();
-        const meusCondos = await condosDaCarteira();
+      const c = contagensProntas || (await buscarContagens(role));
+      const sufixo = (alvo) => (alvo ? `&mes=${alvo.mes_referencia}&ano=${alvo.ano_referencia}` : '');
 
-        // Edições em andamento (M+1)
-        if (gId) {
-          const { count } = await supabase
-            .from('edicoes_mensais')
-            .select('id', { count: 'exact', head: true })
-            .eq('gerente_id', gId)
-            .eq('status', 'em_edicao');
-          if (count > 0) {
-            lista.push({
-              id: 'edicoes-em-edicao',
-              tipo: 'edicao',
-              color: 'violet',
-              icon: Edit,
-              titulo: `${count} condomínio${count !== 1 ? 's' : ''} em edição`,
-              subtitulo: 'Revisar e liberar valores do próximo mês',
-              link: '/aprovacoes?tab=fila',
-              count,
-            });
-          }
-          // Reaberturas: aprovadas vs negadas (ultimos 7 dias)
-          const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-          const { data: reabs } = await supabase
-            .from('edicoes_mensais')
-            .select('id, reabertura_aprovada, reabertura_respondida_em')
-            .eq('gerente_id', gId)
-            .not('reabertura_respondida_em', 'is', null)
-            .gte('reabertura_respondida_em', seteDiasAtras);
-          const aprovadas = (reabs || []).filter(r => r.reabertura_aprovada === true).length;
-          const negadas   = (reabs || []).filter(r => r.reabertura_aprovada === false).length;
-          if (aprovadas > 0) {
-            lista.push({
-              id: 'reab-aprovadas',
-              tipo: 'reabertura',
-              color: 'emerald',
-              icon: CheckCircle,
-              titulo: `${aprovadas} reabertura${aprovadas !== 1 ? 's' : ''} aprovada${aprovadas !== 1 ? 's' : ''}`,
-              subtitulo: 'A planilha foi reaberta. Vá editar.',
-              link: '/aprovacoes?tab=fila',
-              count: aprovadas,
-            });
-          }
-          if (negadas > 0) {
-            lista.push({
-              id: 'reab-negadas',
-              tipo: 'reabertura',
-              color: 'rose',
-              icon: XCircle,
-              titulo: `${negadas} reabertura${negadas !== 1 ? 's' : ''} negada${negadas !== 1 ? 's' : ''}`,
-              subtitulo: 'Solicitação não foi aprovada.',
-              link: '/aprovacoes?tab=fila',
-              count: negadas,
-            });
-          }
-        }
-
-        // Pacotes "Com gerente" — SÓ os da carteira. Sem o recorte esta contagem
-        // varria a base inteira, e o gerente via "47 pacotes aguardando sua
-        // aprovação" com 3 sendo dele. O sino (usePendingCount) sempre filtrou,
-        // então os dois números se contradiziam na mesma tela.
-        let qPacGer = supabase
-          .from('emissoes_pacotes')
-          .select('id', { count: 'exact', head: true })
-          .in('status', COM_GERENTE);
-        // Carteira vazia (ou vínculo ausente) conta zero — nunca a base toda.
-        qPacGer = qPacGer.in('condominio_id', meusCondos && meusCondos.length ? meusCondos : ['00000000-0000-0000-0000-000000000000']);
-        const { count: countPacGer } = await qPacGer;
-        if (countPacGer > 0) {
-          lista.push({
-            id: 'pacotes-gerente',
-            tipo: 'pacote',
-            color: 'pink',
-            icon: Package,
-            titulo: `${countPacGer} pacote${countPacGer !== 1 ? 's' : ''} aguardando ${role === 'assistente' ? 'a aprovação do gerente' : 'sua aprovação'}`,
-            subtitulo: 'Conferir arquivos e aprovar',
-            link: '/aprovacoes?tab=pacotes',
-            count: countPacGer,
-          });
-        }
+      // ── GERENTE / ASSISTENTE ──
+      if (c.edicoes_em_edicao > 0) {
+        lista.push({
+          id: 'edicoes-em-edicao', tipo: 'edicao', color: 'violet', icon: Edit,
+          titulo: `${c.edicoes_em_edicao} condomínio${c.edicoes_em_edicao !== 1 ? 's' : ''} em edição`,
+          subtitulo: 'Revisar e liberar valores do próximo mês',
+          link: '/aprovacoes?tab=fila', count: c.edicoes_em_edicao,
+        });
+      }
+      if (c.reaberturas_aprovadas > 0) {
+        lista.push({
+          id: 'reab-aprovadas', tipo: 'reabertura', color: 'emerald', icon: CheckCircle,
+          titulo: `${c.reaberturas_aprovadas} reabertura${c.reaberturas_aprovadas !== 1 ? 's' : ''} aprovada${c.reaberturas_aprovadas !== 1 ? 's' : ''}`,
+          subtitulo: 'A planilha foi reaberta. Vá editar.',
+          link: '/aprovacoes?tab=fila', count: c.reaberturas_aprovadas,
+        });
+      }
+      if (c.reaberturas_negadas > 0) {
+        lista.push({
+          id: 'reab-negadas', tipo: 'reabertura', color: 'rose', icon: XCircle,
+          titulo: `${c.reaberturas_negadas} reabertura${c.reaberturas_negadas !== 1 ? 's' : ''} negada${c.reaberturas_negadas !== 1 ? 's' : ''}`,
+          subtitulo: 'Solicitação não foi aprovada.',
+          link: '/aprovacoes?tab=fila', count: c.reaberturas_negadas,
+        });
+      }
+      if (c.pacotes_gerente > 0) {
+        lista.push({
+          id: 'pacotes-gerente', tipo: 'pacote', color: 'pink', icon: Package,
+          titulo: `${c.pacotes_gerente} pacote${c.pacotes_gerente !== 1 ? 's' : ''} aguardando ${role === 'assistente' ? 'a aprovação do gerente' : 'sua aprovação'}`,
+          subtitulo: 'Conferir arquivos e aprovar',
+          link: '/aprovacoes?tab=pacotes', count: c.pacotes_gerente,
+        });
       }
 
-      // ========================================
-      // MASTER + DEPARTAMENTO (EMISSOR)
-      // ========================================
-      if (role === 'master' || role === 'departamento') {
-        // As cinco contagens saem JUNTAS.
-        //
-        // Estavam em fila, uma esperando a outra terminar. Cada ida ao Supabase
-        // custa 250-500 ms na instância atual (medido), então oito consultas em
-        // sequência eram dois segundos — refeitos a cada evento de tempo real,
-        // porque este bloco roda de novo a cada mudança em pacotes ou edições.
-        //
-        // Em paralelo o custo passa a ser o da mais lenta, não a soma de todas.
-        // O que precisa do resultado da contagem (o atalho para o mês certo, a
-        // emissão que tem a fatura falha) vai numa segunda rodada, também junta.
-        const [rReab, rAprov, rFaturas, rCorrecao, rOcorrencia] = await Promise.all([
-          supabase.from('edicoes_mensais').select('id', { count: 'exact', head: true })
-            .eq('status', 'reabertura_solicitada'),
-          supabase.from('emissoes_pacotes').select('id', { count: 'exact', head: true })
-            .eq('status', 'aprovado'),
-          supabase.from('emissoes_arquivos').select('id', { count: 'exact', head: true })
-            .eq('categoria', 'concessionaria').is('valor_fatura', null),
-          supabase.from('emissoes_pacotes').select('id', { count: 'exact', head: true })
-            .in('status', EM_CORRECAO),
-          supabase.from('emissoes_ocorrencias').select('id', { count: 'exact', head: true })
-            .eq('status', 'aberta'),
-        ]);
-
-        const countReab      = rReab.count;
-        const countAprov     = rAprov.count;
-        const countFaturas   = rFaturas.count;
-        const countCorrecao  = rCorrecao.count;
-        const countOcorrencia = rOcorrencia.count;
-
-        const [alvoAprov, arqFalho, alvoCorrecao] = await Promise.all([
-          countAprov > 0 ? mesDoMaisRecente(['aprovado']) : Promise.resolve(''),
-          countFaturas > 0
-            ? supabase.from('emissoes_arquivos')
-                .select('pacote_id, emissoes_pacotes(condominio_id, mes_referencia, ano_referencia)')
-                .eq('categoria', 'concessionaria').is('valor_fatura', null)
-                .order('criado_em', { ascending: false }).limit(1).maybeSingle()
-                .then(r => r.data)
-            : Promise.resolve(null),
-          countCorrecao > 0 ? mesDoMaisRecente(EM_CORRECAO) : Promise.resolve(''),
-        ]);
-
-        if (countReab > 0) {
-          lista.push({
-            id: 'reab-pendentes',
-            tipo: 'reabertura',
-            color: 'amber',
-            icon: RefreshCw,
-            titulo: `${countReab} reabertura${countReab !== 1 ? 's' : ''} pendente${countReab !== 1 ? 's' : ''}`,
-            subtitulo: 'Aprovar ou negar pedido do gerente',
-            link: '/aprovacoes?tab=fila',
-            count: countReab,
-          });
-        }
-
-        if (countAprov > 0) {
-          lista.push({
-            id: 'pacotes-aprovados',
-            tipo: 'pacote',
-            color: 'blue',
-            icon: FileCheck2,
-            titulo: `${countAprov} pacote${countAprov !== 1 ? 's' : ''} aguardando registro`,
-            subtitulo: 'Abre o painel já filtrado por “aguardando registro”',
-            link: `/central-emissoes?filtro=aprovado${alvoAprov}`,
-            count: countAprov,
-          });
-        }
-
-        if (countFaturas > 0) {
-          // Não existe tela que liste faturas soltas: elas moram dentro da
-          // emissão. O atalho abre a emissão mais recente que tem uma — daí a
-          // fatura é editada onde ela está.
-          const p = arqFalho?.emissoes_pacotes;
-          lista.push({
-            id: 'faturas-sem-dados',
-            tipo: 'fatura',
-            color: 'orange',
-            icon: Receipt,
-            titulo: `${countFaturas} fatura${countFaturas !== 1 ? 's' : ''} sem dados`,
-            subtitulo: p ? 'Abre a emissão mais recente que tem uma' : 'Concessionárias sem cliente/venc/valor',
-            link: p
-              ? `/central-emissoes?tab=upload&condo=${p.condominio_id}&mes=${p.mes_referencia}&ano=${p.ano_referencia}&pacote=${arqFalho.pacote_id}`
-              : '/central-emissoes?tab=upload',
-            count: countFaturas,
-          });
-        }
-
-        if (countCorrecao > 0) {
-          lista.push({
-            id: 'pacotes-correcao',
-            tipo: 'pacote',
-            color: 'rose',
-            icon: Edit,
-            titulo: `${countCorrecao} pacote${countCorrecao !== 1 ? 's' : ''} com correção solicitada`,
-            subtitulo: 'Abre o painel já filtrado por “correção solicitada”',
-            link: `/central-emissoes?filtro=solicitar_correcao${alvoCorrecao}`,
-            count: countCorrecao,
-          });
-        }
-
-        if (countOcorrencia > 0) {
-          lista.push({
-            id: 'ocorrencias-abertas',
-            tipo: 'ocorrencia',
-            color: 'rose',
-            icon: AlertCircle,
-            titulo: `${countOcorrencia} ocorrência${countOcorrencia !== 1 ? 's' : ''} em aberto`,
-            subtitulo: 'Ver a lista aqui mesmo',
-            // As ocorrências estão nas abas desta mesma tela: trocar de aba é o
-            // destino certo. `link: '#'` recarregava a página e não levava a nada.
-            aba: 'ocorrencia',
-            count: countOcorrencia,
-          });
-        }
+      // ── MASTER / DEPARTAMENTO ──
+      if (c.reaberturas_pendentes > 0) {
+        lista.push({
+          id: 'reab-pendentes', tipo: 'reabertura', color: 'amber', icon: RefreshCw,
+          titulo: `${c.reaberturas_pendentes} reabertura${c.reaberturas_pendentes !== 1 ? 's' : ''} pendente${c.reaberturas_pendentes !== 1 ? 's' : ''}`,
+          subtitulo: 'Aprovar ou negar pedido do gerente',
+          link: '/aprovacoes?tab=fila', count: c.reaberturas_pendentes,
+        });
+      }
+      if (c.pacotes_aprovado > 0) {
+        lista.push({
+          id: 'pacotes-aprovados', tipo: 'pacote', color: 'blue', icon: FileCheck2,
+          titulo: `${c.pacotes_aprovado} pacote${c.pacotes_aprovado !== 1 ? 's' : ''} aguardando registro`,
+          subtitulo: 'Abre o painel já filtrado por “aguardando registro”',
+          link: `/central-emissoes?filtro=aprovado${sufixo(c.alvo_aprovado)}`,
+          count: c.pacotes_aprovado,
+        });
+      }
+      if (c.faturas_sem_dados > 0) {
+        // Não existe tela que liste faturas soltas: elas moram dentro da
+        // emissão. O atalho abre a emissão mais recente que tem uma.
+        const p = c.fatura_falha?.emissoes_pacotes;
+        lista.push({
+          id: 'faturas-sem-dados', tipo: 'fatura', color: 'orange', icon: Receipt,
+          titulo: `${c.faturas_sem_dados} fatura${c.faturas_sem_dados !== 1 ? 's' : ''} sem dados`,
+          subtitulo: p ? 'Abre a emissão mais recente que tem uma' : 'Concessionárias sem cliente/venc/valor',
+          link: p
+            ? `/central-emissoes?tab=upload&condo=${p.condominio_id}&mes=${p.mes_referencia}&ano=${p.ano_referencia}&pacote=${c.fatura_falha.pacote_id}`
+            : '/central-emissoes?tab=upload',
+          count: c.faturas_sem_dados,
+        });
+      }
+      if (c.pacotes_correcao > 0) {
+        lista.push({
+          id: 'pacotes-correcao', tipo: 'pacote', color: 'rose', icon: Edit,
+          titulo: `${c.pacotes_correcao} pacote${c.pacotes_correcao !== 1 ? 's' : ''} com correção solicitada`,
+          subtitulo: 'Abre o painel já filtrado por “correção solicitada”',
+          link: `/central-emissoes?filtro=solicitar_correcao${sufixo(c.alvo_correcao)}`,
+          count: c.pacotes_correcao,
+        });
+      }
+      if (c.ocorrencias_abertas > 0) {
+        lista.push({
+          id: 'ocorrencias-abertas', tipo: 'ocorrencia', color: 'rose', icon: AlertCircle,
+          titulo: `${c.ocorrencias_abertas} ocorrência${c.ocorrencias_abertas !== 1 ? 's' : ''} em aberto`,
+          subtitulo: 'Ver a lista aqui mesmo',
+          aba: 'ocorrencia', count: c.ocorrencias_abertas,
+        });
       }
 
-      // ========================================
-      // SUPERVISORA / SUP. GERENTES / SUP. CONTABILIDADE
-      // ========================================
-      if (['supervisora', 'supervisor_gerentes'].includes(role)) {
-        const { count } = await supabase
-          .from('emissoes_pacotes')
-          .select('id', { count: 'exact', head: true })
-          .in('status', COM_SUP_GERENTES);
-        if (count > 0) {
-          lista.push({
-            id: 'pacotes-sup-gerentes',
-            tipo: 'pacote',
-            color: 'purple',
-            icon: Package,
-            titulo: `${count} pacote${count !== 1 ? 's' : ''} com Sup. Gerentes`,
-            subtitulo: 'Aguardando sua revisão',
-            link: '/aprovacoes?tab=pacotes',
-            count,
-          });
-        }
+      // ── SUPERVISORAS ──
+      if (c.pacotes_sup_gerentes > 0) {
+        lista.push({
+          id: 'pacotes-sup-gerentes', tipo: 'pacote', color: 'purple', icon: Package,
+          titulo: `${c.pacotes_sup_gerentes} pacote${c.pacotes_sup_gerentes !== 1 ? 's' : ''} com Sup. Gerentes`,
+          subtitulo: 'Aguardando sua revisão',
+          link: '/aprovacoes?tab=pacotes', count: c.pacotes_sup_gerentes,
+        });
       }
-      if (['supervisora_contabilidade', 'supervisora'].includes(role)) {
-        const { count } = await supabase
-          .from('emissoes_pacotes')
-          .select('id', { count: 'exact', head: true })
-          .in('status', COM_SUP_CONTABILIDADE);
-        if (count > 0) {
-          lista.push({
-            id: 'pacotes-sup-contab',
-            tipo: 'pacote',
-            color: 'amber',
-            icon: Package,
-            titulo: `${count} pacote${count !== 1 ? 's' : ''} com Sup. Contábil`,
-            subtitulo: 'Aguardando sua aprovação',
-            link: '/aprovacoes?tab=pacotes',
-            count,
-          });
-        }
+      if (c.pacotes_sup_contabilidade > 0) {
+        lista.push({
+          id: 'pacotes-sup-contab', tipo: 'pacote', color: 'amber', icon: Package,
+          titulo: `${c.pacotes_sup_contabilidade} pacote${c.pacotes_sup_contabilidade !== 1 ? 's' : ''} com Sup. Contábil`,
+          subtitulo: 'Aguardando sua aprovação',
+          link: '/aprovacoes?tab=pacotes', count: c.pacotes_sup_contabilidade,
+        });
       }
     } catch (e) {
       console.error('[FilaOcorrencias] fetchAcoes:', e);
     }
+
     setAcoes(lista);
     setLoadingAcoes(false);
   };
 
   useEffect(() => {
-    fetchOcorrencias();
-    fetchAcoes();
-    if (profile) fetchCondominios();
+    // Com semente, a abertura nao consulta nada. O tempo real continua ligado
+    // logo abaixo: o que sai e a rajada inicial, nao a atualizacao.
+    if (semente?.ocorrencias) { setOcorrencias(semente.ocorrencias); setLoading(false); }
+    else fetchOcorrencias();
+
+    if (semente?.contagens) fetchAcoes(semente.contagens);
+    else fetchAcoes();
+
+    // A lista de condominios so serve ao seletor do modal "nova ocorrencia".
+    // Buscar 325 nomes na abertura da tela, para um campo que a maioria das
+    // visitas nunca abre, e uma ida ao banco desperdicada em toda visita.
+    // Passou para o efeito abaixo, disparado quando o modal abre.
     // Pelo ID e pelo papel, nao pelo objeto: `setProfile` cria um objeto novo a
     // cada busca, e com o objeto na lista o efeito refazia as tres consultas
     // sem que nada tivesse mudado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, profile?.role]);
+  }, [profile?.id, profile?.role, semente?.ocorrencias, semente?.contagens]);
 
   // Assinatura compartilhada: `emissoes_pacotes` é observada por várias telas ao
   // mesmo tempo, e antes cada uma tinha o seu canal — uma mudança virava várias
   // rebuscas na mesma aba.
+  // Carrega os condominios na primeira vez que o modal abre, e so entao.
+  useEffect(() => {
+    if (showModal && profile && condominios.length === 0) fetchCondominios();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal, profile?.id]);
+
   useRealtime(['emissoes_ocorrencias'], () => fetchOcorrencias());
   useRealtime(['edicoes_mensais', 'emissoes_pacotes'], () => fetchAcoes());
 

@@ -224,22 +224,10 @@ export default function DashboardPage() {
 
   // Concessionárias por condomínio (0036) — quem tem água/gás/energia precisa de
   // fatura e relatório antes de emitir, e é o que a tela pergunta ao abrir.
-  const [concessionariasPorCondo, setConcessionariasPorCondo] = useState({});
-  useEffect(() => {
-    if (!fazEmissao) return;
-    let vivo = true;
-    (async () => {
-      const { data } = await supabase
-        .from('condominios_concessionarias')
-        .select('condominio_id, concessionaria');
-      if (!vivo) return;
-      const map = {};
-      (data || []).forEach(r => { (map[r.condominio_id] = map[r.condominio_id] || []).push(r.concessionaria); });
-      setConcessionariasPorCondo(map);
-    })();
-    return () => { vivo = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fazEmissao]);
+  // Vem dentro do painel. Era uma consulta direta do navegador ao Supabase para
+  // um mapa que a resposta do painel ja podia trazer — e cada ida daquelas
+  // custa 250-500 ms partindo do navegador.
+  const concessionariasPorCondo = data?.concessionarias_por_condo || {};
 
   // Confirmação antes de sair para a emissão: { condo, concessionarias }
   const [confirmarConsumo, setConfirmarConsumo] = useState(null);
@@ -1068,7 +1056,15 @@ export default function DashboardPage() {
 
         {/* Fila de Ocorrências */}
         <div className="h-full">
-          <FilaOcorrencias />
+          {/* A semente evita as 13 consultas de abertura da Fila: os numeros
+              ja vieram no painel. Ela continua se atualizando sozinha pelo
+              tempo real — o que sai e so a rajada inicial. */}
+          <FilaOcorrencias
+            semente={{
+              ocorrencias: data?.ocorrencias,
+              contagens: data?.fila_contagens,
+            }}
+          />
         </div>
 
       </div>
