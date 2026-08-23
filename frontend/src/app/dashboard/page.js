@@ -1065,10 +1065,8 @@ export default function DashboardPage() {
               ja vieram no painel. Ela continua se atualizando sozinha pelo
               tempo real — o que sai e so a rajada inicial. */}
           <FilaOcorrencias
-            semente={{
-              ocorrencias: data?.ocorrencias,
-              contagens: data?.fila_contagens,
-            }}
+            semente={data ? { ocorrencias: data.ocorrencias, contagens: data.fila_contagens } : null}
+            esperandoPainel={!data && !error}
           />
         </div>
 

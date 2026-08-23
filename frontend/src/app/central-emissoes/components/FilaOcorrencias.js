@@ -18,7 +18,7 @@ import Link from 'next/link';
  *   para numeros que a resposta do painel ja tinha. Sem a semente (Central de
  *   Emissoes), ela busca por conta propria, como sempre fez.
  */
-export default function FilaOcorrencias({ semente = null }) {
+export default function FilaOcorrencias({ semente = null, esperandoPainel = false }) {
   const supabase = createClient();
   const { profile } = useAuth();
   const [ocorrencias, setOcorrencias] = useState([]);
@@ -366,6 +366,17 @@ export default function FilaOcorrencias({ semente = null }) {
   };
 
   useEffect(() => {
+    // Espera a semente antes de sair consultando.
+    //
+    // Esta fila monta ANTES de a resposta do painel chegar. Sem esta guarda ela
+    // nao ve semente nenhuma no primeiro render, busca tudo por conta propria,
+    // e a semente chega depois para um trabalho ja feito: as 13 idas ao banco
+    // continuavam acontecendo, so que agora em duplicidade.
+    //
+    // A guarda cai se o painel falhar (`esperandoPainel` vira false com o
+    // erro), senao um painel fora do ar deixaria a fila vazia para sempre.
+    if (esperandoPainel) return;
+
     // Com semente, a abertura nao consulta nada. O tempo real continua ligado
     // logo abaixo: o que sai e a rajada inicial, nao a atualizacao.
     if (semente?.ocorrencias) { setOcorrencias(semente.ocorrencias); setLoading(false); }
@@ -382,7 +393,7 @@ export default function FilaOcorrencias({ semente = null }) {
     // cada busca, e com o objeto na lista o efeito refazia as tres consultas
     // sem que nada tivesse mudado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, profile?.role, semente?.ocorrencias, semente?.contagens]);
+  }, [profile?.id, profile?.role, esperandoPainel, semente?.ocorrencias, semente?.contagens]);
 
   // Assinatura compartilhada: `emissoes_pacotes` é observada por várias telas ao
   // mesmo tempo, e antes cada uma tinha o seu canal — uma mudança virava várias
