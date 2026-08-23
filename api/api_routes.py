@@ -74,10 +74,35 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             except Exception as e:
                 print(f"[dashboard] pipeline_config falhou (segue sem): {e}")
                 return None
-        with ThreadPoolExecutor(max_workers=3) as _ex:
+        def _q_edicoes():
+            # As edicoes do ano vinham numa SEGUNDA chamada do navegador
+            # (/api/edicoes-mensais), sempre junto com esta. Duas viagens para
+            # pintar a mesma tela — e cada viagem paga o pedagio inteiro de ida
+            # e volta, que na instancia atual do Supabase e de 250-500 ms.
+            #
+            # Aqui ela roda EM PARALELO com as outras tres: nao custa tempo
+            # nenhum a mais na resposta, e apaga uma chamada da rede.
+            try:
+                q = db.table("edicoes_mensais") \
+                      .select("*, condominios(name), gerentes(id, nome, profiles!gerentes_profile_id_fkey(full_name))") \
+                      .eq("ano_referencia", emis_ano)
+                # Mesmo recorte de carteira do resto do painel: gerente e
+                # assistente so enxergam a propria fila.
+                if user.get("role") in ("gerente", "assistente"):
+                    g_id = carteira_gerente_id(db, user)
+                    if not g_id:
+                        return []
+                    q = q.eq("gerente_id", g_id)
+                return q.order("mes_referencia", desc=True).execute().data or []
+            except Exception as e:
+                print(f"[dashboard] edicoes_mensais falhou (segue sem): {e}")
+                return []
+        with ThreadPoolExecutor(max_workers=4) as _ex:
             _fc, _fg, _fp = _ex.submit(_q_condos), _ex.submit(_q_gerentes), _ex.submit(_q_pipeline)
+            _fe = _ex.submit(_q_edicoes)
             raw_condos = _fc.result()
             gerentes = _fg.result()
+            edicoes_ano = _fe.result()
             pipeline_config = _fp.result()
 
         condos = []
@@ -169,6 +194,8 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             "emissao_stats": emissao_stats,
             "emissao_by_condo": emissao_by_condo,
             "canceladas_by_condo": canceladas_by_condo,
+            # Junto na mesma resposta: era a segunda chamada do painel.
+            "edicoes": edicoes_ano,
             "emissao_mes": int(mes) if mes else None,
             "emissao_ano": emis_ano,
             "pipeline_config": pipeline_config,

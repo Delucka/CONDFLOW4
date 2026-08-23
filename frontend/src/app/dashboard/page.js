@@ -339,21 +339,30 @@ export default function DashboardPage() {
   // Status da edição mensal (edicoes_mensais) por condomínio — VENCE o status
   // semestral no painel: quando o gerente "libera este mês", o painel reflete.
   // Usa o endpoint que JÁ existe na VPS (sem precisar de deploy do backend).
-  const { data: edicoesData, mutate: mutateEdicoes } = useSWR(`/api/edicoes-mensais?ano=${vigente.ano}`, apiFetcher, {
-    revalidateOnFocus: true, dedupingInterval: 30000, keepPreviousData: true,
-  });
+  // As edicoes ja vem dentro de /api/dashboard. Enquanto a API nova nao estiver
+  // no ar (o deploy dela e separado, na VPS), o endpoint antigo cobre a falta —
+  // por isso a chamada continua aqui, condicional: some sozinha quando o campo
+  // aparece na resposta, sem versao quebrada no meio do caminho.
+  const edicoesJuntas = data?.edicoes;
+  const { data: edicoesData, mutate: mutateEdicoes } = useSWR(
+    edicoesJuntas ? null : `/api/edicoes-mensais?ano=${vigente.ano}`,
+    apiFetcher,
+    { revalidateOnFocus: true, dedupingInterval: 30000, keepPreviousData: true },
+  );
   const EDI_TO_PROC = { em_edicao: 'Em edição', edicao_finalizada: 'Edição finalizada', reabertura_solicitada: 'Solicitar alteração' };
   // Indexado por condomínio + MÊS. Antes pegava só a edição mais recente do condomínio,
   // qualquer que fosse o mês: quem adiantou a previsão de nov/dez e liberou aparecia como
   // "Edição finalizada" mesmo com o painel mostrando setembro — meses que nem chegaram.
   const edicaoByCondoMes = useMemo(() => {
     const m = {};
-    for (const e of (edicoesData?.edicoes || [])) {
+    // Vem de dentro do painel quando a API ja manda junto; do endpoint antigo
+    // enquanto nao mandar.
+    for (const e of (edicoesJuntas || edicoesData?.edicoes || [])) {
       const k = `${e.condominio_id}|${e.mes_referencia}`;
       if (!(k in m)) m[k] = e.status;   // rows já vêm desc por aberto_em → 1ª = mais recente do mês
     }
     return m;
-  }, [edicoesData]);
+  }, [edicoesJuntas, edicoesData]);
   // Status efetivo da Planilha DO MÊS EXIBIDO; sem edição no mês, cai no semestral.
   const statusPlanilha = (condoId) => EDI_TO_PROC[edicaoByCondoMes[`${condoId}|${mesEmissao}`]] || null;
 

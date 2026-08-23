@@ -1,6 +1,7 @@
 'use client';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { limparCachePersistido } from '@/components/SWRProvider';
 
 const AuthContext = createContext(null);
 
@@ -10,7 +11,22 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [supabase] = useState(() => createClient());
 
-  async function fetchProfile(uid) {
+  // De quem é o perfil que já está carregado ou a caminho.
+  //
+  // O perfil era buscado no `getSession()` E de novo a cada evento de
+  // autenticação — e o Supabase dispara vários na abertura da página
+  // (INITIAL_SESSION, SIGNED_IN, e TOKEN_REFRESHED quando a sessão é renovada).
+  // Eram três buscas do mesmo perfil, cada uma puxando `gerentes` atrás: seis
+  // idas ao banco para um dado que não muda dentro da sessão.
+  //
+  // No plano Free do Supabase cada ida custa 250-500 ms, medido — então isto
+  // sozinho tirava mais de um segundo de toda abertura de página.
+  const perfilDeRef = useRef(null);
+
+  async function fetchProfile(uid, { forcar = false } = {}) {
+    if (!uid) return;
+    if (!forcar && perfilDeRef.current === uid) return;
+    perfilDeRef.current = uid;
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -42,6 +58,10 @@ export function AuthProvider({ children }) {
         gerente_profile_id: profile.role === 'assistente' ? (profile.gerente_id || null) : null,
       });
     } catch (e) {
+      // Libera a trava: sem isto, um erro de rede na primeira tentativa
+      // deixaria a sessão para sempre sem perfil, porque nenhuma busca
+      // seguinte passaria pela guarda acima.
+      perfilDeRef.current = null;
       console.error('Error fetching profile:', e);
     }
   }
@@ -70,6 +90,7 @@ export function AuthProvider({ children }) {
         } else {
           setUser(null);
           setProfile(null);
+          perfilDeRef.current = null;
         }
         setLoading(false);
       }
@@ -91,6 +112,11 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    perfilDeRef.current = null;
+    // O cache do SWR sobrevive ao fechar a aba para a tela abrir preenchida.
+    // No logout ele tem de ir junto: sao os dados de quem estava logado, e a
+    // proxima pessoa a usar a maquina abriria o app com o painel do anterior.
+    limparCachePersistido();
   }
 
   async function sendPasswordReset(email) {

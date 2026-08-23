@@ -80,8 +80,15 @@ export default function NotificationsBell() {
   }, [supabase]);
 
   // Carrega + polling leve + realtime
+  // Depende do ID, nao do objeto.
+  //
+  // O Supabase entrega um objeto `user` novo a cada evento de autenticacao, e
+  // sao varios na abertura da pagina. Com `user` na lista de dependencias, o
+  // efeito rodava de novo a cada um: buscava as notificacoes outra vez e abria
+  // mais um canal de tempo real. Eram 4 buscas do mesmo dado e 3 canais vivos
+  // para o mesmo sino.
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
     fetchItems();
     const t = setInterval(fetchItems, 60000);
     const ch = supabase
@@ -89,7 +96,7 @@ export default function NotificationsBell() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacoes', filter: `user_id=eq.${user.id}` }, fetchItems)
       .subscribe();
     return () => { clearInterval(t); supabase.removeChannel(ch); };
-  }, [user, fetchItems, supabase]);
+  }, [user?.id, fetchItems, supabase]);
 
   // Fecha ao clicar fora (considera o dropdown, que agora é renderizado via portal)
   useEffect(() => {

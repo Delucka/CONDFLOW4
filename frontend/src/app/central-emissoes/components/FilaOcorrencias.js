@@ -422,8 +422,11 @@ export default function FilaOcorrencias() {
     fetchOcorrencias();
     fetchAcoes();
     if (profile) fetchCondominios();
+    // Pelo ID e pelo papel, nao pelo objeto: `setProfile` cria um objeto novo a
+    // cada busca, e com o objeto na lista o efeito refazia as tres consultas
+    // sem que nada tivesse mudado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile]);
+  }, [profile?.id, profile?.role]);
 
   // Assinatura compartilhada: `emissoes_pacotes` é observada por várias telas ao
   // mesmo tempo, e antes cada uma tinha o seu canal — uma mudança virava várias
