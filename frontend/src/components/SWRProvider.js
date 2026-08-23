@@ -55,9 +55,16 @@ function provedorPersistente() {
       // Só respostas de leitura da API. Chave que não seja string é estado
       // interno do SWR, e erro guardado reapareceria como erro na abertura
       // seguinte, mesmo com tudo funcionando.
-      const entradas = [...mapa.entries()].filter(
-        ([k, v]) => typeof k === 'string' && k.startsWith('/api/') && v && v.data !== undefined && !v.error,
-      );
+      // Guarda SO o dado, nunca o objeto interno do SWR.
+      //
+      // Aquele objeto carrega os carimbos de tempo da ultima busca. Restaurados
+      // do disco, faziam o SWR acreditar que a busca tinha acabado de
+      // acontecer: ele nao pedia nada novo ao abrir, e o painel mostrava o
+      // retrato da visita anterior como se fosse de agora. Sem os carimbos, o
+      // dado antigo serve para pintar na hora e a busca acontece assim mesmo.
+      const entradas = [...mapa.entries()]
+        .filter(([k, v]) => typeof k === 'string' && k.startsWith('/api/') && v && v.data !== undefined && !v.error)
+        .map(([k, v]) => [k, { data: v.data }]);
       const texto = JSON.stringify(entradas);
       if (texto.length > TETO_BYTES) return;
       localStorage.setItem(CHAVE_CACHE, texto);
