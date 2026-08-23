@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRealtime } from '@/lib/realtime';
 import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search, Droplet, GripVertical } from 'lucide-react';
 import { safeStorageName } from '@/lib/storage';
+import { nomeDocumento } from '@/lib/rotuloDocumento';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
 import FilePreviewDrawer from '@/components/FilePreviewDrawer';
@@ -2146,7 +2147,13 @@ export default function VisaoEmissor({ profile }) {
                           {catLabel}
                         </span>
                       </div>
-                      <p className="text-sm font-bold text-slate-900 truncate max-w-[250px]">{arq.arquivo_nome}</p>
+                      {/* O passo da auditoria no lugar do nome cru do arquivo.
+                          `RelControleConsumos (80).pdf` nao diz o que aquilo e;
+                          `4 · Agua — relatorio de leitura` diz, e diz tambem em
+                          que ordem ele entra. O nome original fica embaixo, para
+                          quem precisar casar com o arquivo que baixou. */}
+                      <p className="text-sm font-bold text-slate-900 truncate max-w-[250px]" title={arq.arquivo_nome}>{nomeDocumento(arq)}</p>
+                      <p className="text-[10px] text-slate-500 truncate max-w-[250px]" title={arq.arquivo_nome}>{arq.arquivo_nome}</p>
                       <p className="text-[10px] text-slate-500 uppercase tracking-widest">{arq.formato} • {new Date(arq.criado_em).toLocaleString('pt-BR')}</p>
                       {arq.categoria === 'concessionaria' && editandoFaturaId !== arq.id && (
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">

@@ -4,6 +4,7 @@ import { registrarNaTrilha, avisoTrilhaFalhou } from '@/lib/aprovacaoFluxo';
 import useSWR from 'swr';
 import { apiFetcher } from '@/lib/api';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
+import { nomeDocumento } from '@/lib/rotuloDocumento';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
@@ -574,7 +575,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
             : <FileText className="w-4 h-4 text-violet-400 shrink-0" />}
           <div className="min-w-0">
             <h3 className="text-sm text-slate-900 font-bold truncate leading-tight flex items-center gap-2">
-              {currentFile?.nome || 'Documento'}
+              {docList[currentIndex] ? nomeDocumento(docList[currentIndex]) : (currentFile?.nome || 'Documento')}
               {ehCanceladaVC && (
                 <span className="shrink-0 rounded-md bg-rose-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
                   Emissão cancelada
@@ -616,9 +617,13 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
               }}
               className="bg-transparent text-[10px] font-bold text-slate-900 outline-none px-1.5 py-1 max-w-[160px] truncate cursor-pointer"
             >
+              {/* O rotulo do PASSO, nao o nome do arquivo.
+                  "3/3 · RelCalculoRateio - 2026-08-23T132757.pdf" nao diz em
+                  que ponto da conferencia aquele documento entra; "8 · Relatorio
+                  de rateio" diz. */}
               {docList.map((a, i) => (
-                <option key={a.id} value={a.id} className="bg-white">
-                  {i + 1}/{docList.length} · {a.arquivo_nome || a.nome}
+                <option key={a.id} value={a.id} className="bg-white" title={a.arquivo_nome || a.nome}>
+                  {i + 1}/{docList.length} · {nomeDocumento(a)}
                 </option>
               ))}
             </select>
