@@ -1795,15 +1795,34 @@ export default function VisaoEmissor({ profile }) {
                   if (!colunas.length) return <p className="text-xs text-slate-400 py-2">{confLoading ? 'Carregando…' : 'Sem planilha para este mês.'}</p>;
                   const nMudou = colunas.filter(mudouCol).length;
 
+                  // Em que parcela esta cada verba neste mes (vem do backend).
+                  const parcelas = mesObj?.parcelas || {};
+
                   // Uma linha de verba. Sai igual dentro ou fora de faixa.
                   const linhaVerba = col => {
                     const atual = Number(valores[col] || 0);
                     const ant = valoresAnt ? Number(valoresAnt[col] || 0) : null;
                     const mudou = mudouCol(col);
+                    const p = parcelas[col];
                     return (
                       <div key={col} className={`flex items-center justify-between text-xs py-1 last:border-0 ${mudou ? 'bg-amber-50 -mx-1 px-1.5 py-1.5 rounded-md border border-amber-200' : 'border-b border-slate-100'}`}>
                         <span className={`truncate pr-2 ${mudou ? 'text-amber-900 font-bold' : 'text-slate-600'}`}>
                           {col}
+                          {/* A verba parcelada diz em qual parcela esta. A
+                              planilha da arrecadacao ja mostrava; aqui, onde a
+                              emissao e montada, nao chegava — e e aqui que se
+                              percebe que a proxima e a ultima. */}
+                          {p?.atual && (
+                            <span className="ml-1.5 inline-block align-middle rounded-full border border-violet-200 bg-violet-50 px-1.5 text-[9px] font-bold text-violet-700"
+                                  title={`Parcela ${p.atual} de ${p.total}${p.atual === p.total ? ' — esta é a última' : ''}`}>
+                              {String(p.atual).padStart(2, '0')}/{String(p.total).padStart(2, '0')}
+                            </span>
+                          )}
+                          {p?.atual && p.atual === p.total && (
+                            <span className="ml-1 inline-block align-middle rounded-full border border-amber-300 bg-amber-50 px-1.5 text-[9px] font-bold text-amber-800">
+                              última
+                            </span>
+                          )}
                           {mudou && <span className="ml-1.5 text-[8px] font-black uppercase tracking-wider text-white bg-amber-500 px-1 py-0.5 rounded align-middle">alterado</span>}
                         </span>
                         <span className="shrink-0 text-right whitespace-nowrap">
@@ -1814,12 +1833,24 @@ export default function VisaoEmissor({ profile }) {
                     );
                   };
 
+                  // Verba parcelada que acabou sai da planilha do mes seguinte.
+                  //
+                  // Ela nao e apagada: continua no cadastro, e o registro logo
+                  // abaixo diz que existiu e em que parcela parou. Some da
+                  // lista ativa porque uma verba que terminou nao e para ser
+                  // cobrada — e ficar la, zerada, e o jeito mais facil de
+                  // alguem digitar um valor nela sem querer.
+                  const MESES_CURTO = ['', 'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
+                                       'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+                  const encerradas = colunas.filter(c => parcelas[c]?.encerrada);
+                  const colunasAtivas = colunas.filter(c => !parcelas[c]?.encerrada);
+
                   // Faixas por grupo (0086). Só quando há mais de um: num condomínio
                   // de vencimento único a faixa seria ruído.
                   const grupos = confData?.planilha?.grupos || [];
                   const colGrupo = confData?.planilha?.colunas_grupo || {};
                   const porGrupo = grupos.length > 1
-                    ? grupos.map(g => ({ g, cols: colunas.filter(c => colGrupo[c] === g.id) })).filter(x => x.cols.length)
+                    ? grupos.map(g => ({ g, cols: colunasAtivas.filter(c => colGrupo[c] === g.id) })).filter(x => x.cols.length)
                     : null;
 
                   return (
@@ -1861,12 +1892,37 @@ export default function VisaoEmissor({ profile }) {
                             <div className="px-2 py-1">{cols.map(linhaVerba)}</div>
                           </div>
                         );
-                      }) : colunas.map(linhaVerba)}
+                      }) : colunasAtivas.map(linhaVerba)}
 
                       <div className="flex items-center justify-between text-xs pt-2 mt-1">
                         <span className="font-black uppercase tracking-widest text-[10px] text-slate-500">Total do mês{porGrupo ? ' (todos os grupos)' : ''}</span>
                         <span className="font-mono font-black text-emerald-600">R$ {fmt(mesObj?.total)}</span>
                       </div>
+
+                      {/* O registro do que acabou.
+                          Ela saiu da planilha, mas alguem vai perguntar "e o
+                          fundo de obras?" — e a resposta tem de estar aqui, com
+                          a parcela em que parou e o mes. Sem isto, sumir da
+                          lista seria indistinguivel de ter sido apagada. */}
+                      {encerradas.length > 0 && (
+                        <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">
+                            Parcelamento encerrado — fora desta emissão
+                          </p>
+                          {encerradas.map(c => {
+                            const p = parcelas[c];
+                            return (
+                              <div key={c} className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
+                                <span className="truncate line-through">{c}</span>
+                                <span className="shrink-0 font-mono">
+                                  terminou na {String(p.ultima_parcela).padStart(2, '0')}/{String(p.total).padStart(2, '0')}
+                                  {p.mes_da_ultima >= 1 && p.mes_da_ultima <= 12 ? ` · ${MESES_CURTO[p.mes_da_ultima]}` : ''}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}

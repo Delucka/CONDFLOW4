@@ -988,11 +988,36 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                           className={`border-t border-slate-800 transition-colors ${!isSnapshot ? 'cursor-pointer hover:bg-violet-50' : ''}`}
                           title={!isSnapshot ? `Abrir a emissão de ${m.mes_nome}` : undefined}>
                           <td className="px-3 py-2 text-xs font-bold text-slate-400 uppercase">{m.mes_nome}</td>
-                          {colunasOrdenadas.map(col => (
-                            <td key={col} className="text-right px-3 py-2 text-xs text-slate-700 font-mono whitespace-nowrap">
-                              {fmt(m.valores?.[col])}
-                            </td>
-                          ))}
+                          {colunasOrdenadas.map(col => {
+                            // Em que parcela a verba esta NAQUELE mes.
+                            //
+                            // Quem confere precisa ver "16/18" ao lado do
+                            // valor: e o que distingue uma verba que vai
+                            // continuar de uma que esta acabando. A planilha da
+                            // arrecadacao ja mostrava; aqui, na hora de
+                            // aprovar, nao chegava.
+                            const p = m.parcelas?.[col];
+                            return (
+                              <td key={col} className="text-right px-3 py-2 text-xs text-slate-700 font-mono whitespace-nowrap">
+                                {fmt(m.valores?.[col])}
+                                {p?.atual && (
+                                  <span className={`ml-1.5 rounded-full border px-1 text-[9px] font-bold ${
+                                    p.atual === p.total
+                                      ? 'border-amber-300 bg-amber-50 text-amber-800'
+                                      : 'border-violet-200 bg-violet-50 text-violet-700'}`}
+                                    title={`Parcela ${p.atual} de ${p.total}${p.atual === p.total ? ' — última' : ''}`}>
+                                    {String(p.atual).padStart(2, '0')}/{String(p.total).padStart(2, '0')}
+                                  </span>
+                                )}
+                                {p?.encerrada && (
+                                  <span className="ml-1.5 rounded-full border border-slate-300 bg-slate-100 px-1 text-[9px] font-bold text-slate-500"
+                                    title={`Parcelamento encerrado na ${p.ultima_parcela}/${p.total}`}>
+                                    encerrada
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          })}
                           <td className="text-right px-3 py-2 text-xs text-slate-800 font-mono font-bold">{fmt(m.total)}</td>
                         </tr>
                       ))}

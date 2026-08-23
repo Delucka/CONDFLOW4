@@ -2589,7 +2589,15 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
     rateios, colunas = [], ["Condomínio", "Fundo Reserva"]
 
     try:
-        rateios = db.table("rateios_config").select("id,nome,ordem,grupo_id").eq("condominio_id", condo_id).order("ordem").execute().data or []
+        # Os campos de parcelamento vem junto (0012/0013).
+        #
+        # A planilha da arrecadacao ja mostra "16/18" ao lado do valor de cada
+        # mes, mas a conferencia selecionava so id/nome/ordem/grupo: quem emite
+        # e quem aprova nunca viam que aquela verba e a 16a de 18 parcelas. A
+        # informacao existia e parava no meio do caminho.
+        rateios = db.table("rateios_config") \
+            .select("id,nome,ordem,grupo_id,is_parcelado,parcela_total,parcela_inicio,mes_inicio") \
+            .eq("condominio_id", condo_id).order("ordem").execute().data or []
         if rateios:
             r_ids = [r["id"] for r in rateios]
             colunas = [r["nome"] for r in rateios]
@@ -2614,7 +2622,33 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
                     vals_col[r["nome"]] = v_float
                     total_mes += v_float
                 
-                meses[i].update({'valores': vals_col, 'total': total_mes})
+                # Em que parcela cada verba esta NESTE mes.
+                #
+                # Mesma conta da tela de arrecadacao: a parcela do mes de
+                # inicio e `parcela_inicio`, e anda de um em um. Fora da faixa
+                # (antes de comecar ou depois de acabar) fica sem parcela — e
+                # e assim que se sabe que ela ja terminou.
+                parcelas_col = {}
+                for r in rateios:
+                    if not r.get("is_parcelado"):
+                        continue
+                    mes_ini = int(r.get("mes_inicio") or 1)
+                    total_p = int(r.get("parcela_total") or 1)
+                    ini_p = int(r.get("parcela_inicio") or 1)
+                    if m < mes_ini:
+                        continue
+                    atual = ini_p + (m - mes_ini)
+                    parcelas_col[r["nome"]] = {
+                        "atual": atual if 1 <= atual <= total_p else None,
+                        "total": total_p,
+                        # Passou da ultima: a verba nao entra mais na emissao,
+                        # mas continua no registro com a parcela em que parou.
+                        "encerrada": atual > total_p,
+                        "ultima_parcela": total_p,
+                        "mes_da_ultima": mes_ini + (total_p - ini_p),
+                    }
+
+                meses[i].update({'valores': vals_col, 'total': total_mes, 'parcelas': parcelas_col})
                 total_geral += total_mes
         else:
             colunas = ["Condomínio", "Fundo Reserva"]
