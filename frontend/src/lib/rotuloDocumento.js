@@ -67,3 +67,27 @@ export function nomeDocumento(a) {
   const { passo, rotulo } = rotuloDocumento(a);
   return passo <= 8 ? `${passo} · ${rotulo}` : rotulo;
 }
+
+/**
+ * Os documentos na ordem da auditoria: 1 Emissão … 8 Relatório de rateio.
+ *
+ * Quem confere lê de cima para baixo e espera essa sequência — a mesma das
+ * vagas de upload e a mesma em que o PDF único é montado. A ordem de chegada
+ * (quem subiu primeiro) não diz nada para quem está conferindo.
+ *
+ * Dentro do mesmo passo, a ordem manual vale: dois relatórios de água que
+ * alguém arrastou continuam na sequência que essa pessoa escolheu.
+ */
+export function ordenarDocumentos(arquivos = []) {
+  return [...arquivos].sort((a, b) => {
+    const pa = rotuloDocumento(a).passo;
+    const pb = rotuloDocumento(b).passo;
+    if (pa !== pb) return pa - pb;
+
+    const oa = Number.isFinite(a?.ordem) ? a.ordem : Number.MAX_SAFE_INTEGER;
+    const ob = Number.isFinite(b?.ordem) ? b.ordem : Number.MAX_SAFE_INTEGER;
+    if (oa !== ob) return oa - ob;
+
+    return String(a?.criado_em || '').localeCompare(String(b?.criado_em || ''));
+  });
+}

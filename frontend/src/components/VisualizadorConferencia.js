@@ -4,7 +4,7 @@ import { registrarNaTrilha, avisoTrilhaFalhou } from '@/lib/aprovacaoFluxo';
 import useSWR from 'swr';
 import { apiFetcher } from '@/lib/api';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
-import { nomeDocumento } from '@/lib/rotuloDocumento';
+import { nomeDocumento, ordenarDocumentos } from '@/lib/rotuloDocumento';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { can } from '@/lib/roles';
@@ -118,7 +118,10 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
   const [faturaIdx, setFaturaIdx]   = useState(0);
   const [urlPar, setUrlPar]         = useState({ relatorio: null, fatura: null });
   const [carregandoPar, setCarregandoPar] = useState(false);
-  const [docList, setDocList] = useState(arquivos);   // lista de navegação (troca quando abrimos outro mês)
+  // Sempre na ordem da auditoria (1 Emissão … 8 Relatório de rateio), nunca
+  // na ordem em que os arquivos subiram — que é a que o banco devolve e a
+  // que não diz nada para quem confere.
+  const [docList, setDocList] = useState(() => ordenarDocumentos(arquivos));   // lista de navegação (troca quando abrimos outro mês)
   
   // Se o arquivo tiver snapshot congelado (emissão registrada), não busca dados ao vivo
   const isSnapshot = !!arquivo?.planilha_snapshot;
@@ -184,7 +187,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
   useEffect(() => {
     if (arquivo) setCurrentFile(arquivo);
-    setDocList(arquivos);   // nova conferência -> volta a navegar a lista do pacote atual
+    setDocList(ordenarDocumentos(arquivos));   // nova conferência -> volta a navegar a lista do pacote atual
   }, [arquivo, arquivos]);
 
   // Observações/características do condomínio (editadas no "Fazer Emissões") — pra conferir aqui
@@ -423,7 +426,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
 
   // Volta pra emissão que está sendo conferida (restaura a lista do pacote atual)
   function voltarEmissaoAtual() {
-    setDocList(arquivos);
+    setDocList(ordenarDocumentos(arquivos));
     if (arquivo) openArquivo(arquivo);
   }
 
@@ -448,7 +451,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
       if (error) throw error;
       const lista = arqs || [];
       if (!lista.length) { addToast(`Sem emissão registrada em ${m.mes_nome}.`, 'info'); return; }
-      setDocList(lista);   // agora as setas/seletor navegam os documentos DESTE mês
+      setDocList(ordenarDocumentos(lista));   // agora as setas/seletor navegam os documentos DESTE mês
       const principal = lista.find(a => a.categoria !== 'concessionaria' && a.categoria !== 'relatorio_leitura') || lista[0];
       await openArquivo(principal);
     } catch (e) {

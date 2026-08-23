@@ -33,5 +33,24 @@ for (const c of casos) {
   if (!ok) falhas++;
   console.log(`${ok ? 'ok  ' : 'ERRO'} ${nome}`);
 }
-console.log(falhas === 0 ? '\ntodos os casos passaram' : `\n${falhas} falha(s)`);
+
+// ── ordem dos documentos ────────────────────────────────────────────────────
+import { ordenarDocumentos } from '../rotuloDocumento.js';
+
+const bagunca = [
+  { id: 'a', categoria: 'outros', subtipo: 'Relatório de Rateio' },
+  { id: 'b', categoria: 'concessionaria', subtipo: 'COMGAS' },
+  { id: 'c', categoria: 'emissao' },
+  { id: 'd', categoria: 'concessionaria', subtipo: 'ENEL' },
+  { id: 'e', categoria: 'outros', subtipo: 'Correios' },
+  { id: 'f', categoria: 'relatorio_leitura', relatorio_tipo_servico: 'agua' },
+  { id: 'g', categoria: 'outros', subtipo: 'Salão de festas' },
+  { id: 'h', categoria: 'outros', subtipo: 'Seguro' },
+];
+const ordenada = ordenarDocumentos(bagunca).map(x => x.id).join('');
+const esperada = 'cehfbdga';
+console.log(`\n${ordenada === esperada ? 'ok  ' : 'ERRO'} ordem: ${ordenada} (esperado ${esperada})`);
+if (ordenada !== esperada) falhas++;
+
+console.log(falhas === 0 ? 'todos os casos passaram' : falhas + ' falha(s)');
 process.exit(falhas === 0 ? 0 : 1);
