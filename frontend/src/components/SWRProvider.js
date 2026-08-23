@@ -90,6 +90,15 @@ export default function SWRProvider({ children }) {
         revalidateOnFocus: true,
         revalidateOnReconnect: true,
         revalidateIfStale: true,
+        // Explícito, e não por acaso.
+        //
+        // O cache agora sobrevive ao fechar a aba, e o SWR não tem como saber a
+        // idade do que veio do disco: ele tratava o dado restaurado como fresco
+        // e não buscava nada ao montar. A tela abria preenchida e ficava —
+        // que e exatamente o "só atualiza com F5" que já tínhamos consertado uma
+        // vez. Pintar do cache e revalidar sempre são as duas metades da mesma
+        // ideia; sem a segunda, isto vira dado velho com cara de novo.
+        revalidateOnMount: true,
         dedupingInterval: 15000,
         focusThrottleInterval: 30000,
         errorRetryCount: 2,
