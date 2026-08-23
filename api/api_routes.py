@@ -1282,7 +1282,7 @@ def _garantir_grupos(db: Client, condominio_id: str, due_day, due_day_2) -> None
     condomínio já está salvo e é isso que importa aqui.
     """
     try:
-        existentes = db.table("condominio_grupos").select("nome") \
+        existentes = db.table("condominio_grupos").select("nome, due_day") \
             .eq("condominio_id", condominio_id).execute().data or []
         nomes = {g["nome"] for g in existentes}
 
@@ -1291,6 +1291,20 @@ def _garantir_grupos(db: Client, condominio_id: str, due_day, due_day_2) -> None
                 "condominio_id": condominio_id, "nome": "Geral",
                 "due_day": due_day, "ordem": 0,
             }).execute()
+        else:
+            # O grupo SEGUE o cadastro quando o vencimento muda.
+            #
+            # Esta funcao so criava o grupo que faltava. Trocar o dia no
+            # cadastro deixava o grupo "Geral" com o dia antigo — e quem manda
+            # na emissao e o GRUPO. O cadastro dizia 10, o boleto saia dia 1, e
+            # nao havia erro nenhum na tela para denunciar.
+            #
+            # Aconteceu de verdade com o 411 em 23/08/2026, minutos depois de
+            # alguem trocar o vencimento para 10.
+            atual = next((g for g in existentes if g["nome"] == "Geral"), None)
+            if atual and atual.get("due_day") != due_day:
+                db.table("condominio_grupos").update({"due_day": due_day}) \
+                  .eq("condominio_id", condominio_id).eq("nome", "Geral").execute()
 
         # Segundo vencimento ganha o seu grupo, com o mesmo nome genérico que a
         # 0086 usou — quem conhece o condomínio renomeia depois.
