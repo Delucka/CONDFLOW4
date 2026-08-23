@@ -45,9 +45,18 @@ export function rotuloDocumento(a) {
 
   if (cat === 'relatorio_leitura') {
     const emp = a?.relatorio_empresa ? ` ${a.relatorio_empresa}` : '';
-    if (/GAS/.test(serv))               return { passo: 5, rotulo: `Gás — relatório de leitura${emp}` };
-    if (/ENERGIA|ELETRIC/.test(serv))   return { passo: 6, rotulo: `Energia — relatório de leitura${emp}` };
-    return { passo: 4, rotulo: `Água — relatório de leitura${emp}` };
+    // Tres fontes, nesta ordem: o campo que a leitura preencheu, a empresa
+    // (SABESP so faz agua, COMGAS so faz gas) e, por ultimo, o nome do arquivo.
+    //
+    // Nao ha padrao "na duvida e agua": quando nenhuma das tres diz, o rotulo
+    // ADMITE que nao sabe. Chutar aqui poria um relatorio de gas no passo da
+    // agua com cara de certeza — e o rotulo existe justamente para quem confere
+    // poder confiar nele.
+    const pistas = `${serv} ${sub} ${norm(a?.arquivo_nome || a?.nome)}`;
+    if (/GAS/.test(pistas))                       return { passo: 5, rotulo: `Gás — relatório de leitura${emp}` };
+    if (/ENERGIA|ELETRIC|ENEL/.test(pistas))      return { passo: 6, rotulo: `Energia — relatório de leitura${emp}` };
+    if (/AGUA|SABESP|HIDROMETR/.test(pistas))     return { passo: 4, rotulo: `Água — relatório de leitura${emp}` };
+    return { passo: 9, rotulo: `Relatório de leitura${emp} — serviço não identificado` };
   }
 
   return { passo: 9, rotulo: 'Outro documento' };
