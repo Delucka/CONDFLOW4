@@ -65,8 +65,16 @@ function provedorPersistente() {
       const entradas = [...mapa.entries()]
         .filter(([k, v]) => typeof k === 'string' && k.startsWith('/api/') && v && v.data !== undefined && !v.error)
         .map(([k, v]) => [k, { data: v.data }]);
-      const texto = JSON.stringify(entradas);
-      if (texto.length > TETO_BYTES) return;
+      // Se nao couber, descarta o MAIOR e tenta de novo, em vez de desistir do
+      // conjunto. Desistir inteiro faz uma resposta grande sozinha impedir que
+      // qualquer outra seja guardada — e o sintoma seria a tela voltar a abrir
+      // vazia sem motivo aparente.
+      let cabem = entradas.sort((a, b) => JSON.stringify(a[1]).length - JSON.stringify(b[1]).length);
+      let texto = JSON.stringify(cabem);
+      while (texto.length > TETO_BYTES && cabem.length > 0) {
+        cabem = cabem.slice(0, -1);
+        texto = JSON.stringify(cabem);
+      }
       localStorage.setItem(CHAVE_CACHE, texto);
     } catch { /* cota cheia ou modo privado: seguir sem persistir */ }
   };
