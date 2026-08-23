@@ -1067,6 +1067,7 @@ export default function DashboardPage() {
           <FilaOcorrencias
             semente={data ? { ocorrencias: data.ocorrencias, contagens: data.fila_contagens } : null}
             esperandoPainel={!data && !error}
+            onRevalidar={mutate}
           />
         </div>
 

@@ -18,7 +18,7 @@ import Link from 'next/link';
  *   para numeros que a resposta do painel ja tinha. Sem a semente (Central de
  *   Emissoes), ela busca por conta propria, como sempre fez.
  */
-export default function FilaOcorrencias({ semente = null, esperandoPainel = false }) {
+export default function FilaOcorrencias({ semente = null, esperandoPainel = false, onRevalidar = null }) {
   const supabase = createClient();
   const { profile } = useAuth();
   const [ocorrencias, setOcorrencias] = useState([]);
@@ -404,8 +404,11 @@ export default function FilaOcorrencias({ semente = null, esperandoPainel = fals
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showModal, profile?.id]);
 
-  useRealtime(['emissoes_ocorrencias'], () => fetchOcorrencias());
-  useRealtime(['edicoes_mensais', 'emissoes_pacotes'], () => fetchAcoes());
+  // Quando quem manda os dados e o painel, o tempo real pede uma resposta nova
+  // A ELE — uma ida — em vez de refazer aqui as treze consultas que a semente
+  // acabou de dispensar. Sem isto, o primeiro evento desfazia todo o ganho.
+  useRealtime(['emissoes_ocorrencias'], () => (onRevalidar ? onRevalidar() : fetchOcorrencias()));
+  useRealtime(['edicoes_mensais', 'emissoes_pacotes'], () => (onRevalidar ? onRevalidar() : fetchAcoes()));
 
   useEffect(() => {
     if (formData.condominio_id) {
