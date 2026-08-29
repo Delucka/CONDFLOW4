@@ -479,6 +479,11 @@ export default function DashboardPage() {
   // Hooks SEMPRE antes de qualquer return condicional (Regras dos Hooks)
   const condos = data?.condos || [];
   const temCanceladasNoMes = Object.keys(canceladasPorCondo).length > 0;
+  // Cadastrados que ainda vao entrar. Nao aparecem na lista de trabalho, mas
+  // aparecem no contador e num filtro proprio: 259 condominios parados sao uma
+  // boa pergunta para alguem fazer todo mes, e um numero que ninguem ve e um
+  // numero que ninguem confere.
+  const aEntrar = data?.a_entrar || [];
   // Filtro por situação — o mesmo de Fazer Emissões, porque o painel virou a
   // tela de trabalho de quem emite: a linha inteira já leva para a emissão.
   const SITUACOES = [
@@ -491,10 +496,22 @@ export default function DashboardPage() {
     // Só aparece quando existe alguma no mês: um filtro que nunca acha nada é
     // pior do que não existir — ensina que a busca não funciona.
     ...(temCanceladasNoMes ? [{ id: 'canceladas', rotulo: 'Canceladas' }] : []),
+    // Os cadastrados que ainda vao entrar. Ficam fora da lista de trabalho,
+    // mas com porta propria: some-los do sistema seria pior do que confundi-los
+    // com a operacao.
+    ...(aEntrar.length ? [{ id: 'a_entrar', rotulo: `A entrar (${aEntrar.length})` }] : []),
   ];
 
   const condosOrdenados = useMemo(() => {
     const codeOf = (n) => { const m = String(n || '').match(/^\s*0*(\d+)/); return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER; };
+
+    // "A entrar" nao filtra a lista da operacao: ela TROCA a lista. Sao dois
+    // conjuntos que nao se cruzam — o painel traz um, o filtro traz o outro.
+    if (situacao === 'a_entrar') {
+      return [...aEntrar]
+        .filter(c => combina(buscaCondo, c.name))
+        .sort((a, b) => (ordemAsc ? 1 : -1) * (codeOf(a.name) - codeOf(b.name)));
+    }
 
     const passa = (c) => {
       if (situacao === 'todos') return true;
@@ -509,6 +526,7 @@ export default function DashboardPage() {
         case 'em_emissao':   return !!emis;
         case 'prioritarios': return ehPrioritario(c);
         case 'canceladas':   return (canceladasPorCondo[c.id] || 0) > 0;
+        case 'a_entrar':     return false;   // tratado antes do filtro, na propria lista
         default: return true;
       }
     };
@@ -524,7 +542,7 @@ export default function DashboardPage() {
       ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name)
     ));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [condos, ordemAsc, buscaCondo, situacao, processos, emissaoByCondominio, canceladasPorCondo]);
+  }, [condos, ordemAsc, buscaCondo, situacao, processos, emissaoByCondominio, canceladasPorCondo, aEntrar]);
   const pendingProcesses = useMemo(() => {
     if (!data?.processos) return [];
     const out = [];
@@ -1075,7 +1093,10 @@ export default function DashboardPage() {
 
       {/* ── BASE: Stats Principais ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Condomínios"  value={stats.total}            icon={Building}   color="cyan"    loading={isLoading} />
+        {/* O numero que importa e a operacao, nao o cadastro. Quem vai entrar
+            aparece na propria etiqueta, para nao sumir da vista. */}
+        <StatsCard title="Condomínios na operação" value={stats.total} icon={Building} color="cyan" loading={isLoading}
+          subtitle={aEntrar.length ? `+${aEntrar.length} a entrar` : undefined} />
         <StatsCard title="Em Edição"          value={stats.em_edicao}        icon={FileEdit}   color="orange"  loading={isLoading} />
         <StatsCard title="Aguard. Registro"   value={emissaoStats.aguardando} icon={Clock}      color="emerald" loading={isLoading} />
         <StatsCard title="Emissão Registrada" value={emissaoStats.registrada} icon={FileCheck}  color="blue"    loading={isLoading} />

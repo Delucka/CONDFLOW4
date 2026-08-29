@@ -51,9 +51,19 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
         # Filtrar o recurso embutido (`processos.year`) recorta ANTES de vir
         # pela rede. Sem `!inner`, condomínio sem processo do semestre continua
         # aparecendo, com a lista vazia — que é o que o laço já espera.
+        # So os condominios EM OPERACAO.
+        #
+        # Sao 325 cadastrados e 66 que emitem: os outros 259 ja existem, mas
+        # ainda vao entrar. Tratados como iguais, o painel dizia "325
+        # condominios", o filtro "sem emissao" listava 259 que ninguem deveria
+        # estar cobrando, e as contagens da fila mediam uma base que nao existe.
+        #
+        # Quem vai entrar nao some do sistema: vem contado a parte
+        # (`a_entrar`), e a tela oferece o filtro para ve-los.
         query = (db.table("condominios").select("*, processos(*)")
                    .eq("processos.year", year)
-                   .eq("processos.semester", sem))
+                   .eq("processos.semester", sem)
+                   .eq("situacao", "ativo"))
 
         # Filtros baseados na role
         if user["role"] in ("gerente", "assistente"):
@@ -82,6 +92,27 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             except Exception as e:
                 print(f"[dashboard] pipeline_config falhou (segue sem): {e}")
                 return None
+        def _q_a_entrar():
+            """Quantos estao cadastrados esperando entrar — e quais.
+
+            Vem junto porque a tela precisa oferecer o filtro sem uma segunda
+            viagem, e porque um numero que ninguem ve e um numero que ninguem
+            confere: 259 condominios parados e uma boa pergunta para alguem
+            fazer todo mes.
+            """
+            try:
+                q = db.table("condominios").select("id, name, gerente_id, situacao_desde") \
+                      .eq("situacao", "a_entrar")
+                if user.get("role") in ("gerente", "assistente"):
+                    g_id = carteira_gerente_id(db, user)
+                    if not g_id:
+                        return []
+                    q = q.eq("gerente_id", g_id)
+                return q.order("name").execute().data or []
+            except Exception as e:
+                print(f"[dashboard] a_entrar falhou (segue sem): {e}")
+                return []
+
         def _q_edicoes():
             # As edicoes do ano vinham numa SEGUNDA chamada do navegador
             # (/api/edicoes-mensais), sempre junto com esta. Duas viagens para
@@ -224,6 +255,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             _fe = _ex.submit(_q_edicoes)
             _fo, _fk, _fn, _ff = (_ex.submit(_q_ocorrencias), _ex.submit(_q_concessionarias),
                                   _ex.submit(_q_notificacoes), _ex.submit(_q_fila))
+            _fa = _ex.submit(_q_a_entrar)
             raw_condos = _fc.result()
             gerentes = _fg.result()
             edicoes_ano = _fe.result()
@@ -231,6 +263,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             concessionarias = _fk.result()
             notificacoes = _fn.result()
             fila_contagens = _ff.result()
+            a_entrar = _fa.result()
             pipeline_config = _fp.result()
 
         condos = []
@@ -329,6 +362,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             "concessionarias_por_condo": concessionarias,
             "notificacoes": notificacoes,
             "fila_contagens": fila_contagens,
+            "a_entrar": a_entrar,
             "emissao_mes": int(mes) if mes else None,
             "emissao_ano": emis_ano,
             "pipeline_config": pipeline_config,
@@ -3712,7 +3746,9 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
                   if g.get("ativo") is not False
                   and (not g.get("ativo_desde") or str(g["ativo_desde"]) <= hoje_iso)]
 
-    cond_q = db.table("condominios").select("id, gerente_id")
+    # Quem ainda vai entrar nao recebe quadro de mes: abrir a planilha de um
+    # condominio que ainda nao e cliente e criar trabalho que ninguem pediu.
+    cond_q = db.table("condominios").select("id, gerente_id").eq("situacao", "ativo")
     if data.condominio_id:
         cond_q = cond_q.eq("id", data.condominio_id)
     elif data.gerente_id:

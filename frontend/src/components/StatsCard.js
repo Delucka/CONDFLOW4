@@ -1,6 +1,6 @@
 // `loading` é obrigatório de fato: sem ele o card mostrava "0" enquanto o painel
 // carregava e depois pulava pro número real — parecia dado, era placeholder.
-export default function StatsCard({ title, value, icon: Icon, color, loading = false }) {
+export default function StatsCard({ title, value, icon: Icon, color, loading = false, subtitle = null }) {
   const colorMap = {
     cyan:    { bg: 'bg-violet-50',    text: 'text-violet-600'    },
     orange:  { bg: 'bg-amber-50',  text: 'text-amber-600'  },
@@ -19,7 +19,14 @@ export default function StatsCard({ title, value, icon: Icon, color, loading = f
         <p className="text-xs font-medium text-slate-500 truncate">{title}</p>
         {loading
           ? <span className="mt-1 block h-5 w-12 rounded bg-slate-200 animate-pulse" aria-label="Carregando…" />
-          : <p className="text-2xl font-semibold text-slate-900 leading-tight tabular-nums">{value}</p>}
+          : (
+            <p className="text-2xl font-semibold text-slate-900 leading-tight tabular-nums">
+              {value}
+              {/* O segundo numero fica menor e ao lado: e contexto do primeiro,
+                  nao um dado concorrente. */}
+              {subtitle && <span className="ml-1.5 text-[11px] font-medium text-slate-500 tabular-nums">{subtitle}</span>}
+            </p>
+          )}
       </div>
     </div>
   );
