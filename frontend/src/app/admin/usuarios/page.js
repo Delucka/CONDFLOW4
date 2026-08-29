@@ -443,6 +443,51 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
   const [gerenteSel, setGerenteSel] = useState(u.gerente_responsavel_id || '');
   const [savingGer, setSavingGer] = useState(false);
 
+  // Situação do gerente na operação (0104).
+  const [ativo, setAtivo] = useState(u.gerente_ativo !== false);
+  const [salvandoSituacao, setSalvandoSituacao] = useState(false);
+  const emOperacao = u.condominios_em_operacao ?? 0;
+  const naCarteira = u.condominios_total ?? 0;
+
+  async function mudarSituacao(novoAtivo) {
+    // Inativar quem tem carteira VIVA é diferente de inativar quem só tem
+    // cadastro esperando entrar. O primeiro caso tira condomínios do ar; o
+    // segundo é limpeza. A pergunta só aparece quando há o que perder.
+    if (!novoAtivo && emOperacao > 0) {
+      const ok = window.confirm(
+        `${u.full_name} tem ${emOperacao} condomínio${emOperacao !== 1 ? 's' : ''} em operação.\n\n` +
+        'Inativando agora, o quadro do mês deixa de abrir para eles até alguém assumir a carteira.\n\n' +
+        'Continuar mesmo assim?'
+      );
+      if (!ok) return;
+    }
+
+    let motivo = null;
+    if (!novoAtivo) {
+      motivo = window.prompt('Por que este gerente sai da operação?\n(fica registrado — seis meses depois alguém vai perguntar)', '');
+      if (motivo === null) return;
+    }
+
+    setSalvandoSituacao(true);
+    try {
+      const r = await apiFetch(`/api/gerentes/${u.gerente_id_real}/situacao`, {
+        method: 'POST',
+        body: JSON.stringify({ ativo: novoAtivo, motivo: motivo || null }),
+      });
+      setAtivo(novoAtivo);
+      addToast(
+        novoAtivo ? `${u.full_name} voltou para a operação.`
+                  : `${u.full_name} saiu da operação${r?.condominios_na_carteira ? ` — ${r.condominios_na_carteira} condomínios na carteira dele` : ''}.`,
+        novoAtivo ? 'success' : 'warning',
+      );
+      onSync?.();
+    } catch (e) {
+      addToast(e.message || 'Não foi possível mudar a situação.', 'error');
+    } finally {
+      setSalvandoSituacao(false);
+    }
+  }
+
   async function salvarNotif() {
     setSavingNotif(true);
     try {
@@ -465,7 +510,14 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
           {isMaster ? <ShieldAlert className="w-6 h-6" /> : <Users className="w-6 h-6" />}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-slate-800 truncate">{u.full_name || 'Usuário'}</h3>
+          <h3 className="font-bold text-slate-800 truncate flex items-center gap-2">
+            <span className="truncate">{u.full_name || 'Usuário'}</span>
+            {isGerente && !ativo && (
+              <span className="shrink-0 rounded-md border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                fora da operação
+              </span>
+            )}
+          </h3>
           <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 truncate">
             <Mail className="w-3 h-3 shrink-0" /> {u.email}
           </p>
@@ -543,6 +595,23 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
                 className="text-[10px] font-bold text-violet-400 hover:text-violet-300 flex items-center gap-1 bg-violet-500/10 border border-violet-500/20 px-2 py-1 rounded transition-colors">
                 <Link2 className="w-3 h-3" /> Gerenciar
               </button>
+              {/* Dentro ou fora da operacao. Fica ao lado da carteira porque as
+                  duas decisoes andam juntas: quem sai deixa condominios, e quem
+                  olha uma quer ver a outra. */}
+              {u.gerente_id_real && (
+                <button
+                  onClick={() => mudarSituacao(!ativo)}
+                  disabled={salvandoSituacao}
+                  title={ativo
+                    ? `Tirar da operacao. Tem ${emOperacao} em operacao e ${naCarteira} na carteira.`
+                    : 'Trazer de volta para a operacao'}
+                  className={`text-[10px] font-bold flex items-center gap-1 px-2 py-1 rounded border transition-colors disabled:opacity-50 ${
+                    ativo
+                      ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20'
+                      : 'text-slate-500 bg-slate-100 border-slate-300 hover:bg-slate-200'}`}>
+                  {salvandoSituacao ? '…' : ativo ? 'Na operação' : 'Fora'}
+                </button>
+              )}
             </div>
           </div>
           {condos.length === 0 ? (

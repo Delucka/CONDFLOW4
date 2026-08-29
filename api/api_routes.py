@@ -2075,7 +2075,45 @@ def api_ultima_emissao(condo_id: str, user: dict = Depends(get_current_user), db
 def api_usuarios(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     if user["role"] != "master":
         raise HTTPException(403)
-    usuarios = db.table("profiles").select("*").order("full_name").execute().data
+    usuarios = db.table("profiles").select("*").order("full_name").execute().data or []
+
+    # A situacao do gerente vem junto (0104).
+    #
+    # `profiles` diz o papel; `gerentes` diz se a pessoa esta na operacao — e
+    # sao tabelas diferentes. Sem juntar aqui, a tela de Acessos e Perfis nao
+    # tem como mostrar nem mudar o ativo/inativo, e o campo so existiria por
+    # SQL. Campo que so existe por SQL nao existe.
+    try:
+        gs = db.table("gerentes").select(
+            "id, profile_id, ativo, ativo_desde, inativado_em, inativado_motivo").execute().data or []
+        por_profile = {g["profile_id"]: g for g in gs if g.get("profile_id")}
+
+        # Quantos condominios cada um carrega, e quantos deles estao na
+        # operacao. Inativar quem tem carteira viva e diferente de inativar quem
+        # so tem cadastro esperando entrar — a tela precisa dizer qual e qual.
+        condos = db.table("condominios").select("gerente_id, situacao").execute().data or []
+        total, ativos = {}, {}
+        for c in condos:
+            gid = c.get("gerente_id")
+            if not gid:
+                continue
+            total[gid] = total.get(gid, 0) + 1
+            if c.get("situacao") == "ativo":
+                ativos[gid] = ativos.get(gid, 0) + 1
+
+        for u in usuarios:
+            g = por_profile.get(u["id"])
+            if not g:
+                continue
+            u["gerente_id_real"] = g["id"]
+            u["gerente_ativo"] = g.get("ativo") is not False
+            u["gerente_ativo_desde"] = g.get("ativo_desde")
+            u["gerente_inativado_motivo"] = g.get("inativado_motivo")
+            u["condominios_total"] = total.get(g["id"], 0)
+            u["condominios_em_operacao"] = ativos.get(g["id"], 0)
+    except Exception as e:
+        print(f"[usuarios] situacao do gerente falhou (segue sem): {e}")
+
     return {"usuarios": usuarios}
 
 
