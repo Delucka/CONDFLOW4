@@ -433,8 +433,12 @@ export default function VisaoEmissor({ profile }) {
         // responde "por que estou pagando isso?". Já aconteceu de a mesma
         // cobrança entrar duas vezes — uma com anexo e outra sem — e não haver
         // como saber qual era a boa.
-        const temDoc = (c) => (c.attachments || []).length > 0;
-        const ids = (d.cobrancas_extras || []).filter(temDoc).map(c => c.id);
+        // Duas travas, pelo mesmo motivo: nao cobrar do condomino o que ainda
+        // nao esta resolvido. Sem documento, ninguem sabe por que aquilo esta
+        // sendo cobrado; com alteracao pendente, o proprio valor esta sob
+        // revisao e ja se sabe que vai mudar.
+        const podeEntrar = (c) => (c.attachments || []).length > 0 && !c.alteracao_proposta;
+        const ids = (d.cobrancas_extras || []).filter(podeEntrar).map(c => c.id);
         const salvas = activePacote.cobrancas_incluidas;
         // Seleção inicial: o que já foi salvo no pacote, senão todas as que têm
         // documento. Salva antiga sem anexo também é descartada — o que valia
@@ -1941,16 +1945,21 @@ export default function VisaoEmissor({ profile }) {
                     <div className="space-y-1.5">
                       {cobrancas.map(c => {
                         const semDoc = !(c.attachments?.length > 0);
-                        const checked = sel.has(c.id) && !semDoc;
+                        const emRevisao = !!c.alteracao_proposta;
+                        const travada = semDoc || emRevisao;
+                        const checked = sel.has(c.id) && !travada;
                         return (
                           <label key={c.id}
-                            title={semDoc ? 'Sem documento anexado — não pode entrar na emissão' : undefined}
+                            title={semDoc ? 'Sem documento anexado — não pode entrar na emissão'
+                                   : emRevisao ? 'Alteração pendente de aprovação — não entra até alguém decidir'
+                                   : undefined}
                             className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg border transition-colors ${
                               semDoc ? 'bg-rose-50/60 border-rose-200 cursor-not-allowed'
+                                : emRevisao ? 'bg-amber-50 border-amber-300 cursor-not-allowed'
                                 : checked ? 'bg-violet-50 border-violet-200 cursor-pointer'
                                 : 'bg-slate-50 border-slate-200 hover:border-slate-300 cursor-pointer'}`}>
-                            <input type="checkbox" checked={checked} disabled={semDoc}
-                              onChange={() => !semDoc && toggleCobranca(c.id)}
+                            <input type="checkbox" checked={checked} disabled={travada}
+                              onChange={() => !travada && toggleCobranca(c.id)}
                               className="w-4 h-4 accent-violet-600 shrink-0 disabled:opacity-40" />
                             <div className="flex-1 min-w-0">
                               {/* A cobrança sem documento é a que mais precisa
@@ -1971,6 +1980,18 @@ export default function VisaoEmissor({ profile }) {
                               )}
                               {c.unidades && (
                                 <p className="text-[10px] text-violet-600 font-bold truncate">🏠 unid.: {c.unidades}</p>
+                              )}
+                              {emRevisao && (
+                                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <span className="text-[10px] font-bold text-amber-700 inline-flex items-center gap-1">
+                                    <Clock className="w-2.5 h-2.5" /> alteração aguardando aprovação
+                                  </span>
+                                  {c.alteracao_motivo && (
+                                    <span className="text-[10px] text-slate-500 truncate max-w-[220px]" title={c.alteracao_motivo}>
+                                      {c.alteracao_motivo}
+                                    </span>
+                                  )}
+                                </span>
                               )}
                               {semDoc ? (
                                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1">

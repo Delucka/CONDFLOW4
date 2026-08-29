@@ -2676,8 +2676,12 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
         req_ano  = request.query_params.get("ano")
         is_retif = request.query_params.get("retificacao") == "true"
 
+        # `alteracao_*` vem junto (0105): a cobranca com mudanca pendente NAO
+        # entra na emissao, e a tela precisa dizer por que ela esta travada —
+        # do mesmo jeito que diz quando falta o documento.
         query = db.table("cobrancas_extras") \
-            .select("id,description,amount,created_at,attachments,status,mes,ano,unidades,parcela_atual,parcela_total,grupo_id") \
+            .select("id,description,amount,created_at,attachments,status,mes,ano,unidades,parcela_atual,parcela_total,grupo_id,"
+                    "alteracao_proposta,alteracao_motivo,alteracao_pedida_por") \
             .eq("condominio_id", condo_id) \
             .neq("status", "cancelada")
 
@@ -3141,6 +3145,263 @@ def api_executar_cancelamento(
         raise HTTPException(400, str(e))
 
 
+# =============================================================================
+# Gerente na operacao, e a carteira que ele deixa para tras
+# =============================================================================
+
+class SituacaoGerenteSchema(BaseModel):
+    ativo: bool
+    ativo_desde: Optional[str] = None     # "2026-09-01" — para quem comeca depois
+    motivo: Optional[str] = None
+
+
+@router.post("/gerentes/{gerente_id}/situacao")
+def api_situacao_gerente(
+    gerente_id: str,
+    data: SituacaoGerenteSchema,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Marca o gerente como dentro ou fora da operacao (0104).
+
+    Sao 15 cadastrados e 3 trabalhando. Sem esta marca o sistema abria o quadro
+    do mes para os 15 e cobrava planilha de quem nao esta mais aqui.
+
+    Inativar com carteira cheia NAO e bloqueado, mas a resposta diz quantos
+    condominios ficaram sem gerente ativo. Bloquear obrigaria a transferir
+    primeiro, e quem sai da empresa costuma sair antes de alguem decidir quem
+    assume — o aviso e mais honesto do que a porta fechada.
+    """
+    require_role(user, ["master"])
+
+    payload = {"ativo": bool(data.ativo), "ativo_desde": data.ativo_desde or None}
+    if not data.ativo:
+        payload["inativado_em"] = _dt.now().isoformat()
+        payload["inativado_motivo"] = (data.motivo or "").strip() or None
+    else:
+        payload["inativado_em"] = None
+        payload["inativado_motivo"] = None
+
+    res = db.table("gerentes").update(payload).eq("id", gerente_id).execute()
+    if not res.data:
+        raise HTTPException(404, "Gerente nao encontrado.")
+
+    orfaos = (db.table("condominios").select("id", count="exact")
+                .eq("gerente_id", gerente_id).limit(1).execute().count or 0)
+
+    return {"success": True, "ativo": bool(data.ativo), "condominios_na_carteira": orfaos}
+
+
+class TransferirCarteiraSchema(BaseModel):
+    de_gerente_id: str
+    para_gerente_id: str
+    condominio_ids: Optional[list] = None   # None = a carteira inteira
+
+
+@router.post("/gerentes/transferir-carteira")
+def api_transferir_carteira(
+    data: TransferirCarteiraSchema,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Passa condominios de um gerente para outro de uma vez.
+
+    Antes so existia o vinculo um a um, na tela de carteira. Um gerente que sai
+    com 40 condominios eram 40 operacoes manuais — e o custo disso e alguem
+    desistir no meio e deixar metade da carteira orfa.
+
+    `condominio_ids` nulo transfere a carteira inteira. O destino precisa estar
+    ATIVO: mandar condominio para quem ja saiu e o mesmo problema com outro
+    nome.
+    """
+    require_role(user, ["master"])
+
+    if data.de_gerente_id == data.para_gerente_id:
+        raise HTTPException(400, "Origem e destino sao o mesmo gerente.")
+
+    destino = (db.table("gerentes").select("id, nome, ativo")
+                 .eq("id", data.para_gerente_id).maybe_single().execute().data)
+    if not destino:
+        raise HTTPException(404, "Gerente de destino nao encontrado.")
+    if destino.get("ativo") is False:
+        raise HTTPException(400, "O gerente de destino esta inativo. Ative-o antes de passar a carteira.")
+
+    q = db.table("condominios").select("id").eq("gerente_id", data.de_gerente_id)
+    if data.condominio_ids:
+        q = q.in_("id", data.condominio_ids)
+    alvos = [c["id"] for c in (q.execute().data or [])]
+
+    if not alvos:
+        return {"success": True, "transferidos": 0}
+
+    # Em blocos: um `in_` com centenas de ids estoura o tamanho da URL do
+    # PostgREST, e o erro que volta nao diz isso.
+    movidos = 0
+    for i in range(0, len(alvos), 100):
+        bloco = alvos[i:i + 100]
+        r = db.table("condominios").update({"gerente_id": data.para_gerente_id}) \
+              .in_("id", bloco).execute()
+        movidos += len(r.data or [])
+
+    print(f"[carteira] {movidos} condominios de {data.de_gerente_id} para {data.para_gerente_id} por {user.get('email')}")
+    return {"success": True, "transferidos": movidos, "destino": destino.get("nome")}
+
+
+# =============================================================================
+# Alterar uma cobranca ja lancada — com aprovacao
+# =============================================================================
+
+CAMPOS_ALTERAVEIS = {"amount", "mes", "ano", "description", "unidades"}
+
+
+class PedirAlteracaoSchema(BaseModel):
+    proposta: dict            # so os campos que mudam
+    motivo: str
+    grupo_todo: bool = False  # aplica a todas as parcelas do mesmo lancamento
+
+
+@router.post("/cobrancas-extras/{cobranca_id}/alterar")
+def api_pedir_alteracao_cobranca(
+    cobranca_id: str,
+    data: PedirAlteracaoSchema,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Pede para mudar valor, mes, descricao ou unidade de uma cobranca (0105).
+
+    Mesmo desenho do cancelamento: gerente e assistente pedem, master e
+    departamento decidem. A mudanca nao vale enquanto ninguem decidir, e a
+    cobranca fica FORA da emissao nesse meio tempo — cobrar um valor sob revisao
+    e o erro que esta aprovacao existe para evitar.
+    """
+    require_role(user, ROLES_SOLICITA_CANCEL)
+
+    motivo = (data.motivo or "").strip()
+    if not motivo:
+        raise HTTPException(400, "Diga por que a alteracao e necessaria. Quem aprova decide com isto.")
+
+    proposta = {k: v for k, v in (data.proposta or {}).items() if k in CAMPOS_ALTERAVEIS}
+    if not proposta:
+        raise HTTPException(400, "Nenhum campo alteravel foi enviado.")
+
+    if "mes" in proposta and not (1 <= int(proposta["mes"]) <= 12):
+        raise HTTPException(400, "Mes fora do intervalo.")
+
+    atual = (db.table("cobrancas_extras")
+               .select("id, condominio_id, grupo_id, description, amount, mes, ano, unidades, status, alteracao_proposta")
+               .eq("id", cobranca_id).maybe_single().execute().data)
+    if not atual:
+        raise HTTPException(404, "Cobranca nao encontrada.")
+    if atual.get("status") == "cancelada":
+        raise HTTPException(400, "Esta cobranca esta cancelada.")
+    if atual.get("alteracao_proposta"):
+        raise HTTPException(400, "Ja existe uma alteracao esperando decisao nesta cobranca.")
+
+    # Gerente e assistente so mexem na propria carteira — a mesma regra do lancar.
+    if user["role"] in ("gerente", "assistente"):
+        if atual.get("condominio_id") not in carteira_condo_ids(db, user):
+            raise HTTPException(403, "Este condominio nao esta na sua carteira.")
+
+    alvos = [cobranca_id]
+    if data.grupo_todo and atual.get("grupo_id"):
+        # Parcelamento: mudar o valor de uma parcela e quase sempre querer mudar
+        # o das que ainda nao sairam.
+        irmas = (db.table("cobrancas_extras").select("id")
+                   .eq("grupo_id", atual["grupo_id"]).eq("status", "ativa")
+                   .is_("alteracao_proposta", "null").execute().data or [])
+        alvos = list({c["id"] for c in irmas} | {cobranca_id})
+
+    payload = {
+        "alteracao_proposta": proposta,
+        "alteracao_motivo": motivo,
+        "alteracao_pedida_por": user.get("email") or user.get("id"),
+        "alteracao_pedida_em": _dt.now().isoformat(),
+        "alteracao_decidida_por": None,
+        "alteracao_decidida_em": None,
+        "alteracao_recusa_motivo": None,
+    }
+    db.table("cobrancas_extras").update(payload).in_("id", alvos).execute()
+    return {"success": True, "cobrancas_afetadas": len(alvos)}
+
+
+class DecidirAlteracaoSchema(BaseModel):
+    aprovar: bool
+    motivo: Optional[str] = None
+
+
+@router.post("/cobrancas-extras/{cobranca_id}/alteracao/decidir")
+def api_decidir_alteracao_cobranca(
+    cobranca_id: str,
+    data: DecidirAlteracaoSchema,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Master ou emissao aprova ou recusa a alteracao pedida."""
+    require_role(user, ROLES_EXECUTA_CANCEL)
+
+    atual = (db.table("cobrancas_extras")
+               .select("id, description, amount, mes, ano, unidades, alteracao_proposta, alteracao_motivo, alteracao_pedida_por, alteracao_pedida_em")
+               .eq("id", cobranca_id).maybe_single().execute().data)
+    if not atual:
+        raise HTTPException(404, "Cobranca nao encontrada.")
+    proposta = atual.get("alteracao_proposta")
+    if not proposta:
+        raise HTTPException(400, "Esta cobranca nao tem alteracao pendente.")
+
+    antes = {k: atual.get(k) for k in CAMPOS_ALTERAVEIS}
+
+    limpar = {
+        "alteracao_proposta": None,
+        "alteracao_motivo": None,
+        "alteracao_pedida_por": None,
+        "alteracao_pedida_em": None,
+        "alteracao_decidida_por": user.get("email") or user.get("id"),
+        "alteracao_decidida_em": _dt.now().isoformat(),
+        "alteracao_recusa_motivo": None if data.aprovar else ((data.motivo or "").strip() or None),
+    }
+
+    if data.aprovar:
+        aplicar = {k: v for k, v in proposta.items() if k in CAMPOS_ALTERAVEIS}
+        db.table("cobrancas_extras").update({**aplicar, **limpar}).eq("id", cobranca_id).execute()
+    else:
+        db.table("cobrancas_extras").update(limpar).eq("id", cobranca_id).execute()
+
+    # O historico sobrevive ao proximo pedido: a linha da cobranca so guarda o
+    # que esta em aberto, e a segunda alteracao apagaria o rastro da primeira.
+    try:
+        db.table("cobrancas_alteracoes").insert({
+            "cobranca_id": cobranca_id,
+            "antes": antes,
+            "proposta": proposta,
+            "motivo": atual.get("alteracao_motivo"),
+            "decisao": "aprovada" if data.aprovar else "recusada",
+            "decisao_motivo": (data.motivo or "").strip() or None,
+            "pedida_por": atual.get("alteracao_pedida_por"),
+            "pedida_em": atual.get("alteracao_pedida_em"),
+            "decidida_por": user.get("email") or user.get("id"),
+        }).execute()
+    except Exception as e:
+        print(f"[cobrancas/alteracao] historico falhou (decisao ja aplicada): {e}")
+
+    return {"success": True, "aprovada": bool(data.aprovar)}
+
+
+@router.get("/cobrancas-extras/alteracoes-pendentes")
+def api_alteracoes_pendentes(
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """As alteracoes esperando decisao — para o painel de quem decide."""
+    require_role(user, ROLES_EXECUTA_CANCEL)
+    rows = (db.table("cobrancas_extras")
+              .select("id, description, amount, mes, ano, unidades, condominio_id, "
+                      "alteracao_proposta, alteracao_motivo, alteracao_pedida_por, alteracao_pedida_em, "
+                      "condominios(name)")
+              .not_.is_("alteracao_proposta", "null")
+              .order("alteracao_pedida_em", desc=False).execute().data or [])
+    return {"pendentes": rows, "total": len(rows)}
+
+
 class DocumentoCobrancaSchema(BaseModel):
     attachments: list
 
@@ -3440,6 +3701,17 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
     if mes < 1 or mes > 12:
         raise HTTPException(400, "mes invalido")
 
+    # So os gerentes que estao na operacao (0104).
+    #
+    # Sao 15 cadastrados e 3 trabalhando: sem este recorte o quadro do mes abria
+    # para os 15, e o painel passava a cobrar planilha de quem ja saiu. Quem
+    # comeca depois (`ativo_desde` no futuro) tambem fica de fora ate a data.
+    hoje_iso = _dt.now().date().isoformat()
+    ativos = db.table("gerentes").select("id, ativo, ativo_desde").execute().data or []
+    ids_ativos = [g["id"] for g in ativos
+                  if g.get("ativo") is not False
+                  and (not g.get("ativo_desde") or str(g["ativo_desde"]) <= hoje_iso)]
+
     cond_q = db.table("condominios").select("id, gerente_id")
     if data.condominio_id:
         cond_q = cond_q.eq("id", data.condominio_id)
@@ -3449,6 +3721,17 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
         cond_q = cond_q.eq("gerente_id", g_real)
     cond_res = cond_q.execute()
     condos = cond_res.data or []
+
+    # O recorte por gerente ativo vale para a abertura EM MASSA. Quando o master
+    # escolhe um condominio especifico, ele sabe o que esta fazendo — abrir para
+    # um condominio de carteira inativa e um ato deliberado, e travar aqui seria
+    # tirar dele a unica saida quando alguem sai no meio do mes.
+    if not data.condominio_id:
+        antes = len(condos)
+        condos = [c for c in condos if c.get("gerente_id") in ids_ativos]
+        ignorados = antes - len(condos)
+        if ignorados:
+            print(f"[edicoes/abrir] {ignorados} condominios fora: gerente inativo")
 
     # Só REABRE o que o gerente já liberou quando o master escolheu o condomínio (1-a-1)
     # ou pediu explicitamente pra forçar. Em massa, a previsão que ele já liberou fica de pé.
