@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, memo, useCallback } from 'react';
+import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
@@ -179,6 +179,27 @@ export default function CondominiosPage() {
   // Fica AQUI, depois de condosDaSelecao — declarar antes dava ReferenceError
   // (temporal dead zone), que o lint não acusa e só quebra em tempo de execução.
   const alvoCount = condoFilter ? 1 : condosDaSelecao.length;
+
+  // Quantos DESSES já estão liberados para o mês escolhido.
+  //
+  // O botão dizia "abrir outubro para 30 condomínios" mesmo quando doze já
+  // estavam liberados — e eles não são tocados (a menos que se marque
+  // "reabrir"). O número contava a carteira, não a ação. Quem lia entendia que
+  // ia mexer em trinta, e vinha a pergunta certa: "por que aparecem todos, se
+  // ela já liberou?".
+  const { data: edicoesMes } = useSWR(
+    `/api/edicoes-mensais?mes=${mesEdicao}&ano=${pipelineAno}`, apiFetcher,
+  );
+  const jaLiberados = useMemo(() => {
+    const alvo = new Set(condosDaSelecao.map(c => c.id));
+    return (edicoesMes?.edicoes || []).filter(
+      e => e.status === 'edicao_finalizada' && (condoFilter ? e.condominio_id === condoFilter : alvo.has(e.condominio_id)),
+    ).length;
+  }, [edicoesMes, condosDaSelecao, condoFilter]);
+
+  // Com "reabrir" marcado, os liberados voltam a ser mexidos — e aí o número
+  // grande é o certo.
+  const vaoAbrir = forcarReabertura ? alvoCount : Math.max(alvoCount - jaLiberados, 0);
 
   const canEdit = user?.role === 'master';
   const filtered = condos.filter(c => combina(search, c.name, c.gerente_name));
@@ -426,7 +447,12 @@ export default function CondominiosPage() {
               <button onClick={handleAbrirEdicaoMensal} disabled={forcingAll}
                 className={cn(btn.primario, 'flex-1 min-w-[200px]')}>
                 {forcingAll ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Unlock className="w-4 h-4" aria-hidden="true" />}
-                Abrir {_MESES[mesEdicao]} para {condoFilter ? '1 condomínio' : `${alvoCount} condomínio(s)`}
+                Abrir {_MESES[mesEdicao]} para {vaoAbrir === 1 ? '1 condomínio' : `${vaoAbrir} condomínios`}
+                {jaLiberados > 0 && !forcarReabertura && (
+                  <span className="ml-1 font-normal opacity-75">
+                    · {jaLiberados} já liberado{jaLiberados !== 1 ? 's' : ''}, {jaLiberados !== 1 ? 'ficam' : 'fica'} como {jaLiberados !== 1 ? 'estão' : 'está'}
+                  </span>
+                )}
               </button>
             </div>
             <label className="flex items-start gap-2 text-[11px] text-slate-600 cursor-pointer select-none">

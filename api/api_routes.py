@@ -3872,6 +3872,9 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
     criados = 0
     reabertos = 0
     mantidos_liberados = 0
+    # Quem passou a poder preencher, e quem ja estava preenchido — o aviso ao
+    # gerente precisa dos dois: um diz o que fazer, o outro o que conferir.
+    lista_abertos, lista_preenchidos = [], []
     for c in condos:
         existing = db.table("edicoes_mensais").select("id, status") \
             .eq("condominio_id", c["id"]).eq("ano_referencia", ano).eq("mes_referencia", mes) \
@@ -3881,6 +3884,7 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
             if row["status"] != "em_edicao" and not pode_reabrir:
                 # Já liberado e abertura em massa: não mexe (não volta pro gerente)
                 mantidos_liberados += 1
+                lista_preenchidos.append({"condominio_id": c["id"], "gerente_id": c.get("gerente_id")})
             # Se ja existe e nao esta em_edicao, reabre
             elif row["status"] != "em_edicao":
                 db.table("edicoes_mensais").update({
@@ -3895,6 +3899,7 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
                     "reabertura_aprovada": None,
                 }).eq("id", row["id"]).execute()
                 reabertos += 1
+                lista_abertos.append({"condominio_id": c["id"], "gerente_id": c.get("gerente_id")})
                 # Auditoria: registra a reabertura na Fila de Conferência (best-effort)
                 try:
                     pac = db.table("emissoes_pacotes").select("id") \
@@ -3922,6 +3927,10 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
                 "aberto_por": user["id"],
             }).execute()
             criados += 1
+            lista_abertos.append({"condominio_id": c["id"], "gerente_id": c.get("gerente_id")})
+
+    _notificar_gerente_abertura(db, mes, ano, lista_abertos, lista_preenchidos,
+                                user.get("full_name") or "A administração")
 
     return {"ok": True, "mes": mes, "ano": ano, "criados": criados, "reabertos": reabertos,
             "mantidos_liberados": mantidos_liberados, "total_condos": len(condos)}
@@ -4453,6 +4462,75 @@ def _meses_em_branco(db, edicoes):
         for e in edicoes
         if (e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) not in preenchidos
     }
+
+
+def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, autor_nome):
+    """Avisa o gerente que o mes abriu — e o que ja estava preenchido.
+
+    Sem isto, abrir o mes era um evento invisivel: o gerente so descobria
+    entrando na tela por conta propria. E quando ele ja tinha adiantado a
+    previsao, ninguem lhe dizia que aqueles valores continuam la esperando
+    conferencia — a lista de "ja preenchidos" existe justamente para ele
+    revisar em vez de assumir que esta tudo certo.
+
+    `abertos` e `ja_preenchidos` sao listas de {condominio_id, gerente_id}.
+    """
+    if not abertos and not ja_preenchidos:
+        return
+    try:
+        todos = abertos + ja_preenchidos
+        ids = list({e["condominio_id"] for e in todos})
+        nomes = {c["id"]: c["name"] for c in
+                 (db.table("condominios").select("id, name").in_("id", ids).execute().data or [])}
+
+        # Um aviso por gerente, nao um por condominio: trinta notificacoes de
+        # uma vez viram ruido e a pessoa para de olhar o sino.
+        por_gerente = {}
+        for e in todos:
+            g = e.get("gerente_id")
+            if g:
+                por_gerente.setdefault(g, {"abriu": [], "preenchidos": []})
+        for e in abertos:
+            if e.get("gerente_id"):
+                por_gerente[e["gerente_id"]]["abriu"].append(nomes.get(e["condominio_id"], "condominio"))
+        for e in ja_preenchidos:
+            if e.get("gerente_id"):
+                por_gerente[e["gerente_id"]]["preenchidos"].append(nomes.get(e["condominio_id"], "condominio"))
+
+        # gerentes.id -> profile do gerente
+        gs = (db.table("gerentes").select("id, profile_id")
+                .in_("id", list(por_gerente.keys())).execute().data or []) if por_gerente else []
+        perfil = {g["id"]: g.get("profile_id") for g in gs}
+
+        rotulo = f"{_MES_NOME[mes]}/{ano}"
+        for gid, dados in por_gerente.items():
+            pid = perfil.get(gid)
+            if not pid:
+                continue   # gerente-fantasma, sem login: nao ha quem avisar
+            n_abriu = len(dados["abriu"])
+            n_prontos = len(dados["preenchidos"])
+
+            titulo = f"{rotulo} aberto para preenchimento"
+            partes = []
+            if n_abriu:
+                partes.append(f"{n_abriu} condominio{'s' if n_abriu != 1 else ''} para preencher")
+            if n_prontos:
+                lista = ", ".join(sorted(dados["preenchidos"])[:3])
+                reticencia = "…" if n_prontos > 3 else ""
+                partes.append(
+                    f"{n_prontos} ja estava{'m' if n_prontos != 1 else ''} preenchido{'s' if n_prontos != 1 else ''} "
+                    f"({lista}{reticencia}) — confira antes de liberar"
+                )
+            mensagem = f"{autor_nome} abriu {rotulo}. " + ". ".join(partes) + "."
+
+            db.table("notificacoes").insert({
+                "user_id": pid, "tipo": "mes_aberto",
+                "titulo": titulo[:120], "mensagem": mensagem[:240],
+                "link": "/aprovacoes",
+            }).execute()
+    except Exception as e:
+        # Aviso nunca derruba a abertura.
+        print(f"[abrir_edicao] notificacao ao gerente falhou: {type(e).__name__}: {e}")
 
 
 def _notificar_emissao_liberacao(db, edicoes, autor_nome):
