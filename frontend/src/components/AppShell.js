@@ -1,5 +1,6 @@
 'use client';
 import { useAuth } from '@/lib/auth';
+import VerComo from '@/components/VerComo';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
@@ -109,6 +110,7 @@ export default function AppShell({ children }) {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            <VerComo />
             <NotificationsBell />
             <div className="hidden sm:flex items-center gap-2">
               <div className="text-right">

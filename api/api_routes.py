@@ -2292,6 +2292,35 @@ class CreateUserSchema(BaseModel):
     gerente_id: Optional[str] = None  # profile do gerente responsável (quando role=assistente)
     enviar_email: bool = False        # se True, envia o e-mail de acesso AGORA (não é automático)
 
+def _protege_ultimo_master(db, profile_id, novo_papel=None):
+    """Recusa deixar o sistema sem nenhum master.
+
+    Sem master ninguém cria usuário, ninguém abre mês, ninguém conserta o que
+    quebrou — inclusive isto. É a única mudança de papel que não tem volta pela
+    própria tela, então é a única que o servidor precisa barrar.
+    """
+    if not profile_id:
+        return
+    try:
+        atual = (db.table("profiles").select("role").eq("id", profile_id)
+                 .maybe_single().execute().data or {})
+        if (atual.get("role") or "") != "master":
+            return          # não é master: mexer nele não zera nada
+        if novo_papel == "master":
+            return          # continua master
+        masters = db.table("profiles").select("id").eq("role", "master").execute().data or []
+        if len(masters) <= 1:
+            raise HTTPException(
+                400,
+                "Este é o único master do sistema. Sem master ninguém cria usuário "
+                "nem abre mês — crie outro master antes de mudar ou apagar este."
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[usuarios] checagem de ultimo master falhou (segue): {type(e).__name__}: {e}")
+
+
 @router.post("/usuarios")
 def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     if user["role"] != "master":
@@ -2299,6 +2328,29 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
     
     if not SB_SERVICE:
         raise HTTPException(500, "SUPABASE_SERVICE_KEY não configurada no servidor. Contate o suporte.")
+
+    # ── Este e-mail já é de alguém? ────────────────────────────────────────
+    # O passo 2 faz UPSERT no perfil. Com um e-mail que já existe, isso
+    # SOBRESCREVE papel, nome e `must_change_password` do dono — sem aviso e sem
+    # volta. Foi assim que o único master do sistema virou `expedicao`: bastou
+    # usar o próprio e-mail para "criar" o login da expedição.
+    #
+    # Criar é criar. Mudar o papel de quem já existe é outra ação, com outra
+    # tela — e nesta o caminho é dizer isso, não adivinhar a intenção.
+    try:
+        ja = (db.table("profiles").select("id, full_name, role")
+              .eq("email", (data.email or "").strip()).limit(1).execute().data or [])
+    except Exception as e:
+        print(f"[usuarios] checagem de e-mail existente falhou (segue): {type(e).__name__}")
+        ja = []
+    if ja:
+        dono = ja[0]
+        raise HTTPException(400, (
+            f"O e-mail {data.email} já é de {dono.get('full_name') or 'um usuário'} "
+            f"({dono.get('role') or 'sem papel'}). Criar por cima trocaria o papel dessa "
+            f"pessoa. Para mudar o papel dela, edite o usuário na lista; para a expedição, "
+            f"use um e-mail próprio."
+        ))
 
     try:
         # 1. Tentar criar no Auth usando admin
@@ -2432,6 +2484,9 @@ def api_sync_usuario(data: SyncUserSchema, user: dict = Depends(get_current_user
             else:
                 raise auth_err
 
+        # Rebaixar o único master deixaria o sistema sem quem conserte.
+        _protege_ultimo_master(db, uid, data.role)
+
         # Agora garantimos que o Profile aponta para este UID
         # Se o perfil antigo tinha outro ID (ex: uuid gerado manualmente no seed), deletamos o antigo e criamos novo
         if data.profile_id and data.profile_id != uid:
@@ -2528,6 +2583,9 @@ def api_deletar_usuario(profile_id: str, user: dict = Depends(get_current_user),
     
     if not SB_SERVICE:
         raise HTTPException(500, "Service Key não configurada")
+
+    # Apagar o único master é a mesma perda que rebaixá-lo, só que definitiva.
+    _protege_ultimo_master(db, profile_id)
 
     try:
         # 1. Deletar no Auth (isso vai disparar o ON DELETE CASCADE no profile e gerente)

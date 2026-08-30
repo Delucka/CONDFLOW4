@@ -11,6 +11,36 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [supabase] = useState(() => createClient());
 
+  // "Ver como": o master olha o app pelos olhos de outro papel.
+  //
+  // Existe porque a alternativa é pior. Para ver a tela da expedição alguém
+  // precisava VIRAR expedição — e criar esse login por cima do e-mail do master
+  // trocou o papel do único master do sistema, que então não podia mais
+  // desfazer nada. Isto aqui é reversível e não escreve em cadastro nenhum.
+  //
+  // É PRÉVIA DE TELA, não troca de permissão: o servidor continua vendo um
+  // master, então uma escrita feita nesse modo passa. Serve para conferir o que
+  // a pessoa vê, não para testar o que ela pode.
+  //
+  // sessionStorage, não localStorage: fechou a aba, acabou. Um master que
+  // esquecesse o modo ligado abriria o app amanhã achando que perdeu acesso —
+  // exatamente o susto que este recurso veio evitar.
+  const [verComo, setVerComoEstado] = useState(null);
+  useEffect(() => {
+    try {
+      const salvo = sessionStorage.getItem('condoflow_ver_como');
+      if (salvo) setVerComoEstado(salvo);
+    } catch { /* navegador sem storage: segue como master */ }
+  }, []);
+
+  function setVerComo(papel) {
+    setVerComoEstado(papel || null);
+    try {
+      if (papel) sessionStorage.setItem('condoflow_ver_como', papel);
+      else sessionStorage.removeItem('condoflow_ver_como');
+    } catch { /* só perde a memória entre recarregamentos */ }
+  }
+
   // De quem é o perfil que já está carregado ou a caminho.
   //
   // O perfil era buscado no `getSession()` E de novo a cada evento de
@@ -138,13 +168,23 @@ export function AuthProvider({ children }) {
     if (user?.id) await fetchProfile(user.id);
   }
 
+  // Só o master finge ser outro — e só para menos. Se `verComo` chegasse de
+  // qualquer outro papel, seria escalada de privilégio a um `setItem` de
+  // distância; por isso o papel real é a origem da regra, não o guardado.
+  const papelReal = profile?.role || null;
+  const papelVisto = papelReal === 'master' && verComo ? verComo : papelReal;
+  const profileVisto = profile ? { ...profile, role: papelVisto } : profile;
+
   // Merge profile data into user so user.role returns the app role ('master', 'gerente', etc.)
   const mergedUser = user && profile
-    ? { ...user, role: profile.role, full_name: profile.full_name, profile_id: profile.id, must_change_password: !!profile.must_change_password }
+    ? { ...user, role: papelVisto, full_name: profile.full_name, profile_id: profile.id, must_change_password: !!profile.must_change_password }
     : user;
 
   return (
-    <AuthContext.Provider value={{ user: mergedUser, profile, loading, signIn, signOut, sendPasswordReset, refreshProfile }}>
+    <AuthContext.Provider value={{
+      user: mergedUser, profile: profileVisto, loading, signIn, signOut, sendPasswordReset, refreshProfile,
+      papelReal, verComo: papelReal === 'master' ? verComo : null, setVerComo,
+    }}>
       {children}
     </AuthContext.Provider>
   );
