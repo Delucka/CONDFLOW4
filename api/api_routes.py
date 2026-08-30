@@ -4626,12 +4626,12 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
                 partes.append(f"{n_abriu} para preencher")
             if n_liberados:
                 partes.append(
-                    f"{n_liberados} ja liberado{'s' if n_liberados != 1 else ''}, nao volta{'m' if n_liberados != 1 else ''} para voce: "
+                    f"{n_liberados} já liberado{'s' if n_liberados != 1 else ''}, não volta{'m' if n_liberados != 1 else ''} para você: "
                     f"{_lista(dados['liberados'])}"
                 )
             if n_prontos:
                 partes.append(
-                    f"{n_prontos} ja preenchido{'s' if n_prontos != 1 else ''}, confira antes de liberar: "
+                    f"{n_prontos} já preenchido{'s' if n_prontos != 1 else ''}, confira antes de liberar: "
                     f"{_lista(dados['preenchidos'])}"
                 )
             mensagem = f"{autor_nome} abriu {rotulo}. " + ". ".join(partes) + "."
