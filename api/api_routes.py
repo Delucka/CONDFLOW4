@@ -4102,6 +4102,120 @@ class SolicitarReaberturaSchema(BaseModel):
     motivo: str
 
 
+class PreAprovarSchema(BaseModel):
+    condominio_id: str
+    competencias: list          # [{"mes": 10, "ano": 2026}, ...]
+
+
+@router.post("/edicoes-mensais/pre-aprovar")
+def api_pre_aprovar(
+    data: PreAprovarSchema,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """O gerente aprova meses que o master ainda nao abriu.
+
+    Eles trabalham com previsao orcamentaria anual: preenchem outubro, novembro
+    e dezembro de um condominio de uma vez. Hoje so podiam liberar mes que ja
+    tivesse quadro aberto, entao a previsao ficava parada esperando o master
+    abrir para so entao alguem confirmar — condominio por condominio, mes a mes,
+    todo mes, para um trabalho que ja estava feito.
+
+    Aqui a edicao nasce ja finalizada. Quando o master abrir o mes em massa
+    depois, o que ja esta liberado e preservado (a abertura em massa nao reabre
+    o que o gerente liberou).
+
+    Mes sem nenhum valor NAO e aprovado: aprovar planilha vazia e dizer que
+    conferiu o que nao existe. Volta nomeado, para o gerente ver qual falta.
+    """
+    require_role(user, ["master", "gerente", "assistente"])
+
+    # Gerente e assistente so na propria carteira.
+    if user["role"] in ("gerente", "assistente"):
+        if data.condominio_id not in carteira_condo_ids(db, user):
+            raise HTTPException(403, "Este condominio nao esta na sua carteira.")
+
+    g_id = None
+    if user["role"] in ("gerente", "assistente"):
+        g_id = carteira_gerente_id(db, user)
+    if not g_id:
+        c = (db.table("condominios").select("gerente_id")
+               .eq("id", data.condominio_id).maybe_single().execute().data) or {}
+        g_id = c.get("gerente_id")
+
+    comps = []
+    for c in (data.competencias or []):
+        try:
+            mes, ano = int(c["mes"]), int(c["ano"])
+        except Exception:
+            continue
+        if 1 <= mes <= 12:
+            comps.append((mes, ano))
+    if not comps:
+        raise HTTPException(400, "Nenhuma competencia valida foi enviada.")
+
+    # Quais tem valor preenchido. `_meses_em_branco` espera linhas no formato da
+    # edicao — monto o mesmo formato para reusar a regra em vez de reescreve-la.
+    fingidas = [{"condominio_id": data.condominio_id, "mes_referencia": m, "ano_referencia": a}
+                for m, a in comps]
+    em_branco = _meses_em_branco(db, fingidas)
+
+    from datetime import datetime, timezone
+    agora = datetime.now(timezone.utc).isoformat()
+    aprovadas, puladas, ja_estavam = [], [], []
+
+    for mes, ano in comps:
+        if (data.condominio_id, ano, mes) in em_branco:
+            puladas.append(f"{_MES_NOME[mes]}/{ano}")
+            continue
+
+        existe = (db.table("edicoes_mensais")
+                    .select("id, status")
+                    .eq("condominio_id", data.condominio_id)
+                    .eq("mes_referencia", mes).eq("ano_referencia", ano)
+                    .limit(1).execute().data or [])
+
+        if existe:
+            atual = existe[0]
+            if atual["status"] == "edicao_finalizada":
+                ja_estavam.append(f"{_MES_NOME[mes]}/{ano}")
+                continue
+            # Reabertura pedida e ainda nao respondida nao vira aprovacao por
+            # atalho: quem pediu para reabrir espera uma resposta, nao um
+            # carimbo por cima.
+            if atual["status"] == "reabertura_solicitada":
+                puladas.append(f"{_MES_NOME[mes]}/{ano} (reabertura pendente)")
+                continue
+            db.table("edicoes_mensais").update({
+                "status": "edicao_finalizada", "liberado_em": agora,
+            }).eq("id", atual["id"]).execute()
+        else:
+            db.table("edicoes_mensais").insert({
+                "condominio_id": data.condominio_id,
+                "gerente_id": g_id,
+                "mes_referencia": mes,
+                "ano_referencia": ano,
+                "status": "edicao_finalizada",
+                "aberto_por": user["id"],
+                "aberto_em": agora,
+                "liberado_em": agora,
+            }).execute()
+
+        aprovadas.append({"condominio_id": data.condominio_id,
+                          "mes_referencia": mes, "ano_referencia": ano})
+
+    if aprovadas:
+        _notificar_emissao_liberacao(db, aprovadas, user.get("full_name") or "Um gerente")
+
+    return {
+        "ok": True,
+        "aprovadas": len(aprovadas),
+        "meses": [f"{_MES_NOME[a['mes_referencia']]}/{a['ano_referencia']}" for a in aprovadas],
+        "puladas_em_branco": sorted(set(puladas)),
+        "ja_aprovadas": sorted(set(ja_estavam)),
+    }
+
+
 @router.post("/edicoes-mensais/{edicao_id}/solicitar-reabertura")
 def api_solicitar_reabertura(edicao_id: str, data: SolicitarReaberturaSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     role = user.get("role")

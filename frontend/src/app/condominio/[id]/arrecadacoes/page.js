@@ -24,6 +24,9 @@ import { useAlteracoesRateio } from '@/lib/useAlteracoesRateio';
 import ModalAlteracoesRateio from '@/components/ModalAlteracoesRateio';
 import { proporAgrupamento } from '@/lib/agruparVerbas';
 
+const MESES_CURTO_PRE = ['', 'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
+                         'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
 const MESES = {
     1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
     7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
@@ -299,6 +302,57 @@ export default function ArrecadacoesPage() {
     [edicoesCondo],
   );
   const [showLiberarTodos, setShowLiberarTodos] = useState(false);
+
+  // ── Meses preenchidos que o master ainda NÃO abriu ────────────────────────
+  //
+  // Eles trabalham com previsão orçamentária anual: preenchem outubro,
+  // novembro e dezembro de uma vez. Até aqui, a previsão ficava parada
+  // esperando o master abrir cada mês para só então alguém confirmar — mês a
+  // mês, condomínio por condomínio, para um trabalho que já estava feito.
+  //
+  // Aqui o gerente aprova antes. Quando o master abrir depois, o que já está
+  // aprovado é preservado.
+  const mesesPreenchidosSemQuadro = useMemo(() => {
+    const comEdicao = new Set(edicoesCondo.map(e => e.mes_referencia));
+    const temValor = new Set();
+    Object.values(rateiosVals || {}).forEach(porMes => {
+      Object.entries(porMes || {}).forEach(([m, v]) => {
+        const n = parseFloat(String(v ?? '').replace(',', '.'));
+        if (Number.isFinite(n) && n > 0) temValor.add(Number(m));
+      });
+    });
+    return [...temValor].filter(m => !comEdicao.has(m)).sort((a, b) => a - b);
+  }, [rateiosVals, edicoesCondo]);
+
+  const [preAprovando, setPreAprovando] = useState(false);
+  async function preAprovarMeses() {
+    setPreAprovando(true);
+    try {
+      // Salva antes: aprovar o que ainda não foi gravado aprovaria o que está
+      // no banco, não o que está na tela.
+      const ok = await handleSave(true);
+      if (!ok) { addToast('Não consegui salvar as alterações — corrija e tente de novo.', 'error'); return; }
+      const res = await apiPost('/api/edicoes-mensais/pre-aprovar', {
+        condominio_id: condoId,
+        competencias: mesesPreenchidosSemQuadro.map(m => ({ mes: m, ano: selectedYear })),
+      });
+      const n = res?.aprovadas ?? 0;
+      const puladas = res?.puladas_em_branco || [];
+      if (n) {
+        addToast(
+          n + (n === 1 ? ' mês aprovado' : ' meses aprovados') + ': ' + (res.meses || []).join(', ')
+          + '. A emissão foi avisada e você não precisa confirmar de novo quando o mês abrir.',
+          'success',
+        );
+      }
+      if (puladas.length) addToast('Ficaram de fora: ' + puladas.join(', ') + '.', 'warning');
+      await fetchEdicoes();
+    } catch (e) {
+      addToast(e.message || 'Não foi possível aprovar.', 'error');
+    } finally {
+      setPreAprovando(false);
+    }
+  }
   async function liberarTodosMesesAbertos(forcar = false) {
     setEdicaoLoading(true);
     try {
@@ -1054,6 +1108,27 @@ export default function ArrecadacoesPage() {
                 </div>
             </div>
         </div>
+
+        {/* ── Meses preenchidos que ainda não têm quadro aberto ──
+            Fica FORA do bloco abaixo de propósito: aquele só aparece quando já
+            existe edição, e este serve justamente quando ainda não existe. */}
+        {mesesPreenchidosSemQuadro.length > 0 && canEdit && (
+          <div className="mt-4 flex items-center justify-between gap-4 px-5 py-3 rounded-2xl bg-violet-500/5 border border-violet-500/30">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-700">
+                Você preencheu <b>{mesesPreenchidosSemQuadro.length} {mesesPreenchidosSemQuadro.length === 1 ? 'mês' : 'meses'}</b> que ainda não foram abertos:{' '}
+                {mesesPreenchidosSemQuadro.map(m => MESES_CURTO_PRE[m]).join(', ')}.
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Aprove agora e não precisa confirmar de novo quando o mês abrir.
+              </p>
+            </div>
+            <button onClick={preAprovarMeses} disabled={preAprovando || edicaoLoading}
+              className="shrink-0 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium disabled:opacity-50">
+              {preAprovando ? 'Aprovando…' : `Aprovar ${mesesPreenchidosSemQuadro.length} ${mesesPreenchidosSemQuadro.length === 1 ? 'mês' : 'meses'}`}
+            </button>
+          </div>
+        )}
 
         {/* ── Banner Edição Mensal (gerente libera por mês daqui) ── */}
         {edicoesCondo.length > 0 && (
