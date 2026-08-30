@@ -180,26 +180,23 @@ export default function CondominiosPage() {
   // (temporal dead zone), que o lint não acusa e só quebra em tempo de execução.
   const alvoCount = condoFilter ? 1 : condosDaSelecao.length;
 
-  // Quantos DESSES já estão liberados para o mês escolhido.
+  // O que vai acontecer se clicar — perguntado ao servidor, que é quem sabe.
   //
-  // O botão dizia "abrir outubro para 30 condomínios" mesmo quando doze já
-  // estavam liberados — e eles não são tocados (a menos que se marque
-  // "reabrir"). O número contava a carteira, não a ação. Quem lia entendia que
-  // ia mexer em trinta, e vinha a pergunta certa: "por que aparecem todos, se
-  // ela já liberou?".
-  const { data: edicoesMes } = useSWR(
-    `/api/edicoes-mensais?mes=${mesEdicao}&ano=${pipelineAno}`, apiFetcher,
-  );
-  const jaLiberados = useMemo(() => {
-    const alvo = new Set(condosDaSelecao.map(c => c.id));
-    return (edicoesMes?.edicoes || []).filter(
-      e => e.status === 'edicao_finalizada' && (condoFilter ? e.condominio_id === condoFilter : alvo.has(e.condominio_id)),
-    ).length;
-  }, [edicoesMes, condosDaSelecao, condoFilter]);
+  // O botão dizia "abrir outubro para 30 condomínios" e vinha a pergunta certa:
+  // "por que todos, se ela já preencheu?". Duas coisas se confundiam ali.
+  // PREENCHIDO é a gerente ter digitado a previsão; LIBERADO é ela ter dito que
+  // pode emitir. Ela pode ter preenchido dois e liberado nenhum — e aí abrir os
+  // trinta está certo, mas o botão não dizia nada sobre os dois que já têm
+  // valor esperando conferência.
+  const previaUrl = `/api/edicoes-mensais/previa-abertura?mes=${mesEdicao}&ano=${pipelineAno}`
+    + (condoFilter ? `&condominio_id=${condoFilter}` : gerenteFilter ? `&gerente_id=${gerenteFilter}` : '');
+  const { data: previa } = useSWR(previaUrl, apiFetcher, { keepPreviousData: true });
 
+  const jaLiberados = previa?.ja_liberados ?? 0;
+  const jaPreenchidos = previa?.ja_preenchidos ?? 0;
   // Com "reabrir" marcado, os liberados voltam a ser mexidos — e aí o número
   // grande é o certo.
-  const vaoAbrir = forcarReabertura ? alvoCount : Math.max(alvoCount - jaLiberados, 0);
+  const vaoAbrir = forcarReabertura ? (previa?.total ?? alvoCount) : (previa?.vao_abrir ?? alvoCount);
 
   const canEdit = user?.role === 'master';
   const filtered = condos.filter(c => combina(search, c.name, c.gerente_name));
@@ -448,9 +445,13 @@ export default function CondominiosPage() {
                 className={cn(btn.primario, 'flex-1 min-w-[200px]')}>
                 {forcingAll ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Unlock className="w-4 h-4" aria-hidden="true" />}
                 Abrir {_MESES[mesEdicao]} para {vaoAbrir === 1 ? '1 condomínio' : `${vaoAbrir} condomínios`}
-                {jaLiberados > 0 && !forcarReabertura && (
+                {(jaLiberados > 0 || jaPreenchidos > 0) && (
                   <span className="ml-1 font-normal opacity-75">
-                    · {jaLiberados} já liberado{jaLiberados !== 1 ? 's' : ''}, {jaLiberados !== 1 ? 'ficam' : 'fica'} como {jaLiberados !== 1 ? 'estão' : 'está'}
+                    ·{jaLiberados > 0 && !forcarReabertura
+                        ? ` ${jaLiberados} já liberado${jaLiberados !== 1 ? 's' : ''}` : ''}
+                    {jaLiberados > 0 && !forcarReabertura && jaPreenchidos > 0 ? ',' : ''}
+                    {jaPreenchidos > 0
+                        ? ` ${jaPreenchidos} já preenchido${jaPreenchidos !== 1 ? 's' : ''}` : ''}
                   </span>
                 )}
               </button>

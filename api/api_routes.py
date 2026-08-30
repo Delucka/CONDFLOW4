@@ -3820,6 +3820,77 @@ class AbrirEdicaoSchema(BaseModel):
     forcar_reabertura: Optional[bool] = False  # em massa: reabrir até o que o gerente já liberou
 
 
+@router.get("/edicoes-mensais/previa-abertura")
+def api_previa_abertura(
+    mes: int, ano: int,
+    gerente_id: Optional[str] = None,
+    condominio_id: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """O que vai acontecer se abrir este mes — antes de clicar.
+
+    O botao dizia "abrir outubro para 30 condominios" e a pergunta que vinha era
+    "por que todos, se ela ja preencheu?". Duas coisas se confundiam ali:
+    PREENCHIDO e LIBERADO. A gerente pode ter digitado a previsao de outubro em
+    dois condominios e nao ter liberado nenhum — e ai abrir os trinta esta certo,
+    mas o botao nao dizia nada sobre os dois que ja tem valor esperando.
+
+    Aqui saem os tres numeros separados, para o botao poder falar a verdade.
+    """
+    require_role(user, ["master", "departamento"])
+
+    q = db.table("condominios").select("id, gerente_id").eq("situacao", "ativo")
+    if condominio_id:
+        q = q.eq("id", condominio_id)
+    elif gerente_id:
+        g_real = get_gerente_id(db, gerente_id) or gerente_id
+        q = q.eq("gerente_id", g_real)
+    condos = q.execute().data or []
+    ids = [c["id"] for c in condos]
+    if not ids:
+        return {"total": 0, "ja_liberados": 0, "ja_preenchidos": 0, "vao_abrir": 0}
+
+    ed = (db.table("edicoes_mensais").select("condominio_id, status")
+            .in_("condominio_id", ids)
+            .eq("mes_referencia", mes).eq("ano_referencia", ano).execute().data or [])
+    liberados = {e["condominio_id"] for e in ed if e["status"] == "edicao_finalizada"}
+
+    # Quem ja tem valor digitado neste mes — liberado ou nao. E o que a gerente
+    # adiantou, e o que ela vai precisar conferir quando o mes abrir.
+    preenchidos = set()
+    try:
+        rc = (db.table("rateios_config").select("id, condominio_id")
+                .in_("condominio_id", ids).execute().data or [])
+        por_rateio = {r["id"]: r["condominio_id"] for r in rc}
+        if por_rateio:
+            chaves = list(por_rateio.keys())
+            for i in range(0, len(chaves), 200):
+                vs = (db.table("rateios_valores").select("rateio_id, valor")
+                        .in_("rateio_id", chaves[i:i + 200])
+                        .eq("month", mes).eq("ano", ano).execute().data or [])
+                for v in vs:
+                    # `parse_valor` e aninhada em outra funcao e nao existe aqui.
+                    # A conversao e a mesma: o valor e TEXT e pode vir com
+                    # virgula, ou com palavra ("PLANILHA") — o que nao converte
+                    # nao conta como preenchido.
+                    try:
+                        n = float(str(v.get("valor") or "0").replace(",", "."))
+                    except (TypeError, ValueError):
+                        n = 0.0
+                    if n > 0:
+                        preenchidos.add(por_rateio[v["rateio_id"]])
+    except Exception as e:
+        print(f"[previa-abertura] preenchidos falhou (segue sem): {e}")
+
+    return {
+        "total": len(ids),
+        "ja_liberados": len(liberados),
+        "ja_preenchidos": len(preenchidos - liberados),
+        "vao_abrir": len(ids) - len(liberados),
+    }
+
+
 @router.post("/edicoes-mensais/abrir")
 def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     # Abrir/reabrir edição = emissor (departamento) ou master (antes: só master)
