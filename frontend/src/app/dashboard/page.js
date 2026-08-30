@@ -483,28 +483,10 @@ export default function DashboardPage() {
   // aparecem no contador e num filtro proprio: 259 condominios parados sao uma
   // boa pergunta para alguem fazer todo mes, e um numero que ninguem ve e um
   // numero que ninguem confere.
-  const aEntrar = data?.a_entrar || [];
+  // Quantos esperam entrar. Só o número: a lista alimentava uma aba que não
+  // existe mais, porque quem libera o condomínio é a liberação do gerente.
+  const aEntrarTotal = data?.a_entrar_total || 0;
 
-  // Colocar em operacao: e o que faz o condominio passar a existir para o
-  // painel. A classificacao inicial saiu do historico de emissoes, mas a
-  // ENTRADA de um cliente novo e decisao de gente e precisa de um lugar para
-  // ser tomada — este e o lugar, na propria lista de quem espera.
-  const [habilitando, setHabilitando] = useState(null);
-  async function habilitarCondominio(condo) {
-    const pergunta = 'Colocar ' + condo.name + ' em operação?\n\n'
-      + 'A partir de agora ele conta no painel, recebe quadro de mês e entra na lista de trabalho.';
-    if (!window.confirm(pergunta)) return;
-    setHabilitando(condo.id);
-    try {
-      const r = await apiPost('/api/condominios/' + condo.id + '/situacao', { situacao: 'ativo' });
-      addToast(r?.aviso || (condo.name + ' entrou em operação.'), r?.aviso ? 'warning' : 'success');
-      mutate();
-    } catch (e) {
-      addToast(e.message || 'Nao foi possivel habilitar.', 'error');
-    } finally {
-      setHabilitando(null);
-    }
-  }
   // Filtro por situação — o mesmo de Fazer Emissões, porque o painel virou a
   // tela de trabalho de quem emite: a linha inteira já leva para a emissão.
   const SITUACOES = [
@@ -517,22 +499,16 @@ export default function DashboardPage() {
     // Só aparece quando existe alguma no mês: um filtro que nunca acha nada é
     // pior do que não existir — ensina que a busca não funciona.
     ...(temCanceladasNoMes ? [{ id: 'canceladas', rotulo: 'Canceladas' }] : []),
-    // Os cadastrados que ainda vao entrar. Ficam fora da lista de trabalho,
-    // mas com porta propria: some-los do sistema seria pior do que confundi-los
-    // com a operacao.
-    ...(aEntrar.length ? [{ id: 'a_entrar', rotulo: `A entrar (${aEntrar.length})` }] : []),
+    // A aba "A entrar" saiu.
+    //
+    // Quem libera o condomínio é a liberação do GERENTE: o condomínio vem
+    // vinculado a ele e entra junto. Uma aba separada, visível para todo mundo,
+    // oferecia uma segunda porta para a mesma decisão — e quem não decide isso
+    // não tem o que fazer com ela.
   ];
 
   const condosOrdenados = useMemo(() => {
     const codeOf = (n) => { const m = String(n || '').match(/^\s*0*(\d+)/); return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER; };
-
-    // "A entrar" nao filtra a lista da operacao: ela TROCA a lista. Sao dois
-    // conjuntos que nao se cruzam — o painel traz um, o filtro traz o outro.
-    if (situacao === 'a_entrar') {
-      return [...aEntrar]
-        .filter(c => combina(buscaCondo, c.name))
-        .sort((a, b) => (ordemAsc ? 1 : -1) * (codeOf(a.name) - codeOf(b.name)));
-    }
 
     const passa = (c) => {
       if (situacao === 'todos') return true;
@@ -547,7 +523,6 @@ export default function DashboardPage() {
         case 'em_emissao':   return !!emis;
         case 'prioritarios': return ehPrioritario(c);
         case 'canceladas':   return (canceladasPorCondo[c.id] || 0) > 0;
-        case 'a_entrar':     return false;   // tratado antes do filtro, na propria lista
         default: return true;
       }
     };
@@ -563,7 +538,7 @@ export default function DashboardPage() {
       ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name)
     ));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [condos, ordemAsc, buscaCondo, situacao, processos, emissaoByCondominio, canceladasPorCondo, aEntrar]);
+  }, [condos, ordemAsc, buscaCondo, situacao, processos, emissaoByCondominio, canceladasPorCondo]);
   const pendingProcesses = useMemo(() => {
     if (!data?.processos) return [];
     const out = [];
@@ -1017,18 +992,6 @@ export default function DashboardPage() {
                                 <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className={btn.iconeDiscreto} title="Cobranças" aria-label="Cobranças"><Receipt className="w-4 h-4" aria-hidden="true" /></Link>
                               </>
                             )}
-                            {/* Só na lista de quem espera: é a ação que
-                                falta para o condomínio deixar de esperar.
-                                Fora dessa lista o botão não teria sentido. */}
-                            {situacao === 'a_entrar' && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); habilitarCondominio(c); }}
-                                disabled={habilitando === c.id}
-                                title="Colocar em operação: passa a contar no painel e a receber quadro de mês"
-                                className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 transition-colors hover:bg-emerald-500/20 disabled:opacity-50">
-                                {habilitando === c.id ? '…' : 'Colocar em operação'}
-                              </button>
-                            )}
                             <button onClick={() => handleQuickView(c.id)}   className={btn.iconeDiscreto} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-4 h-4" aria-hidden="true" /></button>
                           </div>
                         </td>
@@ -1128,8 +1091,10 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* O numero que importa e a operacao, nao o cadastro. Quem vai entrar
             aparece na propria etiqueta, para nao sumir da vista. */}
+        {/* O "+N a entrar" só para quem pode fazer alguma coisa a respeito.
+            Para o gerente é ruído: ele não libera condomínio nenhum. */}
         <StatsCard title="Condomínios na operação" value={stats.total} icon={Building} color="cyan" loading={isLoading}
-          subtitle={aEntrar.length ? `+${aEntrar.length} a entrar` : undefined} />
+          subtitle={(aEntrarTotal && ['master', 'departamento'].includes(profile?.role)) ? `+${aEntrarTotal} a entrar` : undefined} />
         <StatsCard title="Em Edição"          value={stats.em_edicao}        icon={FileEdit}   color="orange"  loading={isLoading} />
         <StatsCard title="Aguard. Registro"   value={emissaoStats.aguardando} icon={Clock}      color="emerald" loading={isLoading} />
         <StatsCard title="Emissão Registrada" value={emissaoStats.registrada} icon={FileCheck}  color="blue"    loading={isLoading} />

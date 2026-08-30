@@ -92,26 +92,24 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             except Exception as e:
                 print(f"[dashboard] pipeline_config falhou (segue sem): {e}")
                 return None
-        def _q_a_entrar():
-            """Quantos estao cadastrados esperando entrar — e quais.
+        def _q_a_entrar_total():
+            """Quantos esperam entrar — so o numero.
 
-            Vem junto porque a tela precisa oferecer o filtro sem uma segunda
-            viagem, e porque um numero que ninguem ve e um numero que ninguem
-            confere: 259 condominios parados e uma boa pergunta para alguem
-            fazer todo mes.
+            A lista inteira vinha na resposta para alimentar uma aba que nao
+            existe mais. O numero fica: 259 condominios parados sao uma boa
+            pergunta para o master fazer todo mes, e cabe em quatro bytes.
             """
             try:
-                q = db.table("condominios").select("id, name, gerente_id, situacao_desde") \
-                      .eq("situacao", "a_entrar")
+                q = db.table("condominios").select("id", count="exact").eq("situacao", "a_entrar").limit(1)
                 if user.get("role") in ("gerente", "assistente"):
                     g_id = carteira_gerente_id(db, user)
                     if not g_id:
-                        return []
+                        return 0
                     q = q.eq("gerente_id", g_id)
-                return q.order("name").execute().data or []
+                return q.execute().count or 0
             except Exception as e:
-                print(f"[dashboard] a_entrar falhou (segue sem): {e}")
-                return []
+                print(f"[dashboard] a_entrar_total falhou (segue sem): {e}")
+                return 0
 
         def _q_edicoes():
             # As edicoes do ano vinham numa SEGUNDA chamada do navegador
@@ -255,7 +253,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             _fe = _ex.submit(_q_edicoes)
             _fo, _fk, _fn, _ff = (_ex.submit(_q_ocorrencias), _ex.submit(_q_concessionarias),
                                   _ex.submit(_q_notificacoes), _ex.submit(_q_fila))
-            _fa = _ex.submit(_q_a_entrar)
+            _fat = _ex.submit(_q_a_entrar_total)
             raw_condos = _fc.result()
             gerentes = _fg.result()
             edicoes_ano = _fe.result()
@@ -263,7 +261,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             concessionarias = _fk.result()
             notificacoes = _fn.result()
             fila_contagens = _ff.result()
-            a_entrar = _fa.result()
+            a_entrar_total = _fat.result()
             pipeline_config = _fp.result()
 
         condos = []
@@ -362,7 +360,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             "concessionarias_por_condo": concessionarias,
             "notificacoes": notificacoes,
             "fila_contagens": fila_contagens,
-            "a_entrar": a_entrar,
+            "a_entrar_total": a_entrar_total,
             "emissao_mes": int(mes) if mes else None,
             "emissao_ano": emis_ano,
             "pipeline_config": pipeline_config,
@@ -3221,60 +3219,13 @@ def api_executar_cancelamento(
 # Gerente na operacao, e a carteira que ele deixa para tras
 # =============================================================================
 
-class SituacaoCondominioSchema(BaseModel):
-    situacao: str                      # ativo | a_entrar | encerrado
-    nota: Optional[str] = None
-
-
-@router.post("/condominios/{condominio_id}/situacao")
-def api_situacao_condominio(
-    condominio_id: str,
-    data: SituacaoCondominioSchema,
-    user: dict = Depends(get_current_user),
-    db: Client = Depends(get_db),
-):
-    """Coloca o condominio em operacao, tira, ou encerra.
-
-    Sao 325 cadastrados e 66 emitindo: os outros ja existem e vao entrar. Sem
-    esta rota eles ficariam presos em 'a_entrar' para sempre — a classificacao
-    inicial saiu do historico de emissoes, mas a ENTRADA de um cliente novo e
-    uma decisao de gente, e precisa de um lugar para ser tomada.
-
-    Colocar em operacao e o que faz o condominio voltar a existir para o painel:
-    a partir dai ele conta, recebe quadro de mes e aparece na lista de trabalho.
-    """
-    require_role(user, ROLES_EXECUTA_CANCEL)   # master e departamento
-
-    if data.situacao not in ("ativo", "a_entrar", "encerrado"):
-        raise HTTPException(400, "Situacao invalida.")
-
-    atual = (db.table("condominios").select("id, name, situacao, gerente_id")
-               .eq("id", condominio_id).maybe_single().execute().data)
-    if not atual:
-        raise HTTPException(404, "Condominio nao encontrado.")
-
-    aviso = None
-    if data.situacao == "ativo":
-        # Entrar em operacao sem gerente ativo e entrar para ninguem: o quadro
-        # do mes abre por carteira, e carteira de gerente fora da operacao nao
-        # abre. Nao bloqueia — avisa, porque quem cadastra o cliente nem sempre
-        # e quem define o gerente.
-        gid = atual.get("gerente_id")
-        if not gid:
-            aviso = "Este condominio nao tem gerente. O quadro do mes nao vai abrir para ele."
-        else:
-            g = (db.table("gerentes").select("ativo, nome").eq("id", gid).maybe_single().execute().data) or {}
-            if g.get("ativo") is False:
-                aviso = "O gerente deste condominio esta fora da operacao. Passe a carteira para alguem ativo, senao o quadro do mes nao abre."
-
-    db.table("condominios").update({
-        "situacao": data.situacao,
-        "situacao_desde": _dt.now().date().isoformat(),
-        "situacao_nota": (data.nota or "").strip() or None,
-    }).eq("id", condominio_id).execute()
-
-    print(f"[condominios/situacao] {atual.get('name')}: {atual.get('situacao')} -> {data.situacao} por {user.get('email')}")
-    return {"success": True, "situacao": data.situacao, "aviso": aviso}
+# A situacao do condominio nao se define a mao.
+#
+# Existia aqui um POST /condominios/{id}/situacao para colocar um condominio em
+# operacao. Saiu com a 0106: a situacao passou a ser consequencia do gerente, e
+# uma rota que a define direto seria uma segunda fonte da verdade — a que
+# diverge primeiro. Quem muda a situacao de um condominio agora e quem muda o
+# gerente dele, ou a situacao do gerente.
 
 
 class SituacaoGerenteSchema(BaseModel):
@@ -3317,37 +3268,22 @@ def api_situacao_gerente(
     orfaos = (db.table("condominios").select("id", count="exact")
                 .eq("gerente_id", gerente_id).limit(1).execute().count or 0)
 
-    # A carteira entra JUNTO com quem cuida dela.
+    # A carteira acompanha sozinha.
     #
-    # O condominio vem com o gerente: quando ele e liberado, os que estao
-    # esperando entrar passam a valer no mesmo ato. Sem isto, liberar o Iago em
-    # outubro deixaria os 7 condominios dele parados em "a entrar", e alguem
-    # teria de habilitar um por um sem nenhum motivo — a decisao ja foi tomada
-    # ao liberar o gerente.
-    #
-    # O contrario NAO acontece: inativar o gerente nao tira os condominios da
-    # operacao. Um cliente nao deixa de ser cliente porque quem cuidava dele
-    # saiu da empresa; o que falta ali e dono, e isso se resolve passando a
-    # carteira, nao apagando o cliente do painel.
-    entraram = 0
-    if data.ativo:
-        pendentes = (db.table("condominios").select("id")
-                       .eq("gerente_id", gerente_id).eq("situacao", "a_entrar")
-                       .execute().data or [])
-        ids = [c["id"] for c in pendentes]
-        for i in range(0, len(ids), 100):
-            r = (db.table("condominios")
-                   .update({"situacao": "ativo", "situacao_desde": _dt.now().date().isoformat()})
-                   .in_("id", ids[i:i + 100]).execute())
-            entraram += len(r.data or [])
-        if entraram:
-            print(f"[gerentes/situacao] {entraram} condominios entraram em operacao com o gerente {gerente_id}")
+    # Isto era um bloco que percorria os condominios do gerente e os ligava um a
+    # um. Virou trigger no banco (0106): a situacao do condominio e consequencia
+    # do gerente, entao mudar o gerente ja arrasta a carteira. Duas mecanicas
+    # para a mesma regra e uma delas ficando para tras com o tempo.
+    # Quantos a carteira tem agora em operacao — depois do trigger.
+    em_operacao = (db.table("condominios").select("id", count="exact")
+                     .eq("gerente_id", gerente_id).eq("situacao", "ativo")
+                     .limit(1).execute().count or 0)
 
     return {
         "success": True,
         "ativo": bool(data.ativo),
         "condominios_na_carteira": orfaos,
-        "condominios_que_entraram": entraram,
+        "condominios_que_entraram": em_operacao if data.ativo else 0,
     }
 
 
