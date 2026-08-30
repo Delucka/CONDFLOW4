@@ -4858,8 +4858,9 @@ def _notificar_expedicao(db, pacote_ids, autor_nome):
                      f'Estes condomínios mandam filipeta todo mês e ela não veio nesta remessa. '
                      f'Cobre antes de imprimir.</p></div>')
         html += ('<p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">'
-                 'A fila fica em Central de Emissões, aba Expedição. '
-                 'Cada remessa tem o botão Impresso, que dá a baixa.</p>')
+                 'A fila fica em Central de Emissões, aba Expedição, em duas etapas: '
+                 'o botão Impresso dá a baixa da impressão, e o botão Entregue fecha '
+                 'a remessa quando ela chega ao cliente.</p>')
 
         alvos = (db.table("profiles").select("id").eq("role", "expedicao").execute().data or [])
         for p in alvos:
@@ -4874,6 +4875,137 @@ def _notificar_expedicao(db, pacote_ids, autor_nome):
         # Aviso nunca derruba a expedição em si.
         print(f"[expedicao] aviso falhou: {type(e).__name__}: {e}")
         return {"notificados": 0, "erro": type(e).__name__}
+
+
+class EntregaSchema(BaseModel):
+    pacote_ids: List[str]
+    recebido_por: Optional[str] = None
+    desfazer: Optional[bool] = False
+
+
+def _notificar_entrega(db, pacs, condos, autor_nome, recebido_por):
+    """Avisa o gerente que a remessa dele chegou ao condomínio.
+
+    O gerente é quem o síndico liga para cobrar. Até aqui ele não tinha como
+    responder "chegou terça, quem recebeu foi a portaria" — a informação existia
+    só na cabeça de quem entregou.
+
+    Um aviso por gerente, não por condomínio: a expedição entrega a rua inteira
+    de uma vez."""
+    try:
+        por_gerente = {}
+        for p in pacs:
+            c = condos.get(p.get("condominio_id")) or {}
+            g = c.get("gerente_id")
+            if not g:
+                continue
+            por_gerente.setdefault(g, []).append(c.get("name") or "Condomínio")
+        if not por_gerente:
+            return 0
+
+        perfil = {}
+        for g in (db.table("gerentes").select("id, profile_id")
+                  .in_("id", list(por_gerente.keys())).execute().data or []):
+            if g.get("profile_id"):
+                perfil[g["id"]] = g["profile_id"]
+
+        meses = sorted({(p["ano_referencia"], p["mes_referencia"]) for p in pacs})
+        rotulo = " · ".join(f"{_MES_NOME[m]}/{a}" for a, m in meses[:3])
+
+        quem = (recebido_por or "").strip()
+        enviados = 0
+        for gid, nomes in por_gerente.items():
+            pid = perfil.get(gid)
+            if not pid:
+                continue
+            nomes = sorted(set(nomes))
+            n = len(nomes)
+            titulo = (f"Entregue: {nomes[0]}" if n == 1
+                      else f"{n} condomínios entregues")
+            mensagem = (f"{autor_nome} entregou {rotulo}: {', '.join(nomes[:8])}"
+                        f"{f' e mais {n - 8}' if n > 8 else ''}."
+                        + (f" Recebido por {quem}." if quem else ""))
+
+            html = (f'<p style="margin:0 0 18px;color:#475569;font-size:14px;line-height:1.6;">'
+                    f'{autor_nome} entregou {rotulo} no condomínio.</p>'
+                    f'<div style="border-left:3px solid #16a34a;padding:2px 0 2px 14px;margin-bottom:16px;">'
+                    f'<p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#0f1a3c;">'
+                    f'{n} entregue{"s" if n != 1 else ""}</p>'
+                    f'<p style="margin:0;font-size:13px;color:#334155;line-height:1.8;">'
+                    f'{"<br>".join(nomes[:20])}</p>'
+                    + (f'<p style="margin:6px 0 0;font-size:12px;color:#64748b;">'
+                       f'Recebido por {quem}.</p>' if quem else '')
+                    + '</div>'
+                    '<p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">'
+                    'Se o síndico perguntar quando chegou, a data e quem recebeu ficam '
+                    'registrados na emissão.</p>')
+
+            db.table("notificacoes").insert({
+                "user_id": pid, "tipo": "emissao_entregue",
+                "titulo": titulo[:120], "mensagem": mensagem[:1200],
+                "email_html": html,
+                "link": "/central-emissoes",
+            }).execute()
+            enviados += 1
+        return enviados
+    except Exception as e:
+        print(f"[expedicao/entregar] aviso ao gerente falhou: {type(e).__name__}: {e}")
+        return 0
+
+
+@router.post("/expedicao/entregar")
+def api_expedicao_entregar(data: EntregaSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Marca a remessa como entregue ao cliente — o fim do trabalho.
+
+    A escrita vem para o servidor de propósito: a data é do servidor, não do
+    relógio de quem clicou, e o nome de quem entregou sai da sessão em vez de
+    ser digitado. Registro de entrega é o tipo de dado que alguém vai querer
+    contestar um dia."""
+    if user.get("role") not in ("expedicao", "master", "departamento"):
+        raise HTTPException(403, "Só a expedição registra entrega.")
+    if not data.pacote_ids:
+        return {"ok": True, "atualizados": 0}
+
+    from datetime import datetime, timezone
+    if data.desfazer:
+        payload = {"entregue_em": None, "entregue_por_nome": None, "recebido_por": None}
+    else:
+        payload = {
+            "entregue_em": datetime.now(timezone.utc).isoformat(),
+            "entregue_por_nome": user.get("full_name") or user.get("email") or "Expedição",
+            "recebido_por": ((data.recebido_por or "").strip() or None),
+        }
+
+    try:
+        # supabase-py devolve as linhas atualizadas por padrao (return=representation)
+        r = db.table("emissoes_pacotes").update(payload).in_("id", data.pacote_ids).execute()
+        atualizados = len(r.data or [])
+    except Exception as e:
+        msg = str(e)
+        if "entregue_em" in msg and ("PGRST204" in msg or "schema cache" in msg):
+            raise HTTPException(400, "Falta rodar a migration 0111 — sem ela não há onde guardar a entrega.")
+        raise HTTPException(400, f"Não consegui registrar a entrega: {msg}")
+
+    if data.desfazer:
+        return {"ok": True, "atualizados": atualizados, "notificados": 0}
+
+    # Quem avisar: o gerente de cada condomínio entregue.
+    pacs = (db.table("emissoes_pacotes")
+            .select("id, condominio_id, mes_referencia, ano_referencia")
+            .in_("id", data.pacote_ids).execute().data or [])
+    condos = {}
+    ids = list({p["condominio_id"] for p in pacs if p.get("condominio_id")})
+    if ids:
+        for c in (db.table("condominios").select("id, name, gerente_id")
+                  .in_("id", ids).execute().data or []):
+            condos[c["id"]] = c
+
+    notificados = _notificar_entrega(
+        db, pacs, condos,
+        user.get("full_name") or "A expedição",
+        data.recebido_por,
+    )
+    return {"ok": True, "atualizados": atualizados, "notificados": notificados}
 
 
 @router.post("/expedicao/avisar")
