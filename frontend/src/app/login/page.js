@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
+import { paginaInicial } from '@/lib/roles';
 import { useRouter } from 'next/navigation';
 import { Loader2, KeyRound, Mail, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { LogoMark } from '@/components/Logo';
@@ -19,7 +20,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      router.push('/dashboard');
+      // Sem o perfil carregado ainda, `role` é undefined e isto devolve
+      // /dashboard — o mesmo destino de antes. Quando o perfil chega, o
+      // RouteGuard leva quem não pode estar lá para a tela certa.
+      router.push(paginaInicial(user.role));
     }
   }, [user, router]);
 
@@ -36,8 +40,8 @@ export default function LoginPage() {
     setErro('');
     setLoading(true);
     try {
-      await signIn(email, senha);
-      router.push('/dashboard');
+      const entrada = await signIn(email, senha);
+      router.push(paginaInicial(entrada?.user?.role));
     } catch (err) {
       setErro('Email ou senha incorretos.');
     } finally {

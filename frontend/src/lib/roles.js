@@ -64,6 +64,24 @@ export const CAPABILITIES = {
   dashboard_filter_gerente:['master','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
 };
 
+/**
+ * Onde cada papel começa o dia.
+ *
+ * `/dashboard` era o destino de todo mundo depois do login — inclusive de quem
+ * não tem acesso a ele. A expedição caía num painel de 65 condomínios,
+ * carregando dados que ela não pode ver, para então ter de achar sozinha a aba
+ * onde trabalha.
+ *
+ * Quem tem uma tela só vai direto para ela.
+ */
+export const PAGINA_INICIAL = {
+  expedicao: '/central-emissoes?tab=expedicao',
+};
+
+export function paginaInicial(userRole) {
+  return PAGINA_INICIAL[userRole] || '/dashboard';
+}
+
 export function canAccessPath(userRole, path) {
   if (!userRole) return false;
   if (userRole === 'master') return true;

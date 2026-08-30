@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { canAccessPath } from '@/lib/roles';
+import { canAccessPath, paginaInicial } from '@/lib/roles';
 import { useToast } from '@/components/Toast';
 import { ShieldAlert, Loader2 } from 'lucide-react';
 
@@ -42,8 +42,12 @@ export default function RouteGuard({ children, allowedRoles = null }) {
       // quem também não tem acesso a /dashboard cria laço infinito: nega, manda,
       // nega, manda. Sem acesso ao destino, o aviso abaixo é renderizado e a
       // pessoa ao menos entende o que houve.
-      if (pathname !== '/dashboard' && canAccessPath(profile.role, '/dashboard')) {
-        router.replace('/dashboard');
+      // O destino é a página DAQUELE papel. Mandar todo mundo para
+      // /dashboard é o que fazia a expedição — que não tem acesso a ele —
+      // parar numa tela de "acesso restrito" sem saída.
+      const destino = paginaInicial(profile.role);
+      if (!pathname.startsWith(destino.split('?')[0])) {
+        router.replace(destino);
       }
     }
   }, [profile, loading, pathname, router, allowedRoles, addToast]);

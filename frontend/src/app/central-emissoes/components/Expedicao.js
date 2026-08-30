@@ -9,9 +9,8 @@ import { anexarGrupos } from '@/lib/conjuntoEmissao';
 import { useRealtime } from '@/lib/realtime';
 import TagPrioritario from '@/components/TagPrioritario';
 import { mesAnoVigente } from '@/lib/mesVigente';
-import { Printer, Check, Loader2, Inbox, Search, RotateCcw, FileText, X, FolderOpen, ExternalLink, Truck } from 'lucide-react';
+import { Printer, Check, Loader2, Inbox, Search, RotateCcw, FileText, X, Truck } from 'lucide-react';
 import { apiPost } from '@/lib/api';
-import Link from 'next/link';
 
 /**
  * Central de expedição — imprimir e ENTREGAR.
@@ -53,7 +52,7 @@ const fmtData = (iso) => iso
 
 export default function Expedicao() {
   const supabase = useMemo(() => createClient(), []);
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { addToast } = useToast();
 
   const [remessas, setRemessas] = useState([]);
@@ -69,31 +68,6 @@ export default function Expedicao() {
   // própria linha — quem entregou 40 remessas não vai abrir 40 modais.
   const [entregando, setEntregando] = useState(null);
   const [salvandoEntrega, setSalvandoEntrega] = useState(false);
-  // Origem: o resto do pacote (planilha, faturas, rateio) da remessa aberta.
-  // Boleto errado é problema de quem imprime, mas a explicação está sempre no
-  // que gerou o boleto — e daqui não havia caminho nenhum até lá.
-  const [origem, setOrigem] = useState(null);   // { pacoteId, arquivos, carregando }
-
-  // Quem emite pode abrir a emissão de verdade; a expedição vê os arquivos.
-  const podeAbrirEmissao = profile?.role === 'master' || profile?.role === 'departamento';
-
-  async function verOrigem(r) {
-    if (origem?.pacoteId === r.id) { setOrigem(null); return; }
-    setOrigem({ pacoteId: r.id, arquivos: [], carregando: true });
-    const { data, error } = await supabase
-      .from('emissoes_arquivos')
-      .select('id, arquivo_nome, arquivo_url, categoria, criado_em')
-      .eq('pacote_id', r.id)
-      .neq('categoria', 'boleto')
-      .order('criado_em');
-    if (error) {
-      addToast('Não consegui abrir a emissão: ' + error.message, 'error');
-      setOrigem(null);
-      return;
-    }
-    setOrigem({ pacoteId: r.id, arquivos: data || [], carregando: false });
-  }
-
   const fetchFila = useCallback(async () => {
       // Spinner de tela cheia SÓ na primeira carga. Antes, todo rebusca (voltar
       // para a aba, evento do realtime) acendia o spinner e desmontava a árvore:
@@ -305,13 +279,21 @@ export default function Expedicao() {
 
   // Quantos condomínios estão sem a filipeta que deveriam ter, no mês aberto.
   // Zero esconde o filtro: aviso que fica na tela sem nunca acender é ruído.
-  // Impresso e ainda na mesa. É a fila que o prazo de entrega cobra.
-  const aEntregar = useMemo(
-    () => remessas.filter(r =>
-      `${r.ano_referencia}-${String(r.mes_referencia).padStart(2, '0')}` === abaAtiva
-      && r.etapa === 'entregar').length,
-    [remessas, abaAtiva],
-  );
+  // As três etapas do mês aberto, contadas de uma vez.
+  //
+  // "Quantos faltam" é a primeira pergunta de quem senta para trabalhar, e a
+  // resposta estava escondida atrás de clicar em cada filtro e contar linha.
+  const contagem = useMemo(() => {
+    const doMes = remessas.filter(r =>
+      `${r.ano_referencia}-${String(r.mes_referencia).padStart(2, '0')}` === abaAtiva);
+    return {
+      imprimir: doMes.filter(r => r.etapa === 'imprimir').length,
+      entregar: doMes.filter(r => r.etapa === 'entregar').length,
+      entregue: doMes.filter(r => r.etapa === 'entregue').length,
+      total: doMes.length,
+    };
+  }, [remessas, abaAtiva]);
+  const aEntregar = contagem.entregar;
 
   const semFilipeta = useMemo(
     () => remessas.filter(r =>
@@ -325,6 +307,21 @@ export default function Expedicao() {
       <div className="flex items-center gap-2.5">
         <Printer className="w-5 h-5 text-violet-500" aria-hidden="true" />
         <h3 className="text-base font-semibold text-slate-900">Expedição</h3>
+        {contagem.total > 0 && (
+          <p className="text-xs text-slate-500">
+            {contagem.imprimir + contagem.entregar > 0 ? (
+              <>
+                <span className="font-bold text-slate-800">
+                  {contagem.imprimir + contagem.entregar} de {contagem.total}
+                </span> ainda não chegaram ao cliente
+              </>
+            ) : (
+              <span className="font-bold text-emerald-700">
+                Tudo entregue neste mês ({contagem.total})
+              </span>
+            )}
+          </p>
+        )}
       </div>
 
       {/* Abas por mês */}
@@ -362,9 +359,9 @@ export default function Expedicao() {
           )}
         </div>
         <div className="inline-flex border border-slate-200 rounded-xl overflow-hidden shrink-0">
-          {[{ id: 'a_imprimir', r: 'A imprimir' },
-            { id: 'a_entregar', r: aEntregar > 0 ? `A entregar (${aEntregar})` : 'A entregar' },
-            { id: 'entregues', r: 'Entregues' },
+          {[{ id: 'a_imprimir', r: `A imprimir (${contagem.imprimir})` },
+            { id: 'a_entregar', r: `A entregar (${contagem.entregar})` },
+            { id: 'entregues', r: `Entregues (${contagem.entregue})` },
             ...(semFilipeta > 0 ? [{ id: 'sem_filipeta', r: `Sem filipeta (${semFilipeta})` }] : []),
           ].map(f => (
             <button key={f.id} type="button" onClick={() => setFiltro(f.id)} aria-pressed={filtro === f.id}
@@ -425,16 +422,6 @@ export default function Expedicao() {
                       )}
                     </p>
                   </div>
-
-                  <button type="button" onClick={() => verOrigem(r)}
-                    aria-expanded={origem?.pacoteId === r.id}
-                    title="Ver a emissão que gerou estes boletos"
-                    className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
-                      origem?.pacoteId === r.id
-                        ? 'border-violet-300 bg-violet-50 text-violet-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'}`}>
-                    <FolderOpen className="w-3.5 h-3.5" /> A emissão
-                  </button>
 
                   {entregue ? (
                     <>
@@ -513,45 +500,6 @@ export default function Expedicao() {
                         className="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800 hover:bg-white transition-colors">
                         Cancelar
                       </button>
-                    </div>
-                  </div>
-                )}
-
-                {origem?.pacoteId === r.id && (
-                  <div className="px-4 pb-3 pl-20">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                          O que veio na emissão
-                        </p>
-                        {podeAbrirEmissao && (
-                          <Link
-                            href={`/central-emissoes?tab=upload&condo=${r.condominio_id}&mes=${r.mes_referencia}&ano=${r.ano_referencia}&pacote=${r.id}`}
-                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700 hover:underline">
-                            <ExternalLink className="w-3.5 h-3.5" /> Abrir na emissão
-                          </Link>
-                        )}
-                      </div>
-                      {origem.carregando ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
-                      ) : origem.arquivos.length === 0 ? (
-                        <p className="text-xs text-slate-500">Esta emissão não tem outros arquivos além dos boletos.</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {origem.arquivos.map(a => (
-                            <button key={a.id} type="button" onClick={() => abrirArquivoSeguro(a.arquivo_url)}
-                              className="flex items-center gap-2 text-xs text-slate-600 hover:text-violet-700 hover:underline text-left">
-                              <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
-                              <span className="truncate">{a.arquivo_nome}</span>
-                              {a.categoria && (
-                                <span className="shrink-0 rounded border border-slate-200 bg-white px-1 text-[10px] text-slate-500">
-                                  {a.categoria}
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
