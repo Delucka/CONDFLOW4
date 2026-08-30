@@ -4844,6 +4844,13 @@ def _notificar_expedicao(db, pacote_ids, autor_nome):
             d = por_pacote.setdefault(a["pacote_id"], {"boleto": 0, "filipeta": 0})
             d[a["categoria"]] = d.get(a["categoria"], 0) + 1
 
+        # Remessa sem nada anexado não é trabalho de expedição — e a fila nem a
+        # mostra, porque lista só o que tem arquivo. Avisar sobre ela manda a
+        # pessoa procurar o que não existe, que é pior do que não avisar.
+        pacs = [p for p in pacs if por_pacote.get(p["id"])]
+        if not pacs:
+            return {"notificados": 0, "motivo": "sem_arquivos"}
+
         meses = sorted({(p["ano_referencia"], p["mes_referencia"]) for p in pacs})
         rotulo = " · ".join(f"{_MES_NOME[m]}/{a}" for a, m in meses[:3])
         if len(meses) > 3:

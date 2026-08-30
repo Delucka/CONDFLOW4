@@ -635,12 +635,22 @@ export default function VisaoMaster() {
           status:         'pendente',
           uploaded_by:    profile?.id || null,
         });
-        if (dbErr) throw dbErr;
+        if (dbErr) {
+          // O arquivo JÁ está no bucket. Sem esta limpeza ele fica lá, órfão:
+          // ocupa espaço, não aparece em tela nenhuma, e some do radar de quem
+          // procura o boleto. Foi assim que 632 KB ficaram escondidos por um
+          // erro que a tela nem nomeava.
+          await supabase.storage.from('emissoes').remove([filePath]).catch(() => {});
+          throw dbErr;
+        }
 
         novoStatus[chave] = 'done';
       } catch (e) {
         novoStatus[chave] = 'error';
-        addToast(`Erro ao subir "${file.name}": ${e.message}`, 'error');
+        // A mensagem do banco vem junto. "Erro ao subir" sozinho não diz se é
+        // permissão, formato, lacre ou rede — e sem isso ninguém conserta.
+        const motivo = e?.message || e?.error_description || String(e);
+        addToast(`Erro ao subir "${file.name}": ${motivo}`, 'error');
       }
       setStatusUpload({ ...novoStatus });
     }
@@ -657,8 +667,11 @@ export default function VisaoMaster() {
     if (error) {
       addToast('Erro ao expedir', 'error');
     } else {
-      const qtd = paraSubir.length;
-      addToast(`Expedida${qtd > 0 ? ` com ${qtd} arquivo${qtd > 1 ? 's' : ''}` : ''}!`, 'success');
+      // Só conta o que REALMENTE virou registro. Antes contava o que foi
+      // escolhido no modal, então um upload que falhou saía como sucesso.
+      const qtd = Object.values(novoStatus).filter(x => x === 'done').length;
+      addToast(`Expedida${qtd > 0 ? ` com ${qtd} arquivo${qtd > 1 ? 's' : ''}` : ' — sem arquivos anexados'}!`,
+               qtd > 0 ? 'success' : 'info');
       avisarExpedicao([pacoteExpedir.id]);
       setShowExpedirModal(false);
       setPacoteExpedir(null);
@@ -680,6 +693,10 @@ export default function VisaoMaster() {
       const r = await apiPost('/api/expedicao/avisar', { pacote_ids: ids });
       if (r?.notificados > 0) {
         addToast(`Expedição avisada (${r.notificados} ${r.notificados === 1 ? 'pessoa' : 'pessoas'}).`, 'success');
+      } else if (r?.motivo === 'sem_arquivos') {
+        // Avisar sobre remessa vazia é pior do que não avisar: a expedição abre
+        // a fila e não encontra nada, porque a fila só mostra o que tem arquivo.
+        addToast('Sem boleto anexado — a expedição não foi avisada.', 'info');
       } else {
         addToast('Ninguém com o papel de expedição para avisar.', 'info');
       }
