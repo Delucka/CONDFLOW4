@@ -9,21 +9,22 @@ import { anexarGrupos } from '@/lib/conjuntoEmissao';
 import { useRealtime } from '@/lib/realtime';
 import TagPrioritario from '@/components/TagPrioritario';
 import { mesAnoVigente } from '@/lib/mesVigente';
-import { Printer, Check, Loader2, Inbox, Search, RotateCcw, FileText, X, Truck } from 'lucide-react';
-import { apiPost } from '@/lib/api';
+import { Printer, Check, Loader2, Inbox, Search, RotateCcw, FileText, X } from 'lucide-react';
 
 /**
- * Central de expedição — imprimir e ENTREGAR.
+ * Central de expedição — a fila de impressão.
  *
- * A expedição não é a impressora: ela imprime o trabalho final e leva ao
- * cliente. Por isso a fila tem três etapas, não duas — a última é a entrega,
- * que é onde o trabalho de fato termina.
+ * Duas etapas, e a baixa é dada na hora de imprimir:
  *
- *   a imprimir  →  a entregar  →  entregue
+ *   a imprimir  →  impresso
  *
- * `prazo_expedicao_dia` (0096) é prazo de ENTREGA. Antes da 0111 o sistema
- * guardava a data limite de um evento que não sabia registrar: o prazo existia,
- * o cumprimento não.
+ * Houve uma terceira, "entregue", com data e nome de quem recebeu. Saiu a
+ * pedido de quem usa: a baixa acontece na impressão, e a data de entrega não é
+ * informação que alguém vá consultar. Um passo a mais na tela é um passo a
+ * mais para esquecer.
+ *
+ * As colunas continuam no banco (0111) e o endpoint de pé — se um dia a
+ * entrega precisar de registro, é devolver os botões.
  *
  * Uma linha por REMESSA, não por documento: condomínio de dois vencimentos tem
  * duas remessas no mesmo mês, com boletos diferentes e datas diferentes, e a
@@ -64,10 +65,6 @@ export default function Expedicao() {
   const [busca, setBusca] = useState('');
   const [expandido, setExpandido] = useState(null);
   const [marcando, setMarcando] = useState(null);
-  // Entrega em curso: { id, recebidoPor }. O campo de quem recebeu abre na
-  // própria linha — quem entregou 40 remessas não vai abrir 40 modais.
-  const [entregando, setEntregando] = useState(null);
-  const [salvandoEntrega, setSalvandoEntrega] = useState(false);
   const fetchFila = useCallback(async () => {
       // Spinner de tela cheia SÓ na primeira carga. Antes, todo rebusca (voltar
       // para a aba, evento do realtime) acendia o spinner e desmontava a árvore:
@@ -98,20 +95,11 @@ export default function Expedicao() {
         (arqs || []).forEach(a => { (porPacote[a.pacote_id] = porPacote[a.pacote_id] || []).push(a); });
       }
 
-      // As duas colunas novas (0110 e 0111) vêm em consultas à parte, de
-      // propósito: se a migration não rodou, o pedido falha sozinho e a fila
-      // continua inteira — em vez de a coluna nova derrubar a consulta que traz
-      // o trabalho do dia. Em paralelo, para não somar duas idas ao banco.
-      const [cfRes, entRes] = await Promise.all([
-        supabase.from('condominios').select('id').eq('usa_filipeta', true),
-        ids.length
-          ? supabase.from('emissoes_pacotes')
-              .select('id, entregue_em, entregue_por_nome, recebido_por').in('id', ids)
-          : Promise.resolve({ data: [] }),
-      ]);
+      // `usa_filipeta` (0110) vem numa consulta à parte de propósito: se a
+      // migration não rodou, o pedido falha sozinho e a fila continua inteira —
+      // em vez de a coluna nova derrubar a consulta que traz o trabalho do dia.
+      const cfRes = await supabase.from('condominios').select('id').eq('usa_filipeta', true);
       const mandaFilipeta = new Set((cfRes?.data || []).map(c => c.id));
-      const entregas = {};
-      (entRes?.data || []).forEach(e => { entregas[e.id] = e; });
 
       const comGrupo = await anexarGrupos(supabase, pacs || []);
       // Pacote sem nada anexado não é trabalho de expedição — ainda está com
@@ -120,15 +108,11 @@ export default function Expedicao() {
         .map(p => {
           const docs = porPacote[p.id] || [];
           const filipetas = docs.filter(d => d.categoria === 'filipeta');
-          const ent = entregas[p.id] || {};
-          // Três etapas, uma regra só — para a linha, o filtro e a contagem da
-          // aba nunca discordarem sobre onde a remessa está.
-          const etapa = ent.entregue_em ? 'entregue'
-            : docs.every(d => d.impresso_em) ? 'entregar'
-            : 'imprimir';
+          // Uma regra só para a linha, o filtro e a contagem da aba nunca
+          // discordarem sobre onde a remessa está.
+          const etapa = docs.every(d => d.impresso_em) ? 'impresso' : 'imprimir';
           return {
             ...p,
-            ...ent,
             etapa,
             docs,
             boletos: docs.filter(d => d.categoria !== 'filipeta'),
@@ -162,9 +146,7 @@ export default function Expedicao() {
     for (const r of remessas) {
       const chave = `${r.ano_referencia}-${String(r.mes_referencia).padStart(2, '0')}`;
       const atual = mapa.get(chave) || { chave, mes: r.mes_referencia, ano: r.ano_referencia, pendentes: 0 };
-      // O que falta é o que ainda não foi ENTREGUE. Contar só o não impresso
-      // zerava a aba com meia dúzia de remessas paradas na mesa.
-      atual.pendentes += r.etapa !== 'entregue' ? 1 : 0;
+      atual.pendentes += r.etapa === 'imprimir' ? 1 : 0;
       mapa.set(chave, atual);
     }
     return [...mapa.values()].sort((a, b) => b.chave.localeCompare(a.chave));
@@ -192,8 +174,7 @@ export default function Expedicao() {
       .filter(r => {
         if (filtro === 'sem_filipeta') return r.faltaFilipeta;
         if (filtro === 'a_imprimir') return r.etapa === 'imprimir';
-        if (filtro === 'a_entregar') return r.etapa === 'entregar';
-        return r.etapa === 'entregue';
+        return r.etapa === 'impresso';
       })
       .filter(r => {
         if (!termo) return true;
@@ -245,41 +226,7 @@ export default function Expedicao() {
     addToast(impresso ? 'Baixa registrada.' : 'Voltou para a fila.', 'success');
   }
 
-  // A entrega passa pelo servidor: a data é do relógio dele, não do de quem
-  // clicou, e o nome de quem entregou sai da sessão em vez de ser digitado.
-  // Registro de entrega é o tipo de dado que alguém contesta um dia.
-  async function confirmarEntrega(r) {
-    setSalvandoEntrega(true);
-    try {
-      const res = await apiPost('/api/expedicao/entregar', {
-        pacote_ids: [r.id],
-        recebido_por: (entregando?.recebidoPor || '').trim() || null,
-      });
-      addToast(res?.notificados > 0
-        ? 'Entrega registrada. O gerente foi avisado.'
-        : 'Entrega registrada.', 'success');
-      setEntregando(null);
-      fetchFila();
-    } catch (e) {
-      addToast('Não consegui registrar a entrega: ' + (e.message || e), 'error');
-    } finally {
-      setSalvandoEntrega(false);
-    }
-  }
-
-  async function desfazerEntrega(r) {
-    try {
-      await apiPost('/api/expedicao/entregar', { pacote_ids: [r.id], desfazer: true });
-      addToast('Voltou para a fila de entrega.', 'success');
-      fetchFila();
-    } catch (e) {
-      addToast('Não consegui desfazer: ' + (e.message || e), 'error');
-    }
-  }
-
-  // Quantos condomínios estão sem a filipeta que deveriam ter, no mês aberto.
-  // Zero esconde o filtro: aviso que fica na tela sem nunca acender é ruído.
-  // As três etapas do mês aberto, contadas de uma vez.
+  // As duas etapas do mês aberto, contadas de uma vez.
   //
   // "Quantos faltam" é a primeira pergunta de quem senta para trabalhar, e a
   // resposta estava escondida atrás de clicar em cada filtro e contar linha.
@@ -288,12 +235,10 @@ export default function Expedicao() {
       `${r.ano_referencia}-${String(r.mes_referencia).padStart(2, '0')}` === abaAtiva);
     return {
       imprimir: doMes.filter(r => r.etapa === 'imprimir').length,
-      entregar: doMes.filter(r => r.etapa === 'entregar').length,
-      entregue: doMes.filter(r => r.etapa === 'entregue').length,
+      impresso: doMes.filter(r => r.etapa === 'impresso').length,
       total: doMes.length,
     };
   }, [remessas, abaAtiva]);
-  const aEntregar = contagem.entregar;
 
   const semFilipeta = useMemo(
     () => remessas.filter(r =>
@@ -309,15 +254,15 @@ export default function Expedicao() {
         <h3 className="text-base font-semibold text-slate-900">Expedição</h3>
         {contagem.total > 0 && (
           <p className="text-xs text-slate-500">
-            {contagem.imprimir + contagem.entregar > 0 ? (
+            {contagem.imprimir > 0 ? (
               <>
                 <span className="font-bold text-slate-800">
-                  {contagem.imprimir + contagem.entregar} de {contagem.total}
-                </span> ainda não chegaram ao cliente
+                  {contagem.imprimir} de {contagem.total}
+                </span> ainda não {contagem.imprimir === 1 ? 'foi impressa' : 'foram impressas'}
               </>
             ) : (
               <span className="font-bold text-emerald-700">
-                Tudo entregue neste mês ({contagem.total})
+                Tudo impresso neste mês ({contagem.total})
               </span>
             )}
           </p>
@@ -360,8 +305,7 @@ export default function Expedicao() {
         </div>
         <div className="inline-flex border border-slate-200 rounded-xl overflow-hidden shrink-0">
           {[{ id: 'a_imprimir', r: `A imprimir (${contagem.imprimir})` },
-            { id: 'a_entregar', r: `A entregar (${contagem.entregar})` },
-            { id: 'entregues', r: `Entregues (${contagem.entregue})` },
+            { id: 'impressos', r: `Impressos (${contagem.impresso})` },
             ...(semFilipeta > 0 ? [{ id: 'sem_filipeta', r: `Sem filipeta (${semFilipeta})` }] : []),
           ].map(f => (
             <button key={f.id} type="button" onClick={() => setFiltro(f.id)} aria-pressed={filtro === f.id}
@@ -382,19 +326,17 @@ export default function Expedicao() {
             {busca ? 'Nada encontrado com esse termo.'
               : filtro === 'sem_filipeta' ? 'Toda remessa deste mês veio com a filipeta.'
               : filtro === 'a_imprimir' ? 'Nada para imprimir neste mês.'
-              : filtro === 'a_entregar' ? 'Nada esperando entrega — o que foi impresso já chegou ao cliente.'
-              : 'Nada foi entregue neste mês ainda.'}
+              : 'Nada foi impresso neste mês ainda.'}
           </p>
         </div>
       ) : (
         <div className="border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-200">
           {lista.map(r => {
-            const impresso = r.etapa !== 'imprimir';
-            const entregue = r.etapa === 'entregue';
+            const impresso = r.etapa === 'impresso';
             const marca = r.docs.find(b => b.impresso_em);
             const aberto = expandido === r.id;
             return (
-              <div key={r.id} className={entregue ? 'bg-slate-50' : 'bg-white'}>
+              <div key={r.id} className={impresso ? 'bg-slate-50' : 'bg-white'}>
                 <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
                   <span className="w-14 shrink-0 text-center text-xs text-slate-600 border border-slate-200 rounded-lg py-1"
                         title="Dia de vencimento dos boletos desta remessa">
@@ -402,7 +344,7 @@ export default function Expedicao() {
                   </span>
 
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm truncate ${entregue ? 'text-slate-500' : 'font-semibold text-slate-900'}`}>
+                    <p className={`text-sm truncate ${impresso ? 'text-slate-500' : 'font-semibold text-slate-900'}`}>
                       {r.condominios?.name || 'Condomínio'}
                       <TagPrioritario condo={r.condominios} mes={r.mes_referencia} ano={r.ano_referencia} className="ml-2" />
                       {r.grupo_nome && (
@@ -423,43 +365,22 @@ export default function Expedicao() {
                     </p>
                   </div>
 
-                  {entregue ? (
+                  {impresso ? (
                     <>
                       <span className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-800 shrink-0"
-                            title={[r.entregue_por_nome ? `Entregue por ${r.entregue_por_nome}` : null,
-                                    r.recebido_por ? `Recebido por ${r.recebido_por}` : null]
-                                    .filter(Boolean).join(' · ') || undefined}>
-                        <Truck className="w-3 h-3 inline -mt-0.5 mr-1" />
-                        Entregue {fmtData(r.entregue_em)}
-                        {r.recebido_por ? ` · ${r.recebido_por}` : ''}
+                            title={marca?.impresso_por_nome ? `Baixa dada por ${marca.impresso_por_nome}` : undefined}>
+                        <Check className="w-3 h-3 inline -mt-0.5 mr-1" />
+                        Impresso {fmtData(marca?.impresso_em)}
+                        {marca?.impresso_por_nome ? ` · ${marca.impresso_por_nome.split(' ')[0]}` : ''}
                       </span>
                       <button type="button" onClick={() => imprimir(r)}
                         className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 transition-colors">
                         Reimprimir
                       </button>
-                      <button type="button" onClick={() => desfazerEntrega(r)} aria-label="Desfazer entrega"
-                        title="Marquei errado: volta para a fila de entrega"
-                        className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-slate-100 transition-colors">
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
-                    </>
-                  ) : impresso ? (
-                    <>
-                      <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600 shrink-0"
-                            title={marca?.impresso_por_nome ? `Impresso por ${marca.impresso_por_nome}` : undefined}>
-                        <Check className="w-3 h-3 inline -mt-0.5 mr-1" />
-                        Impresso {fmtData(marca?.impresso_em)}
-                      </span>
                       <button type="button" onClick={() => marcar(r, false)} aria-label="Voltar para a fila de impressão"
                         title="Voltar para a fila de impressão"
                         className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-slate-100 transition-colors">
                         <RotateCcw className="w-4 h-4" />
-                      </button>
-                      <button type="button"
-                        onClick={() => setEntregando(e => (e?.id === r.id ? null : { id: r.id, recebidoPor: '' }))}
-                        aria-expanded={entregando?.id === r.id}
-                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors">
-                        <Truck className="w-3.5 h-3.5" /> Entregue
                       </button>
                     </>
                   ) : (
@@ -476,33 +397,6 @@ export default function Expedicao() {
                     </>
                   )}
                 </div>
-
-                {entregando?.id === r.id && (
-                  <div className="px-4 pb-3 pl-20">
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 flex items-end gap-2 flex-wrap">
-                      <div className="flex-1 min-w-[200px]">
-                        <label htmlFor={`recebeu-${r.id}`} className="block text-[11px] font-bold uppercase tracking-widest text-emerald-800 mb-1">
-                          Quem recebeu <span className="font-normal normal-case text-emerald-700/70">— opcional</span>
-                        </label>
-                        <input id={`recebeu-${r.id}`} autoFocus
-                          value={entregando.recebidoPor}
-                          onChange={e => setEntregando({ ...entregando, recebidoPor: e.target.value })}
-                          onKeyDown={e => { if (e.key === 'Enter' && !salvandoEntrega) confirmarEntrega(r); }}
-                          placeholder="Portaria, zelador, síndico…"
-                          className="w-full bg-white border border-emerald-200 rounded-lg px-3 py-2 text-sm text-slate-800 outline-none focus:border-emerald-500" />
-                      </div>
-                      <button type="button" onClick={() => confirmarEntrega(r)} disabled={salvandoEntrega}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50">
-                        {salvandoEntrega ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                        Confirmar entrega
-                      </button>
-                      <button type="button" onClick={() => setEntregando(null)} disabled={salvandoEntrega}
-                        className="rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-800 hover:bg-white transition-colors">
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {/* Mais de um arquivo: abre a lista em vez de disparar várias
                     abas de uma vez, que o navegador bloquearia. */}
