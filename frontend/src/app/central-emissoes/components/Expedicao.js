@@ -63,7 +63,6 @@ export default function Expedicao() {
   const [mesAba, setMesAba] = useState(null);      // "2026-09"
   const [filtro, setFiltro] = useState('a_imprimir');
   const [busca, setBusca] = useState('');
-  const [expandido, setExpandido] = useState(null);
   const [marcando, setMarcando] = useState(null);
   const fetchFila = useCallback(async () => {
       // Spinner de tela cheia SÓ na primeira carga. Antes, todo rebusca (voltar
@@ -191,14 +190,14 @@ export default function Expedicao() {
 
   // ── Ações ──
   async function imprimir(r) {
-    if (r.docs.length === 1) {
-      const ok = await abrirArquivoSeguro(r.docs[0].arquivo_url);
-      if (!ok) addToast('Não consegui abrir o arquivo.', 'error');
-      return;
+    if (!r.docs.length) return;
+    const ok = await abrirArquivoSeguro(r.docs[0].arquivo_url);
+    if (!ok) { addToast('Não consegui abrir o arquivo.', 'error'); return; }
+    // Abrir todos de uma vez esbarra no bloqueador de pop-up. Os outros estão
+    // à vista na própria linha — só avisa que existem.
+    if (r.docs.length > 1) {
+      addToast(`Abri o primeiro. Os outros ${r.docs.length - 1} estão na linha, é só clicar.`, 'info');
     }
-    // Vários: abrir tudo de uma vez esbarra no bloqueador de pop-up do
-    // navegador. Abre a lista e a pessoa clica em cada um.
-    setExpandido(e => (e === r.id ? null : r.id));
   }
 
   async function marcar(r, impresso) {
@@ -334,7 +333,6 @@ export default function Expedicao() {
           {lista.map(r => {
             const impresso = r.etapa === 'impresso';
             const marca = r.docs.find(b => b.impresso_em);
-            const aberto = expandido === r.id;
             return (
               <div key={r.id} className={impresso ? 'bg-slate-50' : 'bg-white'}>
                 <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
@@ -353,16 +351,29 @@ export default function Expedicao() {
                         </span>
                       )}
                     </p>
-                    <p className="text-[11px] text-slate-500">
-                      {r.boletos.length} boleto{r.boletos.length !== 1 ? 's' : ''}
-                      {r.filipetas.length > 0 && ` · ${r.filipetas.length} filipeta${r.filipetas.length !== 1 ? 's' : ''}`}
+                    {/* Os arquivos ficam à vista, impressos ou não. Depois da
+                        baixa eles sumiam, e reler o boleto exigia apertar
+                        "Reimprimir" — um botão que anuncia outra coisa. */}
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                      {r.docs.map(b => (
+                        <button key={b.id} type="button" onClick={() => abrirArquivoSeguro(b.arquivo_url)}
+                          title={`Abrir ${b.arquivo_nome}`}
+                          className={`inline-flex items-center gap-1.5 max-w-[260px] rounded-lg border px-2 py-1 text-[11px] transition-colors ${
+                            b.categoria === 'filipeta'
+                              ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                              : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'}`}>
+                          <FileText className={`w-3.5 h-3.5 shrink-0 ${
+                            b.categoria === 'filipeta' ? 'text-amber-500' : 'text-violet-500'}`} aria-hidden="true" />
+                          <span className="truncate">{b.arquivo_nome}</span>
+                        </button>
+                      ))}
                       {r.faltaFilipeta && (
-                        <span className="ml-2 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
+                        <span className="rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
                               title="Este condomínio manda filipeta todo mês e ela não veio nesta remessa">
                           FALTA A FILIPETA
                         </span>
                       )}
-                    </p>
+                    </div>
                   </div>
 
                   {impresso ? (
@@ -398,25 +409,6 @@ export default function Expedicao() {
                   )}
                 </div>
 
-                {/* Mais de um arquivo: abre a lista em vez de disparar várias
-                    abas de uma vez, que o navegador bloquearia. */}
-                {aberto && r.docs.length > 1 && (
-                  <div className="px-4 pb-3 pl-20 space-y-1">
-                    {r.docs.map(b => (
-                      <button key={b.id} type="button" onClick={() => abrirArquivoSeguro(b.arquivo_url)}
-                        className="flex items-center gap-2 text-xs text-slate-600 hover:text-violet-700 hover:underline">
-                        <FileText className={`w-3.5 h-3.5 shrink-0 ${
-                          b.categoria === 'filipeta' ? 'text-amber-500' : 'text-violet-500'}`} aria-hidden="true" />
-                        <span className="truncate">{b.arquivo_nome}</span>
-                        {b.categoria === 'filipeta' && (
-                          <span className="shrink-0 rounded border border-amber-200 bg-amber-50 px-1 text-[10px] font-bold text-amber-700">
-                            filipeta
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             );
           })}

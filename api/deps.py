@@ -47,8 +47,26 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
 
     db = get_db()
 
-    # Valida token com o Supabase Auth
-    user_res = db.auth.get_user(token)
+    # Valida token com o Supabase Auth.
+    #
+    # `get_user` LEVANTA quando a sessão não existe mais — entrar com outra conta
+    # no mesmo navegador derruba a anterior, e o token guardado passa a apontar
+    # para uma sessão que morreu. Sem este try, a exceção subia até o handler
+    # global, virava 500, e a tela dizia "Erro de conexão — o servidor pode estar
+    # iniciando". Mentira dupla: o servidor estava de pé, e "tentar novamente"
+    # nunca ia resolver.
+    #
+    # Falha do Supabase Auth (rede, instância fora) é OUTRA coisa: aí 503, e a
+    # sessão de quem está logado não é descartada por um problema que não é dele.
+    try:
+        user_res = db.auth.get_user(token)
+    except Exception as e:
+        nome = type(e).__name__
+        if "AuthApiError" in nome or "AuthSessionMissingError" in nome:
+            raise HTTPException(status_code=401, detail="Sessão expirada. Entre de novo.")
+        print(f"[auth] Supabase Auth indisponível: {nome}: {e}")
+        raise HTTPException(status_code=503, detail="Não consegui validar a sessão agora. Tente em instantes.")
+
     if not user_res or not user_res.user:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
 
