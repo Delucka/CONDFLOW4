@@ -64,6 +64,7 @@ BEGIN;
 -- ── emissoes_pacotes ────────────────────────────────────────────────────────
 DROP POLICY IF EXISTS pacotes_all_authenticated ON public.emissoes_pacotes;
 
+DROP POLICY IF EXISTS pacotes_privilegiado ON public.emissoes_pacotes;
 CREATE POLICY pacotes_privilegiado ON public.emissoes_pacotes
   FOR ALL TO authenticated
   USING      (papel_atual() = ANY (ARRAY['master','departamento','supervisora',
@@ -71,6 +72,7 @@ CREATE POLICY pacotes_privilegiado ON public.emissoes_pacotes
   WITH CHECK (papel_atual() = ANY (ARRAY['master','departamento','supervisora',
                                          'supervisora_contabilidade','supervisor_gerentes','expedicao']));
 
+DROP POLICY IF EXISTS pacotes_carteira ON public.emissoes_pacotes;
 CREATE POLICY pacotes_carteira ON public.emissoes_pacotes
   FOR ALL TO authenticated
   USING (EXISTS (
@@ -94,6 +96,7 @@ CREATE POLICY pacotes_carteira ON public.emissoes_pacotes
 -- deixava passar. Esta o inclui.
 DROP POLICY IF EXISTS emissoes_arquivos_all_authenticated ON public.emissoes_arquivos;
 
+DROP POLICY IF EXISTS arquivos_privilegiado ON public.emissoes_arquivos;
 CREATE POLICY arquivos_privilegiado ON public.emissoes_arquivos
   FOR ALL TO authenticated
   USING      (papel_atual() = ANY (ARRAY['master','departamento','supervisora',
@@ -101,6 +104,7 @@ CREATE POLICY arquivos_privilegiado ON public.emissoes_arquivos
   WITH CHECK (papel_atual() = ANY (ARRAY['master','departamento','supervisora',
                                          'supervisora_contabilidade','supervisor_gerentes','expedicao']));
 
+DROP POLICY IF EXISTS arquivos_carteira ON public.emissoes_arquivos;
 CREATE POLICY arquivos_carteira ON public.emissoes_arquivos
   FOR ALL TO authenticated
   USING (EXISTS (
@@ -122,6 +126,7 @@ CREATE POLICY arquivos_carteira ON public.emissoes_arquivos
 -- Só leitura: quem escreve é a API (service role), que não passa por RLS.
 DROP POLICY IF EXISTS edicoes_mensais_all_authenticated ON public.edicoes_mensais;
 
+DROP POLICY IF EXISTS edicoes_leitura ON public.edicoes_mensais;
 CREATE POLICY edicoes_leitura ON public.edicoes_mensais
   FOR SELECT TO authenticated
   USING (
