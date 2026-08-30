@@ -4004,6 +4004,13 @@ def api_liberar_edicao(edicao_id: str, data: Optional[LiberarSchema] = None,
         if edi.get("gerente_id") != g_id:
             raise HTTPException(403, "Voce nao gerencia este condominio")
 
+    # Assembleia prevista trava o mes dela e os seguintes. A recusa nomeia qual
+    # e diz o que fazer — uma recusa que so diz "nao" faz a pessoa tentar de
+    # novo em vez de resolver.
+    alt = _alteracao_que_trava(db, edi["condominio_id"], edi["ano_referencia"], edi["mes_referencia"])
+    if alt:
+        raise HTTPException(409, _texto_da_trava(alt, edi["mes_referencia"]))
+
     if edi["status"] != "em_edicao":
         raise HTTPException(400, f"Status atual nao permite liberacao: {edi['status']}")
 
@@ -4056,12 +4063,35 @@ def api_liberar_todos(data: LiberarTodosSchema, user: dict = Depends(get_current
         # Qualidade: mês sem nenhum valor não sai junto no bolo. Fica de fora e é
         # devolvido nomeado, para o gerente ver exatamente qual precisa preencher.
         em_branco = set() if data.forcar else _meses_em_branco(db, rows)
+
+        # A trava por assembleia vale aqui tambem — e nao e ignorada por
+        # `forcar`. Forcar existe para liberar mes em branco, nao para passar
+        # por cima de uma assembleia que ainda vai acontecer.
+        travados_lote = []
+        def _travado(e):
+            alt = _alteracao_que_trava(db, e["condominio_id"], e["ano_referencia"], e["mes_referencia"])
+            if alt:
+                travados_lote.append({
+                    "mes": e["mes_referencia"], "ano": e["ano_referencia"],
+                    "alteracao_id": alt["id"], "tipo": alt["tipo"],
+                    "mes_da_alteracao": alt["mes_referencia"],
+                    "data_evento": alt.get("data_evento"),
+                    "mensagem": _texto_da_trava(alt, e["mes_referencia"]),
+                })
+                return True
+            return False
+
         liberar = [e for e in rows
-                   if (e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) not in em_branco]
+                   if (e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) not in em_branco
+                   and not _travado(e)]
         pulados = [f"{_MES_NOME[e['mes_referencia']]}/{e['ano_referencia']}"
                    for e in rows
                    if (e["condominio_id"], e["ano_referencia"], e["mes_referencia"]) in em_branco]
         if not liberar:
+            if travados_lote:
+                # Travado nao e o mesmo que vazio, e a mensagem tem de dizer o
+                # que resolve: marcar a assembleia como realizada.
+                raise HTTPException(409, travados_lote[0]["mensagem"])
             raise HTTPException(422, "Nenhum mês tinha valor preenchido: " + ", ".join(sorted(set(pulados))))
 
         db.table("edicoes_mensais").update({
@@ -4069,7 +4099,9 @@ def api_liberar_todos(data: LiberarTodosSchema, user: dict = Depends(get_current
             "liberado_em": datetime.now(timezone.utc).isoformat(),
         }).in_("id", [e["id"] for e in liberar]).execute()
         _notificar_emissao_liberacao(db, liberar, user.get("full_name") or "Um gerente")
-        return {"ok": True, "liberados": len(liberar), "pulados_em_branco": sorted(set(pulados))}
+        return {"ok": True, "liberados": len(liberar),
+                "pulados_em_branco": sorted(set(pulados)),
+                "travados": travados_lote}
 
     mes_padrao, ano_padrao = _mes_alvo_padrao()
     mes = data.mes or mes_padrao
@@ -4100,6 +4132,109 @@ def api_liberar_todos(data: LiberarTodosSchema, user: dict = Depends(get_current
 
 class SolicitarReaberturaSchema(BaseModel):
     motivo: str
+
+
+def _alteracao_que_trava(db: Client, condominio_id: str, ano: int, mes: int):
+    """A alteracao prevista que impede liberar este mes — ou None.
+
+    AGO, AGE e reuniao decidem o orcamento. Liberar o mes DELA, ou qualquer mes
+    DEPOIS dela, e emitir o valor que a assembleia esta prestes a mudar. Por
+    isso a trava vale do mes da alteracao em diante.
+
+    A trava cai quando a alteracao for marcada como realizada — nao pelo
+    calendario. Assembleia adia, e uma trava que se solta sozinha na data
+    marcada solta justamente no mes em que ela foi adiada.
+    """
+    try:
+        rows = (db.table("alteracoes_rateio")
+                  .select("id, tipo, mes_referencia, data_evento, descricao, status")
+                  .eq("condominio_id", condominio_id)
+                  .eq("ano_referencia", ano)
+                  .eq("status", "prevista")
+                  .lte("mes_referencia", mes)
+                  .order("mes_referencia").execute().data or [])
+        return rows[0] if rows else None
+    except Exception as e:
+        print(f"[trava] consulta de alteracoes falhou (segue sem travar): {e}")
+        return None
+
+
+def _texto_da_trava(alt: dict, mes: int) -> str:
+    quando = ""
+    if alt.get("data_evento"):
+        try:
+            d = str(alt["data_evento"])[:10].split("-")
+            quando = f" de {d[2]}/{d[1]}"
+        except Exception:
+            quando = ""
+    onde = _MES_NOME[alt["mes_referencia"]]
+    alvo = _MES_NOME[mes]
+    mesmo_mes = alt["mes_referencia"] == mes
+    return (
+        f"{alvo} esta travado pela {alt['tipo']}{quando}, marcada em {onde} e ainda prevista."
+        + ("" if mesmo_mes else " A trava vale do mes da assembleia em diante.")
+        + " Se ela ja aconteceu, marque como realizada — ai o mes destrava."
+    )
+
+
+class MotivoSemValoresSchema(BaseModel):
+    condominio_id: str
+    mes: int
+    ano: int
+    motivo: Optional[str] = None      # None limpa
+    detalhe: Optional[str] = None
+
+
+@router.post("/edicoes-mensais/motivo-sem-valores")
+def api_motivo_sem_valores(
+    data: MotivoSemValoresSchema,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Por que este mes ficou sem valores (0108).
+
+    Mes vazio nao e liberado calado: alguem vai perguntar por que dezembro esta
+    zerado, e a resposta tem de estar no sistema, nao na memoria de quem
+    preencheu. Cria a edicao se ela ainda nao existe — o mes pode nem ter sido
+    aberto, e e justamente ai que a explicacao importa.
+    """
+    require_role(user, ["master", "gerente", "assistente"])
+
+    if user["role"] in ("gerente", "assistente"):
+        if data.condominio_id not in carteira_condo_ids(db, user):
+            raise HTTPException(403, "Este condominio nao esta na sua carteira.")
+
+    existe = (db.table("edicoes_mensais").select("id, status")
+                .eq("condominio_id", data.condominio_id)
+                .eq("mes_referencia", data.mes).eq("ano_referencia", data.ano)
+                .limit(1).execute().data or [])
+
+    payload = {
+        "motivo_sem_valores": (data.motivo or "").strip() or None,
+        "motivo_detalhe": (data.detalhe or "").strip() or None,
+        "motivo_por": user["id"],
+    }
+
+    if existe:
+        db.table("edicoes_mensais").update(payload).eq("id", existe[0]["id"]).execute()
+        return {"ok": True, "criada": False}
+
+    c = (db.table("condominios").select("gerente_id")
+           .eq("id", data.condominio_id).maybe_single().execute().data) or {}
+    from datetime import datetime, timezone
+    db.table("edicoes_mensais").insert({
+        **payload,
+        "condominio_id": data.condominio_id,
+        "gerente_id": c.get("gerente_id"),
+        "mes_referencia": data.mes,
+        "ano_referencia": data.ano,
+        "status": "em_edicao",
+        "aberto_por": user["id"],
+        "aberto_em": datetime.now(timezone.utc).isoformat(),
+        # O carimbo do motivo e do trigger no UPDATE; no INSERT vai explicito.
+        "motivo_em": datetime.now(timezone.utc).isoformat(),
+    }).execute()
+    return {"ok": True, "criada": True}
 
 
 class PreAprovarSchema(BaseModel):
@@ -4164,9 +4299,22 @@ def api_pre_aprovar(
     agora = datetime.now(timezone.utc).isoformat()
     aprovadas, puladas, ja_estavam = [], [], []
 
+    travados = []
     for mes, ano in comps:
         if (data.condominio_id, ano, mes) in em_branco:
             puladas.append(f"{_MES_NOME[mes]}/{ano}")
+            continue
+
+        alt = _alteracao_que_trava(db, data.condominio_id, ano, mes)
+        if alt:
+            travados.append({
+                "mes": mes, "ano": ano,
+                "alteracao_id": alt["id"], "tipo": alt["tipo"],
+                "mes_da_alteracao": alt["mes_referencia"],
+                "data_evento": alt.get("data_evento"),
+                "descricao": alt.get("descricao"),
+                "mensagem": _texto_da_trava(alt, mes),
+            })
             continue
 
         existe = (db.table("edicoes_mensais")
@@ -4213,6 +4361,10 @@ def api_pre_aprovar(
         "meses": [f"{_MES_NOME[a['mes_referencia']]}/{a['ano_referencia']}" for a in aprovadas],
         "puladas_em_branco": sorted(set(puladas)),
         "ja_aprovadas": sorted(set(ja_estavam)),
+        # Cada mes travado volta com a alteracao que o trava — a tela abre a
+        # marcacao dela ja aberta, para o gerente finalizar ali mesmo em vez de
+        # sair procurando onde se faz isso.
+        "travados": travados,
     }
 
 
