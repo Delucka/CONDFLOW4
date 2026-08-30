@@ -1802,6 +1802,8 @@ export default function VisaoEmissor({ profile }) {
 
                   // Em que parcela esta cada verba neste mes (vem do backend).
                   const parcelas = mesObj?.parcelas || {};
+                  // Quando o valor foi digitado, e se foi antes de o mes abrir.
+                  const revisao = mesObj?.revisao || {};
 
                   // Uma linha de verba. Sai igual dentro ou fora de faixa.
                   const linhaVerba = col => {
@@ -1809,6 +1811,7 @@ export default function VisaoEmissor({ profile }) {
                     const ant = valoresAnt ? Number(valoresAnt[col] || 0) : null;
                     const mudou = mudouCol(col);
                     const p = parcelas[col];
+                    const rev = revisao[col];
                     return (
                       <div key={col} className={`flex items-center justify-between text-xs py-1 last:border-0 ${mudou ? 'bg-amber-50 -mx-1 px-1.5 py-1.5 rounded-md border border-amber-200' : 'border-b border-slate-100'}`}>
                         <span className={`truncate pr-2 ${mudou ? 'text-amber-900 font-bold' : 'text-slate-600'}`}>
@@ -1829,6 +1832,18 @@ export default function VisaoEmissor({ profile }) {
                             </span>
                           )}
                           {mudou && <span className="ml-1.5 text-[8px] font-black uppercase tracking-wider text-white bg-amber-500 px-1 py-0.5 rounded align-middle">alterado</span>}
+                          {/* Valor digitado ANTES de o mês abrir e nunca mais
+                              tocado. Sai no boleto igual a um valor conferido
+                              ontem, e é justamente essa indistinção que fazia
+                              preencher meses adiantado não ser seguro. */}
+                          {rev?.previsao === true && (
+                            <span className="ml-1.5 inline-block align-middle rounded-full border border-orange-300 bg-orange-50 px-1.5 text-[9px] font-bold text-orange-800"
+                              title={rev.em
+                                ? `Previsão digitada em ${new Date(rev.em).toLocaleDateString('pt-BR')}, antes de o mês abrir — ninguém revisou depois`
+                                : 'Previsão: digitada antes de o mês abrir'}>
+                              previsão
+                            </span>
+                          )}
                         </span>
                         <span className="shrink-0 text-right whitespace-nowrap">
                           {mudou && <span className="font-mono text-[10px] text-amber-400 line-through mr-1.5" title={`${nomeMesAnt}`}>{fmt(ant)}</span>}
@@ -1860,6 +1875,19 @@ export default function VisaoEmissor({ profile }) {
 
                   return (
                     <div className="space-y-1">
+                      {(() => {
+                        const nPrev = colunas.filter(c => revisao[c]?.previsao === true).length;
+                        if (!nPrev) return null;
+                        return (
+                          <p className="text-[10px] font-bold text-orange-900 bg-orange-50 border border-orange-200 rounded-lg px-2 py-1.5 mb-1.5 flex items-start gap-1.5">
+                            <Clock className="w-3 h-3 shrink-0 mt-0.5" />
+                            <span>
+                              {nPrev} {nPrev > 1 ? 'verbas foram digitadas' : 'verba foi digitada'} antes de o mês abrir e ninguém revisou depois.
+                              Confira com o gerente antes de emitir.
+                            </span>
+                          </p>
+                        );
+                      })()}
                       {nMudou > 0 && (
                         <p className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mb-1.5 flex items-center gap-1.5">
                           <span className="text-amber-500 text-sm leading-none">⚠</span>

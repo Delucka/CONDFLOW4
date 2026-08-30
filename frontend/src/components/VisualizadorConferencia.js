@@ -1005,6 +1005,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                             // arrecadacao ja mostrava; aqui, na hora de
                             // aprovar, nao chegava.
                             const p = m.parcelas?.[col];
+                            const rev = m.revisao?.[col];
                             return (
                               <td key={col} className="text-right px-3 py-2 text-xs text-slate-700 font-mono whitespace-nowrap">
                                 {fmt(m.valores?.[col])}
@@ -1015,6 +1016,14 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
                                       : 'border-violet-200 bg-violet-50 text-violet-700'}`}
                                     title={`Parcela ${p.atual} de ${p.total}${p.atual === p.total ? ' — última' : ''}`}>
                                     {String(p.atual).padStart(2, '0')}/{String(p.total).padStart(2, '0')}
+                                  </span>
+                                )}
+                                {rev?.previsao === true && (
+                                  <span className="ml-1.5 rounded-full border border-orange-300 bg-orange-50 px-1 text-[9px] font-bold text-orange-800"
+                                    title={rev.em
+                                      ? `Digitado em ${new Date(rev.em).toLocaleDateString('pt-BR')}, antes de o mês abrir`
+                                      : 'Digitado antes de o mês abrir'}>
+                                    previsão
                                   </span>
                                 )}
                                 {p?.encerrada && (

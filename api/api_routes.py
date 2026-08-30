@@ -2685,14 +2685,28 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
         if rateios:
             r_ids = [r["id"] for r in rateios]
             colunas = [r["nome"] for r in rateios]
-            vals = db.table("rateios_valores").select("rateio_id,month,valor").in_("rateio_id", r_ids).eq("ano", year).execute().data or []
+            vals = db.table("rateios_valores").select("rateio_id,month,valor,atualizado_em").in_("rateio_id", r_ids).eq("ano", year).execute().data or []
             
             if not vals:
                 last = db.table("rateios_valores").select("ano").in_("rateio_id", r_ids).order("ano", desc=True).limit(1).execute().data
                 if last:
                     year = last[0]["ano"]
-                    vals = db.table("rateios_valores").select("rateio_id,month,valor").in_("rateio_id", r_ids).eq("ano", year).execute().data or []
+                    vals = db.table("rateios_valores").select("rateio_id,month,valor,atualizado_em").in_("rateio_id", r_ids).eq("ano", year).execute().data or []
             
+            # Quando o quadro de cada mes abriu, para este condominio. E a
+            # referencia que separa previsao de valor revisado — e vem DEPOIS do
+            # ajuste de `year` acima, senao consultaria o ano errado quando a
+            # planilha do ano corrente esta vazia.
+            aberturas = {}
+            try:
+                for e in (db.table("edicoes_mensais")
+                            .select("mes_referencia,aberto_em,status")
+                            .eq("condominio_id", condo_id).eq("ano_referencia", year)
+                            .execute().data or []):
+                    aberturas[e["mes_referencia"]] = e
+            except Exception as e:
+                print(f"[CONFERENCIA] aberturas falharam (segue sem): {e}")
+
             for i, m_item in enumerate(meses):
                 m = m_item['mes']
                 mv = [v for v in vals if int(v["month"]) == m]
@@ -2732,7 +2746,28 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
                         "mes_da_ultima": mes_ini + (total_p - ini_p),
                     }
 
-                meses[i].update({'valores': vals_col, 'total': total_mes, 'parcelas': parcelas_col})
+                # Verba cujo valor foi digitado ANTES de o quadro do mes abrir —
+                # ou cujo quadro nunca abriu — e previsao que ninguem revisou
+                # depois. Novembro e dezembro estao assim agora: numeros prontos
+                # para um mes que ninguem comecou a trabalhar.
+                abertura = (aberturas.get(m) or {}).get("aberto_em")
+                revisao_col = {}
+                for r in rateios:
+                    v = next((x for x in mv if x["rateio_id"] == r["id"]), None)
+                    if not v:
+                        continue
+                    carimbo = v.get("atualizado_em")
+                    if not carimbo:
+                        estado = None              # nao se sabe (anterior a 0107)
+                    elif not abertura:
+                        estado = True              # o mes nunca abriu
+                    else:
+                        estado = str(carimbo) < str(abertura)
+                    revisao_col[r["nome"]] = {"em": carimbo, "previsao": estado}
+
+                meses[i].update({'valores': vals_col, 'total': total_mes,
+                                 'parcelas': parcelas_col, 'revisao': revisao_col,
+                                 'mes_aberto_em': abertura})
                 total_geral += total_mes
         else:
             colunas = ["Condomínio", "Fundo Reserva"]
