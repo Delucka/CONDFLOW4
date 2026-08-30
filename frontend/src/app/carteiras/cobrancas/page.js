@@ -642,8 +642,20 @@ export default function CobrancasExtrasPage() {
   }, [profile?.id, role]);
 
   // Carrega cobranças e cancelamentos pendentes
+  // Qual pedido está valendo.
+  //
+  // Trocar de condomínio dispara uma busca nova sem cancelar a anterior, e não
+  // há garantia de ordem na volta: a resposta do condomínio ANTERIOR pode
+  // chegar depois e sobrescrever a lista — a tela fica com o nome de um e as
+  // cobranças de outro. Acontece justamente quando se troca rápido, que é como
+  // se procura uma cobrança.
+  //
+  // Cada busca leva um número. Quando volta, só aplica se ainda for a última.
+  const pedidoRef = useRef(0);
+
   const carregar = useCallback(async () => {
     if (!condoSel) return;
+    const meuPedido = ++pedidoRef.current;
     setLoading(true);
     try {
       // As três juntas: cada ida ao servidor custa o mesmo pedágio, e pedir uma
@@ -653,15 +665,26 @@ export default function CobrancasExtrasPage() {
         podeExecutar ? apiFetch('/api/cobrancas-extras/cancelamentos-pendentes') : Promise.resolve(null),
         podeExecutar ? apiFetch('/api/cobrancas-extras/alteracoes-pendentes') : Promise.resolve(null),
       ]);
+      if (pedidoRef.current !== meuPedido) return;   // chegou tarde: descarta
       setCobrancas(res.cobrancas || []);
       if (res2) setCancelamentos(res2.pendentes || []);
       if (res3) setAlteracoes(res3.pendentes || []);
     } catch (err) {
+      if (pedidoRef.current !== meuPedido) return;
       addToast(err.message, 'error');
     } finally {
-      setLoading(false);
+      // Só o pedido vigente apaga o "carregando" — senão a resposta velha
+      // apagaria o spinner da busca nova, que ainda está em voo.
+      if (pedidoRef.current === meuPedido) setLoading(false);
     }
   }, [condoSel, podeExecutar, addToast]);
+
+  // Trocou de condomínio: a lista some na hora.
+  //
+  // Sem isto, a lista do anterior fica na tela até a nova chegar — o mesmo
+  // "nome de um, cobranças de outro", só que por um segundo. Vazio com
+  // "carregando" é honesto; lista errada não é.
+  useEffect(() => { setCobrancas([]); }, [condoSel]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
