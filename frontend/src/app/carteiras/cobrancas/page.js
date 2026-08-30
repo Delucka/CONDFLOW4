@@ -8,7 +8,7 @@ import { can } from '@/lib/roles';
 import {
   Plus, Trash2, Loader2, X, AlertCircle, CheckCircle2,
   Receipt, Calendar, Repeat, Building2, Clock, Lock,
-  UploadCloud, FileText, ChevronDown, Search
+  UploadCloud, FileText, ChevronDown, Search, Pencil,
 } from 'lucide-react';
 
 import { useLockedMonths } from '@/lib/useLockedMonths';
@@ -367,6 +367,168 @@ className="text-[10px] text-rose-400 font-bold hover:underline">Remover arquivo<
   );
 }
 
+// ─── Modal: Pedir alteração ───────────────────────────────────────
+//
+// Uma cobrança lançada era imutável: para trocar o mês das churrasqueiras de
+// setembro para outubro, só cancelando e relançando — o que perde o documento
+// anexado e a data do lançamento original.
+//
+// A mudança não vale sozinha. Fica pendente até master ou emissão decidir, e
+// nesse meio tempo a cobrança NÃO entra em emissão: cobrar um valor que está
+// sob revisão é o erro que essa aprovação existe para evitar.
+const MESES_ALT = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+function ModalAlterar({ grupo, onClose, onSaved }) {
+  const { addToast } = useToast();
+  // A primeira parcela ativa é a que carrega o pedido; `grupo_todo` estende às
+  // irmãs que ainda não saíram.
+  const alvo = (grupo.parcelas || []).find(p => p.status === 'ativa') || (grupo.parcelas || [])[0];
+  const [campos, setCampos] = useState({
+    description: grupo.descricao_base || '',
+    amount: String(grupo.valor_parcela ?? ''),
+    mes: String(alvo?.mes ?? ''),
+    ano: String(alvo?.ano ?? ''),
+    unidades: alvo?.unidades || '',
+  });
+  const [motivo, setMotivo] = useState('');
+  const [grupoTodo, setGrupoTodo] = useState((grupo.parcelas || []).length > 1);
+  const [loading, setLoading] = useState(false);
+
+  // Só o que MUDOU vai no pedido. Mandar tudo faria quem aprova reler campos
+  // idênticos procurando a diferença.
+  function mudancas() {
+    const out = {};
+    if (campos.description.trim() && campos.description.trim() !== (grupo.descricao_base || '')) out.description = campos.description.trim();
+    const v = parseFloat(String(campos.amount).replace(',', '.'));
+    if (Number.isFinite(v) && v !== Number(grupo.valor_parcela)) out.amount = v;
+    if (Number(campos.mes) && Number(campos.mes) !== alvo?.mes) out.mes = Number(campos.mes);
+    if (Number(campos.ano) && Number(campos.ano) !== alvo?.ano) out.ano = Number(campos.ano);
+    if ((campos.unidades || '').trim() !== (alvo?.unidades || '')) out.unidades = campos.unidades.trim();
+    return out;
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const proposta = mudancas();
+    if (!Object.keys(proposta).length) { addToast('Nada mudou — altere algum campo.', 'warning'); return; }
+    if (!motivo.trim()) { addToast('Diga por que a alteração é necessária.', 'warning'); return; }
+    setLoading(true);
+    try {
+      const r = await apiFetch('/api/cobrancas-extras/' + alvo.id + '/alterar', {
+        method: 'POST',
+        body: JSON.stringify({ proposta, motivo: motivo.trim(), grupo_todo: grupoTodo }),
+      });
+      addToast('Alteração enviada para aprovação' + (r?.cobrancas_afetadas > 1 ? ' (' + r.cobrancas_afetadas + ' parcelas)' : '') + '.', 'success');
+      onSaved();
+      onClose();
+    } catch (err) {
+      addToast(err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const proposta = mudancas();
+  const CAMPO = 'w-full bg-slate-100 border border-slate-300 rounded-lg p-2.5 text-sm text-slate-800 outline-none focus:border-violet-500';
+  const ROT = 'text-[10px] text-slate-500 font-bold uppercase tracking-wider';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+      <div className="bg-white border border-slate-300 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <Pencil className="w-5 h-5 text-violet-500" />
+            <h3 className="text-lg font-bold text-slate-800">Alterar cobrança</h3>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-700"><X className="w-5 h-5" /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+          <div>
+            <label className={ROT}>Descrição</label>
+            <input value={campos.description} onChange={e => setCampos({ ...campos, description: e.target.value })} className={CAMPO + ' mt-1'} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={ROT}>Valor</label>
+              <input value={campos.amount} onChange={e => setCampos({ ...campos, amount: e.target.value })}
+                inputMode="decimal" className={CAMPO + ' mt-1'} />
+            </div>
+            <div>
+              <label className={ROT}>Unidade(s)</label>
+              <input value={campos.unidades} onChange={e => setCampos({ ...campos, unidades: e.target.value })} className={CAMPO + ' mt-1'} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={ROT}>Mês</label>
+              <select value={campos.mes} onChange={e => setCampos({ ...campos, mes: e.target.value })} className={CAMPO + ' mt-1 cursor-pointer'}>
+                {MESES_ALT.slice(1).map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={ROT}>Ano</label>
+              <input value={campos.ano} onChange={e => setCampos({ ...campos, ano: e.target.value })}
+                inputMode="numeric" className={CAMPO + ' mt-1'} />
+            </div>
+          </div>
+
+          {(grupo.parcelas || []).length > 1 && (
+            <label className="flex items-start gap-2.5 cursor-pointer rounded-lg border border-violet-200 bg-violet-50 p-3">
+              <input type="checkbox" checked={grupoTodo} onChange={e => setGrupoTodo(e.target.checked)}
+                className="w-4 h-4 mt-0.5 accent-violet-600 shrink-0" />
+              <span className="text-xs text-slate-700">
+                Aplicar às <strong>{grupo.parcelas.length} parcelas</strong> deste lançamento.
+                Mudar o valor de uma parcela quase sempre é querer mudar o das que ainda não saíram.
+              </span>
+            </label>
+          )}
+
+          <div>
+            <label className={ROT}>Por que a alteração <span className="text-rose-500">*</span></label>
+            <textarea required rows={3} value={motivo} onChange={e => setMotivo(e.target.value)}
+              placeholder="Ex.: o gerente responsável só entra em outubro — a cobrança acompanha."
+              className={CAMPO + ' mt-1 resize-y'} />
+            <p className="text-[11px] text-slate-500 mt-1">Quem aprova decide com isto. Sem o motivo, decide no escuro.</p>
+          </div>
+
+          {Object.keys(proposta).length > 0 && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-800 mb-1.5">O que vai mudar</p>
+              {'description' in proposta && <p className="text-xs text-amber-900">Descrição: <s>{grupo.descricao_base}</s> → <strong>{proposta.description}</strong></p>}
+              {'amount' in proposta && <p className="text-xs text-amber-900">Valor: <s>R$ {Number(grupo.valor_parcela).toFixed(2)}</s> → <strong>R$ {proposta.amount.toFixed(2)}</strong></p>}
+              {('mes' in proposta || 'ano' in proposta) && (
+                <p className="text-xs text-amber-900">
+                  Competência: <s>{MESES_ALT[alvo?.mes]}/{alvo?.ano}</s> → <strong>{MESES_ALT[proposta.mes ?? alvo?.mes]}/{proposta.ano ?? alvo?.ano}</strong>
+                </p>
+              )}
+              {'unidades' in proposta && <p className="text-xs text-amber-900">Unidades: <s>{alvo?.unidades || '—'}</s> → <strong>{proposta.unidades || '—'}</strong></p>}
+            </div>
+          )}
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-[11px] text-slate-600">
+              Enquanto a alteração espera decisão, esta cobrança <strong>não entra em emissão</strong>.
+            </p>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-slate-300 text-sm font-bold text-slate-600 hover:bg-slate-100">
+              Cancelar
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex-1 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-bold hover:bg-violet-500 disabled:opacity-50">
+              {loading ? 'Enviando…' : 'Pedir alteração'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Modal: Solicitar Cancelamento ────────────────────────────────
 function ModalCancelar({ cobranca, onClose, onSaved }) {
   const { addToast } = useToast();
@@ -438,6 +600,9 @@ export default function CobrancasExtrasPage() {
   const [loading, setLoading] = useState(false);
   const [modalLancar, setModalLancar] = useState(false);
   const [modalCancelar, setModalCancelar] = useState(null);
+  const [modalAlterar, setModalAlterar] = useState(null);
+  const [alteracoes, setAlteracoes] = useState([]);
+  const [decidindo, setDecidindo] = useState(null);
   const [search, setSearch] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos'); // 'todos' | 'ativa' | 'cancelamento'
   const [loadingCondos, setLoadingCondos] = useState(true);
@@ -481,12 +646,16 @@ export default function CobrancasExtrasPage() {
     if (!condoSel) return;
     setLoading(true);
     try {
-      const [res, res2] = await Promise.all([
+      // As três juntas: cada ida ao servidor custa o mesmo pedágio, e pedir uma
+      // depois da outra triplicaria a espera de abrir a tela.
+      const [res, res2, res3] = await Promise.all([
         apiFetch(`/api/cobrancas-extras/${condoSel}`),
         podeExecutar ? apiFetch('/api/cobrancas-extras/cancelamentos-pendentes') : Promise.resolve(null),
+        podeExecutar ? apiFetch('/api/cobrancas-extras/alteracoes-pendentes') : Promise.resolve(null),
       ]);
       setCobrancas(res.cobrancas || []);
       if (res2) setCancelamentos(res2.pendentes || []);
+      if (res3) setAlteracoes(res3.pendentes || []);
     } catch (err) {
       addToast(err.message, 'error');
     } finally {
@@ -495,6 +664,27 @@ export default function CobrancasExtrasPage() {
   }, [condoSel, podeExecutar, addToast]);
 
   useEffect(() => { carregar(); }, [carregar]);
+
+  async function handleDecidirAlteracao(cobranca, aprovar) {
+    let motivo = null;
+    if (!aprovar) {
+      motivo = window.prompt('Por que a alteração foi recusada?\n(quem pediu precisa saber o que fazer em seguida)', '');
+      if (motivo === null) return;
+    }
+    setDecidindo(cobranca.id);
+    try {
+      await apiFetch('/api/cobrancas-extras/' + cobranca.id + '/alteracao/decidir', {
+        method: 'POST',
+        body: JSON.stringify({ aprovar, motivo: motivo || null }),
+      });
+      addToast(aprovar ? 'Alteração aplicada.' : 'Alteração recusada.', aprovar ? 'success' : 'warning');
+      carregar();
+    } catch (err) {
+      addToast(err.message, 'error');
+    } finally {
+      setDecidindo(null);
+    }
+  }
 
   async function handleExecutarCancelamento(grupo_id) {
     try {
@@ -674,6 +864,9 @@ export default function CobrancasExtrasPage() {
                     <a href={grupo.attachments[0]} target="_blank" rel="noreferrer" className="tap shrink-0 text-slate-400" title="Ver documento"><FileText className="w-4 h-4" /></a>
                   )}
                   {podeSolicitar && grupo.status === 'ativa' && (
+                    <button onClick={() => setModalAlterar(grupo)} className="tap shrink-0 text-slate-400" aria-label="Pedir alteração"><Pencil className="w-4 h-4" /></button>
+                  )}
+                  {podeSolicitar && grupo.status === 'ativa' && (
                     <button onClick={() => setModalCancelar(grupo)} className="tap shrink-0 text-slate-400" aria-label="Solicitar cancelamento"><Trash2 className="w-4 h-4" /></button>
                   )}
                 </div>
@@ -792,6 +985,62 @@ export default function CobrancasExtrasPage() {
       )}
 
       {/* Cancelamentos pendentes — só para Emissor/Master */}
+      {/* Alterações esperando decisão.
+          Fica antes dos cancelamentos porque é a fila que anda: cancelamento é
+          raro, alteração de mês acontece todo início de ciclo. */}
+      {podeExecutar && alteracoes.length > 0 && (
+        <div className="bg-violet-500/5 border border-violet-500/20 rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-violet-500/10 flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-violet-500" />
+            <h3 className="text-sm font-bold text-violet-700">Alterações aguardando sua decisão ({alteracoes.length})</h3>
+          </div>
+          <div className="divide-y divide-violet-500/10">
+            {alteracoes.map(a => {
+              const p = a.alteracao_proposta || {};
+              const MES = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+              return (
+                <div key={a.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-800">
+                      {a.description} — {a.condominios?.name || '—'}
+                    </p>
+                    {/* De → para, campo a campo. Quem decide precisa ver a
+                        diferença, não os dois estados inteiros. */}
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-600">
+                      {'amount' in p && (
+                        <span>valor <s className="text-slate-400">R$ {Number(a.amount).toFixed(2)}</s> → <strong>R$ {Number(p.amount).toFixed(2)}</strong></span>
+                      )}
+                      {('mes' in p || 'ano' in p) && (
+                        <span>competência <s className="text-slate-400">{MES[a.mes]}/{a.ano}</s> → <strong>{MES[p.mes ?? a.mes]}/{p.ano ?? a.ano}</strong></span>
+                      )}
+                      {'description' in p && (
+                        <span>descrição → <strong>{p.description}</strong></span>
+                      )}
+                      {'unidades' in p && (
+                        <span>unidades <s className="text-slate-400">{a.unidades || '—'}</s> → <strong>{p.unidades || '—'}</strong></span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      {a.alteracao_pedida_por ? a.alteracao_pedida_por + ': ' : ''}<em>{a.alteracao_motivo}</em>
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => handleDecidirAlteracao(a, false)} disabled={decidindo === a.id}
+                      className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-50">
+                      Recusar
+                    </button>
+                    <button onClick={() => handleDecidirAlteracao(a, true)} disabled={decidindo === a.id}
+                      className="px-4 py-2 rounded-lg bg-violet-600 text-white text-xs font-bold hover:bg-violet-500 disabled:opacity-50 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> {decidindo === a.id ? '…' : 'Aprovar'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {podeExecutar && cancelamentos.length > 0 && (
         <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl overflow-hidden">
           <div className="px-6 py-4 border-b border-rose-500/10 flex items-center gap-2">
@@ -868,10 +1117,22 @@ export default function CobrancasExtrasPage() {
                       <FileText className="w-4 h-4" />
                     </a>
                   )}
+                  {grupo.parcelas?.some(p => p.alteracao_proposta) && (
+                    <span className="text-[10px] font-bold bg-violet-500/10 text-violet-600 border border-violet-500/20 px-2 py-1 rounded"
+                      title="Não entra em emissão até alguém decidir">
+                      Alteração pendente
+                    </span>
+                  )}
                   {grupo.status === 'solicitado_cancelamento' && (
                     <span className="text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-1 rounded">
                       Cancelamento solicitado
                     </span>
+                  )}
+                  {podeSolicitar && grupo.status === 'ativa' && (
+                    <button onClick={() => setModalAlterar(grupo)}
+                      className="text-slate-600 hover:text-violet-500 transition-colors" title="Pedir alteração (valor, mês, descrição)">
+                      <Pencil className="w-4 h-4" />
+                    </button>
                   )}
                   {podeSolicitar && grupo.status === 'ativa' && (
                     <button onClick={() => setModalCancelar(grupo)}
@@ -917,6 +1178,9 @@ export default function CobrancasExtrasPage() {
       )}
       {modalCancelar && (
         <ModalCancelar cobranca={modalCancelar} onClose={() => setModalCancelar(null)} onSaved={carregar} />
+      )}
+      {modalAlterar && (
+        <ModalAlterar grupo={modalAlterar} onClose={() => setModalAlterar(null)} onSaved={carregar} />
       )}
     </div>
   );
