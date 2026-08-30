@@ -448,6 +448,8 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
   const [salvandoSituacao, setSalvandoSituacao] = useState(false);
   const emOperacao = u.condominios_em_operacao ?? 0;
   const naCarteira = u.condominios_total ?? 0;
+  // Os que estão na carteira mas ainda não entraram — os que virão junto.
+  const esperando = Math.max(naCarteira - emOperacao, 0);
 
   async function mudarSituacao(novoAtivo) {
     // Inativar quem tem carteira VIVA é diferente de inativar quem só tem
@@ -458,6 +460,17 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
         `${u.full_name} tem ${emOperacao} condomínio${emOperacao !== 1 ? 's' : ''} em operação.\n\n` +
         'Inativando agora, o quadro do mês deixa de abrir para eles até alguém assumir a carteira.\n\n' +
         'Continuar mesmo assim?'
+      );
+      if (!ok) return;
+    }
+
+    // Liberar o gerente traz a carteira dele junto: o condomínio vem com quem
+    // cuida dele, e quem clica precisa saber quantos entram antes de clicar.
+    if (novoAtivo && esperando > 0) {
+      const ok = window.confirm(
+        'Liberar ' + u.full_name + ' traz ' + esperando + ' condomínio' + (esperando !== 1 ? 's' : '') +
+        ' da carteira dele para a operação.\n\n' +
+        'A partir daí eles contam no painel e recebem quadro de mês.\n\nContinuar?'
       );
       if (!ok) return;
     }
@@ -476,8 +489,9 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
       });
       setAtivo(novoAtivo);
       addToast(
-        novoAtivo ? `${u.full_name} voltou para a operação.`
-                  : `${u.full_name} saiu da operação${r?.condominios_na_carteira ? ` — ${r.condominios_na_carteira} condomínios na carteira dele` : ''}.`,
+        novoAtivo
+          ? `${u.full_name} voltou para a operação${r?.condominios_que_entraram ? ` — ${r.condominios_que_entraram} condomínios entraram junto` : ''}.`
+          : `${u.full_name} saiu da operação${r?.condominios_na_carteira ? ` — ${r.condominios_na_carteira} condomínios continuam na carteira dele` : ''}.`,
         novoAtivo ? 'success' : 'warning',
       );
       onSync?.();
@@ -513,8 +527,9 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
           <h3 className="font-bold text-slate-800 truncate flex items-center gap-2">
             <span className="truncate">{u.full_name || 'Usuário'}</span>
             {isGerente && !ativo && (
-              <span className="shrink-0 rounded-md border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500">
-                fora da operação
+              <span className="shrink-0 rounded-md border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500"
+                title={esperando ? `${esperando} condomínios entram junto quando ele for liberado` : undefined}>
+                fora da operação{esperando ? ` · ${esperando}` : ''}
               </span>
             )}
           </h3>

@@ -3317,7 +3317,38 @@ def api_situacao_gerente(
     orfaos = (db.table("condominios").select("id", count="exact")
                 .eq("gerente_id", gerente_id).limit(1).execute().count or 0)
 
-    return {"success": True, "ativo": bool(data.ativo), "condominios_na_carteira": orfaos}
+    # A carteira entra JUNTO com quem cuida dela.
+    #
+    # O condominio vem com o gerente: quando ele e liberado, os que estao
+    # esperando entrar passam a valer no mesmo ato. Sem isto, liberar o Iago em
+    # outubro deixaria os 7 condominios dele parados em "a entrar", e alguem
+    # teria de habilitar um por um sem nenhum motivo — a decisao ja foi tomada
+    # ao liberar o gerente.
+    #
+    # O contrario NAO acontece: inativar o gerente nao tira os condominios da
+    # operacao. Um cliente nao deixa de ser cliente porque quem cuidava dele
+    # saiu da empresa; o que falta ali e dono, e isso se resolve passando a
+    # carteira, nao apagando o cliente do painel.
+    entraram = 0
+    if data.ativo:
+        pendentes = (db.table("condominios").select("id")
+                       .eq("gerente_id", gerente_id).eq("situacao", "a_entrar")
+                       .execute().data or [])
+        ids = [c["id"] for c in pendentes]
+        for i in range(0, len(ids), 100):
+            r = (db.table("condominios")
+                   .update({"situacao": "ativo", "situacao_desde": _dt.now().date().isoformat()})
+                   .in_("id", ids[i:i + 100]).execute())
+            entraram += len(r.data or [])
+        if entraram:
+            print(f"[gerentes/situacao] {entraram} condominios entraram em operacao com o gerente {gerente_id}")
+
+    return {
+        "success": True,
+        "ativo": bool(data.ativo),
+        "condominios_na_carteira": orfaos,
+        "condominios_que_entraram": entraram,
+    }
 
 
 class TransferirCarteiraSchema(BaseModel):
