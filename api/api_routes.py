@@ -3221,6 +3221,62 @@ def api_executar_cancelamento(
 # Gerente na operacao, e a carteira que ele deixa para tras
 # =============================================================================
 
+class SituacaoCondominioSchema(BaseModel):
+    situacao: str                      # ativo | a_entrar | encerrado
+    nota: Optional[str] = None
+
+
+@router.post("/condominios/{condominio_id}/situacao")
+def api_situacao_condominio(
+    condominio_id: str,
+    data: SituacaoCondominioSchema,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Coloca o condominio em operacao, tira, ou encerra.
+
+    Sao 325 cadastrados e 66 emitindo: os outros ja existem e vao entrar. Sem
+    esta rota eles ficariam presos em 'a_entrar' para sempre — a classificacao
+    inicial saiu do historico de emissoes, mas a ENTRADA de um cliente novo e
+    uma decisao de gente, e precisa de um lugar para ser tomada.
+
+    Colocar em operacao e o que faz o condominio voltar a existir para o painel:
+    a partir dai ele conta, recebe quadro de mes e aparece na lista de trabalho.
+    """
+    require_role(user, ROLES_EXECUTA_CANCEL)   # master e departamento
+
+    if data.situacao not in ("ativo", "a_entrar", "encerrado"):
+        raise HTTPException(400, "Situacao invalida.")
+
+    atual = (db.table("condominios").select("id, name, situacao, gerente_id")
+               .eq("id", condominio_id).maybe_single().execute().data)
+    if not atual:
+        raise HTTPException(404, "Condominio nao encontrado.")
+
+    aviso = None
+    if data.situacao == "ativo":
+        # Entrar em operacao sem gerente ativo e entrar para ninguem: o quadro
+        # do mes abre por carteira, e carteira de gerente fora da operacao nao
+        # abre. Nao bloqueia — avisa, porque quem cadastra o cliente nem sempre
+        # e quem define o gerente.
+        gid = atual.get("gerente_id")
+        if not gid:
+            aviso = "Este condominio nao tem gerente. O quadro do mes nao vai abrir para ele."
+        else:
+            g = (db.table("gerentes").select("ativo, nome").eq("id", gid).maybe_single().execute().data) or {}
+            if g.get("ativo") is False:
+                aviso = "O gerente deste condominio esta fora da operacao. Passe a carteira para alguem ativo, senao o quadro do mes nao abre."
+
+    db.table("condominios").update({
+        "situacao": data.situacao,
+        "situacao_desde": _dt.now().date().isoformat(),
+        "situacao_nota": (data.nota or "").strip() or None,
+    }).eq("id", condominio_id).execute()
+
+    print(f"[condominios/situacao] {atual.get('name')}: {atual.get('situacao')} -> {data.situacao} por {user.get('email')}")
+    return {"success": True, "situacao": data.situacao, "aviso": aviso}
+
+
 class SituacaoGerenteSchema(BaseModel):
     ativo: bool
     ativo_desde: Optional[str] = None     # "2026-09-01" — para quem comeca depois

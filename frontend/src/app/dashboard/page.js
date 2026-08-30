@@ -484,6 +484,27 @@ export default function DashboardPage() {
   // boa pergunta para alguem fazer todo mes, e um numero que ninguem ve e um
   // numero que ninguem confere.
   const aEntrar = data?.a_entrar || [];
+
+  // Colocar em operacao: e o que faz o condominio passar a existir para o
+  // painel. A classificacao inicial saiu do historico de emissoes, mas a
+  // ENTRADA de um cliente novo e decisao de gente e precisa de um lugar para
+  // ser tomada — este e o lugar, na propria lista de quem espera.
+  const [habilitando, setHabilitando] = useState(null);
+  async function habilitarCondominio(condo) {
+    const pergunta = 'Colocar ' + condo.name + ' em operação?\n\n'
+      + 'A partir de agora ele conta no painel, recebe quadro de mês e entra na lista de trabalho.';
+    if (!window.confirm(pergunta)) return;
+    setHabilitando(condo.id);
+    try {
+      const r = await apiPost('/api/condominios/' + condo.id + '/situacao', { situacao: 'ativo' });
+      addToast(r?.aviso || (condo.name + ' entrou em operação.'), r?.aviso ? 'warning' : 'success');
+      mutate();
+    } catch (e) {
+      addToast(e.message || 'Nao foi possivel habilitar.', 'error');
+    } finally {
+      setHabilitando(null);
+    }
+  }
   // Filtro por situação — o mesmo de Fazer Emissões, porque o painel virou a
   // tela de trabalho de quem emite: a linha inteira já leva para a emissão.
   const SITUACOES = [
@@ -995,6 +1016,18 @@ export default function DashboardPage() {
                                 <Link href={`/condominio/${c.id}/arrecadacoes`} className={btn.iconeDiscreto} title="Arrecadações" aria-label="Arrecadações"><Layers className="w-4 h-4" aria-hidden="true" /></Link>
                                 <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className={btn.iconeDiscreto} title="Cobranças" aria-label="Cobranças"><Receipt className="w-4 h-4" aria-hidden="true" /></Link>
                               </>
+                            )}
+                            {/* Só na lista de quem espera: é a ação que
+                                falta para o condomínio deixar de esperar.
+                                Fora dessa lista o botão não teria sentido. */}
+                            {situacao === 'a_entrar' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); habilitarCondominio(c); }}
+                                disabled={habilitando === c.id}
+                                title="Colocar em operação: passa a contar no painel e a receber quadro de mês"
+                                className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 transition-colors hover:bg-emerald-500/20 disabled:opacity-50">
+                                {habilitando === c.id ? '…' : 'Colocar em operação'}
+                              </button>
                             )}
                             <button onClick={() => handleQuickView(c.id)}   className={btn.iconeDiscreto} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-4 h-4" aria-hidden="true" /></button>
                           </div>
