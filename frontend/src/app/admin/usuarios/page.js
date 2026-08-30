@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { ROLE_LABELS } from '@/lib/roles';
 import { useToast } from '@/components/Toast';
 import {
   Users, ShieldAlert, PlusCircle, Trash2, Mail, Loader2, X,
@@ -10,16 +11,39 @@ import {
   Eye, EyeOff, UserCog, Check, KeyRound, Copy
 } from 'lucide-react';
 
-const ROLES = [
-  { value: 'master', label: 'Master (Acesso Total)' },
-  { value: 'gerente', label: 'Gerente (Sua carteira)' },
-  { value: 'assistente', label: 'Assistente' },
-  { value: 'supervisora', label: 'Supervisora (Aprovações)' },
-  { value: 'supervisora_contabilidade', label: 'Sp. Contabilidade' },
-  { value: 'supervisor_gerentes', label: 'Supervisor dos Gerentes' },
-  { value: 'departamento', label: 'Departamento / Emissor' },
-  { value: 'sindico', label: 'Síndico' },
-];
+// A ordem em que os papéis aparecem, e o rótulo mais explicativo de cada um.
+// O que NÃO estiver aqui ainda entra na lista, no fim, com o rótulo de
+// roles.js — esta tabela decide a apresentação, não quem existe.
+const ORDEM = ['master', 'gerente', 'assistente', 'supervisora',
+               'supervisora_contabilidade', 'supervisor_gerentes',
+               'departamento', 'expedicao', 'sindico'];
+
+const ROTULO = {
+  master: 'Master (Acesso Total)',
+  gerente: 'Gerente (Sua carteira)',
+  supervisora: 'Supervisora (Aprovações)',
+  supervisora_contabilidade: 'Sp. Contabilidade',
+  supervisor_gerentes: 'Supervisor dos Gerentes',
+  departamento: 'Departamento / Emissor',
+  expedicao: 'Expedição (Imprime e entrega)',
+};
+
+// Sai de roles.js em vez de ser uma segunda lista escrita à mão.
+//
+// Era uma cópia, e a cópia esqueceu o `expedicao`: o papel existia no
+// ROUTE_ACCESS, nas policies da 0103 e no backend — mas não aqui, que é o único
+// lugar onde se cria gente. A tela de expedição inteira ficou sem ninguém que
+// pudesse abri-la. Derivando, o próximo papel aparece sozinho.
+//
+// `outros` fica de fora de propósito: é o padrão de quem entra sem permissão
+// nenhuma, não uma escolha que alguém faça.
+const ROLES = Object.keys(ROLE_LABELS)
+  .filter(r => r !== 'outros')
+  .sort((a, b) => {
+    const ia = ORDEM.indexOf(a), ib = ORDEM.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  })
+  .map(r => ({ value: r, label: ROTULO[r] || ROLE_LABELS[r] }));
 
 const roleStyle = {
   master: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
@@ -29,6 +53,7 @@ const roleStyle = {
   supervisora_contabilidade: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
   supervisor_gerentes: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
   departamento: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  expedicao: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   sindico: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   outros: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
 };
@@ -128,6 +153,14 @@ function ModalCriarUsuario({ onClose, onCreated, gerentes = [] }) {
           {form.role === 'gerente' && (
             <div className="bg-violet-500/10 border border-violet-500/20 rounded-lg p-3 text-xs text-violet-300">
               <strong>Dica:</strong> Após criar, clique em <strong>&quot;Gerenciar Carteira&quot;</strong> no card do gerente para vincular os condomínios.
+            </div>
+          )}
+
+          {form.role === 'expedicao' && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-xs text-amber-300">
+              <strong>O que ela vê:</strong> só a aba <strong>Expedição</strong> da Central de
+              Emissões — a fila de imprimir e entregar. Não vê painel, não faz emissão,
+              não aprova nada.
             </div>
           )}
 
