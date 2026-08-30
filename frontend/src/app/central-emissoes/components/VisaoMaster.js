@@ -30,6 +30,82 @@ import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
+/**
+ * Uma vaga de upload. Duas delas montam o "Expedir": boleto e filipeta.
+ *
+ * Fica FORA do VisaoMaster de propósito — componente declarado dentro de outro
+ * é recriado a cada render, e o React desmonta e remonta a árvore inteira: o
+ * arrasto em curso se perde e o campo pisca a cada tecla do formulário.
+ */
+function ZonaArquivos({ id, tipo, cor, titulo, ajuda, vazio, arquivos, statusUpload,
+                        desabilitado, destaque, onAdd, onRemove }) {
+  const [arrastando, setArrastando] = useState(false);
+  const borda = destaque
+    ? 'border-amber-400 bg-amber-50/60'
+    : arrastando
+      ? (cor === 'amber' ? 'border-amber-500/60 bg-amber-500/5' : 'border-emerald-500/60 bg-emerald-500/5')
+      : `border-slate-200 hover:bg-slate-100 ${cor === 'amber' ? 'hover:border-amber-500/30' : 'hover:border-emerald-500/30'}`;
+
+  return (
+    <div>
+      <label htmlFor={id} className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+        {titulo}
+        <span className="ml-2 text-slate-400 normal-case font-normal">{ajuda}</span>
+      </label>
+
+      <div
+        onClick={() => !desabilitado && document.getElementById(id).click()}
+        onDragOver={e => { e.preventDefault(); setArrastando(true); }}
+        onDragLeave={() => setArrastando(false)}
+        onDrop={e => { e.preventDefault(); setArrastando(false); onAdd(e.dataTransfer.files); }}
+        className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${borda} ${
+          desabilitado ? 'pointer-events-none opacity-50' : ''}`}
+      >
+        <Upload className={`w-7 h-7 mx-auto mb-2 ${destaque ? 'text-amber-500' : 'text-slate-400'}`} />
+        <p className="text-sm font-bold text-slate-500">{vazio}</p>
+        <p className="text-xs text-slate-400 mt-1">ou clique para selecionar</p>
+        <input id={id} type="file" multiple className="hidden"
+          onChange={e => { onAdd(e.target.files); e.target.value = ''; }} />
+      </div>
+
+      {arquivos.length > 0 && (
+        <div className="mt-3 space-y-2 max-h-40 overflow-y-auto">
+          {arquivos.map((file, i) => {
+            const st = statusUpload[`${tipo}:${file.name}`];
+            return (
+              <div key={`${file.name}-${file.size}`} className={`flex items-center gap-3 px-4 py-2.5 border rounded-xl transition-all ${
+                st === 'done'      ? 'bg-emerald-500/5 border-emerald-500/20' :
+                st === 'error'     ? 'bg-rose-500/5 border-rose-500/20' :
+                st === 'uploading' ? 'bg-violet-500/5 border-violet-500/20' :
+                'bg-slate-50 border-slate-200'
+              }`}>
+                <FileText className={`w-4 h-4 shrink-0 ${
+                  st === 'done' ? 'text-emerald-400' : st === 'error' ? 'text-rose-400' : 'text-slate-500'
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-700 truncate">{file.name}</p>
+                  <p className="text-[10px] text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+                {st === 'done'      && <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />}
+                {st === 'uploading' && <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />}
+                {st === 'error'     && <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />}
+                {!st && (
+                  <button type="button" onClick={e => { e.stopPropagation(); onRemove(i); }}
+                    aria-label={`Tirar ${file.name}`}
+                    className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function VisaoMaster() {
   const supabase = createClient();
   const { addToast } = useToast();
@@ -98,10 +174,13 @@ export default function VisaoMaster() {
   const [showExpedirModal, setShowExpedirModal]     = useState(false);
   const [pacoteExpedir, setPacoteExpedir]           = useState(null);
   const [dataExpedicao, setDataExpedicao]           = useState('');
-  const [arquivosExpedir, setArquivosExpedir]       = useState([]);   // File[]
-  const [statusUpload, setStatusUpload]             = useState({});   // {name: 'pending'|'uploading'|'done'|'error'}
+  // Duas listas, porque são dois papéis diferentes no envelope: o boleto e a
+  // filipeta (0110). Misturar tudo numa lista só é o que fazia a expedição
+  // receber dois documentos contados como um.
+  const [arquivosExpedir, setArquivosExpedir]       = useState([]);   // File[] — boletos
+  const [filipetasExpedir, setFilipetasExpedir]     = useState([]);   // File[] — filipetas
+  const [statusUpload, setStatusUpload]             = useState({});   // {'tipo:nome': 'uploading'|'done'|'error'}
   const [expedindo, setExpedindo]                   = useState(false);
-  const [dragOver, setDragOver]                     = useState(false);
 
   // ── Derivados ─────────────────────────────────────────────────────────────
   const pacotesDoMes = useMemo(
@@ -246,7 +325,7 @@ export default function VisaoMaster() {
       // para mostrar um mês.
       const { data, error } = await supabase
         .from('emissoes_pacotes')
-        .select('*, condominios(name)')
+        .select('*, condominios(name, usa_filipeta)')
         .eq('mes_referencia', mesAtivo)
         .eq('ano_referencia', anoAtivo)
         .order('criado_em', { ascending: false });
@@ -467,30 +546,52 @@ export default function VisaoMaster() {
     const now = new Date();
     setDataExpedicao(new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
     setArquivosExpedir([]);
+    setFilipetasExpedir([]);
     setStatusUpload({});
     setShowExpedirModal(true);
   }
 
-  function adicionarArquivos(files) {
-    const novos = Array.from(files).filter(
-      f => !arquivosExpedir.some(e => e.name === f.name && e.size === f.size)
-    );
-    setArquivosExpedir(prev => [...prev, ...novos]);
+  function adicionarArquivos(files, tipo = 'boleto') {
+    const set = tipo === 'filipeta' ? setFilipetasExpedir : setArquivosExpedir;
+    set(prev => {
+      const novos = Array.from(files).filter(
+        f => !prev.some(e => e.name === f.name && e.size === f.size)
+      );
+      return [...prev, ...novos];
+    });
   }
 
-  function removerArquivo(idx) {
-    setArquivosExpedir(prev => prev.filter((_, i) => i !== idx));
+  function removerArquivo(idx, tipo = 'boleto') {
+    const set = tipo === 'filipeta' ? setFilipetasExpedir : setArquivosExpedir;
+    set(prev => prev.filter((_, i) => i !== idx));
   }
 
   async function confirmarExpedir() {
     if (!dataExpedicao) return addToast('Informe a data e hora', 'error');
+
+    // Condomínio que manda filipeta todo mês e desta vez não mandou: perguntar
+    // AGORA custa um clique; descobrir depois custa reimprimir o envelope.
+    if (pacoteExpedir.condominios?.usa_filipeta && filipetasExpedir.length === 0
+        && !window.confirm(
+          `${pacoteExpedir.condominios?.name} manda filipeta junto com o boleto, ` +
+          'e nenhuma foi anexada.\n\nExpedir assim mesmo?')) {
+      return;
+    }
+
     setExpedindo(true);
     const selectedDate = new Date(dataExpedicao);
 
-    // Upload de cada arquivo
+    // Boletos e filipetas na mesma fila de upload, cada um com a SUA categoria
+    // — é ela que a expedição lê para saber o que está imprimindo.
+    const paraSubir = [
+      ...arquivosExpedir.map(file => ({ file, categoria: 'boleto' })),
+      ...filipetasExpedir.map(file => ({ file, categoria: 'filipeta' })),
+    ];
+
     const novoStatus = {};
-    for (const file of arquivosExpedir) {
-      novoStatus[file.name] = 'uploading';
+    for (const { file, categoria } of paraSubir) {
+      const chave = `${categoria}:${file.name}`;
+      novoStatus[chave] = 'uploading';
       setStatusUpload({ ...novoStatus });
       try {
         const ext      = file.name.split('.').pop().toLowerCase();
@@ -518,7 +619,7 @@ export default function VisaoMaster() {
           pacote_id:      pacoteExpedir.id,
           condominio_id:  pacoteExpedir.condominio_id,
           tipo:           'emissao',
-          categoria:      'boleto',
+          categoria:      categoria,
           arquivo_nome:   file.name,
           arquivo_url:    filePath,
           formato:        ext,
@@ -529,9 +630,9 @@ export default function VisaoMaster() {
         });
         if (dbErr) throw dbErr;
 
-        novoStatus[file.name] = 'done';
+        novoStatus[chave] = 'done';
       } catch (e) {
-        novoStatus[file.name] = 'error';
+        novoStatus[chave] = 'error';
         addToast(`Erro ao subir "${file.name}": ${e.message}`, 'error');
       }
       setStatusUpload({ ...novoStatus });
@@ -549,12 +650,37 @@ export default function VisaoMaster() {
     if (error) {
       addToast('Erro ao expedir', 'error');
     } else {
-      const qtd = arquivosExpedir.length;
+      const qtd = paraSubir.length;
       addToast(`Expedida${qtd > 0 ? ` com ${qtd} arquivo${qtd > 1 ? 's' : ''}` : ''}!`, 'success');
+      avisarExpedicao([pacoteExpedir.id]);
       setShowExpedirModal(false);
       setPacoteExpedir(null);
       setArquivosExpedir([]);
+      setFilipetasExpedir([]);
       fetchPacotes();
+    }
+  }
+
+  // Avisa o pessoal da expedição que entrou trabalho novo na fila deles.
+  //
+  // Não trava a expedição: se o aviso falhar (SMTP fora, ninguém cadastrado com
+  // o papel), a emissão já foi expedida do mesmo jeito e o toast só conta o que
+  // aconteceu. O contrário — segurar a expedição porque um e-mail não saiu —
+  // seria trocar um problema pequeno por um grande.
+  async function avisarExpedicao(ids) {
+    if (!ids?.length) return;
+    try {
+      const r = await apiPost('/api/expedicao/avisar', { pacote_ids: ids });
+      if (r?.notificados > 0) {
+        addToast(`Expedição avisada (${r.notificados} ${r.notificados === 1 ? 'pessoa' : 'pessoas'}).`, 'success');
+      } else {
+        addToast('Ninguém com o papel de expedição para avisar.', 'info');
+      }
+      if (r?.sem_filipeta?.length) {
+        addToast(`Sem filipeta: ${r.sem_filipeta.slice(0, 3).join(', ')}${r.sem_filipeta.length > 3 ? '…' : ''}`, 'error');
+      }
+    } catch (e) {
+      addToast('Expedido, mas o aviso à expedição falhou: ' + (e.message || e), 'error');
     }
   }
 
@@ -587,6 +713,7 @@ export default function VisaoMaster() {
     setFechandoMes(false);
     setShowFecharMesModal(false);
     addToast(`${ok} emissão(ões) expedida(s) e arquivada(s)!`, 'success');
+    if (ok > 0) avisarExpedicao(ids);
     fetchPacotes();
   }
 
@@ -1289,71 +1416,27 @@ export default function VisaoMaster() {
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 outline-none focus:border-emerald-500 transition-all disabled:opacity-50" />
               </div>
 
-              {/* Área de upload */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
-                  Boletos e Arquivos
-                  <span className="ml-2 text-slate-400 normal-case font-normal">— opcional, qualquer tamanho</span>
-                </label>
+              {/* Duas vagas, não uma pilha só: quem imprime precisa saber o
+                  que é boleto e o que é filipeta antes de abrir o arquivo. */}
+              <ZonaArquivos
+                id="expedir-boletos" tipo="boleto" cor="emerald"
+                titulo="Boletos" ajuda="— opcional, qualquer formato"
+                vazio="Arraste os boletos aqui"
+                arquivos={arquivosExpedir} statusUpload={statusUpload} desabilitado={expedindo}
+                onAdd={fs => adicionarArquivos(fs, 'boleto')}
+                onRemove={i => removerArquivo(i, 'boleto')} />
 
-                <div
-                  onClick={() => !expedindo && document.getElementById('expedir-file-input').click()}
-                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={e => { e.preventDefault(); setDragOver(false); adicionarArquivos(e.dataTransfer.files); }}
-                  className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-                    dragOver
-                      ? 'border-emerald-500/60 bg-emerald-500/5'
-                      : 'border-slate-200 hover:border-emerald-500/30 hover:bg-slate-100'
-                  } ${expedindo ? 'pointer-events-none opacity-50' : ''}`}
-                >
-                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-slate-500">Arraste os boletos aqui</p>
-                  <p className="text-xs text-slate-400 mt-1">ou clique para selecionar — PDF, imagens, qualquer formato</p>
-                  <input id="expedir-file-input" type="file" multiple className="hidden"
-                    onChange={e => { adicionarArquivos(e.target.files); e.target.value = ''; }} />
-                </div>
-
-                {/* Lista de arquivos selecionados */}
-                {arquivosExpedir.length > 0 && (
-                  <div className="mt-3 space-y-2 max-h-52 overflow-y-auto">
-                    {arquivosExpedir.map((file, i) => {
-                      const st = statusUpload[file.name];
-                      return (
-                        <div key={i} className={`flex items-center gap-3 px-4 py-2.5 border rounded-xl transition-all ${
-                          st === 'done'     ? 'bg-emerald-500/5 border-emerald-500/20' :
-                          st === 'error'    ? 'bg-rose-500/5 border-rose-500/20' :
-                          st === 'uploading'? 'bg-violet-500/5 border-violet-500/20' :
-                          'bg-slate-50 border-slate-200'
-                        }`}>
-                          <FileText className={`w-4 h-4 shrink-0 ${
-                            st === 'done' ? 'text-emerald-400' : st === 'error' ? 'text-rose-400' : 'text-slate-500'
-                          }`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-700 truncate">{file.name}</p>
-                            <p className="text-[10px] text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                          </div>
-                          {st === 'done'      && <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />}
-                          {st === 'uploading' && <Loader2 className="w-4 h-4 text-violet-400 animate-spin shrink-0" />}
-                          {st === 'error'     && <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />}
-                          {!st               && (
-                            <button onClick={() => removerArquivo(i)} className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {arquivosExpedir.length > 0 && !expedindo && (
-                  <p className="text-[10px] text-slate-400 mt-2 text-center">
-                    {arquivosExpedir.length} arquivo{arquivosExpedir.length > 1 ? 's' : ''} selecionado{arquivosExpedir.length > 1 ? 's' : ''} •{' '}
-                    {(arquivosExpedir.reduce((a, f) => a + f.size, 0) / 1024 / 1024).toFixed(2)} MB total
-                  </p>
-                )}
-              </div>
+              <ZonaArquivos
+                id="expedir-filipetas" tipo="filipeta" cor="amber"
+                titulo="Filipetas"
+                ajuda={pacoteExpedir.condominios?.usa_filipeta
+                  ? '— este condomínio manda filipeta'
+                  : '— só se este condomínio mandar'}
+                vazio="Arraste as filipetas aqui"
+                destaque={!!pacoteExpedir.condominios?.usa_filipeta && filipetasExpedir.length === 0}
+                arquivos={filipetasExpedir} statusUpload={statusUpload} desabilitado={expedindo}
+                onAdd={fs => adicionarArquivos(fs, 'filipeta')}
+                onRemove={i => removerArquivo(i, 'filipeta')} />
 
               {/* Botões */}
               <div className="flex gap-3 pt-2">
@@ -1365,8 +1448,8 @@ export default function VisaoMaster() {
                   className="flex-[2] py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                   {expedindo
                     ? <><Loader2 className="w-4 h-4 animate-spin" />
-                        {arquivosExpedir.length > 0
-                          ? `Enviando ${Object.values(statusUpload).filter(s => s === 'done').length}/${arquivosExpedir.length}...`
+                        {(arquivosExpedir.length + filipetasExpedir.length) > 0
+                          ? `Enviando ${Object.values(statusUpload).filter(s => s === 'done').length}/${arquivosExpedir.length + filipetasExpedir.length}...`
                           : 'Expedindo...'}
                       </>
                     : <><Rocket className="w-4 h-4" />Confirmar Expedição</>

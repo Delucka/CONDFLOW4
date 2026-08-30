@@ -847,6 +847,7 @@ class CondoData(BaseModel):
     tem_consumo: Optional[bool] = None   # 0091 — depende de concessionária
     prazo_expedicao_dia: Optional[str] = None   # 0096 — dia limite p/ expedir
     prioridade_motivo: Optional[str] = None      # 0096 — por que é prioritário
+    usa_filipeta: Optional[bool] = None          # 0110 — manda filipeta junto com o boleto
     assistente: Optional[str] = None   # ignorado
     fluxo: Optional[int] = None        # ignorado
 
@@ -1378,6 +1379,9 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
         # "" vira NULL em vez de estourar no INTEGER.
         "prazo_expedicao_dia": _dia_vencimento(data.prazo_expedicao_dia, "prazo de expedição"),
         "prioridade_motivo": ((data.prioridade_motivo or "").strip() or None),
+        # NOT NULL DEFAULT false (0110), mesmo caso do tem_consumo: None
+        # estouraria em vez de significar "deixa como está".
+        "usa_filipeta": bool(data.usa_filipeta),
     }
     try:
         if data.id:
@@ -1389,6 +1393,26 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
                 _garantir_grupos(db, novo[0]["id"], payload["due_day"], payload["due_day_2"])
     except Exception as e:
         msg = str(e)
+
+        # A 0110 pode não ter rodado ainda. Sem esta saída, o dia em que o código
+        # sobe antes da migration é o dia em que NINGUÉM consegue salvar
+        # condomínio — por causa de uma caixinha nova de marcar. Grava sem ela e
+        # deixa o rastro no log; a marca entra quando a coluna existir.
+        if "usa_filipeta" in msg and ("PGRST204" in msg or "schema cache" in msg):
+            print("[condominios/salvar] sem a coluna usa_filipeta (0110 não rodou); salvando sem ela")
+            payload.pop("usa_filipeta", None)
+            try:
+                if data.id:
+                    db.table("condominios").update(payload).eq("id", data.id).execute()
+                    _garantir_grupos(db, data.id, payload["due_day"], payload["due_day_2"])
+                else:
+                    novo = db.table("condominios").insert(payload).execute().data or []
+                    if novo:
+                        _garantir_grupos(db, novo[0]["id"], payload["due_day"], payload["due_day_2"])
+                return {"success": True, "aviso": "A marca de filipeta não foi salva: falta rodar a migration 0110."}
+            except Exception as e2:
+                msg = str(e2)
+
         print(f"[condominios/salvar] falhou: {msg} | payload={payload}")
         # Traduz os erros que já morderam aqui, para a tela não mostrar erro cru do Postgres
         if "PGRST204" in msg or "schema cache" in msg:
@@ -4718,6 +4742,152 @@ def _notificar_emissao_liberacao(db, edicoes, autor_nome):
     except Exception as e:
         # Notificação nunca pode derrubar a liberação em si.
         print(f"[liberar] notificação falhou: {type(e).__name__}")
+
+
+class AvisarExpedicaoSchema(BaseModel):
+    pacote_ids: List[str]
+
+
+def _notificar_expedicao(db, pacote_ids, autor_nome):
+    """Avisa a expedição que há remessa nova para imprimir.
+
+    Até aqui a expedição não era avisada de nada: descobria abrindo a tela e
+    reparando que a fila tinha crescido. Como é outro departamento, e não quem
+    mexe no sistema o dia inteiro, isso significava boleto parado esperando
+    alguém lembrar de olhar.
+
+    Um aviso por AÇÃO, não por pacote: expedir o mês inteiro são 60 pacotes de
+    uma vez, e 60 e-mails seriam 60 motivos para criar uma regra de caixa de
+    entrada que joga todos fora.
+    """
+    if not pacote_ids:
+        return {"notificados": 0}
+    try:
+        pacs = (db.table("emissoes_pacotes")
+                .select("id, condominio_id, mes_referencia, ano_referencia")
+                .in_("id", list(pacote_ids)).execute().data or [])
+        if not pacs:
+            return {"notificados": 0}
+
+        condos = {}
+        condo_ids = list({p["condominio_id"] for p in pacs if p.get("condominio_id")})
+        if condo_ids:
+            for c in (db.table("condominios").select("id, name, usa_filipeta, prazo_expedicao_dia")
+                      .in_("id", condo_ids).execute().data or []):
+                condos[c["id"]] = c
+
+        # Quantos arquivos de cada tipo chegaram junto. O número é o que diz se
+        # a remessa está inteira — e se a filipeta de quem manda filipeta veio.
+        arqs = (db.table("emissoes_arquivos").select("pacote_id, categoria")
+                .in_("pacote_id", [p["id"] for p in pacs])
+                .in_("categoria", ["boleto", "filipeta"]).execute().data or [])
+        por_pacote = {}
+        for a in arqs:
+            d = por_pacote.setdefault(a["pacote_id"], {"boleto": 0, "filipeta": 0})
+            d[a["categoria"]] = d.get(a["categoria"], 0) + 1
+
+        meses = sorted({(p["ano_referencia"], p["mes_referencia"]) for p in pacs})
+        rotulo = " · ".join(f"{_MES_NOME[m]}/{a}" for a, m in meses[:3])
+        if len(meses) > 3:
+            rotulo += f" (+{len(meses) - 3})"
+
+        linhas_dados, faltando, boletos = [], [], 0
+        for p in pacs:
+            c = condos.get(p.get("condominio_id")) or {}
+            nome = c.get("name") or "Condomínio"
+            cont = por_pacote.get(p["id"], {"boleto": 0, "filipeta": 0})
+            boletos += cont["boleto"]
+            linhas_dados.append((nome, cont, c))
+            if c.get("usa_filipeta") and not cont["filipeta"]:
+                faltando.append(nome)
+        linhas_dados.sort(key=lambda x: x[0])
+        faltando.sort()
+
+        n = len(pacs)
+        titulo = (f"Expedição: {linhas_dados[0][0]}" if n == 1
+                  else f"Expedição: {n} condomínios para imprimir")
+
+        def _corta(lista, teto):
+            if len(lista) <= teto:
+                return ", ".join(lista)
+            return ", ".join(lista[:teto]) + f" e mais {len(lista) - teto}"
+
+        mensagem = (f"{autor_nome} expediu {rotulo}. "
+                    f"{n} condomínio{'s' if n != 1 else ''}, "
+                    f"{boletos} arquivo{'s' if boletos != 1 else ''} de boleto: "
+                    f"{_corta([x[0] for x in linhas_dados], 8)}.")
+        if faltando:
+            mensagem += f" Sem filipeta ({len(faltando)}): {_corta(faltando, 6)}."
+
+        # No e-mail, uma linha por condomínio com o que veio dentro — e a linha
+        # de quem deveria ter filipeta e não tem sai destacada, porque é a única
+        # que exige alguém fazer alguma coisa antes de imprimir.
+        linhas = []
+        for nome, cont, c in linhas_dados:
+            partes = [f"{cont['boleto']} boleto{'s' if cont['boleto'] != 1 else ''}"]
+            if cont["filipeta"]:
+                partes.append(f"{cont['filipeta']} filipeta{'s' if cont['filipeta'] != 1 else ''}")
+            detalhe = " + ".join(partes)
+            alerta = ""
+            if c.get("usa_filipeta") and not cont["filipeta"]:
+                alerta = ' <span style="color:#b91c1c;font-weight:bold;">— falta a filipeta</span>'
+            prazo = ""
+            if c.get("prazo_expedicao_dia"):
+                prazo = (' <span style="color:#92700e;">· entregar até o dia '
+                         f'{c["prazo_expedicao_dia"]}</span>')
+            linhas.append(f'<span style="color:#0f1a3c;font-weight:bold;">{nome}</span> '
+                          f'<span style="color:#64748b;">{detalhe}</span>{alerta}{prazo}')
+
+        html = (f'<p style="margin:0 0 18px;color:#475569;font-size:14px;line-height:1.6;">'
+                f'{autor_nome} expediu {rotulo}. '
+                f'{n} condomínio{"s" if n != 1 else ""} '
+                f'{"entraram" if n != 1 else "entrou"} na fila de impressão.</p>'
+                f'<div style="border-left:3px solid #3b6fe0;padding:2px 0 2px 14px;margin-bottom:16px;">'
+                f'<p style="margin:0;font-size:13px;color:#334155;line-height:1.9;">'
+                + "<br>".join(linhas[:30])
+                + (f'<br><span style="color:#94a3b8;">e mais {len(linhas) - 30}</span>'
+                   if len(linhas) > 30 else '')
+                + '</p></div>')
+        if faltando:
+            html += (f'<div style="border-left:3px solid #dc2626;padding:2px 0 2px 14px;margin-bottom:16px;">'
+                     f'<p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#0f1a3c;">'
+                     f'{len(faltando)} sem filipeta</p>'
+                     f'<p style="margin:0;font-size:13px;color:#334155;line-height:1.7;">'
+                     f'{"<br>".join(faltando[:20])}</p>'
+                     f'<p style="margin:4px 0 0;font-size:12px;color:#92700e;line-height:1.6;">'
+                     f'Estes condomínios mandam filipeta todo mês e ela não veio nesta remessa. '
+                     f'Cobre antes de imprimir.</p></div>')
+        html += ('<p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">'
+                 'A fila fica em Central de Emissões, aba Expedição. '
+                 'Cada remessa tem o botão Impresso, que dá a baixa.</p>')
+
+        alvos = (db.table("profiles").select("id").eq("role", "expedicao").execute().data or [])
+        for p in alvos:
+            db.table("notificacoes").insert({
+                "user_id": p["id"], "tipo": "expedicao_nova",
+                "titulo": titulo[:120], "mensagem": mensagem[:1200],
+                "email_html": html,
+                "link": "/central-emissoes?tab=expedicao",
+            }).execute()
+        return {"notificados": len(alvos), "sem_filipeta": faltando}
+    except Exception as e:
+        # Aviso nunca derruba a expedição em si.
+        print(f"[expedicao] aviso falhou: {type(e).__name__}: {e}")
+        return {"notificados": 0, "erro": type(e).__name__}
+
+
+@router.post("/expedicao/avisar")
+def api_avisar_expedicao(data: AvisarExpedicaoSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Chamado pela tela logo depois de expedir.
+
+    Separado do ato de expedir de propósito: o aviso pode falhar (SMTP fora,
+    ninguém com o papel cadastrado) sem que a expedição deixe de acontecer."""
+    if user.get("role") not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas master/emissor avisa a expedição.")
+    if not data.pacote_ids:
+        return {"ok": True, "notificados": 0}
+    r = _notificar_expedicao(db, data.pacote_ids, user.get("full_name") or "A emissão")
+    return {"ok": True, **r}
 
 
 @router.post("/edicoes-mensais/{edicao_id}/responder-reabertura")

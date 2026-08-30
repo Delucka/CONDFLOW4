@@ -19,9 +19,13 @@ import Link from 'next/link';
  * duas remessas no mesmo mês, com boletos diferentes e datas diferentes, e a
  * expedição trata cada uma como um trabalho separado.
  *
- * Boleto aqui é `emissoes_arquivos.categoria = 'boleto'` — os arquivos que o
- * emissor anexa no "Expedir", depois de registrar. O resto do pacote (planilha,
- * faturas, rateio) não é assunto de quem imprime.
+ * Chegam duas categorias do "Expedir": `boleto` e `filipeta` (0110) — o
+ * informativo que alguns condomínios mandam no mesmo envelope. O resto do
+ * pacote (planilha, faturas, rateio) não é assunto de quem imprime.
+ *
+ * Condomínio marcado com `usa_filipeta` que chega sem filipeta aparece com o
+ * aviso na linha. Não trava: a remessa pode sair assim se for o caso, mas
+ * ninguém descobre depois de o envelope ter fechado.
  *
  * A baixa não arquiva: o arquivo continua ali para reimprimir e consultar.
  */
@@ -85,7 +89,7 @@ export default function Expedicao() {
       // Só emissões que já passaram do registro. Antes disso não existe boleto.
       const { data: pacs, error } = await supabase
         .from('emissoes_pacotes')
-        .select('id, condominio_id, mes_referencia, ano_referencia, status, grupo_id, condominios(name, due_day, prazo_expedicao_dia, prioridade_motivo)')
+        .select('id, condominio_id, mes_referencia, ano_referencia, status, grupo_id, condominios(name, due_day, prazo_expedicao_dia, prioridade_motivo, usa_filipeta)')
         .in('status', ['registrado', 'expedida']);
       if (error) throw error;
 
@@ -94,27 +98,36 @@ export default function Expedicao() {
       if (ids.length) {
         const { data: arqs } = await supabase
           .from('emissoes_arquivos')
-          .select('id, pacote_id, arquivo_nome, arquivo_url, impresso_em, impresso_por_nome, ordem, criado_em')
+          .select('id, pacote_id, arquivo_nome, arquivo_url, categoria, impresso_em, impresso_por_nome, ordem, criado_em')
           .in('pacote_id', ids)
-          // `categoria = 'boleto'` (0095) é o que o "Expedir" anexa. Antes o
-          // código marcava `status: 'expedida'`, valor que o enum nem aceita —
-          // o insert falhava calado e nenhum boleto chegou à tabela.
-          .eq('categoria', 'boleto')
+          // `categoria` (0095/0110) é o que o "Expedir" anexa. Antes o código
+          // marcava `status: 'expedida'`, valor que o enum nem aceita — o
+          // insert falhava calado e nenhum boleto chegou à tabela.
+          .in('categoria', ['boleto', 'filipeta'])
           .order('ordem', { ascending: true, nullsFirst: false })
           .order('criado_em', { ascending: true });
         (arqs || []).forEach(a => { (porPacote[a.pacote_id] = porPacote[a.pacote_id] || []).push(a); });
       }
 
       const comGrupo = await anexarGrupos(supabase, pacs || []);
-      // Pacote sem boleto anexado não é trabalho de expedição — ainda está com
+      // Pacote sem nada anexado não é trabalho de expedição — ainda está com
       // quem emite. Some da fila em vez de virar linha vazia.
       const lista = comGrupo
-        .map(p => ({
-          ...p,
-          boletos: porPacote[p.id] || [],
-          vencimento: p.grupo_due_day ?? p.condominios?.due_day ?? null,
-        }))
-        .filter(p => p.boletos.length > 0);
+        .map(p => {
+          const docs = porPacote[p.id] || [];
+          const filipetas = docs.filter(d => d.categoria === 'filipeta');
+          return {
+            ...p,
+            docs,
+            boletos: docs.filter(d => d.categoria !== 'filipeta'),
+            filipetas,
+            // Deveria ter filipeta e não tem. É o único estado desta tela que
+            // pede alguém fazer alguma coisa ANTES de imprimir.
+            faltaFilipeta: !!p.condominios?.usa_filipeta && filipetas.length === 0,
+            vencimento: p.grupo_due_day ?? p.condominios?.due_day ?? null,
+          };
+        })
+        .filter(p => p.docs.length > 0);
 
       setRemessas(lista);
     } catch (e) {
@@ -137,7 +150,7 @@ export default function Expedicao() {
     for (const r of remessas) {
       const chave = `${r.ano_referencia}-${String(r.mes_referencia).padStart(2, '0')}`;
       const atual = mapa.get(chave) || { chave, mes: r.mes_referencia, ano: r.ano_referencia, pendentes: 0 };
-      atual.pendentes += r.boletos.filter(b => !b.impresso_em).length ? 1 : 0;
+      atual.pendentes += r.docs.filter(b => !b.impresso_em).length ? 1 : 0;
       mapa.set(chave, atual);
     }
     return [...mapa.values()].sort((a, b) => b.chave.localeCompare(a.chave));
@@ -163,7 +176,8 @@ export default function Expedicao() {
     return remessas
       .filter(r => `${r.ano_referencia}-${String(r.mes_referencia).padStart(2, '0')}` === abaAtiva)
       .filter(r => {
-        const pendente = r.boletos.some(b => !b.impresso_em);
+        if (filtro === 'sem_filipeta') return r.faltaFilipeta;
+        const pendente = r.docs.some(b => !b.impresso_em);
         return filtro === 'pendentes' ? pendente : !pendente;
       })
       .filter(r => {
@@ -181,8 +195,8 @@ export default function Expedicao() {
 
   // ── Ações ──
   async function imprimir(r) {
-    if (r.boletos.length === 1) {
-      const ok = await abrirArquivoSeguro(r.boletos[0].arquivo_url);
+    if (r.docs.length === 1) {
+      const ok = await abrirArquivoSeguro(r.docs[0].arquivo_url);
       if (!ok) addToast('Não consegui abrir o arquivo.', 'error');
       return;
     }
@@ -192,14 +206,23 @@ export default function Expedicao() {
   }
 
   async function marcar(r, impresso) {
-    const ids = r.boletos.map(b => b.id);
+    // A baixa é da REMESSA inteira: boleto e filipeta saem na mesma impressão,
+    // e deixar a filipeta pendente sozinha faria a linha voltar para a fila
+    // sem nada para fazer nela.
+    const ids = r.docs.map(b => b.id);
     const payload = impresso
       ? { impresso_em: new Date().toISOString(), impresso_por_nome: user?.full_name || user?.email || null }
       : { impresso_em: null, impresso_por_nome: null };
 
     setMarcando(r.id);
     setRemessas(prev => prev.map(x => (x.id === r.id
-      ? { ...x, boletos: x.boletos.map(b => ({ ...b, ...payload })) } : x)));
+      ? {
+          ...x,
+          docs: x.docs.map(b => ({ ...b, ...payload })),
+          boletos: x.boletos.map(b => ({ ...b, ...payload })),
+          filipetas: x.filipetas.map(b => ({ ...b, ...payload })),
+        }
+      : x)));
 
     const { error } = await supabase.from('emissoes_arquivos').update(payload).in('id', ids);
     setMarcando(null);
@@ -207,7 +230,14 @@ export default function Expedicao() {
     addToast(impresso ? 'Baixa registrada.' : 'Voltou para a fila.', 'success');
   }
 
-  const totalBoletos = (r) => r.boletos.length;
+  // Quantos condomínios estão sem a filipeta que deveriam ter, no mês aberto.
+  // Zero esconde o filtro: aviso que fica na tela sem nunca acender é ruído.
+  const semFilipeta = useMemo(
+    () => remessas.filter(r =>
+      `${r.ano_referencia}-${String(r.mes_referencia).padStart(2, '0')}` === abaAtiva
+      && r.faltaFilipeta).length,
+    [remessas, abaAtiva],
+  );
 
   return (
     <div className="space-y-4">
@@ -251,7 +281,10 @@ export default function Expedicao() {
           )}
         </div>
         <div className="inline-flex border border-slate-200 rounded-xl overflow-hidden shrink-0">
-          {[{ id: 'pendentes', r: 'A imprimir' }, { id: 'impressos', r: 'Impressos' }].map(f => (
+          {[{ id: 'pendentes', r: 'A imprimir' },
+            { id: 'impressos', r: 'Impressos' },
+            ...(semFilipeta > 0 ? [{ id: 'sem_filipeta', r: `Sem filipeta (${semFilipeta})` }] : []),
+          ].map(f => (
             <button key={f.id} type="button" onClick={() => setFiltro(f.id)} aria-pressed={filtro === f.id}
               className={`px-3.5 py-2 text-xs transition-colors ${
                 filtro === f.id ? 'bg-violet-600 text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>
@@ -268,6 +301,7 @@ export default function Expedicao() {
           <Inbox className="w-12 h-12 text-slate-300 mx-auto mb-3" aria-hidden="true" />
           <p className="text-slate-500 font-medium">
             {busca ? 'Nada encontrado com esse termo.'
+              : filtro === 'sem_filipeta' ? 'Toda remessa deste mês veio com a filipeta.'
               : filtro === 'pendentes' ? 'Nada para imprimir neste mês.'
               : 'Nada foi impresso neste mês ainda.'}
           </p>
@@ -275,8 +309,8 @@ export default function Expedicao() {
       ) : (
         <div className="border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-200">
           {lista.map(r => {
-            const impresso = r.boletos.every(b => b.impresso_em);
-            const marca = r.boletos.find(b => b.impresso_em);
+            const impresso = r.docs.every(b => b.impresso_em);
+            const marca = r.docs.find(b => b.impresso_em);
             const aberto = expandido === r.id;
             return (
               <div key={r.id} className={impresso ? 'bg-slate-50' : 'bg-white'}>
@@ -297,7 +331,14 @@ export default function Expedicao() {
                       )}
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      {totalBoletos(r)} arquivo{totalBoletos(r) !== 1 ? 's' : ''} de boleto
+                      {r.boletos.length} boleto{r.boletos.length !== 1 ? 's' : ''}
+                      {r.filipetas.length > 0 && ` · ${r.filipetas.length} filipeta${r.filipetas.length !== 1 ? 's' : ''}`}
+                      {r.faltaFilipeta && (
+                        <span className="ml-2 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
+                              title="Este condomínio manda filipeta todo mês e ela não veio nesta remessa">
+                          FALTA A FILIPETA
+                        </span>
+                      )}
                     </p>
                   </div>
 
@@ -384,13 +425,19 @@ export default function Expedicao() {
 
                 {/* Mais de um arquivo: abre a lista em vez de disparar várias
                     abas de uma vez, que o navegador bloquearia. */}
-                {aberto && r.boletos.length > 1 && (
+                {aberto && r.docs.length > 1 && (
                   <div className="px-4 pb-3 pl-20 space-y-1">
-                    {r.boletos.map(b => (
+                    {r.docs.map(b => (
                       <button key={b.id} type="button" onClick={() => abrirArquivoSeguro(b.arquivo_url)}
                         className="flex items-center gap-2 text-xs text-slate-600 hover:text-violet-700 hover:underline">
-                        <FileText className="w-3.5 h-3.5 text-violet-500 shrink-0" aria-hidden="true" />
-                        {b.arquivo_nome}
+                        <FileText className={`w-3.5 h-3.5 shrink-0 ${
+                          b.categoria === 'filipeta' ? 'text-amber-500' : 'text-violet-500'}`} aria-hidden="true" />
+                        <span className="truncate">{b.arquivo_nome}</span>
+                        {b.categoria === 'filipeta' && (
+                          <span className="shrink-0 rounded border border-amber-200 bg-amber-50 px-1 text-[10px] font-bold text-amber-700">
+                            filipeta
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>

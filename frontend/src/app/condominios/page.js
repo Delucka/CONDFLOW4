@@ -46,7 +46,7 @@ export default function CondominiosPage() {
 
   const [moradoresDe, setMoradoresDe] = useState(null);   // condomínio do painel de moradores
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false, prazo_expedicao_dia: '', prioridade_motivo: '' });
+  const [formData, setFormData] = useState({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false, prazo_expedicao_dia: '', prioridade_motivo: '', usa_filipeta: false });
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
   const supabase = createClient();
 
@@ -212,10 +212,11 @@ export default function CondominiosPage() {
         cnpj: condo.cnpj || '',
         tem_consumo: !!condo.tem_consumo,
         prazo_expedicao_dia: condo.prazo_expedicao_dia ?? '',
-        prioridade_motivo: condo.prioridade_motivo || ''
+        prioridade_motivo: condo.prioridade_motivo || '',
+        usa_filipeta: !!condo.usa_filipeta
       });
     } else {
-      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false, prazo_expedicao_dia: '', prioridade_motivo: '' });
+      setFormData({ id: '', name: '', due_day: '', due_day_2: '', gerente_id: '', cnpj: '', tem_consumo: false, prazo_expedicao_dia: '', prioridade_motivo: '', usa_filipeta: false });
     }
     setModalOpen(true);
   }
@@ -696,6 +697,27 @@ export default function CondominiosPage() {
             </label>
           </div>
 
+          {/* Filipeta (0110). Marcar aqui é o que faz a expedição RECLAMAR
+              quando ela não vem — sem a marca, filipeta esquecida é igual a
+              filipeta que nunca existiu. */}
+          <div className="space-y-1.5">
+            <label className={LBL}>Expedição</label>
+            <label htmlFor="condo-filipeta"
+              className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 cursor-pointer hover:border-slate-300 transition-colors">
+              <input id="condo-filipeta" type="checkbox"
+                checked={!!formData.usa_filipeta}
+                onChange={e => setFormData({ ...formData, usa_filipeta: e.target.checked })}
+                className="mt-0.5 w-4 h-4 accent-amber-600 shrink-0" />
+              <span className="min-w-0">
+                <span className="block text-sm text-slate-800">Manda filipeta junto com o boleto</span>
+                <span className={AJUDA}>
+                  Abre a vaga da filipeta no <b>Expedir</b> e faz a fila de impressão avisar
+                  quando a remessa chegar sem ela.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div className="space-y-1.5">
               <label htmlFor="condo-gerente" className={LBL}>
@@ -1049,6 +1071,12 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores, onPriorid
                  <Calendar className="w-4 h-4 text-violet-500" />
                  <span className="text-xs font-bold">Vencimento: Dia {c.due_day || '—'}{c.due_day_2 ? ` e ${c.due_day_2}` : ''}</span>
                  {c.tem_consumo && <TagConsumo />}
+                 {c.usa_filipeta && (
+                   <span title="Manda filipeta junto com o boleto"
+                     className="rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                     FILIPETA
+                   </span>
+                 )}
                  <TagPrioritario condo={c} onEditar={onPrioridade} />
               </div>
               <div className="flex items-center gap-3 text-slate-400">
