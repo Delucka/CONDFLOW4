@@ -335,16 +335,6 @@ export default function ArrecadacoesPage() {
 
   const [showLiberar, setShowLiberar] = useState(false);
 
-  // Fechar a aba com mês preenchido e não liberado: o aviso do navegador é o
-  // único que funciona aqui. Não dá para mostrar a tela — o navegador não
-  // deixa —, mas dá para impedir que ele saia achando que terminou.
-  useEffect(() => {
-    if (!canEdit || faltaLiberar.length === 0) return;
-    const aviso = (e) => { e.preventDefault(); e.returnValue = ''; };
-    window.addEventListener('beforeunload', aviso);
-    return () => window.removeEventListener('beforeunload', aviso);
-  }, [canEdit, faltaLiberar.length]);
-
   async function liberarTodosMesesAbertos(forcar = false) {
     setEdicaoLoading(true);
     try {
@@ -447,6 +437,16 @@ export default function ArrecadacoesPage() {
   );
   
   const isEmissor = ['master', 'emissor'].includes(user?.role);
+
+  // Fechar a aba com mês preenchido e não liberado: o aviso do navegador é o
+  // único que funciona aqui. Não dá para mostrar a tela — o navegador não
+  // deixa —, mas dá para impedir que ele saia achando que terminou.
+  useEffect(() => {
+    if (!canEdit || faltaLiberar.length === 0) return;
+    const aviso = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', aviso);
+    return () => window.removeEventListener('beforeunload', aviso);
+  }, [canEdit, faltaLiberar.length]);
   
   const handleForceStatus = async (newStatus) => {
       // Optimistic UI - Update instantâneo local
