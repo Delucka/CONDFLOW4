@@ -4636,11 +4636,44 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
                 )
             mensagem = f"{autor_nome} abriu {rotulo}. " + ". ".join(partes) + "."
 
+            # O e-mail recebe os mesmos tres grupos em BLOCOS, com uma tarja de
+            # cor cada um — a cor diz o que fazer: azul preencher, verde nao e
+            # mais com voce, ambar conferir. Quem abre no celular entende sem
+            # ler tudo.
+            #
+            # O sino continua com a linha corrida: la o espaco e esse, e HTML na
+            # `mensagem` apareceria como tag na tela.
+            def _bloco(cor, titulo_b, corpo_b, nota=None):
+                h = (f'<div style="border-left:3px solid {cor};padding:2px 0 2px 14px;margin-bottom:16px;">'
+                     f'<p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#0f1a3c;">{titulo_b}</p>'
+                     f'<p style="margin:0;font-size:13px;color:#334155;line-height:1.7;">{corpo_b}</p>')
+                if nota:
+                    h += f'<p style="margin:4px 0 0;font-size:12px;color:#92700e;line-height:1.6;">{nota}</p>'
+                return h + '</div>'
+
+            html = (f'<p style="margin:0 0 18px;color:#475569;font-size:14px;line-height:1.6;">'
+                    f'{autor_nome} abriu o mês para a sua carteira.</p>')
+            if n_abriu:
+                html += _bloco("#3b6fe0", f"{n_abriu} para preencher",
+                               "Estão vazios e esperando os valores.")
+            if n_liberados:
+                html += _bloco("#16a34a",
+                               f"{n_liberados} já liberado{'s' if n_liberados != 1 else ''} — não volta{'m' if n_liberados != 1 else ''} para você",
+                               _lista(dados["liberados"], teto=20).replace(", ", "<br>"))
+            if n_prontos:
+                html += _bloco("#ea9214",
+                               f"{n_prontos} já preenchido{'s' if n_prontos != 1 else ''} — confira antes de liberar",
+                               _lista(dados["preenchidos"], teto=20).replace(", ", "<br>"),
+                               "Os valores foram digitados antes de o mês abrir. Confira se ainda valem.")
+            html += ('<p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">'
+                     'Sem liberação ninguém emite — nem agora, nem quando o mês chegar.</p>')
+
             # O teto e 1200, nao 240: aqui a lista de nomes E a informacao, e
             # cortar em 240 devolveria o problema que este aviso veio resolver.
             db.table("notificacoes").insert({
                 "user_id": pid, "tipo": "mes_aberto",
                 "titulo": titulo[:120], "mensagem": mensagem[:1200],
+                "email_html": html,
                 "link": "/aprovacoes",
             }).execute()
     except Exception as e:
