@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import StatusBadge from '@/components/StatusBadge';
 import { useAuth } from '@/lib/auth';
 import { useCondoNaCarteira } from '@/lib/carteira';
+import ModalLiberarMeses from '@/components/ModalLiberarMeses';
 import { useToast } from '@/components/Toast';
 import {
   Save, Lock, ArrowLeft, PlusCircle, X, Search,
@@ -303,56 +304,47 @@ export default function ArrecadacoesPage() {
   );
   const [showLiberarTodos, setShowLiberarTodos] = useState(false);
 
-  // ── Meses preenchidos que o master ainda NÃO abriu ────────────────────────
+  // A pré-aprovação direta saiu daqui.
   //
-  // Eles trabalham com previsão orçamentária anual: preenchem outubro,
-  // novembro e dezembro de uma vez. Até aqui, a previsão ficava parada
-  // esperando o master abrir cada mês para só então alguém confirmar — mês a
-  // mês, condomínio por condomínio, para um trabalho que já estava feito.
-  //
-  // Aqui o gerente aprova antes. Quando o master abrir depois, o que já está
-  // aprovado é preservado.
-  const mesesPreenchidosSemQuadro = useMemo(() => {
-    const comEdicao = new Set(edicoesCondo.map(e => e.mes_referencia));
-    const temValor = new Set();
+  // Ela virou a tela de liberação (ModalLiberarMeses), que faz o mesmo e mais:
+  // deixa escolher mês a mês, marcar a assembleia e explicar o mês vazio. Ter
+  // as duas seria ter dois caminhos para a mesma decisão — e o segundo é o que
+  // fica para trás quando a regra muda.
+
+  // Todos os meses com valor, liberados ou não — a tela de liberação decide o
+  // que fazer com cada um: liberar, travar por assembleia ou pedir motivo.
+  const mesesComValor = useMemo(() => {
+    const s = new Set();
     Object.values(rateiosVals || {}).forEach(porMes => {
       Object.entries(porMes || {}).forEach(([m, v]) => {
         const n = parseFloat(String(v ?? '').replace(',', '.'));
-        if (Number.isFinite(n) && n > 0) temValor.add(Number(m));
+        if (Number.isFinite(n) && n > 0) s.add(Number(m));
       });
     });
-    return [...temValor].filter(m => !comEdicao.has(m)).sort((a, b) => a - b);
-  }, [rateiosVals, edicoesCondo]);
+    return [...s].sort((a, b) => a - b);
+  }, [rateiosVals]);
 
-  const [preAprovando, setPreAprovando] = useState(false);
-  async function preAprovarMeses() {
-    setPreAprovando(true);
-    try {
-      // Salva antes: aprovar o que ainda não foi gravado aprovaria o que está
-      // no banco, não o que está na tela.
-      const ok = await handleSave(true);
-      if (!ok) { addToast('Não consegui salvar as alterações — corrija e tente de novo.', 'error'); return; }
-      const res = await apiPost('/api/edicoes-mensais/pre-aprovar', {
-        condominio_id: condoId,
-        competencias: mesesPreenchidosSemQuadro.map(m => ({ mes: m, ano: selectedYear })),
-      });
-      const n = res?.aprovadas ?? 0;
-      const puladas = res?.puladas_em_branco || [];
-      if (n) {
-        addToast(
-          n + (n === 1 ? ' mês aprovado' : ' meses aprovados') + ': ' + (res.meses || []).join(', ')
-          + '. A emissão foi avisada e você não precisa confirmar de novo quando o mês abrir.',
-          'success',
-        );
-      }
-      if (puladas.length) addToast('Ficaram de fora: ' + puladas.join(', ') + '.', 'warning');
-      await fetchEdicoes();
-    } catch (e) {
-      addToast(e.message || 'Não foi possível aprovar.', 'error');
-    } finally {
-      setPreAprovando(false);
-    }
-  }
+  // O que ainda falta liberar. É a condição para a tela aparecer: sem pendência
+  // ela não aparece, senão vira a caixa que todo mundo fecha no automático.
+  const faltaLiberar = useMemo(() => {
+    const liberados = new Set(
+      (edicoesCondo || []).filter(e => e.status === 'edicao_finalizada').map(e => e.mes_referencia),
+    );
+    return mesesComValor.filter(m => !liberados.has(m));
+  }, [mesesComValor, edicoesCondo]);
+
+  const [showLiberar, setShowLiberar] = useState(false);
+
+  // Fechar a aba com mês preenchido e não liberado: o aviso do navegador é o
+  // único que funciona aqui. Não dá para mostrar a tela — o navegador não
+  // deixa —, mas dá para impedir que ele saia achando que terminou.
+  useEffect(() => {
+    if (!canEdit || faltaLiberar.length === 0) return;
+    const aviso = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', aviso);
+    return () => window.removeEventListener('beforeunload', aviso);
+  }, [canEdit, faltaLiberar.length]);
+
   async function liberarTodosMesesAbertos(forcar = false) {
     setEdicaoLoading(true);
     try {
@@ -638,7 +630,14 @@ export default function ArrecadacoesPage() {
         if (procErr) throw procErr;
       }
 
-      if (!silent) addToast('Planilha salva com sucesso!', 'success');
+      if (!silent) {
+        addToast('Planilha salva com sucesso!', 'success');
+        // Salvou e ainda ha mes preenchido sem liberacao: e aqui que o gerente
+        // acha que terminou. A tela aparece agora, nao depois — depois ele ja
+        // fechou a aba. Salvamento automatico (silent) nao abre nada: seria
+        // uma janela pulando na cara de quem esta digitando.
+        if (canEdit && faltaLiberar.length > 0) setShowLiberar(true);
+      }
       return true;
     } catch (err) {
       addToast('Erro ao salvar algumas informações', 'error');
@@ -1112,20 +1111,20 @@ export default function ArrecadacoesPage() {
         {/* ── Meses preenchidos que ainda não têm quadro aberto ──
             Fica FORA do bloco abaixo de propósito: aquele só aparece quando já
             existe edição, e este serve justamente quando ainda não existe. */}
-        {mesesPreenchidosSemQuadro.length > 0 && canEdit && (
+        {faltaLiberar.length > 0 && canEdit && (
           <div className="mt-4 flex items-center justify-between gap-4 px-5 py-3 rounded-2xl bg-violet-500/5 border border-violet-500/30">
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-700">
-                Você preencheu <b>{mesesPreenchidosSemQuadro.length} {mesesPreenchidosSemQuadro.length === 1 ? 'mês' : 'meses'}</b> que ainda não foram abertos:{' '}
-                {mesesPreenchidosSemQuadro.map(m => MESES_CURTO_PRE[m]).join(', ')}.
+                <b>{faltaLiberar.length} {faltaLiberar.length === 1 ? 'mês preenchido' : 'meses preenchidos'}</b> ainda não {faltaLiberar.length === 1 ? 'foi liberado' : 'foram liberados'} para emissão:{' '}
+                {faltaLiberar.map(m => MESES_CURTO_PRE[m]).join(', ')}.
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Aprove agora e não precisa confirmar de novo quando o mês abrir.
+                Sem liberação ninguém emite — nem agora, nem quando o mês chegar.
               </p>
             </div>
-            <button onClick={preAprovarMeses} disabled={preAprovando || edicaoLoading}
+            <button onClick={() => setShowLiberar(true)} disabled={edicaoLoading}
               className="shrink-0 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-medium disabled:opacity-50">
-              {preAprovando ? 'Aprovando…' : `Aprovar ${mesesPreenchidosSemQuadro.length} ${mesesPreenchidosSemQuadro.length === 1 ? 'mês' : 'meses'}`}
+              Escolher o que liberar
             </button>
           </div>
         )}
@@ -1571,6 +1570,18 @@ export default function ArrecadacoesPage() {
       </>)}
 
       {/* ─── MODAL: LIBERAR TODOS OS MESES ABERTOS ─── */}
+      {showLiberar && (
+        <ModalLiberarMeses
+          condoId={condoId}
+          condoNome={condo?.name || 'Condomínio'}
+          ano={selectedYear}
+          mesesComValor={mesesComValor}
+          edicoes={edicoesCondo}
+          onFechar={() => setShowLiberar(false)}
+          onConcluido={fetchEdicoes}
+        />
+      )}
+
       {showLiberarTodos && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowLiberarTodos(false)} />
