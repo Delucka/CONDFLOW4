@@ -71,6 +71,10 @@ export default function ArrecadacoesPage() {
   const { addToast } = useToast();
 
   const condoId = params.id;
+  // O cliente fica no topo: funções acima dele já o usavam, e ainda que elas
+  // só rodem depois do render, ler de baixo para cima uma dependência que
+  // nasce lá embaixo é como se erra a zona morta na vez seguinte.
+  const supabase = useMemo(() => createClient(), []);
   const carteira = useCondoNaCarteira(condoId);
   const urlAno = searchParams.get('ano');
   const selectedYear = urlAno ? parseInt(urlAno) : new Date().getFullYear();
@@ -188,7 +192,6 @@ export default function ArrecadacoesPage() {
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
 
-  const supabase = useMemo(() => createClient(), []);
 
   // Pipeline config — prazo de edição com verificação em tempo real
   const { config: pipelineConfig } = usePipelineConfig(selectedYear);
@@ -279,6 +282,7 @@ export default function ArrecadacoesPage() {
     setEdicaoLoading(true);
     try {
       // Salva as alterações da planilha ANTES de finalizar (senão o gerente perderia o que editou)
+      // eslint-disable-next-line no-use-before-define -- roda em callback, depois do render
       const ok = await handleSave(true);
       if (!ok) { addToast('Não consegui salvar as alterações — corrija e tente de novo.', 'error'); return; }
       await apiPost(`/api/edicoes-mensais/${edicao.id}/liberar`, { forcar });
@@ -339,6 +343,7 @@ export default function ArrecadacoesPage() {
     setEdicaoLoading(true);
     try {
       // Salva antes de liberar (mesmo cuidado do "Liberar este mês")
+      // eslint-disable-next-line no-use-before-define -- roda em callback, depois do render
       const ok = await handleSave(true);
       if (!ok) { addToast('Não consegui salvar as alterações — corrija e tente de novo.', 'error'); return; }
       const ids = mesesAbertos.map(e => e.id);
@@ -476,6 +481,7 @@ export default function ArrecadacoesPage() {
     setAutoSaveState('saving');
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(async () => {
+      // eslint-disable-next-line no-use-before-define -- roda em callback, depois do render
       const ok = await handleSave(true);   // modo silencioso (sem toast)
       setAutoSaveState(ok ? 'saved' : 'idle');
       if (ok) setTimeout(() => setAutoSaveState(s => (s === 'saved' ? 'idle' : s)), 1800);

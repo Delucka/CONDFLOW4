@@ -282,6 +282,7 @@ export default function DashboardPage() {
   // ela veio de uma planilha de 2025 e nem sempre tem todas.
   function abrirEmissao(condo) {
     if (condo.tem_consumo) {
+        // eslint-disable-next-line no-use-before-define -- roda no clique, depois do render
       setConfirmarConsumo({ condo, concessionarias: concessionariasPorCondo[condo.id] || [] });
     } else {
       irParaEmissao(condo);

@@ -44,6 +44,15 @@ export default function FilaCobrancaContas() {
   const { profile } = useAuth();
   const { addToast } = useToast();
   const { data, isLoading, mutate } = useSWR('/api/cobrancas-contas', apiFetcher);
+  // O estado fica ACIMA da consulta que o lê.
+  //
+  // O SWR executa a função de chave durante o render, e ela estava lendo `nova`
+  // antes de a linha que o cria rodar — todo render. O SWR engole o erro da
+  // chave (e o jeito de fazer busca dependente), tratava a chave como nula, e a
+  // lista de condomínios NUNCA carregava. Sem erro na tela, sem nada no
+  // console: o seletor ficava vazio e parecia que não havia condomínio.
+  const [nova, setNova] = useState(null);           // form de abrir cobrança à mão
+
   // Lista de condomínios só é buscada quando o formulário abre — a tela toda
   // não precisa dela para nada.
   const { data: condosData } = useSWR(() => (nova ? '/api/condominios' : null), apiFetcher);
@@ -52,7 +61,6 @@ export default function FilaCobrancaContas() {
   const [motivo, setMotivo] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [cobrando, setCobrando] = useState(null);   // id da linha sendo cobrada
-  const [nova, setNova] = useState(null);           // form de abrir cobrança à mão
 
   // Quem cobra é a emissão; o gerente é o cobrado. Por isso os botões de enviar,
   // abrir e reativar só aparecem para master e departamento.

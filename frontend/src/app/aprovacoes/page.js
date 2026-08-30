@@ -185,6 +185,7 @@ export default function AprovacoesPage() {
     // corrigiu no Painel de Controle, por isso a confirmação nomeia o recorte.
     const recorte = filtroAtivo ? ' (filtro ativo)' : '';
     if (!confirm(
+      // eslint-disable-next-line no-use-before-define -- roda no clique, depois do render
       `Liberar ${edicoesEmEdicao.length} condomínio(s) de ${MESES[mesFoco]}/${anoFoco}${recorte}?`
     )) return;
     setExecutandoEdicao('all');

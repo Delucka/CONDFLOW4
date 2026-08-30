@@ -32,7 +32,30 @@ const eslintConfig = defineConfig([
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },
     },
-    rules: { "no-undef": "error" },
+    rules: {
+      "no-undef": "error",
+
+      // ── Zona morta do const: o build passa, a tela morre ──
+      //
+      // `const x = data?.y` colocado ACIMA do `const data = useSWR(...)` compila
+      // sem reclamar e explode no navegador com "Cannot access before
+      // initialization" — o error boundary come a tela inteira e o usuario ve
+      // "Ops! Algo deu errado".
+      //
+      // Aconteceu DUAS vezes em 30/08/2026, no mesmo dia: no Painel Central
+      // (`concessionariasPorCondo` lendo `data`) e na planilha (um useEffect
+      // lendo `canEdit`). O padrao e sempre o mesmo — inserir um bloco novo
+      // perto do topo do componente e referenciar algo que nasce mais abaixo.
+      //
+      // `functions: false` porque declaracao de funcao e icada de verdade:
+      // chamar uma funcao declarada abaixo e correto e comum aqui.
+      "no-use-before-define": ["error", {
+        functions: false,
+        classes: true,
+        variables: true,
+        allowNamedExports: false,
+      }],
+    },
   },
 
   // ── Escrita no Supabase tem que ler o { error } ──
