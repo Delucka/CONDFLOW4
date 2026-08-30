@@ -20,6 +20,23 @@ function codigoDe(texto) {
 }
 
 /**
+ * Ordena pelo código do condomínio, como número.
+ *
+ * Ordenar o nome como texto põe "0001" depois de "474" quando há zero à
+ * esquerda, e "1000" antes de "999" quando não há. O número resolve os dois.
+ * Nome sem código vai para o fim, em ordem alfabética — some do meio da lista
+ * em vez de virar um 0 que encabeça tudo.
+ */
+export function comparaPorCodigo(nomeA, nomeB) {
+  const a = codigoDe(nomeA);
+  const b = codigoDe(nomeB);
+  if (a && b && Number(a) !== Number(b)) return Number(a) - Number(b);
+  if (a && !b) return -1;
+  if (!a && b) return 1;
+  return normalizar(nomeA).localeCompare(normalizar(nomeB));
+}
+
+/**
  * `termo` casa com `campos` se CADA palavra do termo aparecer em algum campo.
  * @param {string} termo   o que o usuário digitou
  * @param {...any} campos  nome do condomínio, gerente, descrição…

@@ -26,6 +26,7 @@ import { useIsMobile } from '@/hooks/useMediaQuery';
 import { mesVigente, anoVigente } from '@/lib/mesVigente';
 import { useRealtime } from '@/lib/realtime';
 import { statusEstaEm, COM_GERENTE, COM_SUP_GERENTES, COM_SUP_CONTABILIDADE } from '@/lib/statusEmissao';
+import { comparaPorCodigo } from '@/lib/busca';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -291,7 +292,12 @@ export default function VisaoMaster() {
       });
     }
 
-    return lista;
+    // Ordem numérica de condomínio, não ordem de criação do pacote.
+    //
+    // A lista vinha na ordem em que os pacotes nasceram — 474, 482, 0001 —, que
+    // para quem lê a tela é ordem nenhuma. Quem procura um condomínio procura
+    // pelo número, e o número já é o começo do nome.
+    return [...lista].sort((a, b) => comparaPorCodigo(a.condominios?.name, b.condominios?.name));
   }, [pacotesVisiveis, filtroAtivo, apenasMinhasPendencias, profile?.role]);
 
   // Quantidade de pendências MINHAS no mês atual (pra mostrar no toggle)
