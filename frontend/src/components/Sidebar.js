@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
 import { usePendingCount } from '@/lib/usePendingCount';
 import ThemeToggle from './ThemeToggle';
-import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Receipt, FileUp, KeyRound, Droplet, Mail, X, FileText } from 'lucide-react';
+import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Receipt, FileUp, KeyRound, Droplet, Mail, X, FileText, Printer } from 'lucide-react';
 import { LogoMark } from './Logo';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { href: '/consumos',            icon: Droplet,         label: 'Consumos' },
   { href: '/aprovacoes',          icon: FileCheck2,      label: 'Aprovações & Auditoria', showBadge: true },
   { href: '/central-emissoes',    icon: FileUp,          label: 'Central de Emissões', showBadge: true },
+  { href: '/expedicao',           icon: Printer,         label: 'Expedição' },
   { href: '/correios',            icon: Mail,            label: 'Correios' },
 ];
 const ADMIN_ITEMS = [{ href: '/admin/usuarios', icon: Users, label: 'Acessos e Perfis' }];

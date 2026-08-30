@@ -42,6 +42,9 @@ export const ROUTE_ACCESS = {
   '/aprovacoes':          ['master','gerente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
   // A expedicao entra so pela aba de impressao — a pagina esconde as outras.
   '/central-emissoes':    ['master','departamento','expedicao'],
+  // A mesma fila com porta própria no menu: a expedição é um departamento, não
+  // uma aba de outro. Quem emite continua alcançando pela aba.
+  '/expedicao':           ['master','departamento','expedicao'],
   '/correios':            ['master','departamento'],
   '/consumos':            ['master','gerente','assistente','supervisora','supervisora_contabilidade','supervisor_gerentes','departamento'],
   '/admin/usuarios':      ['master'],
@@ -75,7 +78,7 @@ export const CAPABILITIES = {
  * Quem tem uma tela só vai direto para ela.
  */
 export const PAGINA_INICIAL = {
-  expedicao: '/central-emissoes?tab=expedicao',
+  expedicao: '/expedicao',
 };
 
 export function paginaInicial(userRole) {

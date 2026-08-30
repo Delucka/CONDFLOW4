@@ -4933,7 +4933,7 @@ def _notificar_expedicao(db, pacote_ids, autor_nome):
                 "user_id": p["id"], "tipo": "expedicao_nova",
                 "titulo": titulo[:120], "mensagem": mensagem[:1200],
                 "email_html": html,
-                "link": "/central-emissoes?tab=expedicao",
+                "link": "/expedicao",
             }).execute()
         return {"notificados": len(alvos), "sem_filipeta": faltando}
     except Exception as e:

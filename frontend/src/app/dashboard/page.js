@@ -5,7 +5,6 @@ import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
 import { apiFetcher, apiPost, apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import RouteGuard from '@/components/RouteGuard';
 import { getArquivoUrlSeguro } from '@/lib/arquivo';
 import { mesAnoVigente } from '@/lib/mesVigente';
 import { useRealtime } from '@/lib/realtime';
@@ -168,7 +167,7 @@ function PipelineWidget({ processos, condosTotal, pipelineConfig, countdown }) {
   );
 }
 
-function DashboardPage() {
+export default function DashboardPage() {
   const [filtroGerente, setFiltroGerente] = useState('');
   const [buscaCondo, setBuscaCondo] = useState('');
   // Recalculado a cada montagem da tela (ver nota no topo do arquivo)
@@ -1287,13 +1286,3 @@ function DashboardPage() {
   );
 }
 
-
-// A guarda estava no mapa (`ROUTE_ACCESS`) mas não no componente — por isso a
-// expedição, que não tem acesso a esta página, abria o painel inteiro.
-export default function DashboardGuardado(props) {
-  return (
-    <RouteGuard>
-      <DashboardPage {...props} />
-    </RouteGuard>
-  );
-}
