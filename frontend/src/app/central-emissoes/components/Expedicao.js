@@ -89,7 +89,7 @@ export default function Expedicao() {
       // Só emissões que já passaram do registro. Antes disso não existe boleto.
       const { data: pacs, error } = await supabase
         .from('emissoes_pacotes')
-        .select('id, condominio_id, mes_referencia, ano_referencia, status, grupo_id, condominios(name, due_day, prazo_expedicao_dia, prioridade_motivo, usa_filipeta)')
+        .select('id, condominio_id, mes_referencia, ano_referencia, status, grupo_id, condominios(name, due_day, prazo_expedicao_dia, prioridade_motivo)')
         .in('status', ['registrado', 'expedida']);
       if (error) throw error;
 
@@ -109,6 +109,15 @@ export default function Expedicao() {
         (arqs || []).forEach(a => { (porPacote[a.pacote_id] = porPacote[a.pacote_id] || []).push(a); });
       }
 
+      // Quem manda filipeta, numa consulta à parte de propósito: se a 0110
+      // ainda não rodou, este pedido falha sozinho e a fila continua inteira —
+      // em vez de a coluna nova derrubar a consulta que traz o trabalho do dia.
+      let mandaFilipeta = new Set();
+      try {
+        const { data: cf } = await supabase.from('condominios').select('id').eq('usa_filipeta', true);
+        mandaFilipeta = new Set((cf || []).map(c => c.id));
+      } catch { /* 0110 ainda não rodou — ninguém manda filipeta, por ora */ }
+
       const comGrupo = await anexarGrupos(supabase, pacs || []);
       // Pacote sem nada anexado não é trabalho de expedição — ainda está com
       // quem emite. Some da fila em vez de virar linha vazia.
@@ -123,7 +132,7 @@ export default function Expedicao() {
             filipetas,
             // Deveria ter filipeta e não tem. É o único estado desta tela que
             // pede alguém fazer alguma coisa ANTES de imprimir.
-            faltaFilipeta: !!p.condominios?.usa_filipeta && filipetas.length === 0,
+            faltaFilipeta: mandaFilipeta.has(p.condominio_id) && filipetas.length === 0,
             vencimento: p.grupo_due_day ?? p.condominios?.due_day ?? null,
           };
         })

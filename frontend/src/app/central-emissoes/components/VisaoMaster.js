@@ -181,6 +181,10 @@ export default function VisaoMaster() {
   const [filipetasExpedir, setFilipetasExpedir]     = useState([]);   // File[] — filipetas
   const [statusUpload, setStatusUpload]             = useState({});   // {'tipo:nome': 'uploading'|'done'|'error'}
   const [expedindo, setExpedindo]                   = useState(false);
+  // Se ESTE condomínio manda filipeta (0110). Vem numa consulta própria ao
+  // abrir o modal, não no select dos pacotes: coluna nova dentro da consulta
+  // principal amarraria o painel inteiro à migration ter rodado.
+  const [filipetaEsperada, setFilipetaEsperada]     = useState(false);
 
   // ── Derivados ─────────────────────────────────────────────────────────────
   const pacotesDoMes = useMemo(
@@ -325,7 +329,7 @@ export default function VisaoMaster() {
       // para mostrar um mês.
       const { data, error } = await supabase
         .from('emissoes_pacotes')
-        .select('*, condominios(name, usa_filipeta)')
+        .select('*, condominios(name)')
         .eq('mes_referencia', mesAtivo)
         .eq('ano_referencia', anoAtivo)
         .order('criado_em', { ascending: false });
@@ -548,6 +552,9 @@ export default function VisaoMaster() {
     setArquivosExpedir([]);
     setFilipetasExpedir([]);
     setStatusUpload({});
+    setFilipetaEsperada(false);
+    supabase.from('condominios').select('usa_filipeta').eq('id', pacote.condominio_id).maybeSingle()
+      .then(({ data }) => setFilipetaEsperada(!!data?.usa_filipeta));
     setShowExpedirModal(true);
   }
 
@@ -571,7 +578,7 @@ export default function VisaoMaster() {
 
     // Condomínio que manda filipeta todo mês e desta vez não mandou: perguntar
     // AGORA custa um clique; descobrir depois custa reimprimir o envelope.
-    if (pacoteExpedir.condominios?.usa_filipeta && filipetasExpedir.length === 0
+    if (filipetaEsperada && filipetasExpedir.length === 0
         && !window.confirm(
           `${pacoteExpedir.condominios?.name} manda filipeta junto com o boleto, ` +
           'e nenhuma foi anexada.\n\nExpedir assim mesmo?')) {
@@ -1429,11 +1436,11 @@ export default function VisaoMaster() {
               <ZonaArquivos
                 id="expedir-filipetas" tipo="filipeta" cor="amber"
                 titulo="Filipetas"
-                ajuda={pacoteExpedir.condominios?.usa_filipeta
+                ajuda={filipetaEsperada
                   ? '— este condomínio manda filipeta'
                   : '— só se este condomínio mandar'}
                 vazio="Arraste as filipetas aqui"
-                destaque={!!pacoteExpedir.condominios?.usa_filipeta && filipetasExpedir.length === 0}
+                destaque={filipetaEsperada && filipetasExpedir.length === 0}
                 arquivos={filipetasExpedir} statusUpload={statusUpload} desabilitado={expedindo}
                 onAdd={fs => adicionarArquivos(fs, 'filipeta')}
                 onRemove={i => removerArquivo(i, 'filipeta')} />
