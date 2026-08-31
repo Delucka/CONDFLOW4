@@ -1,4 +1,14 @@
-"""Envio de e-mail pelo NOSSO Gmail (SMTP), não pelo Supabase.
+"""Envio de e-mail pelo NOSSO servidor (SMTP), não pelo Supabase.
+
+O provedor vem das variáveis de ambiente, não do código:
+
+    SMTP_HOST  smtp.hostinger.com   (padrão histórico: smtp.gmail.com)
+    SMTP_PORT  465 = SSL direto · 587 = STARTTLS
+    SMTP_USER  a caixa que envia — vira também o remetente do e-mail
+    SMTP_PASS  a senha dessa caixa
+
+`GMAIL_USER` / `GMAIL_APP_PASSWORD` continuam funcionando como segunda opção,
+para a migração não exigir trocar tudo no mesmo minuto.
 
 Best-effort por decisão: e-mail que não sai não pode derrubar a operação que o
 disparou — um convite de acesso falhar não desfaz o cadastro do usuário. Por
@@ -6,7 +16,7 @@ isso estas funções devolvem True/False e não levantam.
 """
 
 def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -> bool:
-    """Envia e-mail HTML via SMTP (Gmail). cc=lista de e-mails; anexos=lista de (nome, bytes, mime).
+    """Envia e-mail HTML via SMTP. cc=lista de e-mails; anexos=lista de (nome, bytes, mime).
     Best-effort: retorna True/False, não levanta."""
     import os, smtplib
     from email.mime.text import MIMEText
@@ -16,7 +26,7 @@ def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -
     smtp_user = os.getenv("SMTP_USER") or os.getenv("GMAIL_USER")
     smtp_pass = os.getenv("SMTP_PASS") or os.getenv("GMAIL_APP_PASSWORD")
     if not smtp_user or not smtp_pass:
-        print("[email] SMTP não configurado (defina GMAIL_USER e GMAIL_APP_PASSWORD)")
+        print("[email] SMTP não configurado (defina SMTP_USER e SMTP_PASS)")
         return False
 
     host = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -43,13 +53,22 @@ def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -
         except Exception as _e:
             print(f"[email] anexo falhou: {_e}")
 
+    # A porta decide o tipo de conexão. 465 abre já cifrado; 587 começa em claro
+    # e sobe para TLS com STARTTLS. Usar SMTP_SSL numa porta 587 não dá erro
+    # claro — a conexão fica pendurada até o tempo acabar.
     try:
-        with smtplib.SMTP_SSL(host, port, timeout=20) as s:
-            s.login(smtp_user, smtp_pass)
-            s.sendmail(smtp_user, [to] + cc, msg.as_string())
+        if port == 587:
+            with smtplib.SMTP(host, port, timeout=20) as s:
+                s.starttls()
+                s.login(smtp_user, smtp_pass)
+                s.sendmail(smtp_user, [to] + cc, msg.as_string())
+        else:
+            with smtplib.SMTP_SSL(host, port, timeout=20) as s:
+                s.login(smtp_user, smtp_pass)
+                s.sendmail(smtp_user, [to] + cc, msg.as_string())
         return True
     except Exception as e:
-        print(f"[email] erro ao enviar para {to}: {e}")
+        print(f"[email] erro ao enviar para {to} por {host}:{port}: {e}")
         return False
 
 
