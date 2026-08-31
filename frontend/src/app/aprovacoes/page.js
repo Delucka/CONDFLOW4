@@ -73,12 +73,20 @@ export default function AprovacoesPage() {
   const verAbasPacotes = !isMaster && !isDepartamento && (isGerente || isSupervisor);
 
   const [aba, setAba] = useState('fila'); // 'fila' | 'auditoria' | 'pacotes' | 'registro'
+  // Sobe junto do `aba`: o ?view= abaixo escreve nele, e o no-use-before-define
+  // recusa (com razão) ler um `const` declarado cem linhas adiante.
+  const [auditView, setAuditView] = useState('atividade'); // 'atividade' | 'erros' | 'relatorios'
 
-  // Permite abrir uma aba via ?tab=...
+  // Permite abrir uma aba via ?tab=... e a sub-aba do histórico via ?view=...
+  //
+  // A Central de Relatórios fica a três cliques (aba → sub-aba → rolagem). Sem
+  // endereço próprio não dá para mandar o link para ninguém, nem favoritar.
   const searchParams = useSearchParams();
   useEffect(() => {
     const t = searchParams.get('tab');
     if (t && ['fila', 'auditoria', 'pacotes', 'registro'].includes(t)) setAba(t);
+    const v = searchParams.get('view');
+    if (v && ['atividade', 'erros', 'relatorios'].includes(v)) setAuditView(v);
   }, [searchParams]);
   const { count: minhasPendenciasEmissao } = usePendingCount();
   const [processing, setProcessing] = useState(null);
@@ -89,7 +97,6 @@ export default function AprovacoesPage() {
   // Filtros da auditoria
   const [search, setSearch]       = useState('');
   const [filtroDate, setFiltroDate] = useState({ from: '', to: '' });
-  const [auditView, setAuditView] = useState('atividade'); // 'atividade' | 'erros'
   const [filtroEtapa, setFiltroEtapa] = useState('');
   const [showFiltros, setShowFiltros] = useState(false);
 
