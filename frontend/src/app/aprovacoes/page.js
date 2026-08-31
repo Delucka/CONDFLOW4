@@ -35,6 +35,8 @@ import VisaoGerente from '@/app/central-emissoes/components/VisaoGerente';
 import VisaoMaster from '@/app/central-emissoes/components/VisaoMaster';
 import RegistroEmissoes from '@/app/central-emissoes/components/RegistroEmissoes';
 import RelatorioEmissoes from '@/app/aprovacoes/RelatorioEmissoes';
+import RelatorioDocumentos from './RelatorioDocumentos';
+import RelatorioExpedicao from '@/components/RelatorioExpedicao';
 import BaixarDocumentosEmissao from '@/app/aprovacoes/BaixarDocumentosEmissao';
 import { Package, Archive, BarChart3 } from 'lucide-react';
 
@@ -763,6 +765,8 @@ export default function AprovacoesPage() {
             <div className="space-y-4">
               <BaixarDocumentosEmissao />
               <RelatorioEmissoes />
+              <RelatorioDocumentos />
+              <RelatorioExpedicao />
             </div>
           ) : (<>
           {/* Barra de filtros */}

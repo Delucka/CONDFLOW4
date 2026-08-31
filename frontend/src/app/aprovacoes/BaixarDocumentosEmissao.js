@@ -4,9 +4,10 @@ import useSWR from 'swr';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { apiFetcher, apiFetch } from '@/lib/api';
-import { ordenarParaExtracao, montarZipMulti } from '@/lib/extrairEmissao';
+import { ordenarParaExtracao, montarZipMulti, montarPdfMulti } from '@/lib/extrairEmissao';
+import { apiPost } from '@/lib/api';
 import { saveAs } from 'file-saver';
-import { FolderDown, Loader2, FileText, Building2 } from 'lucide-react';
+import { FolderDown, Loader2, FileText, Building2, Printer } from 'lucide-react';
 
 const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -24,17 +25,19 @@ export default function BaixarDocumentosEmissao() {
   const [condominioId, setCondominioId] = useState('');
   const [ano, setAno] = useState(anoAtual);
   const [mes, setMes] = useState(0);            // 0 = ano inteiro
-  const [rodando, setRodando] = useState(false);
+  const [rodando, setRodando] = useState(null);   // 'zip' | 'pdf'
   const [prog, setProg] = useState(null);       // { i, n, nome }
 
   const anos = Array.from({ length: 6 }, (_, i) => anoAtual - i);
   const condoNome = condos.find((c) => c.id === condominioId)?.name || 'condominio';
 
-  async function baixar() {
-    if (!condominioId) return addToast('Escolha o condomínio.', 'error');
-    setRodando(true);
-    setProg({ i: 0, n: 0, nome: 'buscando emissões…' });
-    try {
+  /**
+   * Busca as emissões do período e devolve `[{ label, itens }]`, na ordem 1→8.
+   *
+   * Sai de dentro do botão de ZIP porque o PDF precisa exatamente do mesmo
+   * material: mudam o empacotamento e o destino, não a origem.
+   */
+  async function montarGrupos() {
       // 1) Emissões (pacotes) do condomínio no período
       let q = supabase
         .from('emissoes_pacotes')
@@ -48,7 +51,7 @@ export default function BaixarDocumentosEmissao() {
       if (error) throw error;
       if (!pacotes || pacotes.length === 0) {
         addToast('Nenhuma emissão encontrada nesse período.', 'warning');
-        return;
+        return null;
       }
 
       // 2) Arquivos de todas as emissões (por pacote_id)
@@ -75,22 +78,98 @@ export default function BaixarDocumentosEmissao() {
 
       if (grupos.length === 0) {
         addToast('As emissões do período não têm documentos anexados.', 'warning');
-        return;
+        return null;
       }
+      return { grupos, pacotes };
+  }
 
-      // 4) ZIP com os ORIGINAIS, uma pasta por competência e um índice
+  const nomeBase = () => `${(condoNome).replace(/[^\w]+/g, '_')}_${mes ? String(mes).padStart(2, '0') + '-' : ''}${ano}`;
+
+  async function baixarZip() {
+    if (!condominioId) return addToast('Escolha o condomínio.', 'error');
+    setRodando('zip');
+    setProg({ i: 0, n: 0, nome: 'buscando emissões…' });
+    try {
+      const r = await montarGrupos();
+      if (!r) return;
+      const { grupos } = r;
+
+      // ZIP com os ORIGINAIS, uma pasta por competência e um índice
       const { blob, pulados, incluidos } = await montarZipMulti(grupos, (i, n, nome) => setProg({ i, n, nome }));
       if (!blob || incluidos === 0) { addToast('Nenhum documento pôde ser baixado no período.', 'error'); return; }
 
-      const nomeArq = `documentos_${(condoNome).replace(/[^\w]+/g, '_')}_${mes ? String(mes).padStart(2, '0') + '-' : ''}${ano}.zip`;
-      saveAs(blob, nomeArq);
+      saveAs(blob, `documentos_${nomeBase()}.zip`);
       const resumo = `${grupos.length} emissão(ões) · ${incluidos} documento(s)`;
       if (pulados.length) addToast(`ZIP gerado (${resumo}). ${pulados.length} item(ns) ficaram de fora: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');
       else addToast(`Documentos gerados! ${resumo}`, 'success');
     } catch (e) {
       addToast('Erro ao gerar: ' + (e.message || e), 'error');
     } finally {
-      setRodando(false);
+      setRodando(null);
+      setProg(null);
+    }
+  }
+
+  /**
+   * PDF único, na ordem de auditoria, com uma página divisória por competência.
+   *
+   * A mesclagem acontece na memória do navegador, e os anexos têm ~750 KB em
+   * média — por isso o aviso acima de doze emissões. O laço já é em série, um
+   * arquivo por vez, mas o documento montado fica inteiro na memória até salvar.
+   */
+  async function imprimirPdf() {
+    if (!condominioId) return addToast('Escolha o condomínio.', 'error');
+    setRodando('pdf');
+    setProg({ i: 0, n: 0, nome: 'buscando emissões…' });
+    try {
+      const r = await montarGrupos();
+      if (!r) return;
+      const { grupos, pacotes } = r;
+
+      if (grupos.length > 12 && !window.confirm(
+        `São ${grupos.length} emissões neste período. Juntar tudo num PDF só pode demorar ` +
+        'e consumir bastante memória do navegador.\n\nQuer continuar?')) {
+        return;
+      }
+
+      const { blob, pulados, totalPaginas } = await montarPdfMulti(grupos, (i, n, nome) => setProg({ i, n, nome }));
+
+      // Plano B do servidor (QPDF) só existe por emissão. Com uma única emissão
+      // no período vale tentar; com várias, seriam N chamadas e N arquivos — aí
+      // é mais honesto avisar e deixar o ZIP resolver.
+      if ((totalPaginas === 0 || pulados.length > 0) && pacotes.length === 1) {
+        try {
+          setProg({ i: 0, n: 0, nome: 'tentando montar no servidor…' });
+          const srv = await apiPost(`/api/emissoes/${pacotes[0].id}/extrair-pdf`, {});
+          if (srv?.url) {
+            const resp = await fetch(srv.url);
+            if (resp.ok) {
+              saveAs(await resp.blob(), srv.nome || `emissao_${nomeBase()}.pdf`);
+              const faltou = srv.pulados?.length || 0;
+              if (faltou) addToast(`PDF montado no servidor (${srv.paginas} páginas). ${faltou} item(ns) ficaram de fora.`, 'warning');
+              else addToast(`PDF pronto para imprimir! ${srv.paginas} páginas.`, 'success');
+              return;
+            }
+          }
+        } catch { /* servidor não resolveu: segue com o que o navegador conseguiu */ }
+      }
+
+      if (!blob || totalPaginas === 0) {
+        addToast('Não consegui juntar nenhum documento em PDF. Baixe o ZIP com os originais.', 'error');
+        return;
+      }
+
+      saveAs(blob, `emissao_${nomeBase()}.pdf`);
+      const resumo = `${grupos.length} emissão(ões) · ${totalPaginas} página(s)`;
+      if (pulados.length) {
+        addToast(`PDF gerado (${resumo}). ${pulados.length} item(ns) ficaram de fora — baixe o ZIP para eles: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');
+      } else {
+        addToast(`PDF pronto para imprimir! ${resumo}`, 'success');
+      }
+    } catch (e) {
+      addToast('Erro ao gerar o PDF: ' + (e.message || e), 'error');
+    } finally {
+      setRodando(null);
       setProg(null);
     }
   }
@@ -102,8 +181,8 @@ export default function BaixarDocumentosEmissao() {
           <FolderDown className="w-5 h-5 text-violet-500" />
         </div>
         <div>
-          <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Baixar documentos das emissões</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Baixa os documentos originais de cada emissão num ZIP, na ordem 1→8, com uma pasta por competência.</p>
+          <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Documentos das emissões</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Tudo que o emissor anexou, na ordem 1→8. O <b>PDF</b> sai pronto para a impressora; o <b>ZIP</b> traz os arquivos originais, para arquivar.</p>
         </div>
       </div>
 
@@ -131,9 +210,13 @@ export default function BaixarDocumentosEmissao() {
             {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => <option key={m} value={m}>{MESES[m]}</option>)}
           </select>
         </div>
-        <button onClick={baixar} disabled={rodando || !condominioId}
+        <button onClick={imprimirPdf} disabled={!!rodando || !condominioId}
           className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center gap-2 disabled:opacity-40">
-          {rodando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Baixar documentos (ZIP)
+          {rodando === 'pdf' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />} Imprimir tudo (PDF)
+        </button>
+        <button onClick={baixarZip} disabled={!!rodando || !condominioId}
+          className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-black uppercase tracking-wider flex items-center gap-2 disabled:opacity-40">
+          {rodando === 'zip' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Originais (ZIP)
         </button>
       </div>
 
