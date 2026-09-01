@@ -23,14 +23,25 @@ def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -
     from email.mime.multipart import MIMEMultipart
     from email.mime.application import MIMEApplication
 
-    smtp_user = os.getenv("SMTP_USER") or os.getenv("GMAIL_USER")
-    smtp_pass = os.getenv("SMTP_PASS") or os.getenv("GMAIL_APP_PASSWORD")
+    # Usuario e senha andam em PAR.
+    #
+    # Antes cada um caia para o Gmail por conta propria: com SMTP_USER
+    # preenchido e SMTP_PASS vazio, o codigo tentava entrar na caixa nova com a
+    # senha da antiga — e todo e-mail do sistema parava, calado. Meia
+    # configuracao agora e a mesma coisa que nenhuma.
+    # O SERVIDOR anda junto do par tambem. Deixar SMTP_HOST valer na queda para
+    # o Gmail seria pedir para entrar no servidor de um provedor com a senha de
+    # outro — que e o mesmo erro, so que mais dificil de enxergar no log.
+    if os.getenv("SMTP_USER") and os.getenv("SMTP_PASS"):
+        smtp_user, smtp_pass = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
+        host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+        port = int(os.getenv("SMTP_PORT", "465"))
+    else:
+        smtp_user, smtp_pass = os.getenv("GMAIL_USER"), os.getenv("GMAIL_APP_PASSWORD")
+        host, port = "smtp.gmail.com", 465
     if not smtp_user or not smtp_pass:
         print("[email] SMTP não configurado (defina SMTP_USER e SMTP_PASS)")
         return False
-
-    host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    port = int(os.getenv("SMTP_PORT", "465"))
     from_name = os.getenv("EMAIL_FROM_NAME", "CondoFlow")
     cc = [c for c in (cc or []) if c]
 
