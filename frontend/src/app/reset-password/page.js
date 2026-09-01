@@ -14,15 +14,73 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [linkRuim, setLinkRuim] = useState('');
 
   useEffect(() => {
-    // O link de reset do Supabase cria automaticamente a sessão (via hash fragment).
-    // Damos um pequeno delay pra garantir que onAuthStateChange já processou.
-    const t = setTimeout(async () => {
+    let vivo = true;
+    const pronto = () => { if (vivo) { setSessionReady(true); setLinkRuim(''); } };
+
+    // O Supabase manda os dados no FRAGMENTO do endereço (#...), que nunca chega
+    // ao servidor. Duas coisas podem vir ali: os tokens, ou um erro.
+    const frag = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+
+    // 1) Link vencido ou já usado. Antes isto também caía no giro infinito: a
+    //    pessoa esperava por uma sessão que nunca ia existir.
+    const erroLink = frag.get('error_description') || frag.get('error');
+    if (erroLink) {
+      setLinkRuim(
+        /expired|invalid/i.test(erroLink)
+          ? 'Este link expirou ou já foi usado. Peça um novo em "Esqueci minha senha".'
+          : decodeURIComponent(erroLink.replace(/\+/g, ' ')),
+      );
+      return;
+    }
+
+    // 2) Assim que a sessão nascer — por qualquer caminho — a tela libera.
+    const { data: sub } = supabase.auth.onAuthStateChange((_evento, sessao) => {
+      if (sessao) pronto();
+    });
+
+    (async () => {
       const { data } = await supabase.auth.getSession();
-      setSessionReady(!!data?.session);
-    }, 300);
-    return () => clearTimeout(t);
+      if (data?.session) { pronto(); return; }
+
+      // 3) O Supabase deveria ler o fragmento sozinho ao criar o cliente. Quando
+      //    não lê — cliente já criado antes desta página, aba restaurada, ordem
+      //    de montagem diferente — a página faz na mão. É o que transforma
+      //    "às vezes funciona" em "funciona".
+      const access_token = frag.get('access_token');
+      const refresh_token = frag.get('refresh_token');
+      if (access_token && refresh_token) {
+        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (!vivo) return;
+        if (error) {
+          setLinkRuim('Não consegui validar este link: ' + error.message);
+          return;
+        }
+        pronto();
+        // O token sai da barra de endereços e do histórico. Ele dá acesso à
+        // conta enquanto vale, e não tem por que continuar visível depois de
+        // usado — inclusive numa captura de tela.
+        window.history.replaceState(null, '', window.location.pathname);
+        return;
+      }
+
+      // 4) Sem tokens e sem sessão: ainda pode ser o Supabase terminando. Espera
+      //    até 8 segundos e, aí sim, diz o que houve em vez de girar sem fim.
+      const limite = Date.now() + 8000;
+      const timer = setInterval(async () => {
+        if (!vivo) { clearInterval(timer); return; }
+        const { data: d2 } = await supabase.auth.getSession();
+        if (d2?.session) { clearInterval(timer); pronto(); return; }
+        if (Date.now() > limite) {
+          clearInterval(timer);
+          setLinkRuim('Este link não trouxe os dados de acesso. Peça um novo em "Esqueci minha senha".');
+        }
+      }, 400);
+    })();
+
+    return () => { vivo = false; sub?.subscription?.unsubscribe?.(); };
   }, [supabase]);
 
   async function handleSubmit(e) {
@@ -78,6 +136,17 @@ export default function ResetPasswordPage() {
             </div>
             <p className="text-emerald-400 font-bold">Senha atualizada com sucesso!</p>
             <p className="text-xs text-slate-500">Redirecionando para o painel…</p>
+          </div>
+        ) : linkRuim ? (
+          <div className="text-center space-y-5">
+            <div className="w-16 h-16 mx-auto rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center">
+              <AlertCircle className="w-8 h-8 text-rose-400" />
+            </div>
+            <p className="text-sm text-slate-700 font-semibold">{linkRuim}</p>
+            <button type="button" onClick={() => router.push('/login')}
+              className="w-full py-3 bg-violet-500 text-slate-950 rounded-xl text-sm font-bold hover:bg-violet-400 transition-all">
+              Voltar ao login
+            </button>
           </div>
         ) : !sessionReady ? (
           <div className="text-center py-8">
