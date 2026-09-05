@@ -2,10 +2,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/lib/auth';
 import { Building2, Loader2, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const { refreshProfile } = useAuth();
   const [supabase] = useState(() => createClient());
   const [pwd, setPwd] = useState('');
   const [pwd2, setPwd2] = useState('');
@@ -105,6 +107,12 @@ export default function ResetPasswordPage() {
           .eq('id', user.id);
         if (errFlag) console.error('[reset] flag de troca de senha não foi limpa:', errFlag.message);
       }
+
+      // Sem isto o app continua com o perfil ANTIGO em memória, ainda marcado
+      // como "precisa trocar a senha" — e o AppShell devolve a pessoa para
+      // /alterar-senha assim que ela chega ao painel. Trocou a senha e o
+      // sistema pede para trocar de novo.
+      try { await refreshProfile(); } catch { /* segue: o próximo login corrige */ }
 
       setDone(true);
       setTimeout(() => router.push('/dashboard'), 2000);

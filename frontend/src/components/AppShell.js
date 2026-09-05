@@ -46,11 +46,16 @@ export default function AppShell({ children }) {
   // Rotas públicas/standalone (sem sidebar): landing, login e redefinição de senha
   if (pathname === '/' || pathname === '/login' || pathname === '/reset-password') return children;
 
+  // Esta tela aparece em TODA entrada e em todo recarregamento, pelo tempo que o
+  // Supabase leva para responder — 250 a 500 ms no plano atual. Ela tinha o
+  // fundo preto cravado (`bg-[#030712]`) enquanto o resto do app é claro: o
+  // resultado era um quadrado escuro piscando antes de cada acesso. O fundo
+  // agora é o mesmo do app, então a troca deixa de ser vista.
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[#030712]">
+      <div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4 animate-fade-in">
-          <div className="w-16 h-16 bg-violet-600 rounded-2xl flex items-center justify-center ">
+          <div className="w-16 h-16 bg-violet-600 rounded-2xl flex items-center justify-center">
             <Loader2 className="w-8 h-8 text-white animate-spin" />
           </div>
           <p className="text-sm font-medium text-slate-500 mt-2">Autenticando…</p>

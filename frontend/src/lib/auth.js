@@ -165,7 +165,12 @@ export function AuthProvider({ children }) {
   }
 
   async function refreshProfile() {
-    if (user?.id) await fetchProfile(user.id);
+    // `forcar` é o ponto: sem ele, a trava de cache do `fetchProfile` faz esta
+    // função não fazer NADA quando o perfil já está carregado — que é sempre o
+    // caso de quem chama "recarregue o perfil". Era uma função com nome de ação
+    // e comportamento de silêncio: quem trocava a senha continuava marcado como
+    // "precisa trocar a senha".
+    if (user?.id) await fetchProfile(user.id, { forcar: true });
   }
 
   // Só o master finge ser outro — e só para menos. Se `verComo` chegasse de

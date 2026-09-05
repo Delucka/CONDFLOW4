@@ -2273,18 +2273,14 @@ def api_ultima_emissao(condo_id: str, user: dict = Depends(get_current_user), db
         print(f"Error /ultima-emissao: {e}")
         return {"file": None, "error": str(e)}
 
-@router.get("/usuarios")
-def api_usuarios(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
-    if user["role"] != "master":
-        raise HTTPException(403)
-    usuarios = db.table("profiles").select("*").order("full_name").execute().data or []
+def _juntar_dados_do_gerente(db, usuarios):
+    """Acrescenta a cada perfil o que vem da tabela `gerentes` (0104).
 
-    # A situacao do gerente vem junto (0104).
-    #
-    # `profiles` diz o papel; `gerentes` diz se a pessoa esta na operacao — e
-    # sao tabelas diferentes. Sem juntar aqui, a tela de Acessos e Perfis nao
-    # tem como mostrar nem mudar o ativo/inativo, e o campo so existiria por
-    # SQL. Campo que so existe por SQL nao existe.
+    Vive aqui, e nao dentro de uma rota, porque DUAS rotas devolvem usuarios
+    para a mesma tela — e enquanto so uma delas montava estes campos, o botao de
+    ativar/inativar simplesmente nao aparecia. Campo que a tela procura e a rota
+    nao manda e funcionalidade que nao existe.
+    """
     try:
         gs = db.table("gerentes").select(
             "id, profile_id, ativo, ativo_desde, inativado_em, inativado_motivo").execute().data or []
@@ -2315,6 +2311,15 @@ def api_usuarios(user: dict = Depends(get_current_user), db: Client = Depends(ge
             u["condominios_em_operacao"] = ativos.get(g["id"], 0)
     except Exception as e:
         print(f"[usuarios] situacao do gerente falhou (segue sem): {e}")
+    return usuarios
+
+
+@router.get("/usuarios")
+def api_usuarios(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    if user["role"] != "master":
+        raise HTTPException(403)
+    usuarios = db.table("profiles").select("*").order("full_name").execute().data or []
+    _juntar_dados_do_gerente(db, usuarios)
 
     return {"usuarios": usuarios}
 
@@ -2861,6 +2866,11 @@ def api_usuarios_completo(user: dict = Depends(get_current_user), db: Client = D
             "gerente_responsavel_id": p.get("gerente_id"),        # profile do gerente responsável (se for assistente)
             "condominios": g["condominios"] if g else []
         })
+
+    # Os mesmos campos que /api/usuarios monta. Esta e a rota que a tela de
+    # Acessos e Perfis chama de verdade — sem isto `gerente_id_real` chega
+    # indefinido e os botoes de situacao e de ausencia somem, sem erro nenhum.
+    _juntar_dados_do_gerente(db, result)
     
     return {"usuarios": result}
 
