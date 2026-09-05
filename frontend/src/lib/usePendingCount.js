@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRealtime } from '@/lib/realtime';
 import { statusEstaEm, COM_GERENTE, COM_SUP_GERENTES, COM_SUP_CONTABILIDADE } from '@/lib/statusEmissao';
+import { condosDaCarteira } from '@/lib/carteira';
 import { useAuth } from '@/lib/auth';
 
 /**
@@ -61,19 +62,15 @@ export function usePendingCount() {
       } else if (role === 'supervisora_contabilidade' || role === 'supervisora') {
         filtered = all.filter(p => statusEstaEm(p.status, COM_SUP_CONTABILIDADE));
       } else if (role === 'gerente') {
-        // Acha condominio_ids do gerente
-        const { data: gerData } = await supabase
-          .from('gerentes').select('id').eq('profile_id', user.id).maybeSingle();
-        if (!gerData) { filtered = []; }
-        else {
-          const { data: condosData } = await supabase
-            .from('condominios').select('id').eq('gerente_id', gerData.id);
-          const myCondos = new Set((condosData || []).map(c => c.id));
-          filtered = all.filter(p => {
-            const s = (p.status || '').toLowerCase();
-            return statusEstaEm(p.status, COM_GERENTE) && myCondos.has(p.condominio_id);
-          });
-        }
+        // A carteira sai de `condosDaCarteira` — a mesma regra das telas, que
+        // ja inclui o que este gerente cobre por ferias de outro (0117). Antes
+        // a consulta era refeita aqui a mao, e o sino nao contava o que o
+        // substituto tinha para aprovar: a tela mostrava o trabalho e o
+        // contador dizia que nao havia nenhum.
+        const ids = await condosDaCarteira(supabase, profile);
+        const myCondos = new Set(ids || []);
+        filtered = all.filter(p =>
+          statusEstaEm(p.status, COM_GERENTE) && (!ids || myCondos.has(p.condominio_id)));
       } else if (role === 'departamento') {
         filtered = all.filter(p => (p.status || '').toLowerCase() === 'aprovado');
       } else {
@@ -87,7 +84,9 @@ export function usePendingCount() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.role, user?.id]);
+  // `profile` inteiro, e não só o papel: `condosDaCarteira` lê dele o vínculo do
+  // assistente e o id usado para achar as coberturas de férias.
+  }, [profile, user?.id]);
 
   useEffect(() => { fetchCount(); }, [fetchCount]);
 

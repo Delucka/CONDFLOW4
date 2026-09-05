@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { abrirArquivoSeguro, getArquivoUrlSeguro } from '@/lib/arquivo';
 import { combina } from '@/lib/busca';
 import { useRealtime } from '@/lib/realtime';
+import { condosDaCarteira } from '@/lib/carteira';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 
 /**
@@ -88,13 +89,27 @@ export default function VisaoGerente({ profile, cobertura = null }) {
           condo_name: p.condominios?.name,
         }));
       } else {
-        // Gerente: RPC filtra pela carteira
-        const { data, error } = await supabase.rpc('get_pacotes_gerente');
+        // Gerente: a carteira vem de `condosDaCarteira`, não mais da RPC
+        // `get_pacotes_gerente`.
+        //
+        // A RPC resolve pelo banco, por `gerentes.profile_id = auth.uid()`, e
+        // por isso não enxerga quem está cobrindo férias de outro (0117) — o
+        // substituto via o condomínio na aba dele e não em "Meus Pacotes",
+        // como se fossem dois sistemas. A regra de carteira agora tem um lugar
+        // só, e quem manda de verdade continua sendo o RLS.
+        const ids = await condosDaCarteira(supabase, profile);
+        if (ids && ids.length === 0) { setPacotes([]); setLoading(false); return; }
+        let q = supabase
+          .from('emissoes_pacotes')
+          .select('*, condominios(name)')
+          .order('atualizado_em', { ascending: false });
+        if (ids) q = q.in('condominio_id', ids);
+        const { data, error } = await q;
         if (error) {
-          console.error('[VisaoGerente] erro rpc:', error);
+          console.error('[VisaoGerente] erro:', error);
           setPacotes([]); setLoading(false); return;
         }
-        pacotesData = data || [];
+        pacotesData = (data || []).map(p => ({ ...p, condo_name: p.condominios?.name }));
       }
 
       if (pacotesData.length > 0) {
