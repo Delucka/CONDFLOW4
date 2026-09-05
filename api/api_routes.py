@@ -67,8 +67,11 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
 
         # Filtros baseados na role
         if user["role"] in ("gerente", "assistente"):
-            g_id = carteira_gerente_id(db, user)
-            query = query.eq("gerente_id", g_id or "00000000-0000-0000-0000-000000000000")
+            # Por CONDOMINIO, nao por dono: durante uma cobertura de ferias o
+            # dono continua sendo o outro gerente (0117), e perguntar "de quem
+            # e?" faz o substituto sumir de todas estas telas.
+            ids = carteira_condo_ids(db, user)
+            query = query.in_("id", ids or ["00000000-0000-0000-0000-000000000000"])
         elif gerente_id and user["role"] in DASHBOARD_FILTER_GERENTE:
             query = query.eq("gerente_id", gerente_id)
 
@@ -102,10 +105,10 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             try:
                 q = db.table("condominios").select("id", count="exact").eq("situacao", "a_entrar").limit(1)
                 if user.get("role") in ("gerente", "assistente"):
-                    g_id = carteira_gerente_id(db, user)
-                    if not g_id:
+                    ids = carteira_condo_ids(db, user)
+                    if not ids:
                         return 0
-                    q = q.eq("gerente_id", g_id)
+                    q = q.in_("id", ids)
                 return q.execute().count or 0
             except Exception as e:
                 print(f"[dashboard] a_entrar_total falhou (segue sem): {e}")
@@ -769,8 +772,11 @@ def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends
         query = db.table("condominios").select("*").order("name")
         
         if user["role"] in ("gerente", "assistente"):
-            g_id = carteira_gerente_id(db, user)
-            query = query.eq("gerente_id", g_id or "00000000-0000-0000-0000-000000000000")
+            # Por CONDOMINIO, nao por dono: durante uma cobertura de ferias o
+            # dono continua sendo o outro gerente (0117), e perguntar "de quem
+            # e?" faz o substituto sumir de todas estas telas.
+            ids = carteira_condo_ids(db, user)
+            query = query.in_("id", ids or ["00000000-0000-0000-0000-000000000000"])
                 
         # 3 consultas independentes EM PARALELO: condomínios + de-para de gerentes/profiles.
         from concurrent.futures import ThreadPoolExecutor
@@ -1691,7 +1697,7 @@ def api_aprovacoes(user: dict = Depends(get_current_user), db: Client = Depends(
             if role == 'gerente':
                 g_id = get_gerente_id(db, user['id'])
                 if g_id:
-                    condos_res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
+                    condos_res = db.table("condominios").select("id").in_("id", carteira_condo_ids(db, user)).execute()
                     condo_ids = [c['id'] for c in (condos_res.data or [])]
                     if condo_ids:
                         query = query.in_("condominio_id", condo_ids)
@@ -3283,7 +3289,7 @@ def api_pendentes(user: dict = Depends(get_current_user), db: Client = Depends(g
             if role == 'gerente':
                 g_id = get_gerente_id(db, user['id'])
                 if g_id:
-                    condos_res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
+                    condos_res = db.table("condominios").select("id").in_("id", carteira_condo_ids(db, user)).execute()
                     condo_ids = [c['id'] for c in (condos_res.data or [])]
                     if condo_ids:
                         query = query.in_("condominio_id", condo_ids)
