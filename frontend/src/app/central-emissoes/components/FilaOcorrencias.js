@@ -90,43 +90,18 @@ export default function FilaOcorrencias({ semente = null, esperandoPainel = fals
     }
   };
 
-  /**
-   * `gerentes.id` da carteira de quem está olhando.
-   *   • gerente    → a própria
-   *   • assistente → a do gerente a que está vinculado (profiles.gerente_id, 0057)
-   *   • demais     → null, que aqui significa "vê tudo"
-   *
-   * O RLS de `emissoes_pacotes` é `USING (true)` (0033): ele NÃO filtra carteira.
-   * Quem tem de recortar é esta tela — senão o gerente conta a base inteira.
-   */
-  const carteiraGerenteId = async () => {
-    const role = profile?.role;
-    if (role === 'gerente') {
-      const { data } = await supabase
-        .from('gerentes').select('id').eq('profile_id', profile.id).maybeSingle();
-      return data?.id || null;
-    }
-    if (role === 'assistente') {
-      const pid = profile?.gerente_profile_id;
-      if (!pid) return null;
-      const { data } = await supabase
-        .from('gerentes').select('id').eq('profile_id', pid).maybeSingle();
-      return data?.id || null;
-    }
-    return null;
-  };
-
-  /** Ids dos condomínios da carteira, ou null quando não há recorte. */
-  const condosDaCarteira = async () => {
-    const gId = await carteiraGerenteId();
-    if (!gId) return null;
-    // Mesma regra do resto: por condomínio, não por dono (0117).
-    const idsCarteira = await condosDaCarteira(supabase, profile);
-    const { data } = idsCarteira
-      ? await supabase.from('condominios').select('id').in('id', idsCarteira)
-      : await supabase.from('condominios').select('id');
-    return (data || []).map(c => c.id);
-  };
+  // A carteira desta tela vem de `condosDaCarteira` (@/lib/carteira), e nada
+  // mais é resolvido aqui.
+  //
+  // Existiam duas funções locais: uma buscava `gerentes.id` pelo `profile_id` e
+  // a outra listava os condomínios daquele dono. É a pergunta errada — durante
+  // uma cobertura de férias (0117) o dono continua sendo o gerente ausente — e
+  // o recorte por dono deixava o substituto sem contagem e sem opção no modal
+  // de nova ocorrência.
+  //
+  // O RLS de `emissoes_pacotes` é `USING (true)` (0033): ele NÃO filtra
+  // carteira. Quem recorta é esta tela — senão o gerente conta a base inteira.
+  // `null` = sem recorte (master, departamento, supervisões).
 
   const fetchCondominios = async () => {
     let query = supabase.from('condominios').select('id, name');
@@ -177,8 +152,8 @@ export default function FilaOcorrencias({ semente = null, esperandoPainel = fals
     const out = {};
 
     if (role === 'gerente' || role === 'assistente') {
-      const [gId, meusCondos] = await Promise.all([carteiraGerenteId(), condosDaCarteira()]);
-      if (gId) {
+      const meusCondos = await condosDaCarteira(supabase, profile);
+      if (meusCondos) {
         const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
         // Carteira vazia conta zero — nunca a base toda.
         const alvo = meusCondos && meusCondos.length ? meusCondos : ['00000000-0000-0000-0000-000000000000'];
