@@ -1427,6 +1427,186 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
 
     return {"success": True}
 
+# ═══ Férias do gerente (0117) ══════════════════════════════════════════════
+
+class AtribuicaoAusencia(BaseModel):
+    condominio_id: str
+    substituto_id: str
+
+
+class AusenciaSchema(BaseModel):
+    motivo: Optional[str] = "Férias"
+    data_inicio: str                      # 'AAAA-MM-DD'
+    data_fim: str
+    atribuicoes: List[AtribuicaoAusencia]
+
+
+# Quem pode assinar no lugar do gerente. Papéis que já aprovam alguma coisa no
+# fluxo — não faz sentido entregar a carteira a quem não aprova nada.
+PODE_SUBSTITUIR = ("master", "gerente", "departamento", "supervisora",
+                   "supervisora_contabilidade", "supervisor_gerentes")
+
+
+def _notificar_substitutos(db, ausencia_id, gerente_nome, motivo, ini, fim, por_substituto, autor):
+    """Avisa quem recebeu carteira. Sem isto a pessoa só descobre se abrir a tela
+    e reparar numa aba nova — e o objetivo das férias é justamente que nada fique
+    esperando alguém reparar."""
+    try:
+        nomes = {}
+        ids = [c for lista in por_substituto.values() for c in lista]
+        for i in range(0, len(ids), 200):
+            for c in (db.table("condominios").select("id, name").in_("id", ids[i:i + 200]).execute().data or []):
+                nomes[c["id"]] = c["name"]
+
+        for pid, condo_ids in por_substituto.items():
+            lista = sorted(nomes.get(c, "condomínio") for c in condo_ids)
+            n = len(lista)
+            titulo = f"Você responde por {n} condomínio{'s' if n != 1 else ''} de {gerente_nome}"
+            mensagem = (f"{autor} passou {n} condomínio{'s' if n != 1 else ''} de {gerente_nome} "
+                        f"para você de {ini} a {fim} ({motivo}). "
+                        f"{', '.join(lista[:8])}{f' e mais {n - 8}' if n > 8 else ''}.")
+
+            html = (f'<p style="margin:0 0 18px;color:#475569;font-size:14px;line-height:1.6;">'
+                    f'{autor} passou a carteira de <strong>{gerente_nome}</strong> para você durante '
+                    f'{motivo.lower()}, de <strong>{ini}</strong> a <strong>{fim}</strong>.</p>'
+                    f'<div style="border-left:3px solid #3b6fe0;padding:2px 0 2px 14px;margin-bottom:16px;">'
+                    f'<p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:#0f1a3c;">'
+                    f'{n} condomínio{"s" if n != 1 else ""} sob sua responsabilidade</p>'
+                    f'<p style="margin:0;font-size:13px;color:#334155;line-height:1.8;">'
+                    f'{"<br>".join(lista[:25])}'
+                    + (f'<br><span style="color:#94a3b8;">e mais {n - 25}</span>' if n > 25 else '')
+                    + '</p></div>'
+                    '<p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">'
+                    'Eles aparecem em Aprovações, numa aba com o nome de quem está ausente. '
+                    'No dia seguinte ao fim do período eles somem da sua tela e voltam para o dono '
+                    'da carteira — o que você aprovar continua aprovado.</p>')
+
+            db.table("notificacoes").insert({
+                "user_id": pid, "tipo": "carteira_coberta",
+                "titulo": titulo[:120], "mensagem": mensagem[:1200],
+                "email_html": html,
+                "link": "/aprovacoes",
+            }).execute()
+    except Exception as e:
+        print(f"[ausencia] aviso ao substituto falhou: {type(e).__name__}: {e}")
+
+
+@router.get("/gerentes/{gerente_id}/ausencias")
+def api_listar_ausencias(gerente_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    if user.get("role") not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas master/emissor")
+    try:
+        aus = (db.table("gerente_ausencias").select("*")
+               .eq("gerente_id", gerente_id).order("data_inicio", desc=True).execute().data or [])
+        if not aus:
+            return {"ausencias": []}
+        linhas = (db.table("gerente_ausencia_condominios")
+                  .select("ausencia_id, condominio_id, substituto_id")
+                  .in_("ausencia_id", [a["id"] for a in aus]).execute().data or [])
+        por = {}
+        for l in linhas:
+            por.setdefault(l["ausencia_id"], []).append(l)
+        for a in aus:
+            a["atribuicoes"] = por.get(a["id"], [])
+        return {"ausencias": aus}
+    except Exception as e:
+        if "does not exist" in str(e) or "PGRST205" in str(e):
+            return {"ausencias": [], "aviso": "Falta rodar a migration 0117."}
+        raise HTTPException(400, str(e))
+
+
+@router.post("/gerentes/{gerente_id}/ausencia")
+def api_criar_ausencia(gerente_id: str, data: AusenciaSchema, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Abre um período de férias e reparte a carteira entre os substitutos."""
+    if user.get("role") not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas master/emissor")
+    if not data.atribuicoes:
+        raise HTTPException(400, "Escolha ao menos um condomínio e quem responde por ele.")
+    if data.data_fim < data.data_inicio:
+        raise HTTPException(400, "A data de volta é anterior à de saída.")
+
+    g = db.table("gerentes").select("id, nome, profile_id").eq("id", gerente_id).maybe_single().execute().data
+    if not g:
+        raise HTTPException(404, "Gerente não encontrado.")
+
+    # Os condomínios têm de ser DELE. Sem esta checagem, a tela de férias viraria
+    # um jeito de dar acesso a qualquer carteira.
+    da_carteira = {c["id"] for c in (db.table("condominios").select("id")
+                                     .eq("gerente_id", gerente_id).execute().data or [])}
+    pedidos = {a.condominio_id for a in data.atribuicoes}
+    fora = pedidos - da_carteira
+    if fora:
+        raise HTTPException(400, f"{len(fora)} condomínio(s) não são da carteira deste gerente.")
+
+    # E os substitutos precisam ser gente que aprova.
+    subs = list({a.substituto_id for a in data.atribuicoes})
+    perfis = {p["id"]: p for p in (db.table("profiles").select("id, full_name, role")
+                                   .in_("id", subs).execute().data or [])}
+    for pid in subs:
+        p = perfis.get(pid)
+        if not p:
+            raise HTTPException(400, "Substituto não encontrado.")
+        if p.get("role") not in PODE_SUBSTITUIR:
+            raise HTTPException(400, f"{p.get('full_name') or 'Esta pessoa'} não tem papel que aprova emissão.")
+        if g.get("profile_id") and pid == g["profile_id"]:
+            raise HTTPException(400, "O substituto não pode ser o próprio gerente que se ausenta.")
+
+    try:
+        nova = db.table("gerente_ausencias").insert({
+            "gerente_id": gerente_id,
+            "motivo": (data.motivo or "Férias").strip() or "Férias",
+            "data_inicio": data.data_inicio,
+            "data_fim": data.data_fim,
+            "criado_por": user.get("id"),
+            "criado_por_nome": user.get("full_name") or user.get("email"),
+        }).execute().data
+        if not nova:
+            raise HTTPException(400, "Não consegui abrir o período.")
+        ausencia_id = nova[0]["id"]
+
+        db.table("gerente_ausencia_condominios").insert([
+            {"ausencia_id": ausencia_id, "condominio_id": a.condominio_id, "substituto_id": a.substituto_id}
+            for a in data.atribuicoes
+        ]).execute()
+    except HTTPException:
+        raise
+    except Exception as e:
+        msg = str(e)
+        if "does not exist" in msg or "PGRST205" in msg:
+            raise HTTPException(400, "Falta rodar a migration 0117 — sem ela não há onde guardar as férias.")
+        raise HTTPException(400, f"Não consegui abrir o período: {msg}")
+
+    por_substituto = {}
+    for a in data.atribuicoes:
+        por_substituto.setdefault(a.substituto_id, []).append(a.condominio_id)
+
+    _notificar_substitutos(
+        db, ausencia_id, g.get("nome") or "o gerente",
+        (data.motivo or "Férias"), data.data_inicio, data.data_fim,
+        por_substituto, user.get("full_name") or "A administração",
+    )
+    return {"ok": True, "ausencia_id": ausencia_id,
+            "condominios": len(data.atribuicoes), "substitutos": len(por_substituto)}
+
+
+@router.post("/ausencias/{ausencia_id}/encerrar")
+def api_encerrar_ausencia(ausencia_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Devolve a carteira antes do fim do período (o gerente voltou mais cedo).
+
+    Não apaga: carimba o fim. O histórico de quem respondeu por quem continua
+    de pé, e é ele que explica as assinaturas daquele mês."""
+    if user.get("role") not in ("master", "departamento"):
+        raise HTTPException(403, "Apenas master/emissor")
+    from datetime import datetime, timezone
+    try:
+        r = (db.table("gerente_ausencias")
+             .update({"encerrada_em": datetime.now(timezone.utc).isoformat()})
+             .eq("id", ausencia_id).is_("encerrada_em", "null").execute())
+        return {"ok": True, "encerradas": len(r.data or [])}
+    except Exception as e:
+        raise HTTPException(400, f"Não consegui encerrar: {e}")
+
+
 @router.get("/carteiras")
 def api_carteiras(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     try:

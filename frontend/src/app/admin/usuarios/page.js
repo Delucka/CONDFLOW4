@@ -4,11 +4,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS } from '@/lib/roles';
+import ModalFerias from './ModalFerias';
 import { useToast } from '@/components/Toast';
 import {
   Users, ShieldAlert, PlusCircle, Trash2, Mail, Loader2, X,
   RefreshCw, Building2, Link2, Unlink, ChevronDown, ChevronUp,
-  Eye, EyeOff, UserCog, Check, KeyRound, Copy
+  Eye, EyeOff, UserCog, Check, KeyRound, Copy, CalendarDays
 } from 'lucide-react';
 
 // A ordem em que os papéis aparecem, e o rótulo mais explicativo de cada um.
@@ -463,7 +464,7 @@ function ModalCarteira({ usuario, onClose, onUpdated }) {
 }
 
 // ─── Card Usuário ──────────────────────────────────────────────────────
-function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = [], onVincularGerente }) {
+function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = [], onVincularGerente, onFerias }) {
   const isMaster = u.role === 'master';
   const isGerente = u.role === 'gerente';
   const isAssistente = u.role === 'assistente';
@@ -643,6 +644,15 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
                 className="text-[10px] font-bold text-violet-400 hover:text-violet-300 flex items-center gap-1 bg-violet-500/10 border border-violet-500/20 px-2 py-1 rounded transition-colors">
                 <Link2 className="w-3 h-3" /> Gerenciar
               </button>
+              {/* Ferias (0117). Fica junto da carteira porque e a carteira que
+                  muda de mao — e e aqui que se olha quando alguem some. */}
+              {u.gerente_id_real && (
+                <button onClick={() => onFerias(u)}
+                  title="Passar a carteira para outras pessoas durante um periodo"
+                  className="text-[10px] font-bold text-amber-700 hover:text-amber-800 flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded transition-colors">
+                  <CalendarDays className="w-3 h-3" /> Ausência
+                </button>
+              )}
               {/* Dentro ou fora da operacao. Fica ao lado da carteira porque as
                   duas decisoes andam juntas: quem sai deixa condominios, e quem
                   olha uma quer ver a outra. */}
@@ -691,6 +701,7 @@ export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalCriar, setModalCriar] = useState(false);
+  const [feriasDe, setFeriasDe] = useState(null);   // usuário cujas férias estão abertas
   const [modalCarteira, setModalCarteira] = useState(null);
   const [modalResetSenha, setModalResetSenha] = useState(null);
 
@@ -785,7 +796,8 @@ export default function UsuariosPage() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {gerentes.map(u => (
-                  <UserCard key={u.id} u={u} currentUserId={user?.id} onSync={handleSync} onCarteira={setModalCarteira} onDeleted={handleDelete} gerentes={gerentes} onVincularGerente={handleVincularGerente} />
+                  <UserCard key={u.id} u={u} currentUserId={user?.id} onSync={handleSync} onCarteira={setModalCarteira} onDeleted={handleDelete} gerentes={gerentes} onVincularGerente={handleVincularGerente}
+              onFerias={setFeriasDe} />
                 ))}
               </div>
             </div>
@@ -813,6 +825,12 @@ export default function UsuariosPage() {
         </>
       )}
 
+      {feriasDe && (
+        <ModalFerias
+          usuario={feriasDe}
+          onClose={(mudou) => { setFeriasDe(null); if (mudou) carregar(); }}
+        />
+      )}
       {modalCriar && <ModalCriarUsuario onClose={() => setModalCriar(false)} onCreated={carregar} gerentes={gerentes} />}
       {modalCarteira && (
         <ModalCarteira usuario={modalCarteira} onClose={() => setModalCarteira(null)} onUpdated={carregar} />

@@ -1,6 +1,6 @@
 'use client';
 import { siglaRole } from '@/lib/roles';
-import { FLUXO_ROLES, faltamAprovar, aprovacoesValidas } from '@/lib/aprovacaoFluxo';
+import { FLUXO_ROLES, faltamAprovar, aprovacoesValidas, assinaturaComContexto } from '@/lib/aprovacaoFluxo';
 
 // Trilha "quem aprovou e quando" + quem ainda falta — visível para TODOS os perfis.
 // pacote precisa de: aprovacoes[] (preferencial) e/ou aprovado_em + nivel_aprovacao (fallback).
@@ -26,7 +26,7 @@ export default function TrilhaAprovacao({ pacote, className = '' }) {
             const s = siglaRole(a.role);
             const quando = new Date(a.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' ');
             return (
-              <span key={`a${i}`} title={`${s.label} · ${a.usuario_nome || '—'}${a.usuario_email ? ' · ' + a.usuario_email : ''} · ${quando}`}
+              <span key={`a${i}`} title={`${s.label} · ${assinaturaComContexto(a)}${a.usuario_email ? ' · ' + a.usuario_email : ''} · ${quando}`}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-bold cursor-help">
                 ✓ {s.sigla}
               </span>

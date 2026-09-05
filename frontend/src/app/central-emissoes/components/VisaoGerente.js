@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle, Droplet } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, Search, Loader2, Package, AlertCircle, Droplet, UserCheck } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import TrilhaAprovacao from '@/components/TrilhaAprovacao';
 import { proximoStatusAprovacao, registrarNaTrilha, avisoTrilhaFalhou, pedirCorrecao } from '@/lib/aprovacaoFluxo';
@@ -17,7 +17,14 @@ import { combina } from '@/lib/busca';
 import { useRealtime } from '@/lib/realtime';
 import { useRevalidarAoVoltar } from '@/lib/useRevalidarAoVoltar';
 
-export default function VisaoGerente({ profile }) {
+/**
+ * `cobertura` (0117): quando presente, este painel deixa de ser "meus pacotes" e
+ * passa a ser a carteira de OUTRO gerente, durante as férias dele.
+ *   { ausenciaId, gerenteNome, motivo, dataFim, condoIds }
+ * Só muda três coisas: de onde vêm os pacotes, o aviso no topo, e o contexto que
+ * vai junto da assinatura na trilha.
+ */
+export default function VisaoGerente({ profile, cobertura = null }) {
   const supabase = createClient();
   const { addToast } = useToast();
   const { user } = useAuth();
@@ -49,7 +56,24 @@ export default function VisaoGerente({ profile }) {
     try {
       let pacotesData = [];
 
-      if (isSupervisor) {
+      if (cobertura) {
+        // Cobrindo férias: os condomínios vêm da divisão feita na criação do
+        // período. A RPC `get_pacotes_gerente` não serve aqui — ela resolve a
+        // carteira por quem eu SOU, e estes condomínios são de outra pessoa.
+        // Quem autoriza de verdade é o RLS (0117), não esta consulta.
+        if (!cobertura.condoIds?.length) { setPacotes([]); setLoading(false); return; }
+        const { data, error } = await supabase
+          .from('emissoes_pacotes')
+          .select('*, condominios(name)')
+          .in('condominio_id', cobertura.condoIds)
+          .order('atualizado_em', { ascending: false });
+        if (error) {
+          console.error('[VisaoGerente/cobertura] erro:', error);
+          addToast('Não consegui carregar a carteira de ' + cobertura.gerenteNome + ': ' + error.message, 'error');
+          setPacotes([]); setLoading(false); return;
+        }
+        pacotesData = (data || []).map(p => ({ ...p, condo_name: p.condominios?.name }));
+      } else if (isSupervisor) {
         // Supervisor: vê TODOS os pacotes (sem filtro de carteira)
         const { data, error } = await supabase
           .from('emissoes_pacotes')
@@ -148,6 +172,9 @@ export default function VisaoGerente({ profile }) {
     } else {
       const { error: errTrilha } = await registrarNaTrilha(supabase, {
         pacoteId: pacote.id, acao: 'aprovacao', user,
+        // "aprovado por Denner · férias da Suellen"
+        emNomeDe: cobertura?.gerenteNome || null,
+        motivo: cobertura?.motivo || null,
       });
       if (errTrilha) addToast(avisoTrilhaFalhou('aprovacao', errTrilha), 'error');
       addToast(nextStatus === 'aprovado' ? 'Pacote aprovado!' : `Enviado para: ${nextStatus}`, 'success');
@@ -301,8 +328,27 @@ export default function VisaoGerente({ profile }) {
     ...(counts.cancelada > 0 ? [{ value: 'cancelada', label: 'Canceladas' }] : []),
   ];
 
+
+  const avisoCobertura = cobertura ? (
+    <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+      <UserCheck className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-amber-900">
+          Carteira de {cobertura.gerenteNome} — {String(cobertura.motivo || 'Férias').toLowerCase()}
+        </p>
+        <p className="text-[12px] text-amber-800 mt-0.5">
+          Você responde por {cobertura.condoIds?.length || 0} condomínio(s) até{' '}
+          <strong>{new Date(cobertura.dataFim + 'T12:00:00').toLocaleDateString('pt-BR')}</strong>.
+          O que você aprovar fica registrado no seu nome, com a observação de que era cobertura.
+          Depois dessa data eles somem daqui e voltam para {cobertura.gerenteNome}.
+        </p>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-6">
+      {avisoCobertura}
 
       {/* Deixa explícito que aqui é a EMISSÃO (etapa 2), não a planilha (etapa 1) */}
       <div className="flex items-center gap-2 flex-wrap">

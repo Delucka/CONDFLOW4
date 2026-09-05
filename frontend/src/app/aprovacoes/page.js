@@ -37,8 +37,9 @@ import RegistroEmissoes from '@/app/central-emissoes/components/RegistroEmissoes
 import RelatorioEmissoes from '@/app/aprovacoes/RelatorioEmissoes';
 import RelatorioDocumentos from './RelatorioDocumentos';
 import RelatorioExpedicao from '@/components/RelatorioExpedicao';
+import { carteirasCobertas } from '@/lib/carteira';
 import BaixarDocumentosEmissao from '@/app/aprovacoes/BaixarDocumentosEmissao';
-import { Package, Archive, BarChart3 } from 'lucide-react';
+import { Package, Archive, BarChart3, UserCheck } from 'lucide-react';
 
 // Cor e ícone por tipo de ação
 function getActionStyle(action = '') {
@@ -72,7 +73,11 @@ export default function AprovacoesPage() {
   const isSupervisor = ['supervisora', 'supervisora_contabilidade', 'supervisor_gerentes'].includes(role);
   const verAbasPacotes = !isMaster && !isDepartamento && (isGerente || isSupervisor);
 
-  const [aba, setAba] = useState('fila'); // 'fila' | 'auditoria' | 'pacotes' | 'registro'
+  const [aba, setAba] = useState('fila'); // 'fila' | 'auditoria' | 'pacotes' | 'registro' | 'cobertura:<id>'
+
+  // Carteiras que estou cobrindo HOJE por férias de alguém (0117). Cada uma vira
+  // uma aba com o nome do ausente — ninguém aprova achando que a carteira é sua.
+  const [coberturas, setCoberturas] = useState([]);
   // Sobe junto do `aba`: o ?view= abaixo escreve nele, e o no-use-before-define
   // recusa (com razão) ler um `const` declarado cem linhas adiante.
   const [auditView, setAuditView] = useState('atividade'); // 'atividade' | 'erros' | 'relatorios'
@@ -88,6 +93,15 @@ export default function AprovacoesPage() {
     const v = searchParams.get('view');
     if (v && ['atividade', 'erros', 'relatorios'].includes(v)) setAuditView(v);
   }, [searchParams]);
+  useEffect(() => {
+    let vivo = true;
+    if (!profile?.id) return undefined;
+    carteirasCobertas(supabase, profile)
+      .then((lista) => { if (vivo) setCoberturas(lista); })
+      .catch(() => { /* 0117 ainda não rodou: ninguém cobre ninguém */ });
+    return () => { vivo = false; };
+  }, [supabase, profile]);
+
   const { count: minhasPendenciasEmissao } = usePendingCount();
   const [processing, setProcessing] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(null);
@@ -429,6 +443,15 @@ export default function AprovacoesPage() {
           { id: 'pacotes',   label: 'Meus Pacotes',             icon: Package, show: verAbasPacotes, badge: minhasPendenciasEmissao },
           { id: 'registro',  label: 'Registro de Emissões',     icon: Archive, show: verAbasPacotes, badge: 0 },
           { id: 'auditoria', label: 'Histórico de Atividades',  icon: History, show: true,           badge: 0 },
+          // Uma aba por gerente ausente. O rótulo traz o NOME porque é isso que
+          // diz à pessoa de quem são aqueles condomínios.
+          ...coberturas.map((c) => ({
+            id: `cobertura:${c.ausenciaId}`,
+            label: `Condomínios de ${String(c.gerenteNome).split(' ')[0]}`,
+            icon: UserCheck,
+            show: true,
+            badge: c.condoIds.length,
+          })),
         ].filter(t => t.show).map(({ id, label, icon: Icon, badge }) => (
           <button key={id} onClick={() => setAba(id)}
             className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-medium transition-all ${
@@ -452,6 +475,17 @@ export default function AprovacoesPage() {
           {(isGerente || isSupervisor) && <VisaoGerente profile={profile} />}
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* ABAS: CARTEIRAS COBERTAS POR FÉRIAS (0117)                 */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {coberturas.map((c) => (
+        aba === `cobertura:${c.ausenciaId}` && (
+          <div key={c.ausenciaId} className="space-y-4">
+            <VisaoGerente profile={profile} cobertura={c} />
+          </div>
+        )
+      ))}
 
       {/* ══════════════════════════════════════════════════════════ */}
       {/* ABA: REGISTRO DE EMISSOES                                  */}

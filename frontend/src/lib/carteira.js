@@ -41,12 +41,70 @@ export async function carteiraGerenteId(supabase, profile) {
   return null;
 }
 
-/** Ids dos condomínios da carteira, ou `null` quando não há recorte. */
+/**
+ * Carteiras que estou cobrindo HOJE, porque o dono está de férias (0117).
+ *
+ * Devolve `[{ ausenciaId, gerenteNome, motivo, dataInicio, dataFim, condoIds }]`,
+ * uma entrada por gerente ausente — é o que vira aba própria na tela de
+ * aprovações ("Condomínios da Suellen"), para ninguém aprovar achando que a
+ * carteira é sua.
+ *
+ * O período é filtrado aqui e TAMBÉM no banco (`condominios_por_ausencia`). A
+ * tela some no dia seguinte ao fim; a política do banco é que garante que não
+ * adianta insistir.
+ */
+export async function carteirasCobertas(supabase, profile) {
+  if (!profile?.id) return [];
+  const hoje = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from('gerente_ausencia_condominios')
+    .select('condominio_id, ausencia_id, gerente_ausencias!inner(id, motivo, data_inicio, data_fim, encerrada_em, gerentes!inner(nome))')
+    .eq('substituto_id', profile.id)
+    .is('gerente_ausencias.encerrada_em', null)
+    .lte('gerente_ausencias.data_inicio', hoje)
+    .gte('gerente_ausencias.data_fim', hoje);
+
+  // Tabela ainda não existe (0117 não rodou): ninguém está cobrindo ninguém.
+  if (error) return [];
+
+  const porAusencia = new Map();
+  for (const linha of data || []) {
+    const a = linha.gerente_ausencias;
+    if (!a) continue;
+    const atual = porAusencia.get(a.id) || {
+      ausenciaId: a.id,
+      gerenteNome: a.gerentes?.nome || 'gerente',
+      motivo: a.motivo || 'Férias',
+      dataInicio: a.data_inicio,
+      dataFim: a.data_fim,
+      condoIds: [],
+    };
+    atual.condoIds.push(linha.condominio_id);
+    porAusencia.set(a.id, atual);
+  }
+  return [...porAusencia.values()];
+}
+
+/**
+ * Ids dos condomínios da carteira, ou `null` quando não há recorte.
+ *
+ * Inclui o que estou cobrindo por férias: sem isso o substituto veria a aba com
+ * o nome do colega e nenhuma emissão dentro dela.
+ */
 export async function condosDaCarteira(supabase, profile) {
   const gId = await carteiraGerenteId(supabase, profile);
+
+  // Sem carteira própria (master, departamento, supervisões) = vê tudo, como
+  // sempre. Cobrir a carteira de alguém não pode ENCOLHER o alcance de quem já
+  // enxergava mais — e é por isso que os cobertos nem são buscados aqui.
   if (!gId) return null;
-  const { data } = await supabase.from('condominios').select('id').eq('gerente_id', gId);
-  return (data || []).map(c => c.id);
+
+  const [{ data }, coberturas] = await Promise.all([
+    supabase.from('condominios').select('id').eq('gerente_id', gId),
+    carteirasCobertas(supabase, profile),
+  ]);
+  const cobertos = coberturas.flatMap(c => c.condoIds);
+  return [...new Set([...(data || []).map(c => c.id), ...cobertos])];
 }
 
 /** Quem tem carteira: só gerente e assistente. */

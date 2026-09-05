@@ -59,7 +59,7 @@ export function aprovacoesValidas(aprovacoes) {
  *
  * @returns {{ error: any }} nunca lança — quem chama decide o que fazer
  */
-export async function registrarNaTrilha(supabase, { pacoteId, pacoteIds, acao, user }) {
+export async function registrarNaTrilha(supabase, { pacoteId, pacoteIds, acao, user, emNomeDe, motivo }) {
   const ids = pacoteIds || [pacoteId];
   const linhas = ids.filter(Boolean).map((id) => ({
     pacote_id: id,
@@ -67,10 +67,22 @@ export async function registrarNaTrilha(supabase, { pacoteId, pacoteIds, acao, u
     role: user?.role || null,
     usuario_nome: user?.full_name || null,
     usuario_email: user?.email || null,
+    // Quem assinou cobrindo férias de alguém (0117). Sem isto, daqui a seis
+    // meses a assinatura de um master numa carteira que não é dele vira um
+    // mistério — e é justamente a assinatura que alguém vai questionar.
+    ...(emNomeDe ? { em_nome_de: emNomeDe, motivo: motivo || 'Férias' } : {}),
   }));
   if (!linhas.length) return { error: null };
   const { error } = await supabase.from('emissoes_pacotes_aprovacoes').insert(linhas);
   return { error };
+}
+
+/** "Denner · férias da Suellen" — o texto que a trilha mostra. */
+export function assinaturaComContexto(a) {
+  const quem = a?.usuario_nome || 'alguém';
+  if (!a?.em_nome_de) return quem;
+  const motivo = (a.motivo || 'Férias').toLowerCase();
+  return `${quem} · ${motivo} de ${a.em_nome_de}`;
 }
 
 /** Mensagem única para a falha acima — o usuário precisa saber o que ficou torto. */
