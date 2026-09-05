@@ -144,10 +144,34 @@ export default function AprovacoesPage() {
   // tem profile; nulo acontece porque a FK é ON DELETE SET NULL.
   const nomeGerente = (e) => e.gerentes?.profiles?.full_name || e.gerentes?.nome || null;
 
+  // De quem é cada condomínio coberto por férias, para a linha poder dizer.
+  const condosCobertos = useMemo(() => {
+    const m = new Map();
+    for (const c of coberturas) for (const id of c.condoIds) m.set(id, c);
+    return m;
+  }, [coberturas]);
+
   // Função, não componente: chamada como {linhaGerente(e)} não remonta a cada render.
-  // Escondida do gerente — a fila dele já é toda dele, repetir o nome é ruído.
+  //
+  // Antes era escondida do gerente, com a justificativa de que "a fila dele já é
+  // toda dele". Isso deixou de ser verdade quando alguém passou a cobrir férias
+  // de outro (0117): a fila pode ter condomínio que não é dele, e sem o nome ele
+  // aprova sem saber de quem é. O nome aparece sempre; a cobertura aparece em
+  // âmbar, com o motivo, porque é a que muda a responsabilidade.
   const linhaGerente = (e) => {
-    if (isGerente) return null;
+    const cobertura = condosCobertos.get(e.condominio_id);
+    if (cobertura) {
+      return (
+        <p className="text-xs truncate flex items-center gap-1 mt-0.5 text-amber-700 font-semibold">
+          <User className="w-3 h-3 shrink-0" aria-hidden="true" />
+          {cobertura.gerenteNome}
+          <span className="font-normal text-amber-600">
+            · {String(cobertura.motivo || 'Férias').toLowerCase()}, até{' '}
+            {new Date(cobertura.dataFim + 'T12:00:00').toLocaleDateString('pt-BR')}
+          </span>
+        </p>
+      );
+    }
     const nome = nomeGerente(e);
     return (
       <p className={cn('text-xs truncate flex items-center gap-1 mt-0.5',
