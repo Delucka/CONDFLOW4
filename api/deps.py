@@ -126,10 +126,39 @@ def carteira_gerente_id(db: Client, user: dict):
         return get_gerente_id(db, gpid) if gpid else None
     return None
 
+def condos_cobertos_por_ausencia(db: Client, user: dict):
+    """Condomínios que este usuário responde HOJE por ausência de outro (0117).
+
+    Espelha `condominios_por_ausencia()` do banco. Existe porque a API resolve
+    carteira sozinha, do lado do servidor: sem isto, o substituto abre o painel e
+    vê "0 condomínios" enquanto o RLS já o autoriza a aprovar aqueles pacotes.
+    """
+    uid = user.get("id")
+    if not uid:
+        return []
+    try:
+        from datetime import date
+        hoje = date.today().isoformat()
+        linhas = (db.table("gerente_ausencia_condominios")
+                  .select("condominio_id, gerente_ausencias!inner(data_inicio, data_fim, encerrada_em)")
+                  .eq("substituto_id", uid)
+                  .is_("gerente_ausencias.encerrada_em", "null")
+                  .lte("gerente_ausencias.data_inicio", hoje)
+                  .gte("gerente_ausencias.data_fim", hoje)
+                  .execute().data or [])
+        return [l["condominio_id"] for l in linhas]
+    except Exception as e:
+        # 0117 ainda nao rodou, ou o embed falhou: ninguem cobre ninguem.
+        print(f"[carteira] ausencias nao consultadas (segue sem): {type(e).__name__}")
+        return []
+
+
 def carteira_condo_ids(db: Client, user: dict):
-    """IDs dos condomínios da carteira do usuário (gerente ou assistente vinculado)."""
+    """IDs dos condomínios da carteira do usuário (gerente ou assistente vinculado),
+    mais os que ele cobre por férias de outro gerente."""
+    cobertos = condos_cobertos_por_ausencia(db, user)
     g_id = carteira_gerente_id(db, user)
     if not g_id:
-        return []
+        return cobertos
     res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
-    return [c["id"] for c in (res.data or [])]
+    return list({c["id"] for c in (res.data or [])} | set(cobertos))
