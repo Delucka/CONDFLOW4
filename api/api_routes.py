@@ -129,10 +129,13 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                 # Mesmo recorte de carteira do resto do painel: gerente e
                 # assistente so enxergam a propria fila.
                 if user.get("role") in ("gerente", "assistente"):
-                    g_id = carteira_gerente_id(db, user)
-                    if not g_id:
+                    # Por condominio: na cobertura de ferias (0117) a edicao
+                    # continua sendo do gerente ausente, e perguntar "de quem e"
+                    # faz a fila aparecer vazia para quem esta cobrindo.
+                    ids = carteira_condo_ids(db, user)
+                    if not ids:
                         return []
-                    q = q.eq("gerente_id", g_id)
+                    q = q.in_("condominio_id", ids)
                 return q.order("mes_referencia", desc=True).execute().data or []
             except Exception as e:
                 print(f"[dashboard] edicoes_mensais falhou (segue sem): {e}")
@@ -224,16 +227,16 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                     out["fatura_falha"] = r[0] if r else None
 
                 if papel in ("gerente", "assistente"):
-                    g_id = carteira_gerente_id(db, user)
-                    if g_id:
+                    ids_carteira = carteira_condo_ids(db, user)
+                    if ids_carteira:
                         out["edicoes_em_edicao"] = conta(
                             "edicoes_mensais",
-                            lambda q: q.eq("gerente_id", g_id).eq("status", "em_edicao"))
+                            lambda q: q.in_("condominio_id", ids_carteira).eq("status", "em_edicao"))
                         from datetime import datetime as _d, timedelta as _t
                         sete = (_d.now() - _t(days=7)).isoformat()
                         reabs = db.table("edicoes_mensais") \
                                   .select("reabertura_aprovada") \
-                                  .eq("gerente_id", g_id) \
+                                  .in_("condominio_id", ids_carteira) \
                                   .not_.is_("reabertura_respondida_em", "null") \
                                   .gte("reabertura_respondida_em", sete).execute().data or []
                         out["reaberturas_aprovadas"] = sum(1 for r in reabs if r.get("reabertura_aprovada") is True)
@@ -4345,10 +4348,10 @@ def api_listar_edicoes(
         # propria carteira do gerente, e a do gerente a que o assistente esta
         # vinculado (profiles.gerente_id, 0057).
         if user.get("role") in ("gerente", "assistente"):
-            g_id = carteira_gerente_id(db, user)
-            if not g_id:
+            ids = carteira_condo_ids(db, user)
+            if not ids:
                 return None
-            q = q.eq("gerente_id", g_id)
+            q = q.in_("condominio_id", ids)
 
         return q.order("ano_referencia", desc=True) \
                 .order("mes_referencia", desc=True) \
@@ -4437,10 +4440,12 @@ def api_liberar_todos(data: LiberarTodosSchema, user: dict = Depends(get_current
             "id, gerente_id, status, condominio_id, mes_referencia, ano_referencia"
         ).in_("id", data.ids)
         if role == "gerente":
-            g_id = get_gerente_id(db, user["id"])
-            if not g_id:
+            # Liberar tambem segue a carteira do dia: quem cobre ferias libera
+            # o que esta cobrindo, e so isso.
+            ids = carteira_condo_ids(db, user)
+            if not ids:
                 return {"ok": True, "liberados": 0}
-            q = q.eq("gerente_id", g_id)
+            q = q.in_("condominio_id", ids)
         rows = [e for e in (q.execute().data or []) if e.get("status") == "em_edicao"]
         if not rows:
             return {"ok": True, "liberados": 0}
@@ -4498,10 +4503,10 @@ def api_liberar_todos(data: LiberarTodosSchema, user: dict = Depends(get_current
         .eq("mes_referencia", mes)
 
     if role == "gerente":
-        g_id = get_gerente_id(db, user["id"])
-        if not g_id:
+        ids = carteira_condo_ids(db, user)
+        if not ids:
             return {"ok": True, "liberados": 0}
-        q = q.eq("gerente_id", g_id)
+        q = q.in_("condominio_id", ids)
 
     res = q.execute()
     ids = [e["id"] for e in (res.data or [])]
