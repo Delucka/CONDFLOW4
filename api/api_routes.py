@@ -1561,17 +1561,39 @@ def api_criar_ausencia(gerente_id: str, data: AusenciaSchema, user: dict = Depen
             raise HTTPException(400, "O substituto não pode ser o próprio gerente que se ausenta.")
 
     try:
-        nova = db.table("gerente_ausencias").insert({
-            "gerente_id": gerente_id,
+        # Período que se sobrepõe = o MESMO período, sendo corrigido.
+        #
+        # Criar outro por cima deixaria o mesmo condomínio em duas mãos: o
+        # UNIQUE do banco só protege dentro de um período. E é o que aconteceria
+        # sempre que alguém reabrisse a tela para trocar um responsável.
+        cabecalho = {
             "motivo": (data.motivo or "Férias").strip() or "Férias",
             "data_inicio": data.data_inicio,
             "data_fim": data.data_fim,
-            "criado_por": user.get("id"),
-            "criado_por_nome": user.get("full_name") or user.get("email"),
-        }).execute().data
-        if not nova:
-            raise HTTPException(400, "Não consegui abrir o período.")
-        ausencia_id = nova[0]["id"]
+        }
+        aberta = (db.table("gerente_ausencias").select("id")
+                  .eq("gerente_id", gerente_id)
+                  .is_("encerrada_em", "null")
+                  .lte("data_inicio", data.data_fim)
+                  .gte("data_fim", data.data_inicio)
+                  .limit(1).execute().data or [])
+
+        if aberta:
+            ausencia_id = aberta[0]["id"]
+            db.table("gerente_ausencias").update(cabecalho).eq("id", ausencia_id).execute()
+            db.table("gerente_ausencia_condominios").delete().eq("ausencia_id", ausencia_id).execute()
+            atualizou = True
+        else:
+            cabecalho.update({
+                "gerente_id": gerente_id,
+                "criado_por": user.get("id"),
+                "criado_por_nome": user.get("full_name") or user.get("email"),
+            })
+            nova = db.table("gerente_ausencias").insert(cabecalho).execute().data
+            if not nova:
+                raise HTTPException(400, "Não consegui abrir o período.")
+            ausencia_id = nova[0]["id"]
+            atualizou = False
 
         db.table("gerente_ausencia_condominios").insert([
             {"ausencia_id": ausencia_id, "condominio_id": a.condominio_id, "substituto_id": a.substituto_id}
@@ -1594,7 +1616,7 @@ def api_criar_ausencia(gerente_id: str, data: AusenciaSchema, user: dict = Depen
         (data.motivo or "Férias"), data.data_inicio, data.data_fim,
         por_substituto, user.get("full_name") or "A administração",
     )
-    return {"ok": True, "ausencia_id": ausencia_id,
+    return {"ok": True, "ausencia_id": ausencia_id, "atualizou": atualizou,
             "condominios": len(data.atribuicoes), "substitutos": len(por_substituto)}
 
 

@@ -35,6 +35,8 @@ export default function ModalFerias({ usuario, onClose }) {
   // { [condominio_id]: substituto_id }  — em branco = fica com o gerente
   const [destino, setDestino] = useState({});
   const [emMassa, setEmMassa] = useState('');
+  // id do período que está sendo corrigido (null = abrindo um novo)
+  const [editando, setEditando] = useState(null);
 
   const condos = useMemo(
     () => [...(usuario?.condominios || [])].sort((a, b) => comparaPorCodigo(a.name, b.name)),
@@ -50,8 +52,26 @@ export default function ModalFerias({ usuario, onClose }) {
           apiFetch('/api/usuarios/lista-completa').catch(() => ({ usuarios: [] })),
         ]);
         if (!vivo) return;
-        setAusencias(lista?.ausencias || []);
+        const todas = lista?.ausencias || [];
+        setAusencias(todas);
         if (lista?.aviso) addToast(lista.aviso, 'warning');
+
+        // Um período aberto é o período sendo CORRIGIDO, não um novo.
+        //
+        // Sem carregar o que já vale, a tela dizia "0 de 30 com responsável"
+        // com metade da carteira já entregue — e salvar criaria um segundo
+        // período por cima, deixando o mesmo condomínio em duas mãos.
+        const hojeStr = new Date().toISOString().slice(0, 10);
+        const aberta = todas.find(a => !a.encerrada_em && a.data_fim >= hojeStr);
+        if (aberta) {
+          setEditando(aberta.id);
+          setMotivo(aberta.motivo || 'Férias');
+          setInicio(aberta.data_inicio);
+          setFim(aberta.data_fim);
+          setDestino(Object.fromEntries(
+            (aberta.atribuicoes || []).map(x => [x.condominio_id, x.substituto_id]),
+          ));
+        }
         // Quem aprova alguma coisa no fluxo pode receber carteira.
         const podem = (todos?.usuarios || todos || []).filter(p =>
           ['master', 'gerente', 'departamento', 'supervisora', 'supervisora_contabilidade', 'supervisor_gerentes']
@@ -86,7 +106,8 @@ export default function ModalFerias({ usuario, onClose }) {
         atribuicoes: atribuidos.map(([condominio_id, substituto_id]) => ({ condominio_id, substituto_id })),
       });
       addToast(
-        `Período aberto: ${r.condominios} condomínio(s) para ${r.substitutos} pessoa(s). Elas foram avisadas.`,
+        `${r.atualizou ? 'Período atualizado' : 'Período aberto'}: ${r.condominios} condomínio(s) `
+        + `para ${r.substitutos} pessoa(s). Elas foram avisadas.`,
         'success',
       );
       onClose(true);
@@ -158,6 +179,14 @@ export default function ModalFerias({ usuario, onClose }) {
                 </div>
               )}
 
+              {editando && (
+                <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                  Você está <strong>corrigindo o período que já está valendo</strong> — trocar um
+                  responsável aqui muda quem responde a partir de agora. Um condomínio tem
+                  sempre uma pessoa só.
+                </p>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label htmlFor="fer-motivo" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Motivo</label>
@@ -213,9 +242,18 @@ export default function ModalFerias({ usuario, onClose }) {
                 <div className="max-h-[38vh] overflow-y-auto divide-y divide-slate-100">
                   {condos.length === 0 ? (
                     <p className="px-4 py-8 text-center text-sm text-slate-500">Este gerente não tem condomínios na carteira.</p>
-                  ) : condos.map(c => (
+                  ) : condos.map(c => {
+                    const dono = pessoas.find(p => p.id === destino[c.id]);
+                    return (
                     <div key={c.id} className="flex items-center gap-3 px-4 py-2">
-                      <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">{c.name}</span>
+                      <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">
+                        {c.name}
+                        {dono && (
+                          <span className="ml-2 text-[11px] font-bold text-violet-700 bg-violet-50 border border-violet-200 rounded px-1.5 py-0.5">
+                            {String(dono.full_name).split(' ')[0]}
+                          </span>
+                        )}
+                      </span>
                       <select
                         value={destino[c.id] || ''}
                         onChange={e => setDestino(d => ({ ...d, [c.id]: e.target.value }))}
@@ -226,7 +264,8 @@ export default function ModalFerias({ usuario, onClose }) {
                         {pessoas.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
                       </select>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -243,7 +282,7 @@ export default function ModalFerias({ usuario, onClose }) {
                 <button onClick={salvar} disabled={salvando || !atribuidos.length}
                   className="flex-[2] py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-40">
                   {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
-                  Abrir período
+                  {editando ? 'Salvar alterações' : 'Abrir período'}
                 </button>
               </div>
             </>
