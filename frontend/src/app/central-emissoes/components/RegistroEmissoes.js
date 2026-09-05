@@ -13,6 +13,7 @@ import VisualizadorConferencia from '@/components/VisualizadorConferencia';
 import { ordenarParaExtracao, montarPdfEmissao, montarZipEmissao } from '@/lib/extrairEmissao';
 import { apiFetch, apiPost } from '@/lib/api';
 import { anexarGrupos } from '@/lib/conjuntoEmissao';
+import { condosDaCarteira } from '@/lib/carteira';
 import SeloGrupo from './SeloGrupo';
 
 export default function RegistroEmissoes({ profile }) {
@@ -71,19 +72,13 @@ export default function RegistroEmissoes({ profile }) {
       // Gerentes veem apenas os condomínios da sua carteira
       if (profile?.role === 'gerente') {
         // condominios.gerente_id referencia gerentes.id, não profiles.id
-        const { data: gerenteRow } = await supabase
-          .from('gerentes')
-          .select('id')
-          .eq('profile_id', profile.id)
-          .maybeSingle();
-        if (!gerenteRow?.id) { setPacotes([]); setLoading(false); return; }
-        const { data: meusConds } = await supabase
-          .from('condominios')
-          .select('id')
-          .eq('gerente_id', gerenteRow.id);
-        const ids = (meusConds || []).map(c => c.id);
-        if (ids.length === 0) { setPacotes([]); setLoading(false); return; }
-        query = query.in('condominio_id', ids);
+        const ids = await condosDaCarteira(supabase, profile);
+        // `null` = vê tudo (master, departamento, supervisões). Lista vazia é
+        // outra coisa: carteira sem condomínio nenhum.
+        if (ids) {
+          if (ids.length === 0) { setPacotes([]); setLoading(false); return; }
+          query = query.in('condominio_id', ids);
+        }
       }
 
       const { data, error } = await query;

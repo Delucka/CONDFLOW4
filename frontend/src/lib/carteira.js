@@ -139,14 +139,14 @@ export function useCondoNaCarteira(condoId) {
       }
       if (!condoId) { setEstado({ carregando: false, permitido: false }); return; }
 
-      const gId = await carteiraGerenteId(supabase, profile);
+      // `condosDaCarteira`, e não `eq('gerente_id', ...)`: durante uma cobertura
+      // de férias (0117) o dono do condomínio continua sendo o gerente ausente.
+      // Perguntar "de quem é?" fechava a porta justamente para quem foi
+      // encarregado de abri-la — o substituto via a planilha na fila e batia em
+      // "este condomínio não está na sua carteira" ao clicar.
+      const ids = await condosDaCarteira(supabase, profile);
       if (cancelado) return;
-      if (!gId) { setEstado({ carregando: false, permitido: false }); return; }
-
-      const { data } = await supabase
-        .from('condominios').select('id').eq('id', condoId).eq('gerente_id', gId).maybeSingle();
-      if (cancelado) return;
-      setEstado({ carregando: false, permitido: !!data });
+      setEstado({ carregando: false, permitido: !ids || ids.includes(condoId) });
     })();
     return () => { cancelado = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

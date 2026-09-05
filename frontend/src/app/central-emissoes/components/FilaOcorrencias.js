@@ -9,6 +9,7 @@ import { useRealtime } from '@/lib/realtime';
 // virava varredura completa, seis vezes por abertura do Painel. As listas cobrem
 // as grafias legadas que motivavam o ilike.
 import { COM_GERENTE, COM_SUP_GERENTES, COM_SUP_CONTABILIDADE, EM_CORRECAO } from '@/lib/statusEmissao';
+import { condosDaCarteira } from '@/lib/carteira';
 import Link from 'next/link';
 
 /**
@@ -119,7 +120,11 @@ export default function FilaOcorrencias({ semente = null, esperandoPainel = fals
   const condosDaCarteira = async () => {
     const gId = await carteiraGerenteId();
     if (!gId) return null;
-    const { data } = await supabase.from('condominios').select('id').eq('gerente_id', gId);
+    // Mesma regra do resto: por condomínio, não por dono (0117).
+    const idsCarteira = await condosDaCarteira(supabase, profile);
+    const { data } = idsCarteira
+      ? await supabase.from('condominios').select('id').in('id', idsCarteira)
+      : await supabase.from('condominios').select('id');
     return (data || []).map(c => c.id);
   };
 
@@ -128,8 +133,10 @@ export default function FilaOcorrencias({ semente = null, esperandoPainel = fals
     // `.single()` estourava quando o perfil não tinha linha em `gerentes` —
     // e o assistente nem era considerado, então escolhia condomínio de qualquer
     // carteira no modal de nova ocorrência.
-    const gId = await carteiraGerenteId();
-    if (gId) query = query.eq('gerente_id', gId);
+    // Por condomínio (0117): quem cobre férias precisa poder abrir ocorrência
+    // no que está cobrindo.
+    const idsModal = await condosDaCarteira(supabase, profile);
+    if (idsModal) query = query.in('id', idsModal);
 
     const { data } = await query.order('name');
     setCondominios(data || []);
@@ -177,9 +184,9 @@ export default function FilaOcorrencias({ semente = null, esperandoPainel = fals
         const alvo = meusCondos && meusCondos.length ? meusCondos : ['00000000-0000-0000-0000-000000000000'];
         const [rEd, rReab, rPac] = await Promise.all([
           supabase.from('edicoes_mensais').select('id', { count: 'exact', head: true })
-            .eq('gerente_id', gId).eq('status', 'em_edicao'),
+            .in('condominio_id', alvo).eq('status', 'em_edicao'),
           supabase.from('edicoes_mensais').select('reabertura_aprovada')
-            .eq('gerente_id', gId)
+            .in('condominio_id', alvo)
             .not('reabertura_respondida_em', 'is', null)
             .gte('reabertura_respondida_em', seteDiasAtras),
           supabase.from('emissoes_pacotes').select('id', { count: 'exact', head: true })

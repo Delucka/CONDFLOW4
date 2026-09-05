@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { gerarCsv, gerarPdfTabela } from '@/lib/relatorios';
+import { condosDaCarteira } from '@/lib/carteira';
 import { FileSpreadsheet, FileText, Loader2, BarChart3 } from 'lucide-react';
 
 const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -35,16 +36,15 @@ export default function RelatorioEmissoes() {
   const [loading, setLoading] = useState(false);
   const [gerando, setGerando] = useState(null); // 'csv' | 'pdf'
 
-  // Resolve os condomínios da carteira (só p/ gerente/assistente; os outros veem tudo)
-  const carteiraCondoIds = useCallback(async () => {
-    if (VE_TUDO.includes(role)) return null;   // null = sem filtro (vê tudo)
-    const gerenteProfileId = role === 'assistente' ? profile?.gerente_id : user?.id;
-    if (!gerenteProfileId) return [];
-    const { data: g } = await supabase.from('gerentes').select('id').eq('profile_id', gerenteProfileId).maybeSingle();
-    if (!g) return [];
-    const { data: condos } = await supabase.from('condominios').select('id').eq('gerente_id', g.id);
-    return (condos || []).map((c) => c.id);
-  }, [role, profile?.gerente_id, user?.id, supabase]);
+  // A carteira sai de `condosDaCarteira`. A versão que morava aqui lia
+  // `profile.gerente_id` para o assistente — campo que o AuthProvider só
+  // preenche para gerente — e perguntava "de quem é o condomínio?", que na
+  // cobertura de férias (0117) responde o gerente ausente. Dois erros que o
+  // helper não tem.
+  const carteiraCondoIds = useCallback(
+    () => condosDaCarteira(supabase, profile),
+    [supabase, profile],
+  );
 
   const buscar = useCallback(async () => {
     setLoading(true);
