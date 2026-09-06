@@ -200,9 +200,25 @@ export default function BaixarDocumentosEmissao() {
       // Então o servidor passou a ser o caminho NORMAL, não o plano B. Ele
       // trabalha por emissão, e o que ele devolve já vem limpo — daí o
       // navegador conseguir juntar as competências e pôr as folhas de rosto.
+      // A PLANILHA VEM ANTES, e fora do caminho do servidor.
+      //
+      // Ela estava sendo montada DENTRO do ramo que fala com o servidor. Quando
+      // esse ramo falhava, `planilhaDoMes` nem chegava a rodar: não saía a folha
+      // e não saía aviso nenhum — que é a pior combinação possível, porque não
+      // dá nem para descobrir o que houve.
+      //
+      // Agora ela é montada para toda competência, seja qual for o caminho do
+      // resto do maço, e o que der errado é dito.
+      const avisosPlanilha = [];
+      const planilhas = new Map();
+      for (const p of pacotes) {
+        const comp = `${MESES[p.mes_referencia] || '?'}/${p.ano_referencia}`;
+        setProg({ i: 0, n: 0, nome: `montando a planilha de ${comp}…` });
+        planilhas.set(p.id, await planilhaDoMes(p, avisosPlanilha));
+      }
+
       const prontas = [];
       const semServidor = [];
-      const avisosPlanilha = [];
       for (let k = 0; k < pacotes.length; k += 1) {
         const p = pacotes[k];
         const comp = `${MESES[p.mes_referencia] || '?'}/${p.ano_referencia}`;
@@ -218,16 +234,17 @@ export default function BaixarDocumentosEmissao() {
               label: comp,
               sublabel: condoNome,
               itens: g?.itens || [],
-              // A planilha do gerente vem primeiro: ela é o que foi DEFINIDO, e
-              // o resto do maço é o que saiu disso. Não é anexo — é desenhada a
-              // partir das verbas lançadas, então não existia jeito de imprimi-la
-              // junto da emissão.
-              bytes: [await planilhaDoMes(p, avisosPlanilha), await resp.arrayBuffer()],
+              // A planilha primeiro: ela é o que foi DEFINIDO, e o resto do maço
+              // é o que saiu disso.
+              bytes: [planilhas.get(p.id), await resp.arrayBuffer()],
               pulados: srv.pulados || [],
             });
             continue;
           }
-        } catch { /* cai para o navegador logo abaixo */ }
+          avisosPlanilha.push(`${comp}: o servidor não montou o PDF (HTTP ${resp?.status ?? 'sem resposta'})`);
+        } catch (e) {
+          avisosPlanilha.push(`${comp}: falha ao pedir o PDF ao servidor (${e.message || e})`);
+        }
         semServidor.push(p);
       }
 
@@ -246,11 +263,28 @@ export default function BaixarDocumentosEmissao() {
       } else {
         // Nenhuma emissão passou pelo servidor. Tenta no navegador — funciona
         // para anexo que não esteja cifrado, e diz o motivo quando não der.
+        //
+        // A planilha entra aqui também: ela é desenhada localmente e não depende
+        // do servidor, então não há razão para perdê-la junto com ele.
         setProg({ i: 0, n: 0, nome: 'tentando montar aqui…' });
         const r3 = await montarPdfMulti(grupos, (i, n, nome) => setProg({ i, n, nome }));
-        blob = r3.blob;
-        pulados = r3.pulados;
-        paginasDeDocumento = r3.paginasDeDocumento;
+        const folhas = pacotes.map((p) => planilhas.get(p.id)).filter(Boolean);
+        if (folhas.length) {
+          const r4 = await juntarPdfsProntos([{ bytes: [...folhas, await r3.blob.arrayBuffer()] }]);
+          blob = r4.blob;
+          paginasDeDocumento = r4.paginasDeDocumento;
+        } else {
+          blob = r3.blob;
+          paginasDeDocumento = r3.paginasDeDocumento;
+        }
+        pulados = [...avisosPlanilha, ...r3.pulados];
+      }
+
+      // A planilha foi pedida e nenhuma competência a produziu, mas nada
+      // explicou por quê. Não deixar isso passar calado é metade do conserto.
+      if (comPlanilha && tipoDoc !== 'boletos'
+          && ![...planilhas.values()].some(Boolean) && avisosPlanilha.length === 0) {
+        pulados.push('a planilha do gerente não foi montada e não houve erro — avise o suporte');
       }
 
       // Nada mesclou: não vale salvar um arquivo só com folhas de rosto e
@@ -267,7 +301,11 @@ export default function BaixarDocumentosEmissao() {
       }
 
       saveAs(blob, `emissao_${nomeBase()}.pdf`);
-      const resumo = `${grupos.length} emissão(ões) · ${paginasDeDocumento} página(s) de documento`;
+      // Diz quantas planilhas entraram, e não só quantas páginas saíram: ficar
+      // adivinhando se ela veio foi o que custou duas rodadas de conserto.
+      const comFolha = [...planilhas.values()].filter(Boolean).length;
+      const resumo = `${grupos.length} emissão(ões) · ${paginasDeDocumento} página(s) de documento`
+        + (comFolha ? ` · ${comFolha} planilha(s) do gerente` : '');
       if (pulados.length) {
         addToast(`PDF gerado (${resumo}). ${pulados.length} item(ns) ficaram de fora — baixe o ZIP para eles: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');
       } else {
