@@ -48,7 +48,7 @@ export default function BaixarDocumentosEmissao() {
       // 1) Emissões (pacotes) do condomínio no período
       let q = supabase
         .from('emissoes_pacotes')
-        .select('id, mes_referencia, ano_referencia, status, cobrancas_incluidas, condominio_id')
+        .select('id, mes_referencia, ano_referencia, status, cobrancas_incluidas, cobrancas_snapshot, condominio_id')
         .eq('condominio_id', condominioId)
         .eq('ano_referencia', ano)
         .neq('status', 'rascunho')
@@ -71,6 +71,8 @@ export default function BaixarDocumentosEmissao() {
 
       // 3) Monta os grupos (uma emissão por competência, na ordem 1→8)
       const grupos = [];
+      // Guardadas para a folha da planilha, que as lista em bloco separado.
+      const cobrancasPorPacote = new Map();
       for (const p of pacotes) {
         let cobrancas = [];
         // Cobrança extra é material de conferência (passo 7): não entra quando
@@ -83,6 +85,11 @@ export default function BaixarDocumentosEmissao() {
             cobrancas = Array.isArray(incl) ? todas.filter((c) => incl.includes(c.id)) : todas;
           } catch { /* segue sem cobranças */ }
         }
+        // O snapshot congelado no registro é a fonte melhor: é exatamente o
+        // que a emissão incluiu, e não muda se alguém mexer na cobrança depois.
+        const snap = p.cobrancas_snapshot;
+        cobrancasPorPacote.set(p.id, Array.isArray(snap) && snap.length ? snap : cobrancas);
+
         const itens = ordenarParaExtracao(filtrarPorTipo(arqPorPacote[p.id] || [], tipoDoc), cobrancas);
         // `sublabel` alimenta a folha de rosto do PDF: sem o nome do condomínio
         // ela não diz de quem é o maço, e num carrinho de impressão isso é a
@@ -100,7 +107,7 @@ export default function BaixarDocumentosEmissao() {
         addToast('As emissões do período não têm documentos anexados.', 'warning');
         return null;
       }
-      return { grupos, pacotes };
+      return { grupos, pacotes, cobrancasPorPacote };
   }
 
   /**
@@ -111,7 +118,7 @@ export default function BaixarDocumentosEmissao() {
    * lançada no mês. Neste último, desenhar uma folha zerada seria pior que não
    * desenhar: afirmaria que a previsão é zero.
    */
-  async function planilhaDoMes(p, avisos) {
+  async function planilhaDoMes(p, avisos, cobrancas = []) {
     if (!comPlanilha || tipoDoc === 'boletos') return null;
     const comp = `${MESES[p.mes_referencia] || '?'}/${p.ano_referencia}`;
     try {
@@ -122,7 +129,7 @@ export default function BaixarDocumentosEmissao() {
       // pedida e não saiu, a pessoa precisa saber por quê.
       if (!linhas.length) { avisos.push(`planilha de ${comp}: ${motivo || 'sem verbas'}`); return null; }
       return await montarPlanilhaPdf({
-        condoNome, mes: p.mes_referencia, ano: p.ano_referencia, linhas, liberacao,
+        condoNome, mes: p.mes_referencia, ano: p.ano_referencia, linhas, liberacao, cobrancas,
       });
     } catch (e) {
       // A planilha é um extra: não derruba o maço, mas também não some sem dizer.
@@ -177,7 +184,7 @@ export default function BaixarDocumentosEmissao() {
     try {
       const r = await montarGrupos();
       if (!r) return;
-      const { grupos, pacotes } = r;
+      const { grupos, pacotes, cobrancasPorPacote } = r;
 
       if (grupos.length > 12 && !window.confirm(
         `São ${grupos.length} emissões neste período. Juntar tudo num PDF só pode demorar ` +
@@ -214,7 +221,7 @@ export default function BaixarDocumentosEmissao() {
       for (const p of pacotes) {
         const comp = `${MESES[p.mes_referencia] || '?'}/${p.ano_referencia}`;
         setProg({ i: 0, n: 0, nome: `montando a planilha de ${comp}…` });
-        planilhas.set(p.id, await planilhaDoMes(p, avisosPlanilha));
+        planilhas.set(p.id, await planilhaDoMes(p, avisosPlanilha, cobrancasPorPacote.get(p.id) || []));
       }
 
       const prontas = [];
