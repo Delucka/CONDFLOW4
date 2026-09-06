@@ -111,16 +111,23 @@ export default function BaixarDocumentosEmissao() {
    * lançada no mês. Neste último, desenhar uma folha zerada seria pior que não
    * desenhar: afirmaria que a previsão é zero.
    */
-  async function planilhaDoMes(p) {
+  async function planilhaDoMes(p, avisos) {
     if (!comPlanilha || tipoDoc === 'boletos') return null;
+    const comp = `${MESES[p.mes_referencia] || '?'}/${p.ano_referencia}`;
     try {
-      const linhas = await buscarPlanilhaDoMes(supabase, p.condominio_id, p.mes_referencia, p.ano_referencia);
-      if (!linhas.length) return null;
+      const { linhas, liberacao, motivo } = await buscarPlanilhaDoMes(
+        supabase, p.condominio_id, p.mes_referencia, p.ano_referencia,
+      );
+      // Falhar calado foi o defeito que gerou este arquivo. Se a planilha foi
+      // pedida e não saiu, a pessoa precisa saber por quê.
+      if (!linhas.length) { avisos.push(`planilha de ${comp}: ${motivo || 'sem verbas'}`); return null; }
       return await montarPlanilhaPdf({
-        condoNome, mes: p.mes_referencia, ano: p.ano_referencia, linhas,
+        condoNome, mes: p.mes_referencia, ano: p.ano_referencia, linhas, liberacao,
       });
-    } catch {
-      return null;   // a planilha é um extra; não vale derrubar o maço por ela
+    } catch (e) {
+      // A planilha é um extra: não derruba o maço, mas também não some sem dizer.
+      avisos.push(`planilha de ${comp}: ${e.message || e}`);
+      return null;
     }
   }
 
@@ -195,6 +202,7 @@ export default function BaixarDocumentosEmissao() {
       // navegador conseguir juntar as competências e pôr as folhas de rosto.
       const prontas = [];
       const semServidor = [];
+      const avisosPlanilha = [];
       for (let k = 0; k < pacotes.length; k += 1) {
         const p = pacotes[k];
         const comp = `${MESES[p.mes_referencia] || '?'}/${p.ano_referencia}`;
@@ -214,7 +222,7 @@ export default function BaixarDocumentosEmissao() {
               // o resto do maço é o que saiu disso. Não é anexo — é desenhada a
               // partir das verbas lançadas, então não existia jeito de imprimi-la
               // junto da emissão.
-              bytes: [await planilhaDoMes(p), await resp.arrayBuffer()],
+              bytes: [await planilhaDoMes(p, avisosPlanilha), await resp.arrayBuffer()],
               pulados: srv.pulados || [],
             });
             continue;
@@ -230,6 +238,7 @@ export default function BaixarDocumentosEmissao() {
         blob = r2.blob;
         paginasDeDocumento = r2.paginasDeDocumento;
         pulados = [
+          ...avisosPlanilha,
           ...r2.pulados,
           ...prontas.flatMap((p) => (p.pulados || []).map((n) => `${p.label}: ${n}`)),
           ...semServidor.map((p) => `${MESES[p.mes_referencia]}/${p.ano_referencia} (servidor não respondeu)`),
