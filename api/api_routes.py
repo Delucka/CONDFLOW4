@@ -1064,6 +1064,42 @@ def api_importar_condominios(data: CondoImportPayload, user: dict = Depends(get_
     return {"simulacao": False, "resumo": {**resumo, "inseridos": inseridos}, "resultados": resultados}
 
 
+@router.get("/condominos/nomes")
+def api_nomes_condominos(condominio_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """Só `unidade → nome`, para a Relação de Recibos pôr o nome ao lado da unidade.
+
+    Existe separada de `/condominos` de propósito: aquela devolve CPF, telefone
+    e e-mail, e o relatório não precisa de nada disso. Mandar dado pessoal ao
+    navegador porque "já tem uma rota que traz" é como vazamento começa.
+
+    A tabela tem RLS sem policy pública (0071) — o navegador não a lê direto,
+    e é por isso que a leitura passa por aqui.
+
+    Quem vê: quem já pode ver o condomínio. Gerente e assistente, só a própria
+    carteira — o mesmo recorte do resto do sistema.
+    """
+    if user["role"] in ("gerente", "assistente"):
+        if condominio_id not in carteira_condo_ids(db, user):
+            raise HTTPException(403, "Este condomínio não está na sua carteira.")
+    try:
+        rows = db.table("condominos").select("unidade, bloco, nome") \
+            .eq("condominio_id", condominio_id).execute().data or []
+    except Exception as e:
+        raise HTTPException(500, f"Não consegui ler os nomes: {e}")
+
+    # Um mapa unidade -> nome, já resolvido aqui: a unidade aparece com e sem
+    # zero à esquerda dependendo do documento ("000011" no rateio, "11" no
+    # cadastro), e essa tradução não deve ser refeita em cada tela.
+    nomes = {}
+    for r in rows:
+        u = str(r.get("unidade") or "").strip().upper()
+        if not u or not r.get("nome"):
+            continue
+        nomes.setdefault(u, r["nome"])
+        nomes.setdefault(u.lstrip("0"), r["nome"])
+    return {"nomes": nomes, "unidades": len(rows)}
+
+
 @router.get("/condominos")
 def api_listar_condominos(condominio_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
     """Moradores de um condomínio + quantos estão prontos para a 2ª via.

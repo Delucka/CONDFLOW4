@@ -37,9 +37,10 @@ import RegistroEmissoes from '@/app/central-emissoes/components/RegistroEmissoes
 import RelatorioEmissoes from '@/app/aprovacoes/RelatorioEmissoes';
 import RelatorioDocumentos from './RelatorioDocumentos';
 import RelatorioExpedicao from '@/components/RelatorioExpedicao';
+import RelatorioRecibos from './RelatorioRecibos';
 import { carteirasCobertas } from '@/lib/carteira';
 import BaixarDocumentosEmissao from '@/app/aprovacoes/BaixarDocumentosEmissao';
-import { Package, Archive, BarChart3, UserCheck, Printer, FolderDown } from 'lucide-react';
+import { Package, Archive, BarChart3, UserCheck, Printer, FolderDown, ReceiptText } from 'lucide-react';
 
 // Cor e ícone por tipo de ação
 function getActionStyle(action = '') {
@@ -994,6 +995,7 @@ export default function AprovacoesPage() {
             {[
               { id: 'emissoes',   rotulo: 'Emissões por período', icone: BarChart3 },
               { id: 'documentos', rotulo: 'Documentos anexados',  icone: FileText },
+              { id: 'recibos',    rotulo: 'Relação de recibos',  icone: ReceiptText },
               { id: 'expedicao',  rotulo: 'Expedição',            icone: Printer },
               { id: 'baixar',     rotulo: 'Baixar / imprimir',    icone: FolderDown },
             ].map(({ id, rotulo, icone: Icone }) => (
@@ -1010,6 +1012,7 @@ export default function AprovacoesPage() {
 
           {relView === 'emissoes'   && <RelatorioEmissoes />}
           {relView === 'documentos' && <RelatorioDocumentos />}
+          {relView === 'recibos'    && <RelatorioRecibos />}
           {relView === 'expedicao'  && <RelatorioExpedicao />}
           {relView === 'baixar'     && <BaixarDocumentosEmissao />}
         </div>
