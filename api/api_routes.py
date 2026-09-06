@@ -575,19 +575,43 @@ def _ordenar_para_extracao(arquivos, cobrancas):
                 if a.get("categoria") == "relatorio_leitura"
                 and _norm_txt(a.get("relatorio_tipo_servico")) == alvo]
 
+    def consumo(*chaves):
+        """`RelControleConsumos` e afins — vem como 'outros' e pertence ao servico
+        que o SUBTIPO nomeia.
+
+        Vinha no coringa do fim, depois do relatorio de rateio. Sao 21 arquivos
+        em base e nao sao so de agua: 10 de agua e 9 de gas, com o servico
+        escrito no subtipo em oito grafias diferentes ("txt - agua",
+        "TXT - AGUA", "AGUA", "Relacao de Leitura AGUA - RENO"...). Por isso a
+        regra e a palavra do servico, e nao o nome do arquivo.
+
+        Os que nao nomeiam servico nenhum ("TXT", "RELATORIO TXT") continuam no
+        fim: chutar aqui poria um documento de gas no passo da agua com cara de
+        certeza."""
+        alvo = [_norm_txt(k) for k in chaves]
+        return [a for a in arquivos
+                if a.get("categoria") == "outros"
+                and any(k in _norm_txt(a.get("subtipo")) for k in alvo)]
+
     for a in por_cat("emissao"):
         add(a)
     for a in outros_sub("Correios"):
         add(a)
     for a in outros_sub("Seguro", "Seguros"):
         add(a)
+    # Dentro do passo: fatura da concessionaria, relatorio da empresa de
+    # medicao, e por ultimo o controle de consumos.
     for a in concess("sabesp", "agua"):
         add(a)
     for a in relat("agua"):
         add(a)
+    for a in consumo("agua"):
+        add(a)
     for a in concess("comgas", "gas"):
         add(a)
     for a in relat("gas"):
+        add(a)
+    for a in consumo("gas"):
         add(a)
     for a in concess("enel", "energia", "eletropaulo", "cpfl", "edp", "light"):
         add(a)

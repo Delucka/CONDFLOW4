@@ -31,6 +31,14 @@ export function rotuloDocumento(a) {
     if (sub.includes('SEGURO'))  return { passo: 3, rotulo: 'Seguro' };
     if (sub.includes('SALAO'))   return { passo: 7, rotulo: 'Salão de festas' };
     if (sub.includes('RATEIO'))  return { passo: 8, rotulo: 'Relatório de rateio' };
+    // `RelControleConsumos` e afins chegam como 'outros' e pertencem ao serviço
+    // que o subtipo nomeia — são 21 em base, 10 de água e 9 de gás, escritos de
+    // oito jeitos ("txt - agua", "TXT - ÁGUA", "Relação de Leitura ÁGUA - RENO").
+    // Gás antes de água pelo mesmo motivo das faturas: "COMGAS" contém "GAS".
+    if (/GAS/.test(sub))  return { passo: 5, rotulo: 'Gás — controle de consumos' };
+    if (/AGUA/.test(sub)) return { passo: 4, rotulo: 'Água — controle de consumos' };
+    // Sem palavra de serviço ("TXT", "RELATÓRIO TXT") fica no fim, admitindo que
+    // não sabe — chutar poria um documento de gás no passo da água.
     return { passo: 9, rotulo: a?.subtipo || 'Outro documento' };
   }
 

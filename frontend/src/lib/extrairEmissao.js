@@ -64,7 +64,23 @@ export function ordenarParaExtracao(arquivos = [], cobrancas = []) {
   const concessKeys = (...keys) =>
     arquivos.filter((a) => a.categoria === 'concessionaria' && keys.some((k) => norm(a.subtipo).includes(norm(k))));
   const relat = (serv) =>
-    arquivos.filter((a) => a.categoria === 'relatorio_leitura' && norm(a.relatorio_tipo_servico) === serv);
+    arquivos.filter((a) => a.categoria === 'relatorio_leitura' && norm(a.relatorio_tipo_servico) === norm(serv));
+  /**
+   * `RelControleConsumos` e afins — chegam como 'outros' e pertencem ao serviço
+   * que o SUBTIPO nomeia.
+   *
+   * Vinham no coringa do fim, depois do relatório de rateio. São 21 arquivos em
+   * base e não são só de água: 10 de água e 9 de gás, com o serviço escrito no
+   * subtipo em oito grafias diferentes ("txt - agua", "TXT - ÁGUA", "AGUA",
+   * "Relação de Leitura ÁGUA - RENO"…). Daí a regra ser a palavra do serviço, e
+   * não o nome do arquivo.
+   *
+   * Os que não nomeiam serviço nenhum ("TXT", "RELATÓRIO TXT") continuam no fim:
+   * chutar aqui poria um documento de gás no passo da água com cara de certeza.
+   */
+  const consumo = (...chaves) =>
+    arquivos.filter((a) => a.categoria === 'outros'
+      && chaves.some((k) => norm(a.subtipo).includes(norm(k))));
 
   // 1 · Emissão a processar
   porCat('emissao').forEach(add);
@@ -73,11 +89,15 @@ export function ordenarParaExtracao(arquivos = [], cobrancas = []) {
   // 3 · Seguros
   outrosSub('Seguro', 'Seguros').forEach(add);
   // 4 · Água: fatura (SABESP) + relatório (água)
+  // Dentro do passo: fatura da concessionária, relatório da empresa de
+  // medição, e por último o controle de consumos.
   concessKeys('sabesp', 'agua', 'água').forEach(add);
   relat('agua').forEach(add);
+  consumo('agua', 'água').forEach(add);
   // 5 · Gás: fatura (COMGAS) + relatório (gás)
   concessKeys('comgas', 'gas', 'gás').forEach(add);
   relat('gas').forEach(add);
+  consumo('gas', 'gás').forEach(add);
   // 6 · Energia: fatura (ENEL)
   concessKeys('enel', 'energia', 'eletropaulo', 'cpfl', 'edp', 'light').forEach(add);
   // 7 · Cobranças extras (anexos) + salão de festas
