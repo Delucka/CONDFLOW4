@@ -4,7 +4,7 @@ import useSWR from 'swr';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { apiFetcher, apiFetch } from '@/lib/api';
-import { ordenarParaExtracao, montarZipMulti, montarPdfMulti } from '@/lib/extrairEmissao';
+import { ordenarParaExtracao, montarZipMulti, montarPdfMulti, juntarPdfsProntos } from '@/lib/extrairEmissao';
 import { apiPost } from '@/lib/api';
 import { saveAs } from 'file-saver';
 import { FolderDown, Loader2, FileText, Building2, Printer } from 'lucide-react';
@@ -141,33 +141,64 @@ export default function BaixarDocumentosEmissao() {
         return;
       }
 
-      const { blob, pulados, totalPaginas, paginasDeDocumento } =
-        await montarPdfMulti(grupos, (i, n, nome) => setProg({ i, n, nome }));
-
-      // `paginasDeDocumento`, e não `totalPaginas`: o segundo conta também as
-      // folhas de rosto que a própria mesclagem cria. Com tudo falhando, sobravam
-      // só as folhas de rosto e `totalPaginas` vinha 3 — a checagem de fracasso
-      // não disparava, o arquivo era salvo e o aviso dizia "PDF gerado, 3
-      // páginas". Eram três páginas em branco.
+      // ── O SERVIDOR MONTA; o navegador só costura ──────────────────────
       //
-      // Plano B do servidor (QPDF) só existe por emissão. Com uma única emissão
-      // no período vale tentar; com várias, seriam N chamadas e N arquivos — aí
-      // é mais honesto avisar e deixar o ZIP resolver.
-      if ((paginasDeDocumento === 0 || pulados.length > 0) && pacotes.length === 1) {
+      // Os PDFs que o sistema emissor gera vêm cifrados (RC4 40 bits, senha de
+      // usuário vazia, só para travar permissões). Visualizador nenhum reclama
+      // — mas o pdf-lib, que roda aqui no navegador, NÃO decifra. Ele copiava
+      // os bytes ainda cifrados e produzia um arquivo com o número certo de
+      // páginas e todas em branco.
+      //
+      // O servidor usa pikepdf, que decifra. Medido com os quatro documentos do
+      // 025 - SUN GATE: pelo navegador, 27 páginas e 27 em branco; pelo
+      // servidor, as mesmas 27 páginas com o conteúdo todo.
+      //
+      // Então o servidor passou a ser o caminho NORMAL, não o plano B. Ele
+      // trabalha por emissão, e o que ele devolve já vem limpo — daí o
+      // navegador conseguir juntar as competências e pôr as folhas de rosto.
+      const prontas = [];
+      const semServidor = [];
+      for (let k = 0; k < pacotes.length; k += 1) {
+        const p = pacotes[k];
+        const comp = `${MESES[p.mes_referencia] || '?'}/${p.ano_referencia}`;
+        setProg({ i: k + 1, n: pacotes.length, nome: `montando ${comp}…` });
         try {
-          setProg({ i: 0, n: 0, nome: 'tentando montar no servidor…' });
-          const srv = await apiPost(`/api/emissoes/${pacotes[0].id}/extrair-pdf`, {});
-          if (srv?.url) {
-            const resp = await fetch(srv.url);
-            if (resp.ok) {
-              saveAs(await resp.blob(), srv.nome || `emissao_${nomeBase()}.pdf`);
-              const faltou = srv.pulados?.length || 0;
-              if (faltou) addToast(`PDF montado no servidor (${srv.paginas} páginas). ${faltou} item(ns) ficaram de fora.`, 'warning');
-              else addToast(`PDF pronto para imprimir! ${srv.paginas} páginas.`, 'success');
-              return;
-            }
+          const srv = await apiPost(`/api/emissoes/${p.id}/extrair-pdf`, {});
+          const resp = srv?.url ? await fetch(srv.url) : null;
+          if (resp?.ok) {
+            const g = grupos.find((x) => x.label === comp);
+            prontas.push({
+              label: comp,
+              sublabel: condoNome,
+              itens: g?.itens || [],
+              bytes: await resp.arrayBuffer(),
+              pulados: srv.pulados || [],
+            });
+            continue;
           }
-        } catch { /* servidor não resolveu: segue com o que o navegador conseguiu */ }
+        } catch { /* cai para o navegador logo abaixo */ }
+        semServidor.push(p);
+      }
+
+      let blob; let pulados = []; let paginasDeDocumento = 0;
+
+      if (prontas.length) {
+        const r2 = await juntarPdfsProntos(prontas);
+        blob = r2.blob;
+        paginasDeDocumento = r2.paginasDeDocumento;
+        pulados = [
+          ...r2.pulados,
+          ...prontas.flatMap((p) => (p.pulados || []).map((n) => `${p.label}: ${n}`)),
+          ...semServidor.map((p) => `${MESES[p.mes_referencia]}/${p.ano_referencia} (servidor não respondeu)`),
+        ];
+      } else {
+        // Nenhuma emissão passou pelo servidor. Tenta no navegador — funciona
+        // para anexo que não esteja cifrado, e diz o motivo quando não der.
+        setProg({ i: 0, n: 0, nome: 'tentando montar aqui…' });
+        const r3 = await montarPdfMulti(grupos, (i, n, nome) => setProg({ i, n, nome }));
+        blob = r3.blob;
+        pulados = r3.pulados;
+        paginasDeDocumento = r3.paginasDeDocumento;
       }
 
       // Nada mesclou: não vale salvar um arquivo só com folhas de rosto e

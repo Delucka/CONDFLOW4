@@ -210,7 +210,23 @@ async function mesclarItem(merged, PDFDocument, item, pulados, onProgress, idx, 
 
   try {
     if (isPdf) {
-      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      // SEM `ignoreEncryption`. Ler isto antes de mexer:
+      //
+      // Os PDFs que o sistema emissor gera vêm CIFRADOS — RC4 de 40 bits, senha
+      // de usuário vazia, só para travar permissões. Qualquer visualizador
+      // decifra sozinho e a pessoa nem percebe. O pdf-lib 1.17.1 NÃO decifra.
+      //
+      // Com `{ ignoreEncryption: true }` ele carregava assim mesmo e o
+      // `copyPages` copiava os bytes AINDA CIFRADOS para um documento sem
+      // dicionário de cifra. O arquivo saía com o tamanho certo, o número de
+      // páginas certo, e todas as páginas em branco: nenhum fluxo descomprime
+      // ("incorrect header check"). Reproduzido fora do navegador com os quatro
+      // documentos do 025 - SUN GATE: 27 páginas, 27 vazias.
+      //
+      // Sem a flag, o pdf-lib recusa e diz por quê — e aí o item vai para
+      // `pulados`, o que faz o plano B do servidor entrar. Lá quem junta é o
+      // pikepdf, que decifra: os mesmos 27 arquivos saem com 0 páginas vazias.
+      const src = await PDFDocument.load(bytes);
       const idxs = src.getPageIndices();
       if (idxs.length === 0) { pulados.push(`${nome} (sem páginas)`); return; }
       const pages = await merged.copyPages(src, idxs);
@@ -223,9 +239,32 @@ async function mesclarItem(merged, PDFDocument, item, pulados, onProgress, idx, 
       pulados.push(`${nome} (não é PDF/imagem)`);
     }
   } catch (e) {
-    // PDF que o pdf-lib não consegue abrir (corrompido, cifrado de um jeito estranho).
-    // Marca como pulado — quem resolve esses é o servidor (QPDF), no plano B.
-    pulados.push(`${nome} (não consegui mesclar)`);
+    // Cifrado é o caso COMUM aqui, não a exceção — vale nomear, porque a
+    // mensagem é o que diz à pessoa que o servidor vai resolver.
+    const cifrado = /encrypt/i.test(e?.name || '') || /encrypt/i.test(e?.message || '');
+    pulados.push(cifrado
+      ? `${nome} (protegido — só o servidor junta)`
+      : `${nome} (não consegui mesclar)`);
+  }
+}
+
+/**
+ * Este PDF é dos que o navegador não consegue juntar?
+ *
+ * Serve para decidir o caminho ANTES de baixar tudo: se a emissão tem
+ * documento cifrado, não adianta tentar no navegador — vai direto ao servidor.
+ */
+export function pdfPrecisaDoServidor(bytes) {
+  try {
+    // `/Encrypt` mora no trailer. Procurar no arquivo inteiro pode dar falso
+    // positivo (a sequência pode aparecer dentro de um fluxo), e o falso
+    // positivo aqui é inofensivo: manda para o servidor, que junta igual.
+    const texto = new TextDecoder('latin1').decode(
+      bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes,
+    );
+    return texto.includes('/Encrypt');
+  } catch {
+    return false;
   }
 }
 
@@ -279,30 +318,69 @@ export async function montarPdfMulti(grupos, onProgress) {
   let capas = 0;
 
   for (const g of grupos) {
-    if (comSeparador && g.label) {
-      const p = merged.addPage([595.28, 841.89]); // A4 retrato
-      capas += 1;
-      p.drawText(String(g.label), { x: 50, y: 770, size: 26, font, color: rgb(0.1, 0.1, 0.15) });
-      p.drawLine({ start: { x: 50, y: 752 }, end: { x: 545, y: 752 }, thickness: 1, color: rgb(0.8, 0.82, 0.87) });
-      if (g.sublabel) {
-        p.drawText(String(g.sublabel), { x: 50, y: 726, size: 13, font: fontR, color: rgb(0.2, 0.2, 0.26) });
-      }
-      const quantos = (g.itens || []).length;
-      p.drawText(`${quantos} documento${quantos === 1 ? '' : 's'} nesta competência`,
-        { x: 50, y: 700, size: 11, font: fontR, color: rgb(0.42, 0.42, 0.48) });
-      // A ordem impressa é a ordem de auditoria (1→8). Dizer isso na folha evita
-      // que alguém reordene o maço achando que saiu embaralhado.
-      p.drawText('Na ordem de conferência da emissão', { x: 50, y: 682, size: 9, font: fontR, color: rgb(0.55, 0.55, 0.6) });
-      (g.itens || []).slice(0, 30).forEach((it, n) => {
-        const rotulo = `${String(n + 1).padStart(2, '0')}  ${it.arquivo_nome || 'documento'}`;
-        p.drawText(rotulo.length > 82 ? rotulo.slice(0, 81) + '…' : rotulo,
-          { x: 50, y: 650 - n * 15, size: 9, font: fontR, color: rgb(0.3, 0.3, 0.36) });
-      });
-      if (quantos > 30) {
-        p.drawText(`… e mais ${quantos - 30}`, { x: 50, y: 650 - 30 * 15, size: 9, font: fontR, color: rgb(0.55, 0.55, 0.6) });
-      }
-    }
+    if (comSeparador && g.label) { desenharFolhaDeRosto(merged, { font, fontR, rgb }, g); capas += 1; }
     for (const item of (g.itens || [])) { i += 1; await mesclarItem(merged, PDFDocument, item, pulados, onProgress, i, total); }
+  }
+
+  const totalPaginas = merged.getPageCount();
+  const blob = new Blob([await merged.save()], { type: 'application/pdf' });
+  return { blob, pulados, totalPaginas, paginasDeDocumento: totalPaginas - capas, capas };
+}
+
+// A folha de rosto de uma competência. Usada pelos dois caminhos de montagem.
+function desenharFolhaDeRosto(doc, { font, fontR, rgb }, g) {
+  const p = doc.addPage([595.28, 841.89]); // A4 retrato
+  p.drawText(String(g.label), { x: 50, y: 770, size: 26, font, color: rgb(0.1, 0.1, 0.15) });
+  p.drawLine({ start: { x: 50, y: 752 }, end: { x: 545, y: 752 }, thickness: 1, color: rgb(0.8, 0.82, 0.87) });
+  if (g.sublabel) {
+    p.drawText(String(g.sublabel), { x: 50, y: 726, size: 13, font: fontR, color: rgb(0.2, 0.2, 0.26) });
+  }
+  const itens = g.itens || [];
+  const quantos = itens.length;
+  p.drawText(`${quantos} documento${quantos === 1 ? '' : 's'} nesta competência`,
+    { x: 50, y: 700, size: 11, font: fontR, color: rgb(0.42, 0.42, 0.48) });
+  // A ordem impressa é a ordem de auditoria (1→8). Dizer isso na folha evita
+  // que alguém reordene o maço achando que saiu embaralhado.
+  p.drawText('Na ordem de conferência da emissão', { x: 50, y: 682, size: 9, font: fontR, color: rgb(0.55, 0.55, 0.6) });
+  itens.slice(0, 30).forEach((it, n) => {
+    const rotulo = `${String(n + 1).padStart(2, '0')}  ${it.arquivo_nome || 'documento'}`;
+    p.drawText(rotulo.length > 82 ? rotulo.slice(0, 81) + '…' : rotulo,
+      { x: 50, y: 650 - n * 15, size: 9, font: fontR, color: rgb(0.3, 0.3, 0.36) });
+  });
+  if (quantos > 30) {
+    p.drawText(`… e mais ${quantos - 30}`, { x: 50, y: 650 - 30 * 15, size: 9, font: fontR, color: rgb(0.55, 0.55, 0.6) });
+  }
+}
+
+/**
+ * Junta PDFs que JÁ vêm prontos e limpos — os que o servidor montou.
+ *
+ * O servidor usa pikepdf, que decifra os originais; o que ele devolve não é
+ * cifrado, e aí o pdf-lib consegue costurar sem estragar nada. É por isso que
+ * este caminho existe separado de `montarPdfMulti`: lá as fontes vêm do bucket,
+ * como foram anexadas, e podem estar cifradas.
+ *
+ * `partes`: `[{ label, sublabel, itens, bytes }]` — `itens` só alimenta a folha
+ * de rosto; o conteúdo vem de `bytes`.
+ */
+export async function juntarPdfsProntos(partes) {
+  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const merged = await PDFDocument.create();
+  const font = await merged.embedFont(StandardFonts.HelveticaBold);
+  const fontR = await merged.embedFont(StandardFonts.Helvetica);
+  const pulados = [];
+  const comSeparador = partes.length > 1;
+  let capas = 0;
+
+  for (const parte of partes) {
+    if (comSeparador && parte.label) { desenharFolhaDeRosto(merged, { font, fontR, rgb }, parte); capas += 1; }
+    try {
+      const src = await PDFDocument.load(parte.bytes);
+      const pages = await merged.copyPages(src, src.getPageIndices());
+      pages.forEach((p) => merged.addPage(p));
+    } catch {
+      pulados.push(`${parte.label || 'competência'} (não consegui juntar o PDF do servidor)`);
+    }
   }
 
   const totalPaginas = merged.getPageCount();
