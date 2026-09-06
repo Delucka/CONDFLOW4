@@ -566,8 +566,14 @@ def _ordenar_para_extracao(arquivos, cobrancas):
                 if a.get("categoria") == "concessionaria" and any(k in _norm_txt(a.get("subtipo")) for k in alvo)]
 
     def relat(serv):
+        # Normaliza OS DOIS lados. Comparar valor normalizado contra literal cru
+        # foi o que quebrou a ordem: bastou outra `_norm_txt` mais abaixo mudar
+        # o caso das letras para o relatorio de agua parar de casar, sem erro
+        # nenhum — ele so passava a sair no fim do maco.
+        alvo = _norm_txt(serv)
         return [a for a in arquivos
-                if a.get("categoria") == "relatorio_leitura" and _norm_txt(a.get("relatorio_tipo_servico")) == serv]
+                if a.get("categoria") == "relatorio_leitura"
+                and _norm_txt(a.get("relatorio_tipo_servico")) == alvo]
 
     for a in por_cat("emissao"):
         add(a)
@@ -2089,12 +2095,18 @@ def api_get_arrecadacoes(condo_id: str, ano: int, user: dict = Depends(get_curre
 
 
 # ─── Preencher consumos (água/gás/energia) na planilha a partir dos anexos da emissão ───
-def _norm_txt(s):
+def _norm_maiusc(s):
+    """Normaliza para MAIUSCULAS. Nome proprio porque ja existe um `_norm_txt`
+    la em cima (linha ~537) que normaliza para minusculas, e as duas se
+    chamavam igual: a segunda definicao vencia e a ordenacao dos documentos
+    passava a comparar "AGUA" com o literal "agua". O relatorio de leitura
+    nunca casava e caia no coringa do fim — saia DEPOIS do relatorio de
+    rateio, fora da ordem de auditoria."""
     import unicodedata
     return ''.join(c for c in unicodedata.normalize('NFD', (s or '')) if unicodedata.category(c) != 'Mn').upper()
 
 def _servico_rateio(nome):
-    n = _norm_txt(nome)
+    n = _norm_maiusc(nome)
     if 'AGUA' in n: return 'agua'
     if 'GAS' in n: return 'gas'
     if 'ENERGIA' in n or 'ELETRIC' in n or 'LUZ' in n or 'ENEL' in n: return 'energia'
@@ -2120,7 +2132,7 @@ def _consumos_do_pacote(db: Client, pacote_id: str, detalhe: bool = False):
     for a in arqs:
         cat = a.get('categoria')
         if cat == 'relatorio_leitura':
-            ts = _norm_txt(a.get('relatorio_tipo_servico'))
+            ts = _norm_maiusc(a.get('relatorio_tipo_servico'))
             v = float(a.get('relatorio_valor_total') or 0)
             # Mesma regra de _servico_do_arquivo: energia tem verba própria e
             # não pode cair em água.
@@ -2128,7 +2140,7 @@ def _consumos_do_pacote(db: Client, pacote_id: str, detalhe: bool = False):
             rel[serv] += v
             if v: origem[serv].append({"nome": a.get('arquivo_nome'), "valor": v, "tipo": "relatorio"})
         elif cat == 'concessionaria':
-            st = _norm_txt(a.get('subtipo'))
+            st = _norm_maiusc(a.get('subtipo'))
             v = float(a.get('valor_fatura') or 0)
             serv = None
             if 'SABESP' in st: serv = 'agua'
@@ -2188,13 +2200,13 @@ def api_consumos_planilha_preview(condo_id: str, pacote_id: str, mes: int, ano: 
             # Era `gas se tiver "gas", senao agua` — um relatorio de ENERGIA
             # caia em agua e o valor ia para a verba errada, calado. Condominio
             # com "consumo de energia (nr)" mostra isso na hora.
-            ts = _norm_txt(a.get("relatorio_tipo_servico"))
+            ts = _norm_maiusc(a.get("relatorio_tipo_servico"))
             if "GAS" in ts:
                 return "gas"
             if "ENERGIA" in ts or "ELETRIC" in ts or "LUZ" in ts:
                 return "energia"
             return "agua"
-        st = _norm_txt(a.get("subtipo"))
+        st = _norm_maiusc(a.get("subtipo"))
         if "SABESP" in st:
             return "agua"
         if "COMGAS" in st:
