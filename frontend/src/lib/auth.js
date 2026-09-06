@@ -58,34 +58,55 @@ export function AuthProvider({ children }) {
     if (!forcar && perfilDeRef.current === uid) return;
     perfilDeRef.current = uid;
     try {
+      // Perfil e `gerentes.id` na MESMA ida.
+      //
+      // Eram duas em sequência: `profiles`, e só depois `gerentes` para
+      // traduzir o perfil em `gerentes.id`. Medido em 06/09/2026 contra
+      // produção: 446 ms as duas, 225 ms o embed. Como isto abre o aplicativo,
+      // a segunda ida atrasava tudo o que vem depois.
+      //
+      // `gerentes.profile_id` é UNIQUE, então o PostgREST trata a relação como
+      // um-para-um e devolve objeto. Leio dos dois jeitos porque esse formato
+      // depende da versão: se um dia voltar lista, ler como objeto daria
+      // `undefined` e o gerente perderia a carteira sem erro nenhum.
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*, gerentes!gerentes_profile_id_fkey(id)')
         .eq('id', uid)
         .single();
-      
+
       if (error) throw error;
-      
-      let gerenteId = null;
-      if (profile.role === 'gerente') {
+
+      const { gerentes: vinculo, ...dadosDoPerfil } = profile;
+      const linha = Array.isArray(vinculo) ? vinculo[0] : vinculo;
+      let gerenteId = dadosDoPerfil.role === 'gerente' ? (linha?.id || null) : null;
+
+      // Rede de segurança: se este perfil é de gerente e o embed não trouxe a
+      // linha — política de RLS que não alcança pelo caminho embutido, por
+      // exemplo — pergunta como se perguntava antes. Custa uma ida a mais só
+      // no caso ruim, e o caso ruim aqui é um gerente sem carteira nenhuma.
+      if (dadosDoPerfil.role === 'gerente' && !gerenteId) {
         const { data: gerente } = await supabase
           .from('gerentes')
           .select('id')
           .eq('profile_id', uid)
-          .single();
+          .maybeSingle();
         if (gerente) gerenteId = gerente.id;
       }
-      
+
       // CUIDADO com os dois sentidos de `gerente_id` (Armadilha 2 do ESQUEMA-BANCO):
       //   • para o GERENTE, aqui ele vira `gerentes.id` — é o que as telas esperam;
       //   • na LINHA de um assistente, a coluna guarda o id do PROFILE do gerente.
       // A linha abaixo sobrescrevia o segundo caso com null, apagando o vínculo do
       // assistente antes que qualquer tela pudesse usá-lo. Preservado num campo
       // próprio, para não mudar o significado de `gerente_id` para quem já o lê.
+      // `dadosDoPerfil`, e não `profile`: o embed acrescentou a chave `gerentes`
+      // ao resultado, e ela não faz parte do perfil — espalhá-la aqui poria um
+      // objeto a mais dentro de algo que meia dúzia de telas lê e espalha de novo.
       setProfile({
-        ...profile,
+        ...dadosDoPerfil,
         gerente_id: gerenteId,
-        gerente_profile_id: profile.role === 'assistente' ? (profile.gerente_id || null) : null,
+        gerente_profile_id: dadosDoPerfil.role === 'assistente' ? (dadosDoPerfil.gerente_id || null) : null,
       });
     } catch (e) {
       // Libera a trava: sem isto, um erro de rede na primeira tentativa
