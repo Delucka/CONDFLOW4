@@ -1,0 +1,1239 @@
+<title>Do Papel ao CondoFlow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --ink:      #0D1729;
+    --navy:     #1B3B6F;
+    --navy-2:   #3B6DB5;
+    --navy-3:   #8FB3E0;
+    --paper:    #EEF1F6;
+    --surface:  #FFFFFF;
+    --rule:     #CDD6E4;
+    --muted:    #5C6779;
+    --gain:     #17694A;
+    --gain-2:   #3FA37B;
+    --cost:     #9C3B2E;
+
+    --display: 'Archivo', 'Segoe UI', system-ui, sans-serif;
+    --body:    'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --data:    'IBM Plex Mono', ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #E9EEF7; --navy: #7FA8E4; --navy-2: #A8C4EE; --navy-3: #3E5C8A;
+      --paper: #0A111E; --surface: #131C2C; --rule: #29344A; --muted: #94A1B6;
+      --gain: #5FCFA3; --gain-2: #2C8563; --cost: #E8927C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #E9EEF7; --navy: #7FA8E4; --navy-2: #A8C4EE; --navy-3: #3E5C8A;
+    --paper: #0A111E; --surface: #131C2C; --rule: #29344A; --muted: #94A1B6;
+    --gain: #5FCFA3; --gain-2: #2C8563; --cost: #E8927C;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--body);
+         font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+  /* ── barra ──────────────────────────────────────────────────────────── */
+  .rail { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 18px;
+          padding: 9px clamp(14px, 4vw, 48px); background: color-mix(in srgb, var(--paper) 90%, transparent);
+          backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); overflow-x: auto; }
+  .rail .mark { font-family: var(--display); font-weight: 800; font-size: 13px; letter-spacing: .1em;
+                text-transform: uppercase; color: var(--navy); white-space: nowrap; }
+  .rail nav { display: flex; gap: 3px; }
+  .rail a { font-family: var(--display); font-size: 12.5px; font-weight: 600; color: var(--muted);
+            text-decoration: none; white-space: nowrap; padding: 5px 10px; border-radius: 3px; }
+  .rail a:hover, .rail a:focus-visible { color: var(--ink); background: var(--surface); }
+  .rail a[aria-current="true"] { color: var(--navy); background: var(--surface); box-shadow: inset 0 0 0 1px var(--rule); }
+
+  main { max-width: 1120px; margin: 0 auto; padding: 0 clamp(14px, 4vw, 36px) 90px; }
+  section { padding: 60px 0 6px; scroll-margin-top: 62px; }
+  section + section { border-top: 1px solid var(--rule); }
+
+  .eyebrow { font-family: var(--data); font-size: 11px; font-weight: 500; letter-spacing: .17em;
+             text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  h1 { font-family: var(--display); font-weight: 800; font-size: clamp(38px, 7vw, 74px);
+       line-height: .95; letter-spacing: -.03em; text-wrap: balance; margin: 0 0 20px; }
+  h1 em { font-style: normal; color: var(--navy); }
+  h2 { font-family: var(--display); font-weight: 700; font-size: clamp(24px, 3.3vw, 34px);
+       line-height: 1.08; letter-spacing: -.022em; text-wrap: balance; margin: 0 0 10px; }
+  h3 { font-family: var(--display); font-weight: 700; font-size: 15.5px; margin: 0 0 5px; }
+  p { margin: 0 0 12px; }
+  .lead { font-size: 18.5px; line-height: 1.5; max-width: 58ch; margin: 0 0 6px; }
+  .note { color: var(--muted); max-width: 64ch; font-size: 15.5px; }
+  strong { font-weight: 600; }
+
+  /* ── assinatura de marca ────────────────────────────────────────────── */
+  .assinatura { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 20px; }
+  .assinatura .nome { font-family: var(--display); font-weight: 800; font-size: clamp(19px, 2.4vw, 24px);
+                      letter-spacing: -.025em; color: var(--navy); }
+  .assinatura .risco { flex: none; width: 30px; height: 2px; background: var(--navy); }
+  .assinatura .frase { font-family: var(--display); font-weight: 600; font-size: clamp(17px, 2.1vw, 21px);
+                       letter-spacing: -.012em; color: var(--ink); }
+
+  /* ── fecho ──────────────────────────────────────────────────────────── */
+  .fecho { margin-top: 64px; border-top: 2px solid var(--navy); padding-top: 34px; }
+  .fecho b { display: block; font-family: var(--display); font-weight: 800;
+             font-size: clamp(29px, 5vw, 50px); line-height: 1.02; letter-spacing: -.032em;
+             text-wrap: balance; color: var(--ink); max-width: 20ch; }
+  .fecho b em { font-style: normal; color: var(--navy); }
+  .fecho p { margin: 18px 0 0; color: var(--muted); max-width: 56ch; font-size: 16.5px; }
+
+  /* ── tiles de número ────────────────────────────────────────────────── */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 1px;
+           background: var(--rule); border: 1px solid var(--rule); margin-top: 30px; }
+  .stats div { background: var(--surface); padding: 18px 20px; }
+  .stats b { display: block; font-family: var(--display); font-weight: 800; font-size: 38px;
+             line-height: 1; letter-spacing: -.035em; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .stats span { display: block; margin-top: 6px; font-family: var(--data); font-size: 10.5px;
+                letter-spacing: .09em; text-transform: uppercase; color: var(--muted); line-height: 1.4; }
+
+  /* ── pipeline do processo ───────────────────────────────────────────── */
+  .faixa { margin-top: 34px; border: 1px solid var(--rule); background: var(--surface); }
+  .faixa-cab { display: flex; align-items: center; gap: 10px; padding: 11px 18px; border-bottom: 1px solid var(--rule); }
+  .faixa-cab .pino { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .faixa-cab .rot { font-family: var(--data); font-size: 11px; letter-spacing: .13em; text-transform: uppercase; }
+  .faixa-cab .sub { font-size: 14px; color: var(--muted); margin-left: auto; text-align: right; }
+
+  .passos { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .passo { padding: 16px 14px 18px; border-right: 1px solid var(--rule); position: relative; }
+  .passo:last-child { border-right: 0; }
+  .passo .n { font-family: var(--data); font-size: 10.5px; color: var(--muted); display: block; margin-bottom: 9px; }
+  .passo svg { display: block; width: 30px; height: 30px; margin-bottom: 10px; }
+  .passo h3 { font-size: 13.5px; line-height: 1.25; margin-bottom: 5px; }
+  .passo p { font-size: 12.5px; line-height: 1.42; color: var(--muted); margin: 0; }
+  .faixa.antiga .passo p, .faixa.antiga .passo h3 { color: var(--muted); }
+  .faixa.antiga .passo h3 { text-decoration: line-through; text-decoration-color: var(--cost); text-decoration-thickness: 1.5px; }
+  .faixa.antiga svg { color: var(--muted); opacity: .65; }
+  .faixa.nova svg { color: var(--navy); }
+  @media (max-width: 940px) { .passos { grid-template-columns: repeat(4, 1fr); }
+    .passo { border-bottom: 1px solid var(--rule); } }
+  @media (max-width: 560px) { .passos { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ── calculadora ────────────────────────────────────────────────────── */
+  .calc { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 30px; margin-top: 30px; align-items: start; }
+  @media (max-width: 820px) { .calc { grid-template-columns: 1fr; gap: 24px; } }
+
+  fieldset { border: 1px solid var(--rule); background: var(--surface); padding: 14px 16px 16px; margin: 0 0 12px; }
+  legend { font-family: var(--data); font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase;
+           color: var(--navy); padding: 0 6px; }
+  .campo { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 6px 0; }
+  .campo + .campo { border-top: 1px dotted var(--rule); }
+  .campo label { font-size: 14px; color: var(--muted); flex: 1; line-height: 1.35; }
+  .campo input { font-family: var(--data); font-size: 15px; font-weight: 600; width: 7.5ch; text-align: right;
+                 color: var(--ink); background: transparent; border: 0; border-bottom: 1.5px solid var(--navy);
+                 padding: 2px 3px; font-variant-numeric: tabular-nums; }
+  .campo input:focus-visible { outline: 2px solid var(--navy-2); outline-offset: 2px; }
+  .campo .un { font-family: var(--data); font-size: 11px; color: var(--muted); width: 3.2ch; }
+
+  .saida { border: 1px solid var(--rule); background: var(--surface); }
+  .saida .linha { display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+                  padding: 11px 18px; border-bottom: 1px solid var(--rule); }
+  .saida .linha:last-child { border-bottom: 0; }
+  .saida .linha span { font-size: 14.5px; color: var(--muted); }
+  .saida .linha b { font-family: var(--data); font-size: 16px; font-weight: 600;
+                    font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .saida .destaque { background: color-mix(in srgb, var(--navy) 8%, var(--surface)); }
+  .saida .destaque span { color: var(--ink); font-weight: 600; }
+  .saida .destaque b { font-size: 20px; color: var(--navy); }
+
+  /* pilha de papel */
+  .pilha { display: flex; align-items: flex-end; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--rule); min-height: 150px; }
+  .pilha .torre { width: 84px; min-height: 4px;
+    background-image: repeating-linear-gradient(to bottom, var(--rule) 0 1px, transparent 1px 3px);
+    background-color: color-mix(in srgb, var(--navy) 7%, var(--surface));
+    border: 1px solid var(--rule); border-bottom-width: 2px; transition: height .35s ease; }
+  .pilha .medida b { display: block; font-family: var(--display); font-weight: 800; font-size: 30px;
+                     letter-spacing: -.035em; color: var(--navy); font-variant-numeric: tabular-nums; line-height: 1; }
+  .pilha .medida span { display: block; margin-top: 5px; font-family: var(--data); font-size: 10.5px;
+                        letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+
+  /* ── barra empilhada do preço ───────────────────────────────────────── */
+  .empilhada { margin-top: 8px; }
+  .empilhada .trilho { display: flex; height: 46px; border: 1px solid var(--rule); background: var(--surface); overflow: hidden; }
+  .empilhada .fatia { transition: width .35s ease; min-width: 2px; }
+  .f-infra { background: var(--navy-3); }
+  .f-obra  { background: var(--navy); }
+  .f-marg  { background: repeating-linear-gradient(135deg, var(--navy-2) 0 7px, color-mix(in srgb, var(--navy-2) 55%, transparent) 7px 14px); }
+  .legenda { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 12px; }
+  .legenda div { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .legenda i { width: 13px; height: 13px; flex: none; display: block; }
+  .legenda b { font-family: var(--data); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+  .preco-grande { border: 1px solid var(--navy); background: var(--surface); padding: 22px 24px; margin-top: 22px;
+                  display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .preco-grande b { font-family: var(--display); font-weight: 800; font-size: clamp(40px, 7vw, 62px);
+                    letter-spacing: -.04em; color: var(--navy); line-height: 1; font-variant-numeric: tabular-nums; }
+  .preco-grande span { font-family: var(--data); font-size: 12px; letter-spacing: .1em;
+                       text-transform: uppercase; color: var(--muted); }
+
+  /* ── colunas paga × economiza ───────────────────────────────────────── */
+  .balanca { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: end;
+             margin-top: 32px; border: 1px solid var(--rule); background: var(--surface); padding: 26px 26px 22px; }
+  @media (max-width: 720px) { .balanca { grid-template-columns: 1fr 1fr; gap: 18px; } .balanca .razao { grid-column: 1 / -1; order: 3; text-align: left; } }
+  .coluna { display: flex; flex-direction: column; justify-content: flex-end; height: 250px; }
+  .coluna .bloco { transition: height .35s ease; border: 1px solid var(--rule); }
+  .coluna.paga .bloco { background: var(--navy); }
+  .coluna.poupa .bloco { background: repeating-linear-gradient(135deg, var(--gain-2) 0 8px, color-mix(in srgb, var(--gain-2) 55%, transparent) 8px 16px); }
+  .coluna .val { font-family: var(--display); font-weight: 800; font-size: clamp(22px, 3.4vw, 32px);
+                 letter-spacing: -.03em; font-variant-numeric: tabular-nums; margin-bottom: 6px; line-height: 1; }
+  .coluna.paga .val { color: var(--navy); }
+  .coluna.poupa .val { color: var(--gain); }
+  .coluna .cap { font-family: var(--data); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+                 color: var(--muted); margin-top: 9px; line-height: 1.5; }
+  .razao { text-align: center; padding-bottom: 34px; }
+  .razao b { display: block; font-family: var(--display); font-weight: 800; font-size: clamp(38px, 6vw, 56px);
+             letter-spacing: -.04em; color: var(--gain); line-height: 1; font-variant-numeric: tabular-nums; }
+  .razao span { display: block; margin-top: 8px; font-family: var(--data); font-size: 10.5px;
+                letter-spacing: .1em; text-transform: uppercase; color: var(--muted); max-width: 15ch; margin-inline: auto; }
+
+  /* ── grade de capacidades ───────────────────────────────────────────── */
+  .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1px;
+           background: var(--rule); border: 1px solid var(--rule); margin-top: 28px; }
+  .grade article { background: var(--surface); padding: 20px 20px 22px; }
+  .grade svg { display: block; width: 26px; height: 26px; color: var(--navy); margin-bottom: 12px; }
+  .grade p { margin: 0; font-size: 14.5px; color: var(--muted); line-height: 1.5; }
+
+  /* ── celular ────────────────────────────────────────────────────────── */
+  .molde { display: grid; grid-template-columns: 236px 1fr; gap: 32px; margin-top: 30px; align-items: start; }
+  @media (max-width: 780px) { .molde { grid-template-columns: 1fr; gap: 24px; justify-items: center; } .molde-txt { width: 100%; } }
+
+  .fone { width: 236px; border: 2px solid var(--ink); border-radius: 26px; padding: 9px;
+          background: var(--ink); box-shadow: 0 14px 34px -20px rgba(13,23,41,.7); }
+  .fone-tela { background: var(--paper); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; min-height: 400px; }
+  .fone-topo { display: flex; align-items: center; gap: 9px; padding: 14px 14px 11px; border-bottom: 1px solid var(--rule); background: var(--surface); }
+  .fone-topo span { width: 20px; height: 20px; border-radius: 6px; background: var(--navy); flex: none; }
+  .fone-topo b { font-family: var(--display); font-size: 14px; font-weight: 700; }
+  .fone-item { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-bottom: 1px solid var(--rule); background: var(--surface); }
+  .fone-item i { width: 7px; height: 26px; background: var(--navy); flex: none; }
+  .fone-item span { font-family: var(--display); font-size: 11.5px; font-weight: 600; line-height: 1.35; flex: 1; }
+  .fone-item em { font-family: var(--data); font-style: normal; font-size: 10px; font-weight: 400; color: var(--muted); }
+  .fone-item u { font-family: var(--data); font-size: 9.5px; text-decoration: none; letter-spacing: .06em;
+                 text-transform: uppercase; color: var(--surface); background: var(--navy); padding: 5px 8px; flex: none; }
+  .fone-barra { margin-top: auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px;
+                padding: 10px 6px 13px; background: var(--surface); border-top: 1px solid var(--rule); }
+  .fone-barra span { font-family: var(--data); font-size: 8.5px; letter-spacing: .02em; text-align: center; color: var(--muted); }
+  .fone-barra .on { color: var(--navy); font-weight: 600; }
+
+  .papeis { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
+  .papel { font-family: var(--data); font-size: 12px; font-weight: 500; padding: 8px 13px;
+           border: 1px solid var(--rule); background: var(--surface); color: var(--muted); }
+  .papel.forte { border-color: var(--navy); color: var(--navy); font-weight: 600; }
+  .papel.apagado { opacity: .55; }
+
+  .cadeia { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 22px 0 4px; }
+  .cadeia .selo { font-family: var(--data); font-size: 11.5px; font-weight: 600; padding: 5px 10px;
+                  border: 1px solid var(--navy); color: var(--navy); background: var(--surface); }
+  .cadeia .liga { font-family: var(--data); font-size: 13px; color: var(--muted); }
+
+  /* ── figuras ────────────────────────────────────────────────────────── */
+  figure { margin: 30px 0 0; border: 1px solid var(--rule); background: var(--surface); padding: 22px 22px 16px; }
+  figure svg { display: block; width: 100%; max-width: 100%; height: auto; color: var(--ink); }
+  figcaption { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--rule);
+               font-size: 14px; color: var(--muted); line-height: 1.5; }
+  .rolagem { overflow-x: auto; }
+
+  /* ── tabelas ────────────────────────────────────────────────────────── */
+  .tabela { width: 100%; border-collapse: collapse; margin-top: 28px; background: var(--surface);
+            border: 1px solid var(--rule); font-size: 15px; }
+  .tabela th, .tabela td { padding: 12px 16px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+  .tabela thead th { font-family: var(--data); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+                     color: var(--muted); border-bottom: 1px solid var(--ink); font-weight: 500; }
+  .tabela thead th.destaque { color: var(--navy); }
+  .tabela tbody tr:last-child th, .tabela tbody tr:last-child td { border-bottom: 0; }
+  .tabela th[scope="row"] { font-family: var(--display); font-weight: 700; font-size: 14px; width: 26%; }
+  .tabela td.sim { color: var(--ink); }
+  .tabela td.nao { color: var(--muted); }
+  .tabela .marca { font-family: var(--data); font-weight: 600; margin-right: 7px; }
+  .tabela .marca.ok  { color: var(--gain); }
+  .tabela .marca.no  { color: var(--cost); }
+
+  .matriz { min-width: 620px; }
+  .matriz td { text-align: center; font-family: var(--data); font-size: 15px; padding: 10px 8px; }
+  .matriz th[scope="row"] { width: auto; white-space: nowrap; }
+  .matriz thead th { text-align: center; }
+  .matriz thead th:first-child { text-align: left; }
+  .matriz .cheio { color: var(--navy); }
+  .matriz .vazio { color: var(--rule); }
+
+  /* ── trilhos do roadmap ─────────────────────────────────────────────── */
+  .trilhos { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 28px; align-items: start; }
+  @media (max-width: 760px) { .trilhos { grid-template-columns: 1fr; } }
+  .trilho-col { display: flex; flex-direction: column; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .trilho-cab { display: flex; align-items: center; gap: 9px; background: var(--surface); padding: 11px 18px;
+                font-family: var(--data); font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); }
+  .trilho-col article { background: var(--surface); padding: 17px 18px 19px; }
+  .trilho-col h3 { font-size: 15px; margin-bottom: 6px; }
+  .trilho-col p { margin: 0; font-size: 14.5px; color: var(--muted); line-height: 1.5; }
+
+  ul.limpa { list-style: none; padding: 0; margin: 24px 0 0; border-top: 1px solid var(--rule); }
+  ul.limpa li { padding: 12px 0 12px 24px; border-bottom: 1px solid var(--rule); position: relative; max-width: 74ch; font-size: 15.5px; }
+  ul.limpa li::before { content: ''; position: absolute; left: 2px; top: 21px; width: 9px; height: 1.5px; background: var(--navy); }
+  ul.limpa li b { font-family: var(--display); font-weight: 700; }
+
+  .aviso { font-family: var(--data); font-size: 11px; letter-spacing: .04em; color: var(--muted); margin-top: 12px; line-height: 1.6; }
+  footer { border-top: 1px solid var(--rule); margin-top: 56px; padding-top: 20px; color: var(--muted); font-size: 13.5px; }
+  code { font-family: var(--data); font-size: 13px; color: var(--ink); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+  html { scroll-behavior: smooth; }
+</style>
+
+<div class="rail">
+  <span class="mark">CondoFlow</span>
+  <nav id="chapters">
+    <a href="#abertura">Abertura</a>
+    <a href="#processo">O processo</a>
+    <a href="#celular">No celular</a>
+    <a href="#hoje">Hoje</a>
+    <a href="#papel">A economia</a>
+    <a href="#preco">O preço</a>
+    <a href="#novo">O que mudou</a>
+    <a href="#seguranca">Segurança</a>
+    <a href="#arquivo">Onde fica arquivado</a>
+    <a href="#adiante">Adiante</a>
+  </nav>
+</div>
+
+<main>
+
+  <section id="abertura">
+    <p class="eyebrow">Apresentação à direção · Setembro de 2026</p>
+    <h1>Menos papel.<br>Mais controle.<br><em>O mesmo processo.</em></h1>
+
+    <p class="assinatura">
+      <span class="nome">CondoFlow</span>
+      <span class="risco" aria-hidden="true"></span>
+      <span class="frase">um upgrade para a sua empresa</span>
+    </p>
+
+    <p class="lead">
+      As etapas continuam sendo as desta casa — da planilha do gerente até a baixa da expedição.
+      O que mudou foi o suporte: um sistema <strong>feito sob medida para esta operação</strong>,
+      e não um pacote de prateleira onde a empresa precisa caber. O boleto continua saindo na
+      impressora. O resto, não.
+    </p>
+    <div class="stats">
+      <div><b>314</b><span>Condomínios atendidos</span></div>
+      <div><b>21 mil</b><span>Boletos por mês</span></div>
+      <div><b>8</b><span>Meses de construção</span></div>
+      <div><b>4</b><span>Meses em operação</span></div>
+    </div>
+
+    <figure>
+      <div class="rolagem">
+        <svg viewBox="0 0 940 178" role="img" style="min-width:640px"
+             aria-label="Linha do tempo: construção a partir de janeiro de 2026, primeira emissão no sistema em 12 de maio, 143 emissões até 5 de setembro, relatórios gerenciais em acabamento e três frentes futuras.">
+          <defs>
+            <marker id="seta-t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,1 9,5 0,9" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <!-- eixo: sólido no que aconteceu, tracejado no que está por vir -->
+          <line x1="40" y1="92" x2="655" y2="92" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="655" y1="92" x2="900" y2="92" stroke="currentColor" stroke-width="1.5"
+                stroke-dasharray="5 5" opacity=".55" marker-end="url(#seta-t)"/>
+
+          <!-- marco 1 -->
+          <circle cx="100" cy="92" r="5" fill="currentColor"/>
+          <text x="100" y="64" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor" opacity=".62">jan/2026</text>
+          <text x="100" y="118" text-anchor="middle" font-family="Archivo, sans-serif" font-size="13" font-weight="700" fill="currentColor">Construção</text>
+          <text x="100" y="135" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">8 meses</text>
+
+          <!-- marco 2 -->
+          <circle cx="290" cy="92" r="5" fill="currentColor"/>
+          <text x="290" y="64" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor" opacity=".62">12/05/2026</text>
+          <text x="290" y="118" text-anchor="middle" font-family="Archivo, sans-serif" font-size="13" font-weight="700" fill="currentColor">1ª emissão</text>
+          <text x="290" y="135" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">no sistema</text>
+
+          <!-- marco 3 — hoje -->
+          <circle cx="480" cy="92" r="13" fill="none" stroke="#3B6DB5" stroke-width="1.5" opacity=".5"/>
+          <circle cx="480" cy="92" r="7" fill="#3B6DB5"/>
+          <text x="480" y="60" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600" fill="#3B6DB5">05/09/2026 · hoje</text>
+          <text x="480" y="122" text-anchor="middle" font-family="Archivo, sans-serif" font-size="15" font-weight="800" fill="#3B6DB5">143 emissões</text>
+          <text x="480" y="140" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">21 pessoas usando</text>
+
+          <!-- marco 4 -->
+          <circle cx="655" cy="92" r="5" fill="currentColor"/>
+          <text x="655" y="64" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor" opacity=".62">em acabamento</text>
+          <text x="655" y="118" text-anchor="middle" font-family="Archivo, sans-serif" font-size="13" font-weight="700" fill="currentColor">Relatórios</text>
+          <text x="655" y="135" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">gerenciais</text>
+
+          <!-- marco 5 -->
+          <circle cx="845" cy="92" r="5" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".55"/>
+          <text x="845" y="64" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor" opacity=".5">a seguir</text>
+          <text x="845" y="118" text-anchor="middle" font-family="Archivo, sans-serif" font-size="13" font-weight="700" fill="currentColor" opacity=".62">WhatsApp · leitor</text>
+          <text x="845" y="135" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".5">portal do síndico</text>
+
+          <!-- faixa de migração -->
+          <line x1="290" y1="163" x2="900" y2="163" stroke="currentColor" stroke-width="1" opacity=".28"/>
+          <text x="295" y="159" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity=".55">migração dos 325 condomínios cadastrados, em andamento</text>
+        </svg>
+      </div>
+      <figcaption>
+        O sistema está no ar e em uso desde maio; o que vem depois do marco de hoje ainda não existe.
+        A migração da carteira corre em paralelo — é por isso que as 143 emissões não são 314 por mês.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section id="processo">
+    <p class="eyebrow">Antes e agora</p>
+    <h2>As mesmas sete etapas, sem a pilha no meio</h2>
+    <p class="note">As etapas são do negócio, não do sistema. O que mudou foi o suporte.</p>
+
+    <div class="faixa antiga">
+      <div class="faixa-cab">
+        <span class="pino" style="background:var(--cost)"></span>
+        <span class="rot" style="color:var(--cost)">Como era · impresso</span>
+        <span class="sub">Via em papel passando de mesa em mesa</span>
+      </div>
+      <div class="passos">
+        <div class="passo"><span class="n">01</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3" width="16" height="18"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+          <h3>Planilha impressa</h3><p>Conferida verba por verba, no papel.</p></div>
+        <div class="passo"><span class="n">02</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 18c4-9 12-9 16 0"/><circle cx="12" cy="7" r="3"/></svg>
+          <h3>Liberação verbal</h3><p>Um combinado que ninguém registrava.</p></div>
+        <div class="passo"><span class="n">03</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 4h9l4 4v12H6z"/><path d="M15 4v4h4"/><path d="M9 13h6M9 17h4"/></svg>
+          <h3>Maço grampeado</h3><p>Contas, seguro, correios, tudo junto.</p></div>
+        <div class="passo"><span class="n">04</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17c3-4 5 2 8-2s5 2 10-4"/><path d="M4 20h16"/></svg>
+          <h3>Assinatura na via</h3><p>Quem assinou ficava na memória.</p></div>
+        <div class="passo"><span class="n">05</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="6"/><path d="M5 11v8h14v-8M10 15h4"/></svg>
+          <h3>Arquivo físico</h3><p>Anotado à mão, guardado em caixa.</p></div>
+        <div class="passo"><span class="n">06</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9V4h12v5"/><rect x="4" y="9" width="16" height="7"/><path d="M7 16h10v5H7z"/></svg>
+          <h3>Entrega em mãos</h3><p>Ninguém sabia o que já tinha saído.</p></div>
+        <div class="passo"><span class="n">07</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 4h9l5 5v11H5z"/><path d="M3 12c4 3 14 3 18 0"/></svg>
+          <h3>Telefone e recado</h3><p>Segunda via, conta, rateio dos Correios.</p></div>
+      </div>
+    </div>
+
+    <div class="faixa nova" style="margin-top:16px">
+      <div class="faixa-cab">
+        <span class="pino" style="background:var(--navy)"></span>
+        <span class="rot" style="color:var(--navy)">Como é · no sistema</span>
+        <span class="sub">Cada etapa com dono, data e trava</span>
+      </div>
+      <div class="passos">
+        <div class="passo"><span class="n">01</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16"/><path d="M3 9h18M9 9v11M15 9v11"/></svg>
+          <h3>Quadro do ano</h3><p>O gerente preenche mês a mês, com data em cada valor.</p></div>
+        <div class="passo"><span class="n">02</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="10" width="14" height="10"/><path d="M8 10V7a4 4 0 0 1 8 0"/></svg>
+          <h3>Competência liberada</h3><p>Mês sem liberação não é emitido. A trava é do sistema.</p></div>
+        <div class="passo"><span class="n">03</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="7" height="7"/><rect x="14" y="4" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 17.5h7M17.5 14v7"/></svg>
+          <h3>Vaga por documento</h3><p>O que falta aparece como falta, antes de imprimir.</p></div>
+        <div class="passo"><span class="n">04</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12l5 5L20 6"/></svg>
+          <h3>Cadeia de aprovação</h3><p>Nome, cargo, data e motivo em cada etapa.</p></div>
+        <div class="passo"><span class="n">05</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>
+          <h3>Registro lacra</h3><p>Depois dele, os arquivos não mudam mais.</p></div>
+        <div class="passo"><span class="n">06</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16v9H4z"/><path d="M8 15v4h8v-4"/><path d="M17 9.5h.01"/></svg>
+          <h3>Fila da expedição</h3><p>Recebe aviso, imprime e dá baixa na hora.</p></div>
+        <div class="passo"><span class="n">07</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h8M8 17h4"/><circle cx="18.5" cy="6" r="3" fill="currentColor" stroke="none"/></svg>
+          <h3>Filas com prazo</h3><p>Segunda via, contas e Correios, cada uma com dono.</p></div>
+      </div>
+    </div>
+
+    <figure>
+      <div class="rolagem">
+        <svg viewBox="0 0 980 236" role="img" style="min-width:700px"
+             aria-label="Caminho de uma emissão: o gerente monta a planilha, o emissor anexa os documentos, a aprovação passa por gerente, supervisão de gerentes e supervisão da contabilidade, o registro lacra os arquivos e a expedição imprime e dá baixa. Quando a aprovação pede correção, o pacote volta para o emissor.">
+          <defs>
+            <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,1 9,5 0,9" fill="currentColor"/>
+            </marker>
+            <marker id="seta-volta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,1 9,5 0,9" fill="#9C3B2E"/>
+            </marker>
+          </defs>
+
+          <!-- quem age -->
+          <text x="90"  y="26" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity=".6">GERENTE</text>
+          <text x="286" y="26" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity=".6">EMISSOR</text>
+          <text x="490" y="26" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity=".6">GER › SPG › SPC</text>
+          <text x="694" y="26" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity=".6">SISTEMA</text>
+          <text x="890" y="26" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity=".6">EXPEDIÇÃO</text>
+
+          <!-- caixas -->
+          <rect x="18"  y="44" width="144" height="62" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="90"  y="72" text-anchor="middle" font-family="Archivo, sans-serif" font-size="14" font-weight="700" fill="currentColor">Planilha</text>
+          <text x="90"  y="91" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">verbas do mês</text>
+
+          <rect x="214" y="44" width="144" height="62" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="286" y="72" text-anchor="middle" font-family="Archivo, sans-serif" font-size="14" font-weight="700" fill="currentColor">Emissão</text>
+          <text x="286" y="91" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">documentos anexados</text>
+
+          <rect x="418" y="44" width="144" height="62" fill="none" stroke="#3B6DB5" stroke-width="2"/>
+          <text x="490" y="72" text-anchor="middle" font-family="Archivo, sans-serif" font-size="14" font-weight="700" fill="#3B6DB5">Aprovação</text>
+          <text x="490" y="91" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">3 assinaturas</text>
+
+          <rect x="622" y="44" width="144" height="62" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="694" y="72" text-anchor="middle" font-family="Archivo, sans-serif" font-size="14" font-weight="700" fill="currentColor">Registro</text>
+          <text x="694" y="91" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">lacra os arquivos</text>
+
+          <rect x="818" y="44" width="144" height="62" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="890" y="72" text-anchor="middle" font-family="Archivo, sans-serif" font-size="14" font-weight="700" fill="currentColor">Impressão</text>
+          <text x="890" y="91" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">baixa na hora</text>
+
+          <!-- setas de avanço, com o que passa por elas -->
+          <line x1="162" y1="75" x2="208" y2="75" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta)"/>
+          <text x="185" y="126" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">libera</text>
+
+          <line x1="358" y1="75" x2="412" y2="75" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta)"/>
+          <text x="385" y="126" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">envia</text>
+
+          <line x1="562" y1="75" x2="616" y2="75" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta)"/>
+          <text x="589" y="126" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">aprova</text>
+
+          <line x1="766" y1="75" x2="812" y2="75" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta)"/>
+          <text x="789" y="126" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">avisa</text>
+
+          <!-- o laço que o papel não tinha -->
+          <path d="M 470 106 L 470 168 L 306 168" fill="none" stroke="#9C3B2E" stroke-width="1.5"
+                stroke-dasharray="5 4" marker-end="url(#seta-volta)"/>
+          <text x="388" y="188" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#9C3B2E">pede correção · volta com o motivo escrito</text>
+
+          <!-- o que fica gravado -->
+          <line x1="18" y1="212" x2="962" y2="212" stroke="currentColor" stroke-width="1" opacity=".25"/>
+          <text x="18" y="228" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity=".55">cada passagem grava quem, quando e por quê — 170 aprovações até hoje</text>
+        </svg>
+      </div>
+      <figcaption>
+        O caminho de uma emissão, do quadro do gerente até a impressora. A seta vermelha é o que o
+        papel não conseguia fazer: devolver o pacote com o motivo escrito, sem refazer a pilha.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section id="celular">
+    <p class="eyebrow">Praticidade</p>
+    <h2>Feito sob medida — e no bolso de quem aprova</h2>
+    <p class="note">
+      Duas coisas que um sistema comprado pronto não entrega: o processo desta casa, do jeito que
+      ela trabalha, e a tela que cabe no celular de quem precisa aprovar fora da mesa.
+    </p>
+
+    <div class="molde">
+      <div class="fone" aria-hidden="true">
+        <div class="fone-tela">
+          <div class="fone-topo"><span></span><b>Aprovações</b></div>
+          <div class="fone-item"><i></i><span>025 · SUN GATE<br><em>Outubro / 26</em></span><u>Aprovar</u></div>
+          <div class="fone-item"><i></i><span>112 · VILA NOVA<br><em>Outubro / 26</em></span><u>Aprovar</u></div>
+          <div class="fone-item"><i></i><span>372 · JOSE HACHEM<br><em>Outubro / 26</em></span><u>Aprovar</u></div>
+          <div class="fone-barra"><span class="on">Início</span><span>Aprovações</span><span>Cobranças</span><span>Mais</span></div>
+        </div>
+      </div>
+
+      <div class="molde-txt">
+        <div class="grade" style="margin-top:0; grid-template-columns: 1fr;">
+          <article>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l2.2 4.6 5 .7-3.6 3.6.9 5-4.5-2.4L7.5 17l.9-5L4.8 8.3l5-.7z"/></svg>
+            <h3>O sistema se molda à empresa</h3>
+            <p>Verba nova, vencimento dividido, regra de aprovação diferente, um departamento que
+              muda de lugar no fluxo: tudo isso já foi ajustado no caminho. Quando a operação muda,
+              o sistema muda junto — não se abre um chamado e espera o fabricante decidir.</p>
+          </article>
+          <article>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18.5h2"/></svg>
+            <h3>Instala como aplicativo no celular</h3>
+            <p>Não é o site espremido: cada tela tem layout próprio de celular, com barra inferior
+              de Início, Aprovações, Cobranças e Mais. Aprovar uma emissão na fila do banco é
+              exatamente o que era na mesa.</p>
+          </article>
+          <article>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8a6 6 0 1 0-12 0c0 7-2 8-2 8h16s-2-1-2-8"/><path d="M10.5 20a2 2 0 0 0 3 0"/></svg>
+            <h3>O trabalho avisa, ninguém precisa perguntar</h3>
+            <p>Sino dentro do sistema, som, aba piscando e e-mail no domínio da empresa. Já são
+              <strong>899 avisos enviados</strong> — cada um é um telefonema que não aconteceu.</p>
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <h2 style="margin-top:52px; font-size:clamp(20px,2.6vw,26px)">Sob medida contra pacote de prateleira</h2>
+    <div class="rolagem">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th scope="col">&nbsp;</th>
+            <th scope="col" class="destaque">CondoFlow · sob medida</th>
+            <th scope="col">Sistema comprado pronto</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">O processo</th>
+            <td class="sim"><span class="marca ok">✓</span>O sistema segue o da casa, inclusive expedição, filipeta e segunda via.</td>
+            <td class="nao"><span class="marca no">✗</span>A casa se ajusta ao do fabricante, ou fica sem a etapa.</td>
+          </tr>
+          <tr>
+            <th scope="row">Uma mudança</th>
+            <td class="sim"><span class="marca ok">✓</span>Entra nas horas do mês e sai na semana.</td>
+            <td class="nao"><span class="marca no">✗</span>Vira chamado e disputa prioridade com os outros clientes.</td>
+          </tr>
+          <tr>
+            <th scope="row">Como o preço cresce</th>
+            <td class="sim"><span class="marca ok">✓</span>Não cresce por usuário nem por condomínio. Cresce quando a empresa
+              pede mais — melhorias e manutenção para elevar o atendimento entram como horas combinadas.</td>
+            <td class="nao"><span class="marca no">✗</span>Cobra por usuário ou por unidade: crescer de carteira já custa
+              mais, mesmo sem nada novo no sistema.</td>
+          </tr>
+          <tr>
+            <th scope="row">Onde ficam os dados</th>
+            <td class="sim"><span class="marca ok">✓</span>Em banco da empresa, exportável a qualquer momento.</td>
+            <td class="nao"><span class="marca no">✗</span>Na base do fornecedor, no formato que ele permitir.</td>
+          </tr>
+          <tr>
+            <th scope="row">Se quiser sair</th>
+            <td class="sim"><span class="marca ok">✓</span>Código versionado e histórico arquivável em pacote de auditoria.</td>
+            <td class="nao"><span class="marca no">✗</span>Depende do contrato e do prazo do fabricante.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="aviso">
+      Não é uma crítica aos sistemas de mercado — é o que muda quando o software é da casa.
+    </p>
+  </section>
+
+  <section id="hoje">
+    <p class="eyebrow">Medido no banco · 05/09/2026</p>
+    <h2>O que já passou por dentro do sistema</h2>
+    <p class="note">
+      Registros que existem agora, não projeção. A primeira emissão entrou em <strong>12/05/2026</strong>;
+      a migração dos <strong>325 condomínios cadastrados</strong> continua.
+    </p>
+    <div class="stats">
+      <div><b>143</b><span>Emissões processadas</span></div>
+      <div><b>596</b><span>Documentos anexados</span></div>
+      <div><b>170</b><span>Aprovações com nome e data</span></div>
+      <div><b>487</b><span>Planilhas mensais</span></div>
+      <div><b>3.588</b><span>Valores de rateio</span></div>
+      <div><b>899</b><span>Avisos enviados</span></div>
+      <div><b>30</b><span>Ocorrências tratadas</span></div>
+      <div><b>21</b><span>Pessoas com acesso</span></div>
+    </div>
+  </section>
+
+  <section id="papel">
+    <p class="eyebrow">Economia · projeção com a carteira inteira migrada</p>
+    <h2>O que a empresa deixa de gastar</h2>
+    <p class="note">
+      Duas frentes: o que ia para a impressora e o que ia para a hora da equipe. Os campos são
+      editáveis — ajuste com os números da casa e tudo se refaz na hora.
+    </p>
+
+    <div class="calc">
+      <div>
+        <fieldset>
+          <legend>Impressão</legend>
+          <div class="campo"><label for="i-condos">Condomínios</label>
+            <input id="i-condos" type="number" min="1" step="1" value="314" inputmode="numeric"><span class="un"></span></div>
+          <div class="campo"><label for="i-folhas">Folhas por condomínio, por mês</label>
+            <input id="i-folhas" type="number" min="0" step="1" value="12" inputmode="numeric"><span class="un"></span></div>
+          <div class="campo"><label for="i-custo">Custo por folha (papel + toner)</label>
+            <input id="i-custo" type="number" min="0" step="0.01" value="0.12" inputmode="decimal"><span class="un">R$</span></div>
+        </fieldset>
+        <fieldset>
+          <legend>Tempo da equipe</legend>
+          <div class="campo"><label for="i-pessoas">Pessoas envolvidas no processo</label>
+            <input id="i-pessoas" type="number" min="0" step="1" value="4" inputmode="numeric"><span class="un"></span></div>
+          <div class="campo"><label for="i-parcela">Parcela do tempo delas nisso</label>
+            <input id="i-parcela" type="number" min="0" max="100" step="5" value="50" inputmode="numeric"><span class="un">%</span></div>
+          <div class="campo"><label for="i-hora">Custo da hora</label>
+            <input id="i-hora" type="number" min="0" step="1" value="30" inputmode="decimal"><span class="un">R$</span></div>
+          <div class="campo"><label for="i-corte">Do tempo, quanto o sistema tira</label>
+            <input id="i-corte" type="number" min="0" max="100" step="5" value="60" inputmode="numeric"><span class="un">%</span></div>
+        </fieldset>
+      </div>
+
+      <div class="saida">
+        <div class="pilha">
+          <div class="torre" id="o-torre" style="height:120px"></div>
+          <div class="medida"><b id="o-altura">4,5 m</b><span>de papel por ano</span></div>
+        </div>
+        <div class="linha"><span>Folhas por ano</span><b id="o-ano">45.216</b></div>
+        <div class="linha"><span>Resmas por ano</span><b id="o-resmas">90</b></div>
+        <div class="linha"><span>Peso do que era impresso</span><b id="o-peso">212 kg</b></div>
+        <div class="linha"><span>Impressão, por ano</span><b id="o-rs-papel">R$ 5.425,92</b></div>
+        <div class="linha"><span>Horas devolvidas à equipe, por ano</span><b id="o-horas">2.534 h</b></div>
+        <div class="linha destaque"><span>Economia anual projetada</span><b id="o-total">R$ 81.446</b></div>
+      </div>
+    </div>
+
+    <h2 style="margin-top:52px; font-size:clamp(20px,2.6vw,26px)">Onde a economia aparece no dia a dia</h2>
+    <div class="grade" style="margin-top:20px">
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16v9H4z"/><path d="M8 15v4h8v-4"/><path d="m9 9 2 2 4-4"/></svg>
+        <h3>Não se imprime para conferir</h3>
+        <p>A conferência acontece na tela, com o valor do mês anterior ao lado. A impressora passa a
+          existir só para o boleto — que é o único documento que precisa sair em papel.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+        <h3>Acaba o retrabalho de reimprimir</h3>
+        <p>Faltou a conta de energia? Aparece como falta <em>antes</em> de o maço ir para a
+          impressora. Antes, o erro só era descoberto com a pilha já pronta.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h16v5H4z"/><path d="M4 13h16v7H4z"/><path d="M8 16.5h5"/></svg>
+        <h3>Fila em vez de telefone</h3>
+        <p>Segunda via, conta de concessionária e rateio dos Correios viraram filas com dono e
+          prazo. O recado deixou de ser o meio de transporte do trabalho.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 20V7M9 20V4M15 20v-9M21 20v-6"/></svg>
+        <h3>Crescer em carteira não muda o preço</h3>
+        <p>Sem licença por usuário e sem mensalidade por condomínio: entrar com mais 100
+          condomínios não muda nenhuma linha do orçamento. O que move o preço é pedir mais
+          do sistema, não atender mais gente com ele.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="16"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        <h3>Férias não param a carteira</h3>
+        <p>A carteira de quem sai é repartida por período, com um responsável por condomínio. Nada
+          fica esperando alguém voltar — e nenhuma emissão perde o prazo por ausência.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v18"/><path d="M5 8h14M5 16h14"/></svg>
+        <h3>Arquivo morto sem sala</h3>
+        <p>O histórico fica no sistema, com dois anos arquiváveis em pacote de auditoria. Nenhuma
+          caixa, nenhuma estante, nenhuma busca manual.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="preco">
+    <p class="eyebrow">Proposta</p>
+    <h2>O preço do sistema, aberto linha por linha</h2>
+    <p class="note">
+      Infraestrutura pelo custo real, mão de obra pelas horas de manutenção e evolução, e margem por cima.
+      Sem licença por usuário e sem mensalidade por condomínio: entrar com mais 100 condomínios não muda nada aqui.
+    </p>
+
+    <div class="calc">
+      <div>
+        <fieldset>
+          <legend>Infraestrutura</legend>
+          <div class="campo"><label for="i-supa">Supabase Pro</label>
+            <input id="i-supa" type="number" min="0" step="1" value="25" inputmode="decimal"><span class="un">US$</span></div>
+          <div class="campo"><label for="i-dolar">Dólar</label>
+            <input id="i-dolar" type="number" min="0" step="0.05" value="5.50" inputmode="decimal"><span class="un">R$</span></div>
+          <div class="campo"><label for="i-vps">VPS</label>
+            <input id="i-vps" type="number" min="0" step="1" value="60" inputmode="decimal"><span class="un">R$</span></div>
+          <div class="campo"><label for="i-claude">Ferramenta de desenvolvimento</label>
+            <input id="i-claude" type="number" min="0" step="1" value="110" inputmode="decimal"><span class="un">R$</span></div>
+        </fieldset>
+        <fieldset>
+          <legend>Mão de obra e margem</legend>
+          <div class="campo"><label for="i-manut">Horas de manutenção por mês</label>
+            <input id="i-manut" type="number" min="0" step="1" value="20" inputmode="numeric"><span class="un">h</span></div>
+          <div class="campo"><label for="i-valorh">Valor da hora técnica</label>
+            <input id="i-valorh" type="number" min="0" step="5" value="80" inputmode="decimal"><span class="un">R$</span></div>
+          <div class="campo"><label for="i-margem">Margem</label>
+            <input id="i-margem" type="number" min="0" max="300" step="5" value="40" inputmode="numeric"><span class="un">%</span></div>
+        </fieldset>
+      </div>
+
+      <div>
+        <div class="empilhada">
+          <div class="trilho">
+            <div class="fatia f-infra" id="f-infra" style="width:12%"></div>
+            <div class="fatia f-obra"  id="f-obra"  style="width:60%"></div>
+            <div class="fatia f-marg"  id="f-marg"  style="width:28%"></div>
+          </div>
+          <div class="legenda">
+            <div><i class="f-infra"></i> Infraestrutura <b id="l-infra">R$ 307,50</b></div>
+            <div><i class="f-obra"></i> Mão de obra <b id="l-obra">R$ 1.600,00</b></div>
+            <div><i class="f-marg"></i> Margem <b id="l-marg">R$ 763,00</b></div>
+          </div>
+        </div>
+
+        <div class="preco-grande">
+          <b id="o-preco">R$ 2.670,50</b>
+          <span>Preço mensal<br>do sistema</span>
+        </div>
+
+        <div class="saida" style="margin-top:16px">
+          <div class="linha"><span>Preço anual</span><b id="o-preco-ano">R$ 32.046,00</b></div>
+          <div class="linha"><span>Custo por condomínio, por mês</span><b id="o-por-condo">R$ 8,50</b></div>
+          <div class="linha"><span>Custo por boleto emitido</span><b id="o-por-boleto">R$ 0,13</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="balanca">
+      <div class="coluna paga">
+        <div class="val" id="c-paga-v">R$ 32.046</div>
+        <div class="bloco" id="c-paga" style="height:78px"></div>
+        <div class="cap">A empresa paga<br>por ano</div>
+      </div>
+      <div class="razao">
+        <b id="o-razao">2,5×</b>
+        <span>de volta para cada real pago</span>
+      </div>
+      <div class="coluna poupa">
+        <div class="val" id="c-poupa-v">R$ 81.446</div>
+        <div class="bloco" id="c-poupa" style="height:198px"></div>
+        <div class="cap">A empresa deixa<br>de gastar por ano</div>
+      </div>
+    </div>
+
+    <h2 style="margin-top:52px; font-size:clamp(20px,2.6vw,26px)">O que está incluído no mensal</h2>
+    <div class="grade" style="margin-top:20px">
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 4v6c0 4-3.5 7-8 8-4.5-1-8-4-8-8V7z"/><path d="M9 12l2 2 4-4"/></svg>
+        <h3>Operação e disponibilidade</h3>
+        <p>Site, banco e servidor no ar, com cópias e monitoramento. Nenhuma licença por usuário e nenhuma mensalidade por condomínio.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M12 6l6 6"/></svg>
+        <h3>Correções e ajustes</h3>
+        <p>O que quebra é consertado, e o que a operação pedir de ajuste fino entra nas horas do mês.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20V9M10 20V4M16 20v-8M22 20H2"/></svg>
+        <h3>Evolução contínua</h3>
+        <p>As horas do mês cobrem o ritmo normal de melhorias — o sistema não congela na data da
+          entrega. Uma frente maior, como um módulo novo, é orçada à parte e combinada antes.</p>
+      </article>
+    </div>
+
+    <p class="aviso">
+      Os 8 meses de construção já entregues não entram neste preço — o sistema chega pronto e em
+      operação. A partir daqui cobra-se manutenção e evolução, que é o que mantém a casa de pé.
+      A margem está separada na barra acima, à vista, e não embutida nas outras linhas.
+    </p>
+  </section>
+
+  <section id="novo">
+    <p class="eyebrow">Ganho que não é economia</p>
+    <h2>O que o papel não fazia de jeito nenhum</h2>
+
+    <div class="grade">
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <h3>Quem aprovou, quando e por quê</h3>
+        <p>170 aprovações já registradas com nome, cargo, data e motivo. Quando alguém aprova no lugar de outro, fica escrito: <em>“Denner · férias de Suellen”</em>.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19V5M4 19h16"/><path d="m7 15 4-5 3 3 5-7"/></svg>
+        <h3>A conta de luz preenche a planilha</h3>
+        <p>Ao anexar o relatório de leitura ou a conta da concessionária, água, gás e energia caem na planilha com prévia de antes e depois. Digitação a menos, erro a menos.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4"/><path d="M9 12h6M9 16h3"/></svg>
+        <h3>O que falta aparece como falta</h3>
+        <p>O relatório aponta, emissão por emissão, o que foi anexado e o que ficou faltando — antes de chegar na impressora.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16v9H4z"/><path d="M8 15v4h8v-4"/></svg>
+        <h3>Fila da expedição com baixa</h3>
+        <p>Boletos e filipetas chegam com aviso. Ao imprimir, a expedição dá baixa — e o relatório mostra quando entrou e quando saiu.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/><path d="M12 3v2M21 12h-2M12 21v-2M3 12h2"/></svg>
+        <h3>Vencimento real, não “dia 1”</h3>
+        <p>Cada condomínio carrega o próprio vencimento, inclusive os que têm dois. O sistema usa isso para ordenar o que é urgente.</p>
+      </article>
+      <article>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3" width="16" height="18"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+        <h3>A emissão inteira em um PDF</h3>
+        <p>Histórico, valores do mês anterior, contas anexadas e ocorrências à mão — e tudo sai num arquivo só quando alguém pede.</p>
+      </article>
+    </div>
+
+  </section>
+
+  <section id="seguranca">
+    <p class="eyebrow">Segurança e continuidade</p>
+    <h2>Dez papéis, e cada um enxerga só o seu pedaço</h2>
+    <p class="note">
+      Quem entra no sistema recebe um papel, e o papel decide o que abre. A separação não é
+      um esconde-esconde de tela: ela é feita no banco de dados, embaixo de tudo.
+    </p>
+
+    <div class="papeis">
+      <span class="papel forte">MST · Master</span>
+      <span class="papel">GER · Gerente</span>
+      <span class="papel">AST · Assistente</span>
+      <span class="papel">SPG · Sup. de Gerentes</span>
+      <span class="papel">SPC · Sup. da Contabilidade</span>
+      <span class="papel">SUP · Supervisora</span>
+      <span class="papel">DEP · Departamento</span>
+      <span class="papel">EXP · Expedição</span>
+      <span class="papel">SIN · Síndico</span>
+      <span class="papel apagado">Usuário</span>
+    </div>
+
+    <div class="rolagem">
+      <table class="tabela matriz">
+        <thead>
+          <tr>
+            <th scope="col">Quem entra</th>
+            <th scope="col">Planilha</th>
+            <th scope="col">Emissões</th>
+            <th scope="col">Aprovar</th>
+            <th scope="col">Expedição</th>
+            <th scope="col">Relatórios</th>
+            <th scope="col">Cadastros</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Gerente</th>
+            <td><span class="cheio">●</span></td><td><span class="cheio">●</span></td><td><span class="cheio">●</span></td>
+            <td><span class="vazio">○</span></td><td><span class="cheio">●</span></td><td><span class="vazio">○</span></td></tr>
+          <tr><th scope="row">Assistente</th>
+            <td><span class="cheio">●</span></td><td><span class="cheio">●</span></td><td><span class="vazio">○</span></td>
+            <td><span class="vazio">○</span></td><td><span class="vazio">○</span></td><td><span class="vazio">○</span></td></tr>
+          <tr><th scope="row">Supervisões</th>
+            <td><span class="cheio">●</span></td><td><span class="cheio">●</span></td><td><span class="cheio">●</span></td>
+            <td><span class="vazio">○</span></td><td><span class="cheio">●</span></td><td><span class="vazio">○</span></td></tr>
+          <tr><th scope="row">Departamento</th>
+            <td><span class="cheio">●</span></td><td><span class="cheio">●</span></td><td><span class="cheio">●</span></td>
+            <td><span class="cheio">●</span></td><td><span class="cheio">●</span></td><td><span class="vazio">○</span></td></tr>
+          <tr><th scope="row">Expedição</th>
+            <td><span class="vazio">○</span></td><td><span class="vazio">○</span></td><td><span class="vazio">○</span></td>
+            <td><span class="cheio">●</span></td><td><span class="cheio">●</span></td><td><span class="vazio">○</span></td></tr>
+          <tr><th scope="row">Master</th>
+            <td><span class="cheio">●</span></td><td><span class="cheio">●</span></td><td><span class="cheio">●</span></td>
+            <td><span class="cheio">●</span></td><td><span class="cheio">●</span></td><td><span class="cheio">●</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="aviso">
+      ● abre · ○ não abre. E dentro do que abre, o gerente ainda vê apenas os condomínios da própria
+      carteira — o recorte vem do banco, não da tela.
+    </p>
+
+    <ul class="limpa">
+      <li><b>Cada pessoa só alcança a própria carteira.</b> A separação é feita no banco, não só na tela — trocar o endereço no navegador não abre a planilha de outro gerente.</li>
+      <li><b>Pacote registrado não se altera.</b> Depois do registro os arquivos ficam lacrados; a expedição anexa boleto e dá baixa, e nada além disso.</li>
+      <li><b>Ninguém fica com dois donos.</b> Durante uma cobertura de férias, um condomínio responde a uma pessoa só — e a permissão vence sozinha na data.</li>
+      <li><b>A saída não depende de uma pessoa.</b> Código versionado e banco gerenciado, com histórico de dois anos arquivável em pacote de auditoria.</li>
+      <li><b>Correio próprio.</b> Os avisos saem de <code>condoflow@emissaonline.com</code>, no domínio da empresa — não de uma conta pessoal de quem montou o sistema.</li>
+      <li><b>O que ainda é risco, dito na cara:</b> a chave que assina os links de arquivo é a de desenvolvimento e precisa ser trocada; a VPS vence em 27/09 e o plano de e-mail em 29/09.</li>
+    </ul>
+  </section>
+
+  <section id="arquivo">
+    <p class="eyebrow">Onde fica arquivado</p>
+    <h2>Tudo na nuvem — e a nuvem fica em São Paulo</h2>
+    <p class="note">
+      Nada mora no computador de ninguém. Documentos, valores e trilha de aprovação ficam em
+      serviço gerenciado, com cópia automática feita pelo provedor. E a empresa pode puxar uma
+      cópia sua quando quiser, sem pedir para ninguém.
+    </p>
+
+    <figure>
+      <div class="rolagem">
+        <svg viewBox="0 0 960 330" role="img" style="min-width:660px"
+             aria-label="Mapa de onde os dados ficam: quem usa acessa pelo navegador ou celular; o site e a API rodam na Vercel, na região de São Paulo; o banco Postgres e os arquivos ficam no Supabase; o e-mail sai da VPS Hostinger; e a empresa pode exportar uma cópia em ZIP a qualquer momento.">
+          <defs>
+            <marker id="seta-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,1 9,5 0,9" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <!-- quem usa -->
+          <rect x="370" y="14" width="220" height="56" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="480" y="40" text-anchor="middle" font-family="Archivo, sans-serif" font-size="14" font-weight="700" fill="currentColor">Quem usa</text>
+          <text x="480" y="58" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">navegador no PC · aplicativo no celular</text>
+
+          <line x1="480" y1="70" x2="480" y2="106" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta-a)"/>
+          <text x="492" y="92" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">acesso cifrado</text>
+
+          <!-- vercel -->
+          <rect x="330" y="110" width="300" height="66" fill="none" stroke="#3B6DB5" stroke-width="2"/>
+          <text x="480" y="137" text-anchor="middle" font-family="Archivo, sans-serif" font-size="14" font-weight="700" fill="#3B6DB5">Vercel · site e API</text>
+          <text x="480" y="155" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">região gru1 — São Paulo</text>
+          <text x="480" y="170" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".5">não guarda arquivo: só serve as telas</text>
+
+          <!-- setas para a linha de baixo -->
+          <path d="M 400 176 L 400 200 L 175 200 L 175 224" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta-a)"/>
+          <text x="182" y="196" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">grava e lê</text>
+
+          <line x1="480" y1="176" x2="480" y2="224" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta-a)"/>
+          <text x="492" y="204" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">envia e-mail</text>
+
+          <path d="M 560 176 L 560 200 L 795 200 L 795 224" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta-a)"/>
+          <text x="672" y="196" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">exporta quando pedirem</text>
+
+          <!-- supabase -->
+          <rect x="20" y="228" width="310" height="82" fill="none" stroke="#3B6DB5" stroke-width="2"/>
+          <text x="175" y="254" text-anchor="middle" font-family="Archivo, sans-serif" font-size="14" font-weight="700" fill="#3B6DB5">Supabase · o arquivo</text>
+          <text x="175" y="272" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".7">banco Postgres + documentos anexados</text>
+          <text x="175" y="290" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">cópia automática do provedor</text>
+          <text x="175" y="304" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".55">596 documentos · 440 MB hoje</text>
+
+          <!-- hostinger -->
+          <rect x="355" y="228" width="250" height="82" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="480" y="254" text-anchor="middle" font-family="Archivo, sans-serif" font-size="14" font-weight="700" fill="currentColor">Hostinger · VPS</text>
+          <text x="480" y="272" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">correio do domínio da empresa</text>
+          <text x="480" y="290" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".5">condoflow@emissaonline.com</text>
+
+          <!-- copia da empresa -->
+          <rect x="630" y="228" width="310" height="82" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
+          <text x="785" y="254" text-anchor="middle" font-family="Archivo, sans-serif" font-size="14" font-weight="700" fill="currentColor">Cópia da empresa</text>
+          <text x="785" y="272" text-anchor="middle" font-family="Source Serif 4, serif" font-size="12" fill="currentColor" opacity=".62">ZIP dos documentos · PDF único</text>
+          <text x="785" y="290" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".5">baixado pela própria tela, sem pedir a ninguém</text>
+        </svg>
+      </div>
+      <figcaption>
+        O arquivo de verdade é o Supabase — banco e documentos no mesmo lugar, em São Paulo. A Vercel
+        só serve as telas e não guarda arquivo; por isso o site sair do ar não é o mesmo que perder dado.
+      </figcaption>
+    </figure>
+
+    <div class="rolagem">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th scope="col">O que</th>
+            <th scope="col" class="destaque">Onde fica</th>
+            <th scope="col">Por quanto tempo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Documentos da emissão</th>
+            <td class="sim">Supabase, armazenamento de arquivos</td>
+            <td class="nao">Enquanto a empresa quiser — hoje 440 MB de 1 GB em uso</td>
+          </tr>
+          <tr>
+            <th scope="row">Planilhas e valores</th>
+            <td class="sim">Supabase, banco Postgres</td>
+            <td class="nao">Histórico completo, ano a ano</td>
+          </tr>
+          <tr>
+            <th scope="row">Trilha de aprovação</th>
+            <td class="sim">Supabase, banco Postgres</td>
+            <td class="nao">Permanente — é o que prova quem aprovou o quê</td>
+          </tr>
+          <tr>
+            <th scope="row">Avisos do sino</th>
+            <td class="sim">Supabase, com limpeza automática</td>
+            <td class="nao">90 dias depois de lidos, 180 no máximo</td>
+          </tr>
+          <tr>
+            <th scope="row">Cópia na mão da empresa</th>
+            <td class="sim">Onde a empresa salvar: rede interna, HD, outra nuvem</td>
+            <td class="nao">Baixada quando quiser, pela Central de Relatórios</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="aviso">
+      Nenhum arquivo depende de máquina de escritório, e ninguém precisa lembrar de fazer cópia:
+      o provedor faz a dele, e a cópia da empresa sai por um botão.
+    </p>
+  </section>
+
+  <section id="adiante">
+    <p class="eyebrow">Adiante</p>
+    <h2>O que já está saindo, e o que vem depois</h2>
+    <p class="note">
+      O sistema não congela na data da entrega — e é isso que um pacote comprado pronto não oferece.
+      Estes quatro nasceram de pedidos da própria operação.
+    </p>
+
+    <div class="trilhos">
+      <div class="trilho-col">
+        <div class="trilho-cab"><span class="pino" style="background:var(--gain)"></span>Em acabamento</div>
+        <article>
+          <h3>Relatórios gerenciais</h3>
+          <p>A parte que está sendo terminada agora. Emissões por período, documentos anexados
+            contra o que faltou, e o relatório da expedição — quando o trabalho entrou e quando foi
+            impresso. Saem em Excel e em PDF, direto da tela.</p>
+        </article>
+      </div>
+      <div class="trilho-col">
+        <div class="trilho-cab"><span class="pino" style="background:var(--navy)"></span>Próximos</div>
+        <article>
+          <h3>Aviso por WhatsApp</h3>
+          <p>A base já está pronta; falta ligar o envio. Reduz o telefone que hoje pergunta
+            “saiu a emissão?”.</p>
+        </article>
+        <article>
+          <h3>Leitura automática das contas</h3>
+          <p>Valor e vencimento das faturas de água, gás e energia lidos do próprio documento, sem
+            digitação — e sem contratar serviço pago de leitura.</p>
+        </article>
+        <article>
+          <h3>Visualização para os síndicos</h3>
+          <p>Uma porta só de leitura para o síndico acompanhar a emissão do próprio condomínio.
+            Tira da equipe o “me manda de novo” e coloca a informação onde o cliente alcança.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <div class="fecho">
+    <b>CondoFlow — <em>um upgrade para a sua empresa</em>.</b>
+    <p>
+      Não é trocar de programa: é o mesmo processo desta casa, sem a pilha de papel no meio,
+      com registro de quem fez cada coisa e uma conta que cabe em três linhas. E que continua
+      mudando junto com a operação, porque foi feito aqui dentro.
+    </p>
+  </div>
+
+  <footer>
+    <p>
+      CondoFlow · <code>emissaonline.com</code> — sistema próprio de gestão de emissões condominiais.
+      Volumes de operação informados pela empresa; contagens de 05/09/2026 lidas direto do banco;
+      custos de infraestrutura conferidos em setembro de 2026. Os campos da proposta são editáveis
+      e ficam apenas neste navegador.
+    </p>
+  </footer>
+</main>
+
+<script>
+  (function () {
+    'use strict';
+
+    var brl  = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    var brl0 = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+    var num  = new Intl.NumberFormat('pt-BR');
+    var dec1 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    var dec2 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    var campos = ['i-condos','i-folhas','i-custo','i-pessoas','i-parcela','i-hora','i-corte',
+                  'i-supa','i-dolar','i-vps','i-claude','i-manut','i-valorh','i-margem'];
+
+    var BOLETOS_MES = 21000;
+    var HORAS_MES   = 176;   // jornada mensal de referência
+
+    function v(id) {
+      var n = parseFloat(String(document.getElementById(id).value).replace(',', '.'));
+      return isFinite(n) && n >= 0 ? n : 0;
+    }
+    function texto(id, t) { document.getElementById(id).textContent = t; }
+    function largura(id, pct) { document.getElementById(id).style.width = pct + '%'; }
+    function altura(id, px) { document.getElementById(id).style.height = px + 'px'; }
+
+    function calcular() {
+      // ── papel ───────────────────────────────────────────────────────────
+      var folhasAno = v('i-condos') * v('i-folhas') * 12;
+      // 500 folhas de sulfite 75 g/m² empilham ~5 cm; a folha A4 pesa ~4,68 g.
+      var alturaM = folhasAno * 0.0001;
+      var rsPapel = folhasAno * v('i-custo');
+
+      var horasAno = v('i-pessoas') * HORAS_MES * (v('i-parcela') / 100) * 12 * (v('i-corte') / 100);
+      var rsHoras  = horasAno * v('i-hora');
+      var poupaAno = rsPapel + rsHoras;
+
+      texto('o-ano',      num.format(Math.round(folhasAno)));
+      texto('o-resmas',   num.format(Math.round(folhasAno / 500)));
+      texto('o-peso',     num.format(Math.round(folhasAno * 0.00468)) + ' kg');
+      texto('o-altura',   dec1.format(alturaM) + ' m');
+      texto('o-rs-papel', brl.format(rsPapel));
+      texto('o-horas',    num.format(Math.round(horasAno)) + ' h');
+      texto('o-total',    brl0.format(poupaAno));
+
+      // A torre desenha até 6 m; acima disso o número segue e o desenho satura.
+      altura('o-torre', Math.max(4, Math.min(150, alturaM / 6 * 150)));
+
+      // ── preço ───────────────────────────────────────────────────────────
+      var infra  = v('i-supa') * v('i-dolar') + v('i-vps') + v('i-claude');
+      var obra   = v('i-manut') * v('i-valorh');
+      var margem = (infra + obra) * (v('i-margem') / 100);
+      var preco  = infra + obra + margem;
+      var precoAno = preco * 12;
+
+      texto('l-infra', brl.format(infra));
+      texto('l-obra',  brl.format(obra));
+      texto('l-marg',  brl.format(margem));
+      texto('o-preco', brl.format(preco));
+      texto('o-preco-ano', brl0.format(precoAno));
+
+      var totalBarra = preco || 1;
+      largura('f-infra', infra  / totalBarra * 100);
+      largura('f-obra',  obra   / totalBarra * 100);
+      largura('f-marg',  margem / totalBarra * 100);
+
+      var condos = v('i-condos') || 1;
+      texto('o-por-condo',  'R$ ' + dec2.format(preco / condos));
+      texto('o-por-boleto', 'R$ ' + dec2.format(preco / BOLETOS_MES));
+
+      // ── balança ─────────────────────────────────────────────────────────
+      var maior = Math.max(precoAno, poupaAno, 1);
+      texto('c-paga-v',  brl0.format(precoAno));
+      texto('c-poupa-v', brl0.format(poupaAno));
+      altura('c-paga',  Math.max(8, precoAno / maior * 198));
+      altura('c-poupa', Math.max(8, poupaAno / maior * 198));
+
+      var razao = precoAno > 0 ? poupaAno / precoAno : 0;
+      texto('o-razao', dec1.format(razao) + '×');
+      document.getElementById('o-razao').style.color = razao >= 1 ? 'var(--gain)' : 'var(--cost)';
+    }
+
+    function guardar() {
+      try {
+        var d = {};
+        campos.forEach(function (id) { d[id] = document.getElementById(id).value; });
+        localStorage.setItem('condoflow-proposta', JSON.stringify(d));
+      } catch (e) { /* navegador sem armazenamento: os padrões seguem valendo */ }
+    }
+    function restaurar() {
+      try {
+        var d = JSON.parse(localStorage.getItem('condoflow-proposta') || '{}');
+        campos.forEach(function (id) {
+          if (d[id] !== undefined && d[id] !== '') document.getElementById(id).value = d[id];
+        });
+      } catch (e) { /* idem */ }
+    }
+
+    campos.forEach(function (id) {
+      document.getElementById(id).addEventListener('input', function () { calcular(); guardar(); });
+    });
+
+    restaurar();
+    calcular();
+
+    // ── capítulo atual + navegação por seta ──────────────────────────────
+    var secoes = Array.prototype.slice.call(document.querySelectorAll('main section'));
+    var links  = Array.prototype.slice.call(document.querySelectorAll('#chapters a'));
+
+    function marcar(id) {
+      links.forEach(function (a) {
+        a.setAttribute('aria-current', a.getAttribute('href') === '#' + id ? 'true' : 'false');
+      });
+    }
+    marcar('abertura');
+
+    if ('IntersectionObserver' in window) {
+      var obs = new IntersectionObserver(function (entradas) {
+        entradas.forEach(function (e) { if (e.isIntersecting) marcar(e.target.id); });
+      }, { rootMargin: '-62px 0px -70% 0px' });
+      secoes.forEach(function (s) { obs.observe(s); });
+    }
+
+    document.addEventListener('keydown', function (e) {
+      var alvo = e.target;
+      if (alvo && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA')) return;
+      var passo = (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'PageDown') ? 1
+                : (e.key === 'ArrowUp'   || e.key === 'ArrowLeft'  || e.key === 'PageUp')   ? -1 : 0;
+      if (!passo) return;
+      e.preventDefault();
+      var meio = window.innerHeight / 3, atual = 0;
+      secoes.forEach(function (s, i) { if (s.getBoundingClientRect().top <= meio) atual = i; });
+      var proxima = secoes[Math.max(0, Math.min(secoes.length - 1, atual + passo))];
+      if (proxima) proxima.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  })();
+</script>

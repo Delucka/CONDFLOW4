@@ -12,7 +12,7 @@ import InstallAppButton from './InstallAppButton';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import {
   LayoutDashboard, FileCheck2, Receipt, MoreHorizontal, X,
-  Building, FileText, Droplet, FileUp, Mail, Users, KeyRound, LogOut,
+  Building, FileText, Droplet, FileUp, Mail, Users, KeyRound, LogOut, Printer,
 } from 'lucide-react';
 
 // As 3 abas fixas da barra inferior (+ "Mais")
@@ -22,12 +22,32 @@ const TABS = [
   { href: '/carteiras/cobrancas', icon: Receipt,         label: 'Cobranças' },
 ];
 
+/**
+ * Papéis cuja barra inferior é outra.
+ *
+ * As três abas de cima pressupõem quem trabalha na carteira. A expedição não
+ * alcança nenhuma delas (`ROUTE_ACCESS`), então o filtro por papel esvaziava a
+ * barra: quem entrava pelo celular via quatro colunas com só o botão "Mais"
+ * ocupando a última — e a própria tela de trabalho, `/expedicao`, não estava
+ * nem na folha "Mais". Chegava-se nela pelo login e nunca mais.
+ *
+ * Mesma ideia do `PAGINA_INICIAL` em `roles.js`: quem tem uma tela só começa
+ * nela — e, no celular, também navega por ela.
+ */
+const TABS_POR_PAPEL = {
+  expedicao: [
+    { href: '/expedicao',        icon: Printer, label: 'Expedição' },
+    { href: '/central-emissoes', icon: FileUp,  label: 'Emissões' },
+  ],
+};
+
 // Tudo o mais vai na folha "Mais"
 const MAIS_ITEMS = [
   { href: '/condominios',             icon: Building,  label: 'Planilha Anual' },
   { href: '/carteiras/segundas-vias', icon: FileText,  label: 'Segundas Vias' },
   { href: '/consumos',                icon: Droplet,   label: 'Consumos' },
   { href: '/central-emissoes',        icon: FileUp,    label: 'Central de Emissões' },
+  { href: '/expedicao',               icon: Printer,   label: 'Expedição' },
   { href: '/correios',                icon: Mail,      label: 'Correios' },
   { href: '/admin/usuarios',          icon: Users,     label: 'Acessos e Perfis' },
 ];
@@ -55,9 +75,21 @@ export default function MobileShell({ children }) {
   const isActive = (href) => href === '/dashboard' ? pathname === href : pathname.startsWith(href);
   const roleLabel = ROLE_LABELS[role] || (role || '').replace('_', ' ');
 
-  const visibleTabs = TABS.filter((t) => role && canAccessPath(role, t.href));
-  const visibleMais = MAIS_ITEMS.filter((i) => role && canAccessPath(role, i.href));
+  // A barra deste papel: a lista específica ganha da padrão quando existe.
+  const tabsDoPapel = (role && TABS_POR_PAPEL[role]) || TABS;
+  const visibleTabs = tabsDoPapel.filter((t) => role && canAccessPath(role, t.href));
+
+  // O que já está na barra não se repete na folha — a expedição veria
+  // "Central de Emissões" duas vezes, na aba e no cartão logo abaixo.
+  const hrefsNaBarra = new Set(visibleTabs.map((t) => t.href));
+  const visibleMais = MAIS_ITEMS.filter(
+    (i) => role && canAccessPath(role, i.href) && !hrefsNaBarra.has(i.href),
+  );
   const maisActive = visibleMais.some((i) => isActive(i.href));
+
+  // A grade acompanha o que existe (+1 pela coluna do "Mais"). Era fixa em 4, e
+  // quem tinha menos abas ganhava colunas vazias no lugar delas.
+  const colunasDaBarra = visibleTabs.length + 1;
 
   return (
     <div className="flex flex-col bg-slate-50 font-sans" style={{ height: '100dvh' }}>
@@ -86,7 +118,7 @@ export default function MobileShell({ children }) {
         className="shrink-0 border-t border-slate-200 bg-white z-20"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="grid grid-cols-4">
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${colunasDaBarra}, minmax(0, 1fr))` }}>
           {visibleTabs.map((t) => {
             const active = isActive(t.href);
             const badge = t.showBadge && pendingCount > 0;

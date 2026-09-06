@@ -244,8 +244,11 @@ export default function ModalFerias({ usuario, onClose }) {
                     <p className="px-4 py-8 text-center text-sm text-slate-500">Este gerente não tem condomínios na carteira.</p>
                   ) : condos.map(c => {
                     const dono = pessoas.find(p => p.id === destino[c.id]);
+                    // No celular o seletor desce para baixo do nome: lado a
+                    // lado, os 210px fixos do select sobravam 89px para o
+                    // condomínio, e todo nome virava reticências.
                     return (
-                    <div key={c.id} className="flex items-center gap-3 px-4 py-2">
+                    <div key={c.id} className="flex flex-col items-stretch gap-1.5 px-4 py-2.5 sm:flex-row sm:items-center sm:gap-3 sm:py-2">
                       <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">
                         {c.name}
                         {dono && (
@@ -258,7 +261,7 @@ export default function ModalFerias({ usuario, onClose }) {
                         value={destino[c.id] || ''}
                         onChange={e => setDestino(d => ({ ...d, [c.id]: e.target.value }))}
                         aria-label={`Quem responde por ${c.name}`}
-                        className={`shrink-0 w-[210px] rounded-lg border px-2 py-1.5 text-xs outline-none ${
+                        className={`shrink-0 w-full sm:w-[210px] rounded-lg border px-2 py-1.5 text-xs outline-none ${
                           destino[c.id] ? 'border-violet-300 bg-violet-50 text-violet-800' : 'border-slate-200 bg-white text-slate-500'}`}>
                         <option value="">Fica com {String(usuario?.full_name || '').split(' ')[0]}</option>
                         {pessoas.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}

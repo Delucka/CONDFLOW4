@@ -302,17 +302,23 @@ export default function Expedicao() {
             </button>
           )}
         </div>
-        <div className="inline-flex border border-slate-200 rounded-xl overflow-hidden shrink-0">
-          {[{ id: 'a_imprimir', r: `A imprimir (${contagem.imprimir})` },
-            { id: 'impressos', r: `Impressos (${contagem.impresso})` },
-            ...(semFilipeta > 0 ? [{ id: 'sem_filipeta', r: `Sem filipeta (${semFilipeta})` }] : []),
-          ].map(f => (
-            <button key={f.id} type="button" onClick={() => setFiltro(f.id)} aria-pressed={filtro === f.id}
-              className={`px-3.5 py-2 text-xs transition-colors ${
-                filtro === f.id ? 'bg-violet-600 text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>
-              {f.r}
-            </button>
-          ))}
+        {/* Rola em vez de ser cortado. Os três filtros somam mais que a
+            largura de um celular, e o `overflow-x-hidden` da casca mobile
+            recortava o terceiro — "Sem filipeta" ficava invisível e sem
+            nenhuma forma de alcançar. */}
+        <div className="shrink-0 max-w-full overflow-x-auto scrollbar-thin">
+          <div className="inline-flex border border-slate-200 rounded-xl overflow-hidden">
+            {[{ id: 'a_imprimir', r: `A imprimir (${contagem.imprimir})` },
+              { id: 'impressos', r: `Impressos (${contagem.impresso})` },
+              ...(semFilipeta > 0 ? [{ id: 'sem_filipeta', r: `Sem filipeta (${semFilipeta})` }] : []),
+            ].map(f => (
+              <button key={f.id} type="button" onClick={() => setFiltro(f.id)} aria-pressed={filtro === f.id}
+                className={`px-3.5 py-2 text-xs whitespace-nowrap transition-colors ${
+                  filtro === f.id ? 'bg-violet-600 text-white font-semibold' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>
+                {f.r}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
