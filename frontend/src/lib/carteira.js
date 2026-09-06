@@ -27,6 +27,17 @@ import { useAuth } from '@/lib/auth';
 export async function carteiraGerenteId(supabase, profile) {
   const role = profile?.role;
   if (role === 'gerente') {
+    // O `AuthProvider` já resolveu `gerentes.id` no login e guardou em
+    // `profile.gerente_id` (auth.js, `fetchProfile`). Perguntar de novo era uma
+    // ida ao banco inteira por nada — e esta função abre quase toda tela, então
+    // o preço aparecia em toda navegação.
+    //
+    // Medido em 06/09/2026: a ida mais barata possível (uma linha por chave
+    // primária) custa ~210 ms, dos quais só ~30 ms são rede. O tamanho do
+    // resultado quase não importa; o que se paga é o número de idas.
+    //
+    // `undefined` = perfil de outra origem, sem o campo: aí sim vale perguntar.
+    if (profile.gerente_id !== undefined) return profile.gerente_id || null;
     const { data } = await supabase
       .from('gerentes').select('id').eq('profile_id', profile.id).maybeSingle();
     return data?.id || null;
