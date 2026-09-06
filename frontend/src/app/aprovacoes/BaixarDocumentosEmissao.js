@@ -4,7 +4,10 @@ import useSWR from 'swr';
 import { createClient } from '@/utils/supabase/client';
 import { useToast } from '@/components/Toast';
 import { apiFetcher, apiFetch } from '@/lib/api';
-import { ordenarParaExtracao, montarZipMulti, montarPdfMulti, juntarPdfsProntos } from '@/lib/extrairEmissao';
+import {
+  ordenarParaExtracao, montarZipMulti, montarPdfMulti, juntarPdfsProntos,
+  TIPOS_DOCUMENTO, filtrarPorTipo,
+} from '@/lib/extrairEmissao';
 import { apiPost } from '@/lib/api';
 import { saveAs } from 'file-saver';
 import { FolderDown, Loader2, FileText, Building2, Printer } from 'lucide-react';
@@ -25,6 +28,7 @@ export default function BaixarDocumentosEmissao() {
   const [condominioId, setCondominioId] = useState('');
   const [ano, setAno] = useState(anoAtual);
   const [mes, setMes] = useState(0);            // 0 = ano inteiro
+  const [tipoDoc, setTipoDoc] = useState('tudo'); // 'tudo' | 'emissao' | 'boletos'
   const [rodando, setRodando] = useState(null);   // 'zip' | 'pdf'
   const [prog, setProg] = useState(null);       // { i, n, nome }
 
@@ -66,13 +70,17 @@ export default function BaixarDocumentosEmissao() {
       const grupos = [];
       for (const p of pacotes) {
         let cobrancas = [];
-        try {
-          const conf = await apiFetch(`/api/condominio/${p.condominio_id}/conferencia?mes=${p.mes_referencia}&ano=${p.ano_referencia}&retificacao=false`);
-          const todas = conf?.cobrancas_extras || [];
-          const incl = p.cobrancas_incluidas;
-          cobrancas = Array.isArray(incl) ? todas.filter((c) => incl.includes(c.id)) : todas;
-        } catch { /* segue sem cobranças */ }
-        const itens = ordenarParaExtracao(arqPorPacote[p.id] || [], cobrancas);
+        // Cobrança extra é material de conferência (passo 7): não entra quando
+        // o pedido é só dos boletos.
+        if (tipoDoc !== 'boletos') {
+          try {
+            const conf = await apiFetch(`/api/condominio/${p.condominio_id}/conferencia?mes=${p.mes_referencia}&ano=${p.ano_referencia}&retificacao=false`);
+            const todas = conf?.cobrancas_extras || [];
+            const incl = p.cobrancas_incluidas;
+            cobrancas = Array.isArray(incl) ? todas.filter((c) => incl.includes(c.id)) : todas;
+          } catch { /* segue sem cobranças */ }
+        }
+        const itens = ordenarParaExtracao(filtrarPorTipo(arqPorPacote[p.id] || [], tipoDoc), cobrancas);
         // `sublabel` alimenta a folha de rosto do PDF: sem o nome do condomínio
         // ela não diz de quem é o maço, e num carrinho de impressão isso é a
         // única informação que importa.
@@ -92,7 +100,12 @@ export default function BaixarDocumentosEmissao() {
       return { grupos, pacotes };
   }
 
-  const nomeBase = () => `${(condoNome).replace(/[^\w]+/g, '_')}_${mes ? String(mes).padStart(2, '0') + '-' : ''}${ano}`;
+  // O tipo entra no nome do arquivo: com dois maços saindo da mesma tela, dois
+  // downloads com o mesmo nome na pasta viram "(1)" e ninguém sabe qual é qual.
+  const nomeBase = () => {
+    const sufixo = tipoDoc === 'emissao' ? '_emissao' : tipoDoc === 'boletos' ? '_boletos' : '';
+    return `${(condoNome).replace(/[^\w]+/g, '_')}_${mes ? String(mes).padStart(2, '0') + '-' : ''}${ano}${sufixo}`;
+  };
 
   async function baixarZip() {
     if (!condominioId) return addToast('Escolha o condomínio.', 'error');
@@ -163,7 +176,9 @@ export default function BaixarDocumentosEmissao() {
         const comp = `${MESES[p.mes_referencia] || '?'}/${p.ano_referencia}`;
         setProg({ i: k + 1, n: pacotes.length, nome: `montando ${comp}…` });
         try {
-          const srv = await apiPost(`/api/emissoes/${p.id}/extrair-pdf`, {});
+          // O recorte por tipo vai junto: o servidor é quem monta, então é ele
+          // que precisa saber se o pedido é da emissão, dos boletos, ou de tudo.
+          const srv = await apiPost(`/api/emissoes/${p.id}/extrair-pdf?tipo=${tipoDoc}`, {});
           const resp = srv?.url ? await fetch(srv.url) : null;
           if (resp?.ok) {
             const g = grupos.find((x) => x.label === comp);
@@ -237,8 +252,26 @@ export default function BaixarDocumentosEmissao() {
         </div>
         <div>
           <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Documentos das emissões</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Tudo que o emissor anexou, na ordem 1→8. O <b>PDF</b> sai pronto para a impressora; o <b>ZIP</b> traz os arquivos originais, para arquivar.</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Na ordem 1→8. O <b>PDF</b> sai pronto para a impressora; o <b>ZIP</b> traz os arquivos originais, para arquivar.</p>
         </div>
+      </div>
+
+      {/* O maço é de dois tipos, e vinham grudados: no 025 - SUN GATE saíram
+          3 páginas de emissão e 24 de boleto no mesmo PDF. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {TIPOS_DOCUMENTO.map(({ id, rotulo, descricao }) => (
+          <button key={id} type="button" onClick={() => setTipoDoc(id)}
+            aria-pressed={tipoDoc === id} title={descricao}
+            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors border ${
+              tipoDoc === id
+                ? 'bg-violet-600 border-violet-600 text-white'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+            {rotulo}
+          </button>
+        ))}
+        <span className="text-[11px] text-slate-500">
+          {TIPOS_DOCUMENTO.find((t) => t.id === tipoDoc)?.descricao}
+        </span>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">

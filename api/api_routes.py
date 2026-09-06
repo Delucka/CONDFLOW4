@@ -620,9 +620,25 @@ def _cobrancas_da_emissao(db, pac):
         return []
 
 
+# O que a EXPEDIÇÃO anexa depois do registro. O resto é material do emissor.
+CATEGORIAS_DA_EXPEDICAO = ("boleto", "filipeta")
+
+
 @router.post("/emissoes/{pacote_id}/extrair-pdf")
-def api_extrair_emissao_pdf(pacote_id: str, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
-    """Junta os documentos da emissão num PDF único, na ordem de auditoria."""
+def api_extrair_emissao_pdf(
+    pacote_id: str,
+    tipo: str = "tudo",
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Junta os documentos da emissão num PDF único, na ordem de auditoria.
+
+    `tipo` recorta o maço, porque uma emissão produz dois que não deviam sair
+    grudados: `emissao` é o material de conferência que o emissor anexou, e
+    `boletos` é o que a expedição imprime e leva ao cliente. `tudo` mantém o
+    comportamento antigo. No 025 - SUN GATE eram 3 páginas de emissão e 24 de
+    boleto no mesmo arquivo — quem confere não quer os boletos, e quem imprime
+    não quer o relatório de rateio."""
     import io
 
     pac = db.table("emissoes_pacotes") \
@@ -637,9 +653,19 @@ def api_extrair_emissao_pdf(pacote_id: str, user: dict = Depends(get_current_use
         .select("id, arquivo_nome, arquivo_url, formato, categoria, subtipo, relatorio_tipo_servico") \
         .eq("pacote_id", pacote_id).execute().data or []
 
-    itens = _ordenar_para_extracao(arquivos, _cobrancas_da_emissao(db, pac))
+    if tipo == "emissao":
+        arquivos = [a for a in arquivos if a.get("categoria") not in CATEGORIAS_DA_EXPEDICAO]
+    elif tipo == "boletos":
+        arquivos = [a for a in arquivos if a.get("categoria") in CATEGORIAS_DA_EXPEDICAO]
+
+    # Cobrancas extras sao material de conferencia (passo 7), entao nao entram
+    # quando o pedido e so dos boletos.
+    cobrancas = [] if tipo == "boletos" else _cobrancas_da_emissao(db, pac)
+
+    itens = _ordenar_para_extracao(arquivos, cobrancas)
     if not itens:
-        raise HTTPException(400, "Esta emissão não tem documentos para extrair.")
+        rotulo = {"emissao": "documentos de emissão", "boletos": "boletos ou filipetas"}.get(tipo, "documentos")
+        raise HTTPException(400, f"Esta emissão não tem {rotulo} para extrair.")
 
     try:
         import pikepdf

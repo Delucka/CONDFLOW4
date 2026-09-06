@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { gerarCsv, gerarPdfTabela } from '@/lib/relatorios';
+import PeriodoRelatorio, { periodoPadrao, rotuloPeriodo, sufixoPeriodo, aplicarPeriodo } from '@/components/PeriodoRelatorio';
 import { condosDaCarteira, temRecorteDeCarteira } from '@/lib/carteira';
 import { rotuloDocumento } from '@/lib/rotuloDocumento';
 import { FileSpreadsheet, FileText, Loader2, ClipboardList } from 'lucide-react';
@@ -25,7 +26,6 @@ import { FileSpreadsheet, FileText, Loader2, ClipboardList } from 'lucide-react'
  * alarme que quase sempre acende é uma coluna que ninguém lê.
  */
 
-const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const prettyStatus = (s) => (s || '—').replace(/_/g, ' ').replace(/\bsup\b/gi, 'sup.');
 
 // Rótulos curtos por passo, para caber na coluna "Faltando" do PDF.
@@ -48,9 +48,7 @@ export default function RelatorioDocumentos() {
   const supabase = useMemo(() => createClient(), []);
   const role = profile?.role;
 
-  const anoAtual = new Date().getFullYear();
-  const [ano, setAno] = useState(anoAtual);
-  const [mes, setMes] = useState(0);
+  const [periodo, setPeriodo] = useState(periodoPadrao);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [gerando, setGerando] = useState(null);
@@ -66,10 +64,11 @@ export default function RelatorioDocumentos() {
       let q = supabase
         .from('emissoes_pacotes')
         .select('id, condominio_id, mes_referencia, ano_referencia, status, condominios(name, tem_consumo)')
-        .eq('ano_referencia', ano)
         .neq('status', 'rascunho')
         .limit(5000);
-      if (mes) q = q.eq('mes_referencia', mes);
+      // No modo data, conta pela criacao da emissao — mesma regra do relatorio
+      // de emissoes, para os dois responderem a mesma pergunta.
+      q = aplicarPeriodo(q, periodo, 'criado_em');
       if (ids !== null) q = q.in('condominio_id', ids);
 
       const { data: pacs, error } = await q;
@@ -120,14 +119,14 @@ export default function RelatorioDocumentos() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, profile, ano, mes, addToast]);
+  }, [supabase, profile, periodo, addToast]);
 
   useEffect(() => { buscar(); }, [buscar]);
 
   const visiveis = soFalta ? rows.filter((r) => r.faltando) : rows;
   const comFalta = rows.filter((r) => r.faltando).length;
-  const periodoLabel = mes ? `${MESES[mes]}/${ano}` : `Ano ${ano}`;
-  const baseNome = `documentos_emissao_${mes ? String(mes).padStart(2, '0') + '-' : ''}${ano}`;
+  const periodoLabel = rotuloPeriodo(periodo);
+  const baseNome = `documentos_emissao_${sufixoPeriodo(periodo)}`;
 
   const baixarCsv = () => {
     setGerando('csv');
@@ -149,7 +148,6 @@ export default function RelatorioDocumentos() {
     finally { setGerando(null); }
   };
 
-  const anos = Array.from({ length: 6 }, (_, i) => anoAtual - i);
 
   return (
     <div className="space-y-4">
@@ -167,21 +165,8 @@ export default function RelatorioDocumentos() {
       </div>
 
       <div className="glass-panel p-4 rounded-2xl border border-slate-200 flex flex-wrap items-end gap-3">
-        <div>
-          <label htmlFor="rel-doc-ano" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ano</label>
-          <select id="rel-doc-ano" value={ano} onChange={(e) => setAno(Number(e.target.value))}
-            className="block mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500/60">
-            {anos.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="rel-doc-mes" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mês</label>
-          <select id="rel-doc-mes" value={mes} onChange={(e) => setMes(Number(e.target.value))}
-            className="block mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500/60">
-            <option value={0}>Ano inteiro</option>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => <option key={m} value={m}>{MESES[m]}</option>)}
-          </select>
-        </div>
+        <PeriodoRelatorio id="rel-doc" value={periodo} onChange={setPeriodo}
+          rotuloData="em que a emissão foi criada" />
         <label className="flex items-center gap-2 pb-2 cursor-pointer">
           <input type="checkbox" checked={soFalta} onChange={(e) => setSoFalta(e.target.checked)}
             className="w-4 h-4 accent-violet-600" />

@@ -6,6 +6,35 @@ import { getArquivoUrlSeguro } from '@/lib/arquivo';
 
 const norm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 
+/**
+ * Os dois maços que uma emissão produz — e que não deviam sair grudados.
+ *
+ * `emissao`  é o que o EMISSOR anexa: a emissão a processar, contas de água,
+ *            gás e energia, correios, seguro, cobranças, relatório de rateio.
+ *            É o material de conferência, na ordem de auditoria 1→8.
+ *
+ * `boletos`  é o que a EXPEDIÇÃO anexa depois do registro: os boletos e as
+ *            filipetas. É o que vai para a impressora e depois para o cliente.
+ *
+ * Vinham juntos no mesmo PDF: no 025 - SUN GATE, 3 páginas de emissão e 24 de
+ * boleto num arquivo só. Quem confere não quer os boletos; quem imprime não
+ * quer o relatório de rateio.
+ */
+export const TIPOS_DOCUMENTO = [
+  { id: 'tudo',    rotulo: 'Tudo',                   descricao: 'Emissão e boletos no mesmo arquivo' },
+  { id: 'emissao', rotulo: 'Só documentos da emissão', descricao: 'O que o emissor anexou, na ordem 1→8' },
+  { id: 'boletos', rotulo: 'Só boletos e filipetas',   descricao: 'O que a expedição imprime e entrega' },
+];
+
+const CATEGORIAS_DA_EXPEDICAO = new Set(['boleto', 'filipeta']);
+
+/** Recorta os anexos por tipo. `tudo` (ou tipo desconhecido) devolve como veio. */
+export function filtrarPorTipo(arquivos = [], tipo = 'tudo') {
+  if (tipo === 'emissao') return arquivos.filter((a) => !CATEGORIAS_DA_EXPEDICAO.has(a?.categoria));
+  if (tipo === 'boletos') return arquivos.filter((a) => CATEGORIAS_DA_EXPEDICAO.has(a?.categoria));
+  return arquivos;
+}
+
 // Monta a lista ordenada de itens { arquivo_url|__attachment, arquivo_nome, formato }.
 export function ordenarParaExtracao(arquivos = [], cobrancas = []) {
   const usados = new Set();

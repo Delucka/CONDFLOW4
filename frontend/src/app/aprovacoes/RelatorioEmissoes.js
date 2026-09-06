@@ -4,10 +4,10 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { gerarCsv, gerarPdfTabela } from '@/lib/relatorios';
+import PeriodoRelatorio, { periodoPadrao, rotuloPeriodo, sufixoPeriodo, aplicarPeriodo } from '@/components/PeriodoRelatorio';
 import { condosDaCarteira } from '@/lib/carteira';
 import { FileSpreadsheet, FileText, Loader2, BarChart3 } from 'lucide-react';
 
-const MESES = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const VE_TUDO = ['master', 'departamento', 'supervisora', 'supervisora_contabilidade', 'supervisor_gerentes'];
 const prettyStatus = (s) => (s || '—').replace(/_/g, ' ').replace(/\bsup\b/gi, 'sup.');
 const fmtData = (ts) => { try { return ts ? new Date(ts).toLocaleDateString('pt-BR') : ''; } catch { return ''; } };
@@ -29,9 +29,7 @@ export default function RelatorioEmissoes() {
   const supabase = useMemo(() => createClient(), []);
   const role = profile?.role;
 
-  const anoAtual = new Date().getFullYear();
-  const [ano, setAno] = useState(anoAtual);
-  const [mes, setMes] = useState(0);            // 0 = ano inteiro
+  const [periodo, setPeriodo] = useState(periodoPadrao);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [gerando, setGerando] = useState(null); // 'csv' | 'pdf'
@@ -52,11 +50,13 @@ export default function RelatorioEmissoes() {
       let q = supabase
         .from('emissoes_pacotes')
         .select('id, mes_referencia, ano_referencia, status, nivel_aprovacao, criado_em, atualizado_em, condominio_id, condominios(name), profiles:uploaded_by(full_name)')
-        .eq('ano_referencia', ano)
         .neq('status', 'rascunho')
         .order('atualizado_em', { ascending: false })
         .limit(5000);
-      if (mes) q = q.eq('mes_referencia', mes);
+      // Competencia ou intervalo de datas: quem decide e o seletor. No modo
+      // data conta pela CRIACAO da emissao, que e a data que existe para todas,
+      // aprovadas ou nao.
+      q = aplicarPeriodo(q, periodo, 'criado_em');
 
       const ids = await carteiraCondoIds();
       if (ids !== null) {
@@ -76,12 +76,12 @@ export default function RelatorioEmissoes() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, ano, mes, carteiraCondoIds, addToast]);
+  }, [supabase, periodo, carteiraCondoIds, addToast]);
 
   useEffect(() => { buscar(); }, [buscar]);
 
-  const periodoLabel = mes ? `${MESES[mes]}/${ano}` : `Ano ${ano}`;
-  const baseNome = `emissoes_${mes ? String(mes).padStart(2, '0') + '-' : ''}${ano}`;
+  const periodoLabel = rotuloPeriodo(periodo);
+  const baseNome = `emissoes_${sufixoPeriodo(periodo)}`;
 
   const baixarCsv = () => {
     setGerando('csv');
@@ -102,7 +102,6 @@ export default function RelatorioEmissoes() {
     finally { setGerando(null); }
   };
 
-  const anos = Array.from({ length: 6 }, (_, i) => anoAtual - i);
 
   return (
     <div className="space-y-4">
@@ -118,21 +117,8 @@ export default function RelatorioEmissoes() {
 
       {/* Filtros + ações */}
       <div className="glass-panel p-4 rounded-2xl border border-slate-200 flex flex-wrap items-end gap-3">
-        <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ano</label>
-          <select value={ano} onChange={(e) => setAno(Number(e.target.value))}
-            className="block mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500/60">
-            {anos.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mês</label>
-          <select value={mes} onChange={(e) => setMes(Number(e.target.value))}
-            className="block mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500/60">
-            <option value={0}>Ano inteiro</option>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => <option key={m} value={m}>{MESES[m]}</option>)}
-          </select>
-        </div>
+        <PeriodoRelatorio id="rel-emi" value={periodo} onChange={setPeriodo}
+          rotuloData="em que a emissão foi criada" />
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-slate-500 mr-1">{loading ? '…' : `${rows.length} emissão(ões)`}</span>
