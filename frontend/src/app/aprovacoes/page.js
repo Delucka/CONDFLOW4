@@ -39,7 +39,7 @@ import RelatorioDocumentos from './RelatorioDocumentos';
 import RelatorioExpedicao from '@/components/RelatorioExpedicao';
 import { carteirasCobertas } from '@/lib/carteira';
 import BaixarDocumentosEmissao from '@/app/aprovacoes/BaixarDocumentosEmissao';
-import { Package, Archive, BarChart3, UserCheck } from 'lucide-react';
+import { Package, Archive, BarChart3, UserCheck, Printer, FolderDown } from 'lucide-react';
 
 // Cor e ícone por tipo de ação
 function getActionStyle(action = '') {
@@ -80,18 +80,47 @@ export default function AprovacoesPage() {
   const [coberturas, setCoberturas] = useState([]);
   // Sobe junto do `aba`: o ?view= abaixo escreve nele, e o no-use-before-define
   // recusa (com razão) ler um `const` declarado cem linhas adiante.
-  const [auditView, setAuditView] = useState('atividade'); // 'atividade' | 'erros' | 'relatorios'
+  const [auditView, setAuditView] = useState('atividade'); // 'atividade' | 'erros'
+  const [relView, setRelView] = useState('emissoes');      // qual relatório está aberto
+
+  /**
+   * As abas que existem para este papel AGORA — a mesma lista que a barra desenha.
+   *
+   * Precisa morar aqui em cima porque a guarda logo abaixo depende dela, e
+   * porque era exatamente a falta de uma lista única que deixava a página em
+   * branco: o conteúdo de cada aba é um `&&` independente, sem caso padrão,
+   * então qualquer `aba` que não casasse com nenhum deles desenhava a barra e
+   * mais nada.
+   *
+   * Acontecia de dois jeitos, os dois reais:
+   *   • `?tab=pacotes` num link salvo, aberto por quem não tem essas abas;
+   *   • a aba de uma cobertura de férias (0117) **depois que o período acaba** —
+   *     a aba some da barra e o estado continua apontando para ela.
+   */
+  const abasDisponiveis = useMemo(() => [
+    'fila',
+    ...(verAbasPacotes ? ['pacotes', 'registro'] : []),
+    'relatorios',
+    'auditoria',
+    ...coberturas.map((c) => `cobertura:${c.ausenciaId}`),
+  ], [verAbasPacotes, coberturas]);
+
+  // Aba que não existe mais volta para a primeira, em vez de mostrar vazio.
+  useEffect(() => {
+    if (!abasDisponiveis.includes(aba)) setAba(abasDisponiveis[0] || 'fila');
+  }, [abasDisponiveis, aba]);
 
   // Permite abrir uma aba via ?tab=... e a sub-aba do histórico via ?view=...
-  //
-  // A Central de Relatórios fica a três cliques (aba → sub-aba → rolagem). Sem
-  // endereço próprio não dá para mandar o link para ninguém, nem favoritar.
   const searchParams = useSearchParams();
   useEffect(() => {
     const t = searchParams.get('tab');
-    if (t && ['fila', 'auditoria', 'pacotes', 'registro'].includes(t)) setAba(t);
+    if (t && ['fila', 'auditoria', 'pacotes', 'registro', 'relatorios'].includes(t)) setAba(t);
     const v = searchParams.get('view');
-    if (v && ['atividade', 'erros', 'relatorios'].includes(v)) setAuditView(v);
+    // `?view=relatorios` era o endereço da Central de Relatórios enquanto ela
+    // vivia dentro do Histórico. Links salvos continuam funcionando: agora
+    // levam à aba própria.
+    if (v === 'relatorios') setAba('relatorios');
+    else if (v && ['atividade', 'erros'].includes(v)) setAuditView(v);
   }, [searchParams]);
   useEffect(() => {
     let vivo = true;
@@ -466,6 +495,10 @@ export default function AprovacoesPage() {
           { id: 'fila',      label: 'Fila de Planilhas',        icon: Clock,   show: true,           badge: pendentes.length },
           { id: 'pacotes',   label: 'Meus Pacotes',             icon: Package, show: verAbasPacotes, badge: minhasPendenciasEmissao },
           { id: 'registro',  label: 'Registro de Emissões',     icon: Archive, show: verAbasPacotes, badge: 0 },
+          // Relatórios saiu de dentro do Histórico. Estava a três cliques —
+          // aba, sub-aba, e ainda rolar até o relatório certo, porque os quatro
+          // ficavam empilhados na mesma tela.
+          { id: 'relatorios', label: 'Relatórios',              icon: BarChart3, show: true,         badge: 0 },
           { id: 'auditoria', label: 'Histórico de Atividades',  icon: History, show: true,           badge: 0 },
           // Uma aba por gerente ausente. O rótulo traz o NOME porque é isso que
           // diz à pessoa de quem são aqueles condomínios.
@@ -820,20 +853,8 @@ export default function AprovacoesPage() {
               <AlertTriangle className="w-3.5 h-3.5" /> Erros
               {errosHoje > 0 && <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${auditView === 'erros' ? 'bg-white/20' : 'bg-rose-500 text-white'}`}>{errosHoje} hoje</span>}
             </button>
-            <button onClick={() => setAuditView('relatorios')}
-              className={`px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 ${auditView === 'relatorios' ? 'bg-violet-600 text-white shadow-lg' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
-              <BarChart3 className="w-3.5 h-3.5" /> Relatórios
-            </button>
           </div>
 
-          {auditView === 'relatorios' ? (
-            <div className="space-y-4">
-              <BaixarDocumentosEmissao />
-              <RelatorioEmissoes />
-              <RelatorioDocumentos />
-              <RelatorioExpedicao />
-            </div>
-          ) : (<>
           {/* Barra de filtros */}
           <div className="glass-panel p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex flex-wrap gap-3 items-center">
@@ -956,7 +977,41 @@ export default function AprovacoesPage() {
               })}
             </div>
           )}
-          </>)}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* ABA: RELATÓRIOS                                            */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {aba === 'relatorios' && (
+        <div className="space-y-4">
+          {/* Um relatório por vez.
+              Os quatro ficavam empilhados na mesma tela, cada um com a própria
+              barra de filtros — quem procurava o terceiro rolava por dois
+              formulários antes de chegar nele, e ainda buscava dados que
+              ninguém tinha pedido. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: 'emissoes',   rotulo: 'Emissões por período', icone: BarChart3 },
+              { id: 'documentos', rotulo: 'Documentos anexados',  icone: FileText },
+              { id: 'expedicao',  rotulo: 'Expedição',            icone: Printer },
+              { id: 'baixar',     rotulo: 'Baixar / imprimir',    icone: FolderDown },
+            ].map(({ id, rotulo, icone: Icone }) => (
+              <button key={id} type="button" onClick={() => setRelView(id)}
+                aria-pressed={relView === id}
+                className={`px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 ${
+                  relView === id
+                    ? 'bg-violet-600 text-white shadow-lg'
+                    : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900'}`}>
+                <Icone className="w-3.5 h-3.5" /> {rotulo}
+              </button>
+            ))}
+          </div>
+
+          {relView === 'emissoes'   && <RelatorioEmissoes />}
+          {relView === 'documentos' && <RelatorioDocumentos />}
+          {relView === 'expedicao'  && <RelatorioExpedicao />}
+          {relView === 'baixar'     && <BaixarDocumentosEmissao />}
         </div>
       )}
 

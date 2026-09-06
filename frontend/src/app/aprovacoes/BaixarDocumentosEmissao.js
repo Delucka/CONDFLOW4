@@ -73,7 +73,16 @@ export default function BaixarDocumentosEmissao() {
           cobrancas = Array.isArray(incl) ? todas.filter((c) => incl.includes(c.id)) : todas;
         } catch { /* segue sem cobranças */ }
         const itens = ordenarParaExtracao(arqPorPacote[p.id] || [], cobrancas);
-        if (itens.length) grupos.push({ label: `${MESES[p.mes_referencia] || '?'}/${p.ano_referencia}`, itens });
+        // `sublabel` alimenta a folha de rosto do PDF: sem o nome do condomínio
+        // ela não diz de quem é o maço, e num carrinho de impressão isso é a
+        // única informação que importa.
+        if (itens.length) {
+          grupos.push({
+            label: `${MESES[p.mes_referencia] || '?'}/${p.ano_referencia}`,
+            sublabel: condoNome,
+            itens,
+          });
+        }
       }
 
       if (grupos.length === 0) {
@@ -132,12 +141,19 @@ export default function BaixarDocumentosEmissao() {
         return;
       }
 
-      const { blob, pulados, totalPaginas } = await montarPdfMulti(grupos, (i, n, nome) => setProg({ i, n, nome }));
+      const { blob, pulados, totalPaginas, paginasDeDocumento } =
+        await montarPdfMulti(grupos, (i, n, nome) => setProg({ i, n, nome }));
 
+      // `paginasDeDocumento`, e não `totalPaginas`: o segundo conta também as
+      // folhas de rosto que a própria mesclagem cria. Com tudo falhando, sobravam
+      // só as folhas de rosto e `totalPaginas` vinha 3 — a checagem de fracasso
+      // não disparava, o arquivo era salvo e o aviso dizia "PDF gerado, 3
+      // páginas". Eram três páginas em branco.
+      //
       // Plano B do servidor (QPDF) só existe por emissão. Com uma única emissão
       // no período vale tentar; com várias, seriam N chamadas e N arquivos — aí
       // é mais honesto avisar e deixar o ZIP resolver.
-      if ((totalPaginas === 0 || pulados.length > 0) && pacotes.length === 1) {
+      if ((paginasDeDocumento === 0 || pulados.length > 0) && pacotes.length === 1) {
         try {
           setProg({ i: 0, n: 0, nome: 'tentando montar no servidor…' });
           const srv = await apiPost(`/api/emissoes/${pacotes[0].id}/extrair-pdf`, {});
@@ -154,13 +170,21 @@ export default function BaixarDocumentosEmissao() {
         } catch { /* servidor não resolveu: segue com o que o navegador conseguiu */ }
       }
 
-      if (!blob || totalPaginas === 0) {
-        addToast('Não consegui juntar nenhum documento em PDF. Baixe o ZIP com os originais.', 'error');
+      // Nada mesclou: não vale salvar um arquivo só com folhas de rosto e
+      // chamar de sucesso. Diz o que aconteceu e manda para o ZIP.
+      if (!blob || paginasDeDocumento === 0) {
+        const porque = pulados.length
+          ? ` Motivo do primeiro: ${pulados[0]}.`
+          : '';
+        addToast(
+          `Nenhum documento pôde ser juntado no PDF.${porque} Baixe o ZIP com os originais.`,
+          'error',
+        );
         return;
       }
 
       saveAs(blob, `emissao_${nomeBase()}.pdf`);
-      const resumo = `${grupos.length} emissão(ões) · ${totalPaginas} página(s)`;
+      const resumo = `${grupos.length} emissão(ões) · ${paginasDeDocumento} página(s) de documento`;
       if (pulados.length) {
         addToast(`PDF gerado (${resumo}). ${pulados.length} item(ns) ficaram de fora — baixe o ZIP para eles: ${pulados.slice(0, 3).join('; ')}${pulados.length > 3 ? '…' : ''}`, 'warning');
       } else {

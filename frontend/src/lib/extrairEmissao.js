@@ -184,7 +184,10 @@ async function mesclarItem(merged, PDFDocument, item, pulados, onProgress, idx, 
   const nome = item.arquivo_nome || 'arquivo';
   onProgress?.(idx, total, nome);
   const path = item.__attachment || item.arquivo_url;
-  if (!path) return;
+  // Sem caminho gravado também é item que ficou de fora, e precisa ser dito.
+  // Antes saía calado: o documento simplesmente não entrava no PDF e nada
+  // avisava — a pessoa recebia um arquivo a menos sem saber que faltava.
+  if (!path) { pulados.push(`${nome} (sem arquivo guardado)`); return; }
 
   let bytes;
   try {
@@ -237,23 +240,72 @@ export async function montarPdfEmissao(itens, onProgress) {
   return { blob, pulados, totalPaginas: merged.getPageCount() };
 }
 
-// Várias emissões num PDF único, cada uma com uma página divisória rotulada (ex.:
-// "Janeiro/2026"). grupos: [{ label, itens }]. Devolve { blob, pulados, totalPaginas }.
+/**
+ * Várias emissões num PDF único.
+ *
+ * `grupos`: `[{ label, sublabel?, itens }]`.
+ *
+ * Devolve `{ blob, pulados, totalPaginas, paginasDeDocumento, capas }`.
+ *
+ * ── Por que `paginasDeDocumento` existe ──
+ *
+ * `totalPaginas` conta TUDO, inclusive as folhas de rosto que esta função
+ * mesma acrescenta. Quando nenhum documento conseguia ser mesclado, o resultado
+ * eram três folhas de rosto e `totalPaginas === 3` — e quem chamava, checando
+ * `totalPaginas === 0` para detectar fracasso, achava que tinha dado certo.
+ * Salvava o arquivo e anunciava "PDF gerado · 3 páginas". Eram três páginas
+ * praticamente em branco.
+ *
+ * `paginasDeDocumento` conta só o que veio dos anexos. É esse o número que
+ * responde "deu certo?".
+ *
+ * ── Por que a folha de rosto deixou de ser quase vazia ──
+ *
+ * Ela tinha duas linhas no alto de uma A4 e nada mais. Numa pilha impressa, é
+ * uma folha branca a cada competência — papel gasto para separar. Agora carrega
+ * o que a expedição precisa para conferir sem abrir o maço, e só aparece quando
+ * há mais de uma competência: uma emissão sozinha não precisa ser separada de
+ * nada.
+ */
 export async function montarPdfMulti(grupos, onProgress) {
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
   const merged = await PDFDocument.create();
   const font = await merged.embedFont(StandardFonts.HelveticaBold);
+  const fontR = await merged.embedFont(StandardFonts.Helvetica);
   const pulados = [];
   const total = grupos.reduce((s, g) => s + (g.itens?.length || 0), 0);
+  const comSeparador = grupos.length > 1;
   let i = 0;
+  let capas = 0;
+
   for (const g of grupos) {
-    if (g.label) {
+    if (comSeparador && g.label) {
       const p = merged.addPage([595.28, 841.89]); // A4 retrato
-      p.drawText(String(g.label), { x: 50, y: 780, size: 22, font, color: rgb(0.1, 0.1, 0.15) });
-      p.drawText('Documentos da emissão', { x: 50, y: 752, size: 11, font, color: rgb(0.42, 0.42, 0.48) });
+      capas += 1;
+      p.drawText(String(g.label), { x: 50, y: 770, size: 26, font, color: rgb(0.1, 0.1, 0.15) });
+      p.drawLine({ start: { x: 50, y: 752 }, end: { x: 545, y: 752 }, thickness: 1, color: rgb(0.8, 0.82, 0.87) });
+      if (g.sublabel) {
+        p.drawText(String(g.sublabel), { x: 50, y: 726, size: 13, font: fontR, color: rgb(0.2, 0.2, 0.26) });
+      }
+      const quantos = (g.itens || []).length;
+      p.drawText(`${quantos} documento${quantos === 1 ? '' : 's'} nesta competência`,
+        { x: 50, y: 700, size: 11, font: fontR, color: rgb(0.42, 0.42, 0.48) });
+      // A ordem impressa é a ordem de auditoria (1→8). Dizer isso na folha evita
+      // que alguém reordene o maço achando que saiu embaralhado.
+      p.drawText('Na ordem de conferência da emissão', { x: 50, y: 682, size: 9, font: fontR, color: rgb(0.55, 0.55, 0.6) });
+      (g.itens || []).slice(0, 30).forEach((it, n) => {
+        const rotulo = `${String(n + 1).padStart(2, '0')}  ${it.arquivo_nome || 'documento'}`;
+        p.drawText(rotulo.length > 82 ? rotulo.slice(0, 81) + '…' : rotulo,
+          { x: 50, y: 650 - n * 15, size: 9, font: fontR, color: rgb(0.3, 0.3, 0.36) });
+      });
+      if (quantos > 30) {
+        p.drawText(`… e mais ${quantos - 30}`, { x: 50, y: 650 - 30 * 15, size: 9, font: fontR, color: rgb(0.55, 0.55, 0.6) });
+      }
     }
     for (const item of (g.itens || [])) { i += 1; await mesclarItem(merged, PDFDocument, item, pulados, onProgress, i, total); }
   }
+
+  const totalPaginas = merged.getPageCount();
   const blob = new Blob([await merged.save()], { type: 'application/pdf' });
-  return { blob, pulados, totalPaginas: merged.getPageCount() };
+  return { blob, pulados, totalPaginas, paginasDeDocumento: totalPaginas - capas, capas };
 }
