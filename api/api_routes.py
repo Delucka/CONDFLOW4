@@ -686,9 +686,16 @@ def api_extrair_emissao_pdf(
             pulados.append(nome)
             continue
 
-        low = (nome or "").lower()
+        # O formato sai do CAMINHO, nao do nome de exibicao.
+        #
+        # Anexo de cobranca extra entra com `arquivo_nome` sintetizado —
+        # "Cobranca_AREA DE LAZER (CHURRASQUEIRA GRANDE)" — que nao tem
+        # extensao. A checagem antiga olhava so esse nome, concluia "nao e PDF",
+        # tentava abrir como imagem e falhava. As 26 cobrancas do 0001 - BRITISH
+        # GARDEN sumiam do PDF sem que nada aparecesse na tela.
+        low = (path or "").lower()
         fmt = _norm_txt(item.get("formato"))
-        eh_pdf = low.endswith(".pdf") or fmt == "pdf"
+        eh_pdf = low.endswith(".pdf") or (nome or "").lower().endswith(".pdf") or fmt == "pdf"
         try:
             if eh_pdf:
                 src = pikepdf.Pdf.open(io.BytesIO(dados))

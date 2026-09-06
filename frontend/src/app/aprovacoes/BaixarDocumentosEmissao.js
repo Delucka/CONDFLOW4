@@ -9,6 +9,8 @@ import {
   TIPOS_DOCUMENTO, filtrarPorTipo,
 } from '@/lib/extrairEmissao';
 import { apiPost } from '@/lib/api';
+import { buscarPlanilhaDoMes, montarPlanilhaPdf } from '@/lib/planilhaPdf';
+import SeletorCondominio from '@/components/SeletorCondominio';
 import { saveAs } from 'file-saver';
 import { FolderDown, Loader2, FileText, Building2, Printer } from 'lucide-react';
 
@@ -29,6 +31,7 @@ export default function BaixarDocumentosEmissao() {
   const [ano, setAno] = useState(anoAtual);
   const [mes, setMes] = useState(0);            // 0 = ano inteiro
   const [tipoDoc, setTipoDoc] = useState('tudo'); // 'tudo' | 'emissao' | 'boletos'
+  const [comPlanilha, setComPlanilha] = useState(true);
   const [rodando, setRodando] = useState(null);   // 'zip' | 'pdf'
   const [prog, setProg] = useState(null);       // { i, n, nome }
 
@@ -98,6 +101,27 @@ export default function BaixarDocumentosEmissao() {
         return null;
       }
       return { grupos, pacotes };
+  }
+
+  /**
+   * A planilha daquela competência, em bytes de PDF — ou `null`.
+   *
+   * `null` em três casos, todos legítimos: o pedido é só dos boletos (planilha
+   * não é material de expedição), a pessoa desligou a opção, ou não há verba
+   * lançada no mês. Neste último, desenhar uma folha zerada seria pior que não
+   * desenhar: afirmaria que a previsão é zero.
+   */
+  async function planilhaDoMes(p) {
+    if (!comPlanilha || tipoDoc === 'boletos') return null;
+    try {
+      const linhas = await buscarPlanilhaDoMes(supabase, p.condominio_id, p.mes_referencia, p.ano_referencia);
+      if (!linhas.length) return null;
+      return await montarPlanilhaPdf({
+        condoNome, mes: p.mes_referencia, ano: p.ano_referencia, linhas,
+      });
+    } catch {
+      return null;   // a planilha é um extra; não vale derrubar o maço por ela
+    }
   }
 
   // O tipo entra no nome do arquivo: com dois maços saindo da mesma tela, dois
@@ -186,7 +210,11 @@ export default function BaixarDocumentosEmissao() {
               label: comp,
               sublabel: condoNome,
               itens: g?.itens || [],
-              bytes: await resp.arrayBuffer(),
+              // A planilha do gerente vem primeiro: ela é o que foi DEFINIDO, e
+              // o resto do maço é o que saiu disso. Não é anexo — é desenhada a
+              // partir das verbas lançadas, então não existia jeito de imprimi-la
+              // junto da emissão.
+              bytes: [await planilhaDoMes(p), await resp.arrayBuffer()],
               pulados: srv.pulados || [],
             });
             continue;
@@ -272,16 +300,18 @@ export default function BaixarDocumentosEmissao() {
         <span className="text-[11px] text-slate-500">
           {TIPOS_DOCUMENTO.find((t) => t.id === tipoDoc)?.descricao}
         </span>
+        {tipoDoc !== 'boletos' && (
+          <label className="flex items-center gap-2 cursor-pointer ml-auto">
+            <input type="checkbox" checked={comPlanilha} onChange={(e) => setComPlanilha(e.target.checked)}
+              className="w-4 h-4 accent-violet-600" />
+            <span className="text-[11px] text-slate-600">Incluir a planilha do gerente</span>
+          </label>
+        )}
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-[220px] flex-1">
-          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Condomínio</label>
-          <select value={condominioId} onChange={(e) => setCondominioId(e.target.value)}
-            className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500/60">
-            <option value="">Selecione…</option>
-            {condos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+        <div className="min-w-[260px] flex-1">
+          <SeletorCondominio condos={condos} value={condominioId} onChange={setCondominioId} />
         </div>
         <div>
           <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ano</label>

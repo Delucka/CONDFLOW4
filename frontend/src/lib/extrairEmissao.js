@@ -177,7 +177,13 @@ export async function montarZipMulti(grupos, onProgress) {
     let i = 0;
     for (const item of (g.itens || [])) {
       i += 1; feitos += 1;
-      const nome = item.arquivo_nome || `arquivo_${i}`;
+      // O nome do anexo de cobrança é sintetizado e vem sem extensão. No ZIP
+      // isso vira um arquivo que o Windows não sabe abrir com duplo clique —
+      // então a extensão do caminho é emprestada quando falta.
+      const bruto = item.arquivo_nome || `arquivo_${i}`;
+      const caminho = item.__attachment || item.arquivo_url || '';
+      const ext = /\.[a-z0-9]{2,5}$/i.test(bruto) ? '' : (String(caminho).match(/\.[a-z0-9]{2,5}$/i)?.[0] || '');
+      const nome = `${bruto}${ext}`;
       onProgress?.(feitos, total, nome);
       const { blob, erro } = await baixarOriginal(item);
       if (erro) { if (erro !== 'sem caminho') pulados.push(`${pasta}/${nome} (${erro})`); continue; }
@@ -231,11 +237,18 @@ async function mesclarItem(merged, PDFDocument, item, pulados, onProgress, idx, 
     return;
   }
 
-  const low = nome.toLowerCase();
+  // O formato sai do CAMINHO, não do nome de exibição.
+  //
+  // Anexo de cobrança extra entra com `arquivo_nome` sintetizado — "Cobranca_
+  // ÁREA DE LAZER (CHURRASQUEIRA GRANDE)" — que não tem extensão. Olhando só
+  // esse nome, o código concluía "não é PDF nem imagem" e descartava. Eram as
+  // 26 cobranças do 0001 - BRITISH GARDEN saindo do maço em silêncio.
+  const low = String(path).toLowerCase();
+  const doNome = nome.toLowerCase();
   const fmt = norm(item.formato);
-  const isPdf = low.endsWith('.pdf') || fmt === 'pdf';
-  const isPng = low.endsWith('.png') || fmt === 'png';
-  const isJpg = /\.jpe?g$/.test(low) || fmt === 'jpg' || fmt === 'jpeg';
+  const isPdf = low.endsWith('.pdf') || doNome.endsWith('.pdf') || fmt === 'pdf';
+  const isPng = low.endsWith('.png') || doNome.endsWith('.png') || fmt === 'png';
+  const isJpg = /\.jpe?g$/.test(low) || /\.jpe?g$/.test(doNome) || fmt === 'jpg' || fmt === 'jpeg';
 
   try {
     if (isPdf) {
@@ -403,12 +416,19 @@ export async function juntarPdfsProntos(partes) {
 
   for (const parte of partes) {
     if (comSeparador && parte.label) { desenharFolhaDeRosto(merged, { font, fontR, rgb }, parte); capas += 1; }
-    try {
-      const src = await PDFDocument.load(parte.bytes);
-      const pages = await merged.copyPages(src, src.getPageIndices());
-      pages.forEach((p) => merged.addPage(p));
-    } catch {
-      pulados.push(`${parte.label || 'competência'} (não consegui juntar o PDF do servidor)`);
+    // `bytes` aceita um PDF ou vários, na ordem. É assim que a planilha do
+    // gerente — desenhada aqui, não anexada — entra antes dos documentos da
+    // competência sem ganhar uma folha de rosto só dela.
+    const documentos = Array.isArray(parte.bytes) ? parte.bytes : [parte.bytes];
+    for (const dados of documentos) {
+      if (!dados) continue;
+      try {
+        const src = await PDFDocument.load(dados);
+        const pages = await merged.copyPages(src, src.getPageIndices());
+        pages.forEach((p) => merged.addPage(p));
+      } catch {
+        pulados.push(`${parte.label || 'competência'} (não consegui juntar um dos PDFs)`);
+      }
     }
   }
 
