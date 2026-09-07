@@ -40,6 +40,14 @@ import hashlib as _auth_hash
 _user_cache: dict = {}          # sha256(token) -> (user_dict, expira_em)
 _USER_CACHE_TTL = 120
 
+_ja_dito: set = set()
+
+def _diga_uma_vez(chave: str, msg: str):
+    if chave not in _ja_dito:
+        _ja_dito.add(chave)
+        print(msg)
+
+
 def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token JWT ausente ou inválido")
@@ -81,8 +89,11 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         try:
             claims = jwt_local.conferir(token)
             user_id, email = claims.get("sub"), claims.get("email")
+            _diga_uma_vez("local", "[auth] conferindo o token aqui (sem ida a rede)")
         except jwt_local.NaoDaParaConferir as e:
-            print(f"[auth] conferencia local nao deu ({e}); indo pela rede")
+            # Uma vez por processo, não por requisição: se o projeto ainda
+            # assina com a chave antiga, o log diz isso sem virar enxurrada.
+            _diga_uma_vez("rede", f"[auth] conferencia local nao deu ({e}); indo pela rede")
         except Exception:
             # Conferido e REPROVADO. Não vale tentar pela rede: o token é ruim.
             raise HTTPException(status_code=401, detail="Sessão expirada. Entre de novo.")
