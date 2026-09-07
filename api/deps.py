@@ -65,30 +65,66 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     #
     # Falha do Supabase Auth (rede, instância fora) é OUTRA coisa: aí 503, e a
     # sessão de quem está logado não é descartada por um problema que não é dele.
-    try:
-        user_res = db.auth.get_user(token)
-    except Exception as e:
-        nome = type(e).__name__
-        if "AuthApiError" in nome or "AuthSessionMissingError" in nome:
+    user_id = email = None
+
+    # Caminho rápido, DESLIGADO por padrão (`JWT_LOCAL=1` liga). O token vem
+    # assinado e o projeto publica a chave pública, então dá para conferir aqui
+    # sem ida à rede — ver `jwt_local.py`.
+    #
+    # Não é o padrão porque `profiles` não tem marca de "inativo": hoje quem
+    # perde acesso perde pela SESSÃO, e é exatamente o `get_user` abaixo que
+    # corta isso. Ligando, um token revogado continua entrando até expirar
+    # sozinho (~1 h). É troca de ~200 ms por essa janela — decisão de quem
+    # opera, não default meu.
+    if os.getenv("JWT_LOCAL") == "1":
+        import jwt_local
+        try:
+            claims = jwt_local.conferir(token)
+            user_id, email = claims.get("sub"), claims.get("email")
+        except jwt_local.NaoDaParaConferir as e:
+            print(f"[auth] conferencia local nao deu ({e}); indo pela rede")
+        except Exception:
+            # Conferido e REPROVADO. Não vale tentar pela rede: o token é ruim.
             raise HTTPException(status_code=401, detail="Sessão expirada. Entre de novo.")
-        print(f"[auth] Supabase Auth indisponível: {nome}: {e}")
-        raise HTTPException(status_code=503, detail="Não consegui validar a sessão agora. Tente em instantes.")
 
-    if not user_res or not user_res.user:
-        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
+    if user_id is None:
+        try:
+            user_res = db.auth.get_user(token)
+        except Exception as e:
+            nome = type(e).__name__
+            if "AuthApiError" in nome or "AuthSessionMissingError" in nome:
+                raise HTTPException(status_code=401, detail="Sessão expirada. Entre de novo.")
+            print(f"[auth] Supabase Auth indisponível: {nome}: {e}")
+            raise HTTPException(status_code=503, detail="Não consegui validar a sessão agora. Tente em instantes.")
 
-    user_id = user_res.user.id
+        if not user_res or not user_res.user:
+            raise HTTPException(status_code=401, detail="Token inválido ou expirado")
 
-    # Busca profile
-    prof_res = db.table("profiles").select("*").eq("id", user_id).single().execute()
-    profile = prof_res.data if prof_res.data else {}
+        user_id, email = user_res.user.id, user_res.user.email
+
+    # O profile sai do cache de processo (mesma janela de 120 s que este cache
+    # de token já praticava, e esvaziado por qualquer escrita nossa).
+    #
+    # `aquecer` primeiro: numa instância fria, perfil e as três tabelas da
+    # carteira são quatro idas independentes. Em série custam ~1.170 ms; juntas,
+    # o tempo da mais lenta. Quente, não faz nada.
+    try:
+        _ref.aquecer(db, user_id)
+    except Exception as e:
+        print(f"[cache] aquecimento falhou ({type(e).__name__}); segue")
+    try:
+        profile = _ref.perfil(db, user_id)
+    except Exception as e:
+        print(f"[cache] perfil indisponivel, consultando direto: {type(e).__name__}")
+        prof_res = db.table("profiles").select("*").eq("id", user_id).single().execute()
+        profile = prof_res.data if prof_res.data else {}
 
     if len(_user_cache) > 500:  # nunca cresce sem limite (instância serverless)
         _user_cache.clear()
 
     result = {
         "id": user_id,
-        "email": user_res.user.email,
+        "email": email or profile.get("email", ""),
         "role": profile.get("role", "gerente"),
         "full_name": profile.get("full_name", ""),
         "must_change_password": bool(profile.get("must_change_password", False)),

@@ -80,8 +80,16 @@ def invalidar(*chaves):
 
 
 def invalidar_carteiras():
-    """Chamada por toda escrita que muda quem responde por qual condomínio."""
-    invalidar('condominios', 'gerentes', 'ausencias', 'profiles_gerente')
+    """Chamada por toda escrita que muda quem responde por qual condomínio.
+
+    Os perfis vão junto: o papel do usuário mora em `profiles`, e mudança de
+    papel não pode esperar o TTL quando foi a nossa própria tela que mudou.
+    """
+    with _trava:
+        for c in ('condominios', 'gerentes', 'profiles_gerente'):
+            _dados.pop(c, None)
+        for c in [k for k in _dados if k.startswith('ausencias:') or k.startswith('perfil:')]:
+            _dados.pop(c, None)
 
 
 # ── As três tabelas ───────────────────────────────────────────────────
@@ -129,6 +137,61 @@ def ausencias_de_hoje(db):
         return por_substituto
 
     return _buscar(f'ausencias:{hoje}', carregar)
+
+
+def aquecer(db, user_id=None):
+    """Paga as idas frias TODAS DE UMA VEZ, em vez de uma atrás da outra.
+
+    Numa instância recém-criada — que na Vercel é quase toda requisição de um
+    momento parado — o preâmbulo precisa de quatro tabelas independentes:
+    perfil, condomínios, gerentes e ausências. Em série, com o banco a 185 ms,
+    são ~1.170 ms. Elas não dependem umas das outras, então vão juntas: o custo
+    passa a ser o da mais lenta, ~280 ms.
+
+    Quente, não faz nada — nem cria as threads.
+    """
+    pendentes = []
+    if _frio('condominios'):
+        pendentes.append(condominios)
+    if _frio('gerentes'):
+        pendentes.append(gerentes_por_profile)
+    if _frio(f'ausencias:{date.today().isoformat()}'):
+        pendentes.append(ausencias_de_hoje)
+    if user_id and _frio(f'perfil:{user_id}'):
+        pendentes.append(lambda d: perfil(d, user_id))
+
+    if len(pendentes) < 2:
+        return          # uma só não ganha nada em paralelizar, e custa threads
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=len(pendentes)) as ex:
+        for f in [ex.submit(fn, db) for fn in pendentes]:
+            try:
+                f.result()
+            except Exception as e:
+                # Aquecer é adiantamento. Quem realmente precisa do valor
+                # chama a função direto e lida com a falha lá.
+                print(f"[cache] aquecimento falhou ({type(e).__name__}); segue")
+
+
+def _frio(chave):
+    hit = _dados.get(chave)
+    return not (hit and time.time() - hit[1] < TTL)
+
+
+def perfil(db, user_id):
+    """A linha de `profiles` de um usuário.
+
+    Sai da rede uma vez por janela, em vez de uma vez por requisição de
+    instância fria. **Não** alarga nada: o cache de token em `deps.py` já
+    guardava o papel do usuário por 120 s, então a mudança de papel continua
+    valendo em no máximo os mesmos 120 s — e antes disso se alguém escrever
+    qualquer coisa, porque o middleware de escrita esvazia tudo.
+    """
+    def carregar():
+        r = db.table("profiles").select("*").eq("id", user_id).maybe_single().execute()
+        return r.data or {}
+    return _buscar(f'perfil:{user_id}', carregar)
 
 
 def gerente_id_do_profile(db, profile_id):

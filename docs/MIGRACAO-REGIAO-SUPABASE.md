@@ -83,6 +83,44 @@ buckets e suas policies, `pg_net` e o hook de e-mail das notificações
 (`condominios_da_carteira`, `condominios_por_ausencia`), o trigger de lacre
 (`protege_arquivos_lacrados`) e os agendamentos.
 
+## Não dá para mudar a região no lugar
+
+A região é escolhida quando o projeto nasce e não muda depois. A própria
+documentação da Supabase manda **criar um projeto novo** e restaurar dentro
+dele (*Platform → Upgrades & Migrations → Migrating within Supabase*). Por isso
+existe, obrigatoriamente, um momento com duas instâncias de pé — e é só disso
+que vem o custo extra.
+
+Os comandos, da documentação (07/09/2026):
+
+```bash
+# no projeto ANTIGO
+supabase db dump --db-url "$ANTIGO" -f roles.sql  --role-only
+supabase db dump --db-url "$ANTIGO" -f schema.sql
+supabase db dump --db-url "$ANTIGO" -f data.sql --use-copy --data-only \
+  -x "storage.buckets_vectors" -x "storage.vector_indexes"
+
+# histórico de migrations, senão o supabase/migrations perde o fio
+supabase db dump --db-url "$ANTIGO" -f history_schema.sql --schema supabase_migrations
+supabase db dump --db-url "$ANTIGO" -f history_data.sql --use-copy --data-only --schema supabase_migrations
+
+# no projeto NOVO
+psql --single-transaction --variable ON_ERROR_STOP=1 \
+  --file roles.sql --file schema.sql \
+  --command 'SET session_replication_role = replica' \
+  --file data.sql --dbname "$NOVO"
+```
+
+Três coisas que os comandos **não** trazem e a documentação lista à parte:
+extensões não-padrão precisam ser religadas no projeto novo, os *Database
+Webhooks* também, e as *publications* do Realtime idem. O **Storage não entra
+no dump** — os arquivos são cópia separada.
+
+Existe ainda o fluxo **"Restore to a new project"** a partir de um backup, pelo
+painel, que copia a chave de criptografia automaticamente (o dump manual não
+copia). Conferir se ele deixa escolher a região: se deixar, é o caminho mais
+curto e o mais seguro.
+
 ## Decisões que são suas, não minhas
 
 1. **Custo.** O caminho normal é criar um projeto novo em `sa-east-1` e
