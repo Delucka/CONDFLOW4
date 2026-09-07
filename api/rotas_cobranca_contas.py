@@ -29,6 +29,7 @@ from pydantic import BaseModel  # type: ignore
 
 from deps import get_db, get_current_user, carteira_condo_ids
 from emails import _enviar_email_smtp
+from log import log
 
 router = APIRouter()
 
@@ -186,7 +187,7 @@ def api_contas_esperadas(condominio_id: str, mes: int, ano: int,
         rows = db.table("condominios_concessionarias").select("concessionaria")                  .eq("condominio_id", condominio_id).execute().data or []
         concs = sorted({(r.get("concessionaria") or "").strip().upper() for r in rows if r.get("concessionaria")})
     except Exception as e:
-        print(f"[contas-esperadas] concessionarias: {e}")
+        log.warning(f"[contas-esperadas] concessionarias: {e}")
 
     # Mes anterior: e la que mora a data da leitura desta conta.
     mes_ant, ano_ant = (12, ano - 1) if mes == 1 else (mes - 1, ano)

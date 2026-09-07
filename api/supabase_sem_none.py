@@ -41,6 +41,8 @@ está com versão fixa no `requirements.txt`: sem fixar, uma reconstrução na
 Vercel podia trocar a biblioteca por baixo deste arquivo sem ninguém notar.
 """
 
+from log import log
+
 
 def aplicar():
     """Devolve True se o ajuste entrou; False se a biblioteca não é a esperada."""
@@ -52,7 +54,7 @@ def aplicar():
         )
         from postgrest.exceptions import APIError
     except Exception as e:
-        print(f"[supabase] maybe_single nao ajustado ({type(e).__name__}); "
+        log.warning(f"[supabase] maybe_single nao ajustado ({type(e).__name__}); "
               f"cuidado: pode voltar None")
         return False
 

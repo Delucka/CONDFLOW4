@@ -1,3 +1,7 @@
+
+
+# Log da API: `logging`, nao `print` — o print nao chega ao log da Vercel.
+from log import log
 import os
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File # type: ignore
@@ -87,13 +91,13 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             try:
                 return db.table("gerentes").select("id, nome, profiles!gerentes_profile_id_fkey(full_name)").execute().data
             except Exception as e:
-                print(f"[dashboard] gerentes falhou (segue sem): {e}")
+                log.warning(f"[dashboard] gerentes falhou (segue sem): {e}")
                 return []
         def _q_pipeline():
             try:
                 return (db.table("pipeline_config").select("*").eq("ano", year).limit(1).execute().data or [None])[0]
             except Exception as e:
-                print(f"[dashboard] pipeline_config falhou (segue sem): {e}")
+                log.warning(f"[dashboard] pipeline_config falhou (segue sem): {e}")
                 return None
         def _q_a_entrar_total():
             """Quantos esperam entrar — so o numero.
@@ -111,7 +115,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                     q = q.in_("id", ids)
                 return q.execute().count or 0
             except Exception as e:
-                print(f"[dashboard] a_entrar_total falhou (segue sem): {e}")
+                log.warning(f"[dashboard] a_entrar_total falhou (segue sem): {e}")
                 return 0
 
         def _q_edicoes():
@@ -138,7 +142,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                     q = q.in_("condominio_id", ids)
                 return q.order("mes_referencia", desc=True).execute().data or []
             except Exception as e:
-                print(f"[dashboard] edicoes_mensais falhou (segue sem): {e}")
+                log.warning(f"[dashboard] edicoes_mensais falhou (segue sem): {e}")
                 return []
         # ── O que o NAVEGADOR buscava sozinho ──────────────────────────────
         #
@@ -161,7 +165,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                     q = q.in_("condominio_id", ids)
                 return q.order("criado_em", desc=True).limit(200).execute().data or []
             except Exception as e:
-                print(f"[dashboard] ocorrencias falhou (segue sem): {e}")
+                log.warning(f"[dashboard] ocorrencias falhou (segue sem): {e}")
                 return []
 
         def _q_concessionarias():
@@ -173,7 +177,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                     m.setdefault(r["condominio_id"], []).append(r.get("concessionaria"))
                 return m
             except Exception as e:
-                print(f"[dashboard] concessionarias falhou (segue sem): {e}")
+                log.warning(f"[dashboard] concessionarias falhou (segue sem): {e}")
                 return {}
 
         def _q_notificacoes():
@@ -182,7 +186,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                          .eq("user_id", user["id"]) \
                          .order("created_at", desc=True).limit(30).execute().data or []
             except Exception as e:
-                print(f"[dashboard] notificacoes falhou (segue sem): {e}")
+                log.warning(f"[dashboard] notificacoes falhou (segue sem): {e}")
                 return []
 
         def _q_fila():
@@ -251,7 +255,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
                         "emissoes_pacotes",
                         lambda q: q.in_("status", COM_SUP_CONTAB_SQL))
             except Exception as e:
-                print(f"[dashboard] fila falhou (segue sem): {e}")
+                log.warning(f"[dashboard] fila falhou (segue sem): {e}")
             return out
 
         with ThreadPoolExecutor(max_workers=8) as _ex:
@@ -311,7 +315,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             try:
                 pacotes = pacotes_q.execute().data or []
             except Exception as e:
-                print(f"[dashboard] emissoes_pacotes falhou (segue sem): {e}")
+                log.warning(f"[dashboard] emissoes_pacotes falhou (segue sem): {e}")
                 pacotes = []
             # Comparacao por LISTA, nao por pedaco de texto.
             #
@@ -372,7 +376,7 @@ def api_dashboard(gerente_id: Optional[str] = None, mes: Optional[int] = None, a
             "pipeline_config": pipeline_config,
         }
     except Exception as e:
-        print(f"ERROR /dashboard: {e}")
+        log.warning(f"ERROR /dashboard: {e}")
         raise HTTPException(500, str(e))
 
 
@@ -414,7 +418,7 @@ def api_forgot_password(data: ForgotPasswordSchema, db: Client = Depends(get_db)
             _enviar_email_recuperacao(db, email, nome, link)
     except Exception as e:
         # nunca vaza se o e-mail existe ou não
-        print(f"[forgot-password] {email}: {e}")
+        log.warning(f"[forgot-password] {email}: {e}")
     return {"ok": True}
 
 
@@ -483,7 +487,7 @@ def api_arquivo_link(data: ArquivoLinkSchema, user: dict = Depends(get_current_u
             if url:
                 return {"url": url, "direct": True}
         except Exception as e:
-            print(f"[arquivo/link] URL assinada falhou, usando streaming interno: {e}")
+            log.warning(f"[arquivo/link] URL assinada falhou, usando streaming interno: {e}")
     # Streaming same-origin protegido por token (compatível com o comportamento antigo)
     return {"url": f"/api/arquivo/abrir?t={_sign_arquivo_token(path)}", "direct": False}
 
@@ -646,7 +650,7 @@ def _cobrancas_da_emissao(db, pac):
         return [{"id": c.get("id"), "descricao": c.get("description"),
                  "attachments": c.get("attachments") or []} for c in rows]
     except Exception as e:
-        print(f"[extrair] cobrancas: {e}")
+        log.warning(f"[extrair] cobrancas: {e}")
         return []
 
 
@@ -743,7 +747,7 @@ def api_extrair_emissao_pdf(
                 abertos.append(src)
                 saida.pages.extend(src.pages)
         except Exception as e:
-            print(f"[extrair] {nome}: {e}")
+            log.warning(f"[extrair] {nome}: {e}")
             pulados.append(nome)
 
     if len(saida.pages) == 0:
@@ -774,7 +778,7 @@ def api_extrair_emissao_pdf(
         assinada = db.storage.from_("emissoes").create_signed_url(destino, 600)  # 10 min
         url = assinada.get("signedURL") if isinstance(assinada, dict) else assinada
     except Exception as e:
-        print(f"[extrair] upload/assinatura: {e}")
+        log.warning(f"[extrair] upload/assinatura: {e}")
         raise HTTPException(500, "PDF montado, mas não consegui disponibilizar o download.")
 
     return {"url": url, "nome": fname, "paginas": paginas, "pulados": pulados}
@@ -903,14 +907,14 @@ def api_condominios(basico: int = 0, user: dict = Depends(get_current_user), db:
                 c["gerente_name"] = g_map.get(c.get("gerente_id"), "Gerente não definido")
                 c["assistente_nome"] = a_map.get(c.get("gerente_id"))
         except Exception as inner_e:
-            print(f"Erro ao mapear gerentes: {inner_e}")
+            log.warning(f"Erro ao mapear gerentes: {inner_e}")
             for c in condos:
                 c["gerente_name"] = "Gerente não definido"
                 c["assistente_nome"] = None
 
         return {"condos": condos}
     except Exception as e:
-        print(f"Erro crítico /condominios: {e}")
+        log.warning(f"Erro crítico /condominios: {e}")
         raise HTTPException(500, str(e))
 
 class CondoData(BaseModel):
@@ -1005,7 +1009,7 @@ def api_importar_condominios(data: CondoImportPayload, user: dict = Depends(get_
                 if nome:
                     ger_por_nome.setdefault(_chave(nome), g["id"])
     except Exception as e:
-        print(f"[condominios/importar] de-para de gerentes indisponível: {e}")
+        log.warning(f"[condominios/importar] de-para de gerentes indisponível: {e}")
 
     resultados, novos = [], []
     vistos_no_lote = set()
@@ -1069,7 +1073,7 @@ def api_importar_condominios(data: CondoImportPayload, user: dict = Depends(get_
                 db.table("condominios").insert(bloco).execute()
                 inseridos += len(bloco)
             except Exception as e:
-                print(f"[condominios/importar] bloco {i}: {e}")
+                log.warning(f"[condominios/importar] bloco {i}: {e}")
                 raise HTTPException(400, f"Falhou ao gravar a partir de '{bloco[0]['name']}': {e}")
 
     return {"simulacao": False, "resumo": {**resumo, "inseridos": inseridos}, "resultados": resultados}
@@ -1233,10 +1237,10 @@ def api_definir_cpf_condominos(data: CondominosCpfPayload, user: dict = Depends(
             db.table("condominos").update(campos).eq("id", cid).execute()
             gravados += 1
     except Exception as e:
-        print(f"[condominos/cpf] falha após {gravados} atualizações: {type(e).__name__}")
+        log.warning(f"[condominos/cpf] falha após {gravados} atualizações: {type(e).__name__}")
         raise HTTPException(400, f"Falhou ao gravar: {e}")
 
-    print(f"[condominos/cpf] condo={data.condominio_id} definidos={gravados}")
+    log.info(f"[condominos/cpf] condo={data.condominio_id} definidos={gravados}")
     return {"simulacao": False, "resumo": {**resumo, "gravados": gravados}, "resultados": resultados[:400]}
 
 
@@ -1288,7 +1292,7 @@ def api_importar_condominos(data: CondominosImportPayload, user: dict = Depends(
             if achado:
                 condo_id, condo_nome = achado[0]["id"], achado[0]["name"]
         except Exception as e:
-            print(f"[condominos/importar] busca por cnpj: {e}")
+            log.warning(f"[condominos/importar] busca por cnpj: {e}")
 
     if not condo_id:
         nome_novo = ((data.criar_condominio or {}).get("name") or "").strip()
@@ -1322,7 +1326,7 @@ def api_importar_condominos(data: CondominosImportPayload, user: dict = Depends(
                          (r.get("email") or "").strip().lower())
                 existentes[chave] = r["id"]
         except Exception as e:
-            print(f"[condominos/importar] leitura do existente falhou: {e}")
+            log.warning(f"[condominos/importar] leitura do existente falhou: {e}")
 
     # ── 3. Classificar cada linha ──────────────────────────────────────────────
     inserir, atualizar, resultados = [], [], []
@@ -1388,10 +1392,10 @@ def api_importar_condominos(data: CondominosImportPayload, user: dict = Depends(
             db.table("condominos").update(campos).eq("id", cid).execute()
     except Exception as e:
         # Sem payload no log: dado pessoal.
-        print(f"[condominos/importar] falha ao gravar após {gravados} inserções: {type(e).__name__}")
+        log.warning(f"[condominos/importar] falha ao gravar após {gravados} inserções: {type(e).__name__}")
         raise HTTPException(400, f"Falhou ao gravar os condôminos: {e}")
 
-    print(f"[condominos/importar] condo={condo_id} novos={gravados} atualizados={len(atualizar)}")
+    log.info(f"[condominos/importar] condo={condo_id} novos={gravados} atualizados={len(atualizar)}")
     return {"simulacao": False,
             "resumo": {**resumo, "inseridos": gravados, "condominio_id": condo_id, "condominio_criado": criado},
             "resultados": resultados[:400]}
@@ -1413,7 +1417,7 @@ def _resolver_gerente_id(db: Client, valor):
         if achado:
             return achado[0]["id"]            # veio o profile do gerente
     except Exception as e:
-        print(f"[condominios/salvar] resolver gerente {valor}: {e}")
+        log.warning(f"[condominios/salvar] resolver gerente {valor}: {e}")
         raise HTTPException(400, "Não consegui validar o gerente escolhido.")
     raise HTTPException(
         400,
@@ -1468,7 +1472,7 @@ def _garantir_grupos(db: Client, condominio_id: str, due_day, due_day_2) -> None
                     "due_day": due_day_2, "ordem": 1,
                 }).execute()
     except Exception as e:
-        print(f"[condominios/grupos] nao criei os grupos de {condominio_id}: {type(e).__name__}: {e}")
+        log.warning(f"[condominios/grupos] nao criei os grupos de {condominio_id}: {type(e).__name__}: {e}")
 
 
 @router.post("/condominios/salvar")
@@ -1518,7 +1522,7 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
         # condomínio — por causa de uma caixinha nova de marcar. Grava sem ela e
         # deixa o rastro no log; a marca entra quando a coluna existir.
         if "usa_filipeta" in msg and ("PGRST204" in msg or "schema cache" in msg):
-            print("[condominios/salvar] sem a coluna usa_filipeta (0110 não rodou); salvando sem ela")
+            log.warning("[condominios/salvar] sem a coluna usa_filipeta (0110 não rodou); salvando sem ela")
             payload.pop("usa_filipeta", None)
             try:
                 if data.id:
@@ -1532,7 +1536,7 @@ def api_salvar_condominio(data: CondoData, user: dict = Depends(get_current_user
             except Exception as e2:
                 msg = str(e2)
 
-        print(f"[condominios/salvar] falhou: {msg} | payload={payload}")
+        log.warning(f"[condominios/salvar] falhou: {msg} | payload={payload}")
         # Traduz os erros que já morderam aqui, para a tela não mostrar erro cru do Postgres
         if "PGRST204" in msg or "schema cache" in msg:
             raise HTTPException(400, f"O banco não tem uma das colunas enviadas. Detalhe: {msg}")
@@ -1607,7 +1611,7 @@ def _notificar_substitutos(db, ausencia_id, gerente_nome, motivo, ini, fim, por_
                 "link": "/aprovacoes",
             }).execute()
     except Exception as e:
-        print(f"[ausencia] aviso ao substituto falhou: {type(e).__name__}: {e}")
+        log.warning(f"[ausencia] aviso ao substituto falhou: {type(e).__name__}: {e}")
 
 
 @router.get("/gerentes/{gerente_id}/ausencias")
@@ -1765,7 +1769,7 @@ def api_carteiras(user: dict = Depends(get_current_user), db: Client = Depends(g
                 if a.get("gerente_id") and a.get("full_name"):
                     por_gpid.setdefault(a["gerente_id"], []).append(a["full_name"])
         except Exception as e:
-            print(f"[carteiras] assistentes por vínculo indisponíveis: {e}")
+            log.warning(f"[carteiras] assistentes por vínculo indisponíveis: {e}")
 
         # Legado: mapa fixo de nomes, usado só para quem ainda não foi vinculado no
         # /admin/usuarios. Apagar quando todos os assistentes estiverem vinculados —
@@ -1800,7 +1804,7 @@ def api_carteiras(user: dict = Depends(get_current_user), db: Client = Depends(g
                 
         return {"carteiras": carteiras}
     except Exception as e:
-        print(f"CRITICAL ERROR /carteiras: {e}")
+        log.warning(f"CRITICAL ERROR /carteiras: {e}")
         return {"carteiras": [], "error": str(e)}
 
 @router.get("/aprovacoes")
@@ -1851,7 +1855,7 @@ def api_aprovacoes(user: dict = Depends(get_current_user), db: Client = Depends(
             "historico": hist_res or []
         }
     except Exception as e:
-        print(f"CRITICAL ERROR /aprovacoes: {e}")
+        log.warning(f"CRITICAL ERROR /aprovacoes: {e}")
         return {"pendentes": [], "historico": [], "error": str(e)}
 
 @router.get("/auditoria")
@@ -1905,7 +1909,7 @@ def api_auditoria(
                         "ref": f"{proc.get('year')}/{proc.get('semester')}" if proc.get("year") else "",
                     })
             except Exception as e:
-                print(f"[auditoria] aprovacoes: {e}")
+                log.warning(f"[auditoria] aprovacoes: {e}")
 
         # 2) Emissão · aprovação — emissoes_pacotes_aprovacoes
         def _src2():
@@ -1928,7 +1932,7 @@ def api_auditoria(
                         "ref": _per(pac.get("mes_referencia"), pac.get("ano_referencia")),
                     })
             except Exception as e:
-                print(f"[auditoria] pacotes_aprovacoes: {e}")
+                log.warning(f"[auditoria] pacotes_aprovacoes: {e}")
 
         # 3) Arquivos postados — emissoes_arquivos
         def _src3():
@@ -1952,7 +1956,7 @@ def api_auditoria(
                         "arquivo_nome": r.get("arquivo_nome"), "arquivo_url": r.get("arquivo_url"),
                     })
             except Exception as e:
-                print(f"[auditoria] arquivos: {e}")
+                log.warning(f"[auditoria] arquivos: {e}")
 
         # 4) Edição mensal — edicoes_mensais (abertura/reabertura)
         def _src4():
@@ -1975,7 +1979,7 @@ def api_auditoria(
                         "ref": _per(r.get("mes_referencia"), r.get("ano_referencia")),
                     })
             except Exception as e:
-                print(f"[auditoria] edicoes_mensais: {e}")
+                log.warning(f"[auditoria] edicoes_mensais: {e}")
 
         # 5) Conferência — emissoes_ocorrencias
         def _src5():
@@ -2003,7 +2007,7 @@ def api_auditoria(
                         "ref": "", "status": r.get("status"),
                     })
             except Exception as e:
-                print(f"[auditoria] ocorrencias: {e}")
+                log.warning(f"[auditoria] ocorrencias: {e}")
 
         # As 5 fontes são independentes → rodam EM PARALELO (append em list / add em
         # set são atômicos sob o GIL). Antes: 5 idas sequenciais ao banco (~200ms).
@@ -2022,7 +2026,7 @@ def api_auditoria(
                         ev["ator"] = nmap[pid].get("full_name")
                         if not ev.get("ator_role"): ev["ator_role"] = nmap[pid].get("role")
             except Exception as e:
-                print(f"[auditoria] resolve nomes: {e}")
+                log.warning(f"[auditoria] resolve nomes: {e}")
 
         # Filtros
         if etapa:
@@ -2050,7 +2054,7 @@ def api_auditoria(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"CRITICAL ERROR /auditoria: {e}")
+        log.warning(f"CRITICAL ERROR /auditoria: {e}")
         return {"logs": [], "total": 0, "hoje": 0, "error": str(e)}
 
 
@@ -2084,7 +2088,7 @@ def api_auditoria_erros(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[auditoria/erros] {e}")
+        log.warning(f"[auditoria/erros] {e}")
         return {"erros": [], "total": 0, "hoje": 0, "error": str(e)}
 
 
@@ -2156,7 +2160,7 @@ def api_get_arrecadacoes(condo_id: str, ano: int, user: dict = Depends(get_curre
             grupos = db.table("condominio_grupos").select("id, nome, due_day, ordem") \
                 .eq("condominio_id", condo_id).eq("ativo", True).order("ordem").execute().data or []
         except Exception as e:
-            print(f"[arrecadacoes] grupos indisponíveis: {type(e).__name__}: {e}")
+            log.warning(f"[arrecadacoes] grupos indisponíveis: {type(e).__name__}: {e}")
             grupos = []   # 0086 ainda não aplicada — a tela cai no modo antigo
 
         return {"condo": condo, "processo": processo, "rateios": rateios,
@@ -2298,7 +2302,7 @@ def api_consumos_planilha_preview(condo_id: str, pacote_id: str, mes: int, ano: 
             if a.get("instalacao"):
                 heranca[str(a["instalacao"])] = a["rateio_id"]
     except Exception as e:
-        print("[consumos-planilha] heranca indisponivel: %s" % e)
+        log.warning("[consumos-planilha] heranca indisponivel: %s" % e)
 
     por_verba = {}
     sem_verba = []
@@ -2385,7 +2389,7 @@ def api_consumos_planilha_aplicar(condo_id: str, data: PreencherConsumosBody,
             try:
                 db.table("emissoes_arquivos").update({"rateio_id": rid}).eq("id", aid).execute()
             except Exception as e:
-                print("[consumos-planilha] atribuicao %s: %s" % (aid, e))
+                log.warning("[consumos-planilha] atribuicao %s: %s" % (aid, e))
 
     return {"ok": True, "aplicados": aplicados}
 
@@ -2417,7 +2421,7 @@ def api_ultima_emissao(condo_id: str, user: dict = Depends(get_current_user), db
             }
         }
     except Exception as e:
-        print(f"Error /ultima-emissao: {e}")
+        log.warning(f"Error /ultima-emissao: {e}")
         return {"file": None, "error": str(e)}
 
 def _juntar_dados_do_gerente(db, usuarios):
@@ -2457,7 +2461,7 @@ def _juntar_dados_do_gerente(db, usuarios):
             u["condominios_total"] = total.get(g["id"], 0)
             u["condominios_em_operacao"] = ativos.get(g["id"], 0)
     except Exception as e:
-        print(f"[usuarios] situacao do gerente falhou (segue sem): {e}")
+        log.warning(f"[usuarios] situacao do gerente falhou (segue sem): {e}")
     return usuarios
 
 
@@ -2519,7 +2523,7 @@ def api_condo_process_status_force(condo_id: str, data: ForceStatusSchema, user:
         final_proc = db.table("processos").select("*").eq("id", processo_id).single().execute()
         return {"success": True, "processo": final_proc.data}
     except Exception as e:
-        print("ERROR forcing status:", e)
+        log.warning("ERROR forcing status:", e)
         raise HTTPException(400, str(e))
 
 @router.post("/processo/{processo_id}/status/force")
@@ -2612,7 +2616,7 @@ def api_pipeline_force_all(data: PipelineForceAllSchema, user: dict = Depends(ge
     except HTTPException:
         raise
     except Exception as e:
-        print("ERROR pipeline force-all:", e)
+        log.warning("ERROR pipeline force-all:", e)
         raise HTTPException(400, str(e))
 
 
@@ -2650,7 +2654,7 @@ def _protege_ultimo_master(db, profile_id, novo_papel=None):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[usuarios] checagem de ultimo master falhou (segue): {type(e).__name__}: {e}")
+        log.warning(f"[usuarios] checagem de ultimo master falhou (segue): {type(e).__name__}: {e}")
 
 
 @router.post("/usuarios")
@@ -2673,7 +2677,7 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
         ja = (db.table("profiles").select("id, full_name, role")
               .eq("email", (data.email or "").strip()).limit(1).execute().data or [])
     except Exception as e:
-        print(f"[usuarios] checagem de e-mail existente falhou (segue): {type(e).__name__}")
+        log.warning(f"[usuarios] checagem de e-mail existente falhou (segue): {type(e).__name__}")
         ja = []
     if ja:
         dono = ja[0]
@@ -2757,7 +2761,7 @@ def api_criar_usuario(data: CreateUserSchema, user: dict = Depends(get_current_u
         return {"success": True, "uid": uid, "email_enviado": email_enviado}
 
     except Exception as e:
-        print(f"CRITICAL ERROR CREATE_USER: {e}")
+        log.warning(f"CRITICAL ERROR CREATE_USER: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 class VincularGerenteSchema(BaseModel):
@@ -2876,7 +2880,7 @@ def api_admin_reset_password(profile_id: str, data: AdminResetPasswordSchema,
 
         return {"success": True, "email_enviado": email_enviado}
     except Exception as e:
-        print(f"[reset-password] erro: {e}")
+        log.warning(f"[reset-password] erro: {e}")
         raise HTTPException(400, str(e))
 
 
@@ -2903,7 +2907,7 @@ def api_change_own_password(data: ChangeOwnPasswordSchema,
         _user_cache.clear()  # senha/flag mudou — não servir user cacheado
         return {"success": True}
     except Exception as e:
-        print(f"[change-password] erro: {e}")
+        log.warning(f"[change-password] erro: {e}")
         raise HTTPException(400, str(e))
 
 
@@ -2928,7 +2932,7 @@ def api_deletar_usuario(profile_id: str, user: dict = Depends(get_current_user),
 
         return {"success": True}
     except Exception as e:
-        print(f"Erro ao deletar usuário: {e}")
+        log.warning(f"Erro ao deletar usuário: {e}")
         raise HTTPException(400, str(e))
 
 
@@ -3013,7 +3017,7 @@ def api_situacao_usuario(
         corte_imediato = False
         aviso = ("Marquei no cadastro, mas não consegui derrubar a sessão agora "
                  f"({type(e).__name__}). O acesso cai em até 2 minutos.")
-        print(f"[situacao-usuario] ban falhou para {profile_id}: {e}")
+        log.warning(f"[situacao-usuario] ban falhou para {profile_id}: {e}")
 
     return {
         "success": True,
@@ -3216,7 +3220,7 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
                             .execute().data or []):
                     aberturas[e["mes_referencia"]] = e
             except Exception as e:
-                print(f"[CONFERENCIA] aberturas falharam (segue sem): {e}")
+                log.warning(f"[CONFERENCIA] aberturas falharam (segue sem): {e}")
 
             for i, m_item in enumerate(meses):
                 m = m_item['mes']
@@ -3283,7 +3287,7 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
         else:
             colunas = ["Condomínio", "Fundo Reserva"]
     except Exception as e:
-        print(f"[CONFERENCIA] Erro rateios: {e}"); traceback.print_exc()
+        log.warning(f"[CONFERENCIA] Erro rateios: {e}"); traceback.print_exc()
 
     cobrancas = []
     try:
@@ -3340,7 +3344,7 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
             })
     except Exception as e:
         # Loga o erro real em vez de engolir silenciosamente
-        print(f"[CONFERENCIA] Erro cobrancas_extras: {e}"); traceback.print_exc()
+        log.warning(f"[CONFERENCIA] Erro cobrancas_extras: {e}"); traceback.print_exc()
 
     # Grupos de emissão (0086). Um condomínio de dois vencimentos separa as verbas
     # em grupos, e tanto a conferência quanto o painel da emissão precisam mostrar
@@ -3357,7 +3361,7 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
                 colunas_grupo[r["nome"]] = r.get("grupo_id") or padrao
     except Exception as e:
         # 0086 não aplicada: a tela cai no modo antigo, sem faixas.
-        print(f"[CONFERENCIA] grupos indisponíveis: {type(e).__name__}: {e}")
+        log.warning(f"[CONFERENCIA] grupos indisponíveis: {type(e).__name__}: {e}")
         grupos, colunas_grupo = [], {}
 
     return {
@@ -3449,7 +3453,7 @@ def api_processo_acao_v2(
                         "metadata": {"action": "approve", "step": current_status}
                     }).execute()
                 except Exception as sign_err:
-                    print(f"Erro ao assinar: {sign_err}")
+                    log.warning(f"Erro ao assinar: {sign_err}")
 
         elif data.action == 'reject':
             if not data.comment or not data.comment.strip():
@@ -3884,7 +3888,7 @@ def api_transferir_carteira(
               .in_("id", bloco).execute()
         movidos += len(r.data or [])
 
-    print(f"[carteira] {movidos} condominios de {data.de_gerente_id} para {data.para_gerente_id} por {user.get('email')}")
+    log.info(f"[carteira] {movidos} condominios de {data.de_gerente_id} para {data.para_gerente_id} por {user.get('email')}")
     return {"success": True, "transferidos": movidos, "destino": destino.get("nome")}
 
 
@@ -4022,7 +4026,7 @@ def api_decidir_alteracao_cobranca(
             "decidida_por": user.get("email") or user.get("id"),
         }).execute()
     except Exception as e:
-        print(f"[cobrancas/alteracao] historico falhou (decisao ja aplicada): {e}")
+        log.warning(f"[cobrancas/alteracao] historico falhou (decisao ja aplicada): {e}")
 
     return {"success": True, "aprovada": bool(data.aprovar)}
 
@@ -4392,7 +4396,7 @@ def api_previa_abertura(
                     if n > 0:
                         preenchidos.add(por_rateio[v["rateio_id"]])
     except Exception as e:
-        print(f"[previa-abertura] preenchidos falhou (segue sem): {e}")
+        log.warning(f"[previa-abertura] preenchidos falhou (segue sem): {e}")
 
     return {
         "total": len(ids),
@@ -4445,7 +4449,7 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
         condos = [c for c in condos if c.get("gerente_id") in ids_ativos]
         ignorados = antes - len(condos)
         if ignorados:
-            print(f"[edicoes/abrir] {ignorados} condominios fora: gerente inativo")
+            log.warning(f"[edicoes/abrir] {ignorados} condominios fora: gerente inativo")
 
     # Só REABRE o que o gerente já liberou quando o master escolheu o condomínio (1-a-1)
     # ou pediu explicitamente pra forçar. Em massa, a previsão que ele já liberou fica de pé.
@@ -4498,7 +4502,7 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
                         "criado_por_role": user.get("role") or "master",
                     }).execute()
                 except Exception as _e:
-                    print(f"[abrir_edicao] falha ao registrar reabertura: {_e}")
+                    log.warning(f"[abrir_edicao] falha ao registrar reabertura: {_e}")
         else:
             db.table("edicoes_mensais").insert({
                 "condominio_id": c["id"],
@@ -4533,7 +4537,7 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
                     if n > 0:
                         preenchidos_ids.add(por_rateio[v["rateio_id"]])
     except Exception as e:
-        print(f"[abrir_edicao] preenchidos falhou (segue sem): {e}")
+        log.warning(f"[abrir_edicao] preenchidos falhou (segue sem): {e}")
 
     lista_preenchidos = [e for e in lista_abertos if e["condominio_id"] in preenchidos_ids]
     lista_abertos = [e for e in lista_abertos if e["condominio_id"] not in preenchidos_ids]
@@ -4594,7 +4598,7 @@ def api_listar_edicoes(
         return {"edicoes": q.execute().data or []}
     except Exception as e:
         # O nome do gerente e um conforto: se o embed falhar, a fila ainda carrega.
-        print(f"[edicoes-mensais] embed de gerente falhou (segue sem): {type(e).__name__}")
+        log.warning(f"[edicoes-mensais] embed de gerente falhou (segue sem): {type(e).__name__}")
         q = _montar(SEL_SIMPLES)
         return {"edicoes": (q.execute().data or []) if q is not None else []}
 
@@ -4775,7 +4779,7 @@ def _alteracao_que_trava(db: Client, condominio_id: str, ano: int, mes: int):
                   .order("mes_referencia").execute().data or [])
         return rows[0] if rows else None
     except Exception as e:
-        print(f"[trava] consulta de alteracoes falhou (segue sem travar): {e}")
+        log.warning(f"[trava] consulta de alteracoes falhou (segue sem travar): {e}")
         return None
 
 
@@ -5053,7 +5057,7 @@ def _meses_em_branco(db, edicoes):
         vals = db.table("rateios_valores").select("rateio_id, month, ano, valor") \
             .in_("rateio_id", list(cfg_condo)).in_("ano", anos).execute().data or []
     except Exception as e:
-        print(f"[liberar] checagem de preenchimento indisponível: {type(e).__name__}: {e}")
+        log.warning(f"[liberar] checagem de preenchimento indisponível: {type(e).__name__}: {e}")
         return set()   # na dúvida não bloqueia o gerente
 
     # (condominio, ano, mes) com ao menos um valor preenchido. O ano entra na
@@ -5191,7 +5195,7 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
             }).execute()
     except Exception as e:
         # Aviso nunca derruba a abertura.
-        print(f"[abrir_edicao] notificacao ao gerente falhou: {type(e).__name__}: {e}")
+        log.warning(f"[abrir_edicao] notificacao ao gerente falhou: {type(e).__name__}: {e}")
 
 
 def _notificar_emissao_liberacao(db, edicoes, autor_nome):
@@ -5230,7 +5234,7 @@ def _notificar_emissao_liberacao(db, edicoes, autor_nome):
             }).execute()
     except Exception as e:
         # Notificação nunca pode derrubar a liberação em si.
-        print(f"[liberar] notificação falhou: {type(e).__name__}")
+        log.warning(f"[liberar] notificação falhou: {type(e).__name__}")
 
 
 class AvisarExpedicaoSchema(BaseModel):
@@ -5369,7 +5373,7 @@ def _notificar_expedicao(db, pacote_ids, autor_nome):
         return {"notificados": len(alvos), "sem_filipeta": faltando}
     except Exception as e:
         # Aviso nunca derruba a expedição em si.
-        print(f"[expedicao] aviso falhou: {type(e).__name__}: {e}")
+        log.warning(f"[expedicao] aviso falhou: {type(e).__name__}: {e}")
         return {"notificados": 0, "erro": type(e).__name__}
 
 
@@ -5445,7 +5449,7 @@ def _notificar_entrega(db, pacs, condos, autor_nome, recebido_por):
             enviados += 1
         return enviados
     except Exception as e:
-        print(f"[expedicao/entregar] aviso ao gerente falhou: {type(e).__name__}: {e}")
+        log.warning(f"[expedicao/entregar] aviso ao gerente falhou: {type(e).__name__}: {e}")
         return 0
 
 
@@ -5603,13 +5607,13 @@ def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Dep
             try:
                 return db.table("condominios_concessionarias").select("condominio_id, concessionaria").execute().data or []
             except Exception as e:
-                print(f"[consumos] cond_conc erro: {e}")
+                log.warning(f"[consumos] cond_conc erro: {e}")
                 return []
         def _q_fat():
             try:
                 return db.table("consumos_faturas").select("condominio_id, concessionaria").execute().data or []
             except Exception as e:
-                print(f"[consumos] consumos_faturas erro: {e}")
+                log.warning(f"[consumos] consumos_faturas erro: {e}")
                 return []
         with ThreadPoolExecutor(max_workers=2) as _ex:
             _fcfg, _ffat = _ex.submit(_q_cfg), _ex.submit(_q_fat)
@@ -5665,7 +5669,7 @@ def api_consumos_condos(user: dict = Depends(get_current_user), db: Client = Dep
         return {"condominios": out}
     except Exception as e:
         tb = traceback.format_exc()
-        print("[consumos] erro fatal:", tb)
+        log.warning("[consumos] erro fatal:", tb)
         # Expor o erro para debug remoto
         raise HTTPException(500, f"{type(e).__name__}: {str(e)}")
 
@@ -6057,7 +6061,7 @@ async def api_extrair_pdf(
             cres = db.table("condominios").select("cnpj").eq("id", condominio_id).maybe_single().execute()
             passwords = cnpj_to_passwords((cres.data or {}).get("cnpj"))
         except Exception as e:
-            print(f"[extrair-pdf] falha ao buscar cnpj do condo: {e}")
+            log.warning(f"[extrair-pdf] falha ao buscar cnpj do condo: {e}")
 
     extracao = extract_pdf(contents, passwords=passwords)
     extracao['arquivo_hash'] = arquivo_hash
@@ -6084,7 +6088,7 @@ async def api_extrair_pdf(
                 alertas.append(alerta_pert)
                 bloqueia = True
         except Exception as e:
-            print(f"[extrair-pdf] check pertencimento falhou: {e}")
+            log.warning(f"[extrair-pdf] check pertencimento falhou: {e}")
 
     # Se identificou a empresa e tem contexto, valida duplicata
     if extracao.get('subtipo') and condominio_id and mes_referencia and ano_referencia:
@@ -6115,7 +6119,7 @@ async def api_extrair_pdf(
             anomalia = result.get('anomalia')
             bloqueia = bloqueia or result.get('bloqueia', False)
         except Exception as e:
-            print(f"[extrair-pdf] check duplicata falhou: {e}")
+            log.warning(f"[extrair-pdf] check duplicata falhou: {e}")
 
     return {
         'extracao': extracao,

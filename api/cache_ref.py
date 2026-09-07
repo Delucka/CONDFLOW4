@@ -35,6 +35,7 @@ cacheada cai para a consulta direta, que é o comportamento de antes.
 import threading
 import time
 from datetime import date
+from log import log
 
 TTL = 120
 
@@ -171,7 +172,7 @@ def aquecer(db, user_id=None):
             except Exception as e:
                 # Aquecer é adiantamento. Quem realmente precisa do valor
                 # chama a função direto e lida com a falha lá.
-                print(f"[cache] aquecimento falhou ({type(e).__name__}); segue")
+                log.warning(f"[cache] aquecimento falhou ({type(e).__name__}); segue")
 
 
 def _frio(chave):

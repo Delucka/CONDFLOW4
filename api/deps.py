@@ -7,6 +7,9 @@ primeira separação já criaria import circular (rota importando `api_routes`, 
 importa a rota).
 """
 
+# Log da API: `logging`, nao `print` — o print nao chega ao log da Vercel.
+from log import log
+
 import os
 from typing import Optional
 from fastapi import HTTPException, Header  # type: ignore
@@ -45,7 +48,7 @@ _ja_dito: set = set()
 def _diga_uma_vez(chave: str, msg: str):
     if chave not in _ja_dito:
         _ja_dito.add(chave)
-        print(msg)
+        log.info(msg)
 
 
 def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
@@ -105,7 +108,7 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
             nome = type(e).__name__
             if "AuthApiError" in nome or "AuthSessionMissingError" in nome:
                 raise HTTPException(status_code=401, detail="Sessão expirada. Entre de novo.")
-            print(f"[auth] Supabase Auth indisponível: {nome}: {e}")
+            log.warning(f"[auth] Supabase Auth indisponível: {nome}: {e}")
             raise HTTPException(status_code=503, detail="Não consegui validar a sessão agora. Tente em instantes.")
 
         if not user_res or not user_res.user:
@@ -122,11 +125,11 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     try:
         _ref.aquecer(db, user_id)
     except Exception as e:
-        print(f"[cache] aquecimento falhou ({type(e).__name__}); segue")
+        log.warning(f"[cache] aquecimento falhou ({type(e).__name__}); segue")
     try:
         profile = _ref.perfil(db, user_id)
     except Exception as e:
-        print(f"[cache] perfil indisponivel, consultando direto: {type(e).__name__}")
+        log.warning(f"[cache] perfil indisponivel, consultando direto: {type(e).__name__}")
         prof_res = db.table("profiles").select("*").eq("id", user_id).single().execute()
         profile = prof_res.data if prof_res.data else {}
 
@@ -169,7 +172,7 @@ def get_gerente_id(db: Client, profile_id: str) -> Optional[str]:
     try:
         return _ref.gerente_id_do_profile(db, profile_id)
     except Exception as e:
-        print(f"[cache] gerentes indisponivel, consultando direto: {type(e).__name__}")
+        log.warning(f"[cache] gerentes indisponivel, consultando direto: {type(e).__name__}")
         res = db.table("gerentes").select("id").eq("profile_id", profile_id).execute()
         return res.data[0]["id"] if res.data else None
 
@@ -181,7 +184,7 @@ def gerente_condo_ids(db: Client, profile_id: str):
     try:
         return _ref.condominios_do_gerente(db, g_id)
     except Exception as e:
-        print(f"[cache] condominios indisponivel, consultando direto: {type(e).__name__}")
+        log.warning(f"[cache] condominios indisponivel, consultando direto: {type(e).__name__}")
         res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
         return [c["id"] for c in (res.data or [])]
 
@@ -220,7 +223,7 @@ def condos_cobertos_por_ausencia(db: Client, user: dict):
         return list(_ref.ausencias_de_hoje(db).get(uid, []))
     except Exception as e:
         # 0117 ainda nao rodou, ou o embed falhou: ninguem cobre ninguem.
-        print(f"[carteira] ausencias nao consultadas (segue sem): {type(e).__name__}")
+        log.warning(f"[carteira] ausencias nao consultadas (segue sem): {type(e).__name__}")
         return []
 
 
@@ -234,6 +237,6 @@ def carteira_condo_ids(db: Client, user: dict):
     try:
         proprios = _ref.condominios_do_gerente(db, g_id)
     except Exception as e:
-        print(f"[cache] condominios indisponivel, consultando direto: {type(e).__name__}")
+        log.warning(f"[cache] condominios indisponivel, consultando direto: {type(e).__name__}")
         proprios = [c["id"] for c in (db.table("condominios").select("id").eq("gerente_id", g_id).execute().data or [])]
     return list(set(proprios) | set(cobertos))

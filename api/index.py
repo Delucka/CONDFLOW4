@@ -1,4 +1,7 @@
 """CondoAdmin - Sistema de Gestão de Arrecadações de Condomínios"""
+
+# Log da API: `logging`, nao `print` — o print nao chega ao log da Vercel.
+from log import log
 import os
 import json
 from datetime import datetime
@@ -106,7 +109,7 @@ async def _esquece_cache_apos_escrita(request: Request, call_next):
             import cache_ref
             cache_ref.invalidar_carteiras()
     except Exception as e:      # nunca derruba a resposta que já está pronta
-        print(f"[cache] invalidacao falhou: {type(e).__name__}: {e}")
+        log.warning(f"[cache] invalidacao falhou: {type(e).__name__}: {e}")
     return response
 
 # ═══ Supabase ═════════════════════════════════════════════════════════
@@ -142,7 +145,7 @@ def log_erro(rota=None, metodo=None, status_code=500, mensagem=None, detalhe=Non
             "user_id": user_id, "user_nome": user_nome,
         }).execute()
     except Exception as _e:
-        print(f"[log_erro] falhou: {_e}")
+        log.error(f"[log_erro] falhou: {_e}")
 
 @app.exception_handler(Exception)
 async def _unhandled_exc_handler(request: Request, exc: Exception):
@@ -158,7 +161,7 @@ async def _unhandled_exc_handler(request: Request, exc: Exception):
         mensagem=f"{type(exc).__name__}: {exc}", detalhe=_tb.format_exc(),
         user_id=(u or {}).get("id"), user_nome=(u or {}).get("full_name"),
     )
-    print(f"[UNHANDLED] {request.method} {request.url.path}: {exc}")
+    log.error(f"[UNHANDLED] {request.method} {request.url.path}: {exc}")
     return JSONResponse(status_code=500, content={"detail": "Erro interno do servidor."})
 
 # ═══ Helpers ══════════════════════════════════════════════════════════

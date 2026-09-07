@@ -18,6 +18,7 @@ from pydantic import BaseModel  # type: ignore
 
 from deps import get_db, get_current_user, carteira_condo_ids
 from emails import _enviar_email_smtp
+from log import log
 
 router = APIRouter()
 
@@ -93,7 +94,7 @@ def api_criar_segunda_via(data: SegundaViaCreate, user: dict = Depends(get_curre
                 "link": "/carteiras/segundas-vias",
             }).execute()
     except Exception as e:
-        print(f"[segunda_via] notif: {e}")
+        log.warning(f"[segunda_via] notif: {e}")
 
     return {"ok": True, "id": sv.get("id"), "vencimento": venc}
 
@@ -140,7 +141,7 @@ def _emails_assistentes_condo(db, condominio_id):
                 out.append(e)
         return out
     except Exception as _e:
-        print(f"[segunda_via] assistentes p/ CC: {_e}")
+        log.warning(f"[segunda_via] assistentes p/ CC: {_e}")
         return []
 
 
@@ -157,7 +158,7 @@ def _log_sv_hist(db, sv_id, tipo, autor_id=None, autor_nome=None, **campos):
                 row[k] = v
         db.table("segundas_vias_historico").insert(row).execute()
     except Exception as e:
-        print(f"[segunda_via] hist {tipo}: {e}")
+        log.warning(f"[segunda_via] hist {tipo}: {e}")
 
 
 def _fmt_data_br(d):
@@ -222,7 +223,7 @@ def _emitir_segunda_via(db, sv, boleto_url=None, boleto_nome=None, enviar_email=
                     pdf = db.storage.from_("emissoes").download(boleto_url)
                     anexos.append((boleto_nome or "boleto.pdf", pdf, "application/pdf"))
                 except Exception as e:
-                    print(f"[segunda_via] download boleto: {e}")
+                    log.warning(f"[segunda_via] download boleto: {e}")
             # CC: quem abriu o chamado + os assistentes da carteira do condomínio (dedup, sem o destinatário)
             cc = []
             if sv.get("criado_por_email"):
@@ -239,7 +240,7 @@ def _emitir_segunda_via(db, sv, boleto_url=None, boleto_nome=None, enviar_email=
                 email_enviado = _enviar_email_smtp(dest, assunto, html, cc=cc, anexos=anexos)
             db.table("segundas_vias").update({"email_enviado": email_enviado}).eq("id", sv_id).execute()
         except Exception as e:
-            print(f"[segunda_via] emitir/email: {e}")
+            log.warning(f"[segunda_via] emitir/email: {e}")
 
     # Linha do tempo: guarda ESTE boleto (arquivo preservado no bucket) + snapshot
     _log_sv_hist(
@@ -353,7 +354,7 @@ def api_solicitar_alteracao_sv(sv_id: str, data: SegundaViaAlterar, user: dict =
                 "link": "/carteiras/segundas-vias",
             }).execute()
     except Exception as e:
-        print(f"[segunda_via] alteracao notif: {e}")
+        log.warning(f"[segunda_via] alteracao notif: {e}")
 
     return {"ok": True}
 
@@ -434,7 +435,7 @@ def _criar_sv_integracao(db, condo, unidade, bloco, ref_mes, ref_ano, modalidade
                 "link": "/carteiras/segundas-vias",
             }).execute()
     except Exception as e:
-        print(f"[integracao sv] notif: {e}")
+        log.warning(f"[integracao sv] notif: {e}")
     return sv
 
 
@@ -529,7 +530,7 @@ def _cond_unidade_rows(db, condominio_id, unidade, bloco):
         rows = db.table("condominos").select("*").eq("condominio_id", condominio_id) \
             .ilike("unidade", (unidade or "").strip()).eq("ativo", True).execute().data or []
     except Exception as e:
-        print(f"[cond_unidade] {e}")
+        log.warning(f"[cond_unidade] {e}")
         return []
     bl = (bloco or "").strip().upper()
     if bl:

@@ -15,6 +15,8 @@ disparou — um convite de acesso falhar não desfaz o cadastro do usuário. Por
 isso estas funções devolvem True/False e não levantam.
 """
 
+from log import log
+
 def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -> bool:
     """Envia e-mail HTML via SMTP. cc=lista de e-mails; anexos=lista de (nome, bytes, mime).
     Best-effort: retorna True/False, não levanta."""
@@ -40,7 +42,7 @@ def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -
         smtp_user, smtp_pass = os.getenv("GMAIL_USER"), os.getenv("GMAIL_APP_PASSWORD")
         host, port = "smtp.gmail.com", 465
     if not smtp_user or not smtp_pass:
-        print("[email] SMTP não configurado (defina SMTP_USER e SMTP_PASS)")
+        log.warning("[email] SMTP não configurado (defina SMTP_USER e SMTP_PASS)")
         return False
     from_name = os.getenv("EMAIL_FROM_NAME", "CondoFlow")
     cc = [c for c in (cc or []) if c]
@@ -62,7 +64,7 @@ def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -
             part.add_header("Content-Disposition", "attachment", filename=fn)
             msg.attach(part)
         except Exception as _e:
-            print(f"[email] anexo falhou: {_e}")
+            log.warning(f"[email] anexo falhou: {_e}")
 
     # A porta decide o tipo de conexão. 465 abre já cifrado; 587 começa em claro
     # e sobe para TLS com STARTTLS. Usar SMTP_SSL numa porta 587 não dá erro
@@ -79,7 +81,7 @@ def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -
                 s.sendmail(smtp_user, [to] + cc, msg.as_string())
         return True
     except Exception as e:
-        print(f"[email] erro ao enviar para {to} por {host}:{port}: {e}")
+        log.warning(f"[email] erro ao enviar para {to} por {host}:{port}: {e}")
         return False
 
 
@@ -105,7 +107,7 @@ def _enviar_email_acesso(db, email: str, full_name: str, password: str) -> bool:
         if isinstance(html, str) and html:
             return _enviar_email_smtp(email, "Bem-vindo ao CondoFlow — seus dados de acesso", html)
     except Exception as e:
-        print(f"[enviar_acesso] falha: {e}")
+        log.warning(f"[enviar_acesso] falha: {e}")
     return False
 
 
@@ -132,5 +134,5 @@ def _enviar_email_recuperacao(db, email: str, full_name: str, link: str) -> bool
         if isinstance(html, str) and html:
             return _enviar_email_smtp(email, "CondoFlow — Redefinir senha", html)
     except Exception as e:
-        print(f"[email_recuperacao] falha: {e}")
+        log.warning(f"[email_recuperacao] falha: {e}")
     return False
