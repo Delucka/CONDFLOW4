@@ -83,6 +83,27 @@ buckets e suas policies, `pg_net` e o hook de e-mail das notificações
 (`condominios_da_carteira`, `condominios_por_ausencia`), o trigger de lacre
 (`protege_arquivos_lacrados`) e os agendamentos.
 
+## Dois caminhos descartados (conferido em 07/09/2026)
+
+**"Restore to a New Project" do painel NÃO serve.** É o caminho que a própria
+Supabase recomenda para quem está em plano pago, copia a chave de criptografia
+sozinho e replica tamanho de compute e disco — mas, da documentação, textualmente:
+
+> "The data will remain **in the same region as the source project** to ensure
+> compliance with data residency requirements."
+
+Ele clona dentro de us-west-2. Serve para ambiente de teste, não para mudar de
+região.
+
+**`supabase db dump` exige Docker.** Testado na máquina: a CLI (2.117.0) roda
+`pg_dump` dentro de um contêiner e falha com
+`LegacyDockerRunError: docker: command not found (podman also not found)`.
+
+Sobra o caminho manual com **`pg_dump` e `psql` nativos**, que não estão
+instalados. São mais leves que o Docker Desktop e são a ferramenta certa para o
+serviço — o que a CLI faz é montar a linha de comando do `pg_dump` (dá para ver
+com `supabase db dump --dry-run`).
+
 ## Não dá para mudar a região no lugar
 
 A região é escolhida quando o projeto nasce e não muda depois. A própria
