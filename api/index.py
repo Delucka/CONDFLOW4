@@ -1,7 +1,4 @@
 """CondoAdmin - Sistema de Gestão de Arrecadações de Condomínios"""
-
-# Log da API: `logging`, nao `print` — o print nao chega ao log da Vercel.
-from log import log
 import os
 import json
 from datetime import datetime
@@ -53,6 +50,11 @@ import importlib, sys
 _api_dir = os.path.dirname(os.path.abspath(__file__))
 if _api_dir not in sys.path:
     sys.path.insert(0, _api_dir)
+
+# SÓ DEPOIS do sys.path acima. A Vercel não trata `api/` como pacote, e importar
+# daqui no topo do arquivo derrubou a produção inteira em 07/09/2026:
+# `ModuleNotFoundError: No module named 'log'`, com a função sem subir.
+from log import log
 import api_routes
 app.include_router(api_routes.router, prefix="/api", tags=["API NextJS"])
 
