@@ -47,8 +47,10 @@ def aplicar():
     try:
         from postgrest._sync.request_builder import (
             SyncMaybeSingleRequestBuilder,
+            SyncSingleRequestBuilder,
             SingleAPIResponse,
         )
+        from postgrest.exceptions import APIError
     except Exception as e:
         print(f"[supabase] maybe_single nao ajustado ({type(e).__name__}); "
               f"cuidado: pode voltar None")
@@ -58,14 +60,26 @@ def aplicar():
         return True     # já aplicado (reimportação do módulo)
 
     original = SyncMaybeSingleRequestBuilder.execute
+    vazia = lambda: SingleAPIResponse(data=None, count=None)
 
     def execute(self):
-        r = original(self)
-        return r if r is not None else SingleAPIResponse(data=None, count=None)
+        try:
+            r = SyncSingleRequestBuilder(self.request).execute()
+        except APIError as e:
+            if e.details and "The result contains 0 rows" in e.details:
+                return vazia()          # não achou: é resposta vazia, não erro
+            # QUALQUER outro erro sobe com a mensagem de verdade. O original
+            # engolia todos e levantava um `APIError("Missing response",
+            # code 204)` no lugar — então uma coluna que não existe, uma
+            # policy que barrou ou o banco fora do ar chegavam à tela com a
+            # mesma frase, que não diz nada. Foi assim que "column
+            # profiles.ativo does not exist" virou "Missing response".
+            raise
+        return r if r is not None else vazia()
 
     execute._sem_none = True
     execute.__doc__ = (original.__doc__ or "") + \
         "\n\nAjustado por api/supabase_sem_none.py: sem linha devolve resposta " \
-        "com data=None, nunca None."
+        "com data=None (nunca None), e erro real sobe com a mensagem original."
     SyncMaybeSingleRequestBuilder.execute = execute
     return True

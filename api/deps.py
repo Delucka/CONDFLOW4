@@ -119,6 +119,16 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         prof_res = db.table("profiles").select("*").eq("id", user_id).single().execute()
         profile = prof_res.data if prof_res.data else {}
 
+    # Acesso cortado (0121). Vem depois do perfil de propósito: é uma decisão
+    # nossa, registrada numa coluna nossa, e não depende de a sessão ter sido
+    # derrubada do outro lado. `True` quando a coluna ainda não existe, para a
+    # API poder subir antes da migration rodar.
+    if profile and profile.get("ativo", True) is False:
+        raise HTTPException(
+            status_code=401,
+            detail="Seu acesso foi desativado. Fale com o administrador.",
+        )
+
     if len(_user_cache) > 500:  # nunca cresce sem limite (instância serverless)
         _user_cache.clear()
 

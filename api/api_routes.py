@@ -2932,6 +2932,98 @@ def api_deletar_usuario(profile_id: str, user: dict = Depends(get_current_user),
         raise HTTPException(400, str(e))
 
 
+class SituacaoUsuarioSchema(BaseModel):
+    ativo: bool
+    motivo: Optional[str] = None
+
+
+@router.post("/usuarios/{profile_id}/situacao")
+def api_situacao_usuario(
+    profile_id: str,
+    data: SituacaoUsuarioSchema,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Corta ou devolve o acesso de uma pessoa, sem apagar nada (0121).
+
+    Antes disto havia só o `DELETE /usuarios/{id}`, que leva junto o histórico —
+    quem aprovou o quê, quem lançou qual valor. Quem sai da empresa não devia
+    obrigar a escolher entre "continua entrando" e "some do passado".
+
+    Corta em dois lugares, de propósito:
+
+      `profiles.ativo`  é a nossa verdade: auditável, reversível, e é o que a
+                        API confere em toda requisição.
+      banimento no Auth é o corte imediato. O `ativo` só vale quando o cache de
+                        perfil expira (≤120 s) nas outras instâncias; o
+                        banimento derruba na hora, em todas.
+
+    O banimento é o melhor esforço: se falhar, o acesso ainda cai em ≤120 s pelo
+    `ativo`, e a resposta diz que ficou pendente — em vez de fingir que cortou.
+    """
+    require_role(user, ["master"])
+
+    if profile_id == user["id"]:
+        raise HTTPException(400, "Você não pode desativar o seu próprio acesso.")
+
+    try:
+        alvo = (db.table("profiles").select("id, full_name, role, ativo")
+                .eq("id", profile_id).maybe_single().execute().data or {})
+    except Exception as e:
+        # Sem a 0121 a coluna não existe, e o Postgres devolve 42703. Melhor
+        # dizer qual migration falta do que repassar "column does not exist".
+        if "ativo" in str(e) and "does not exist" in str(e):
+            raise HTTPException(503, "A migration 0121 (usuário ativo) ainda não foi aplicada no banco.")
+        raise
+    if not alvo:
+        raise HTTPException(404, "Usuário não encontrado.")
+
+    if not data.ativo and (alvo.get("role") or "") == "master":
+        # `_protege_ultimo_master` conta por papel; aqui o que importa é quantos
+        # masters ainda CONSEGUEM ENTRAR. Sobrar um master desativado é o mesmo
+        # que não sobrar nenhum.
+        outros = [m for m in (db.table("profiles").select("id, ativo")
+                              .eq("role", "master").execute().data or [])
+                  if m["id"] != profile_id and m.get("ativo", True)]
+        if not outros:
+            raise HTTPException(400, "Este é o último master ativo — o sistema ficaria sem ninguém para reabrir.")
+
+    agora = _dt.now().isoformat()
+    payload = {"ativo": bool(data.ativo)}
+    if data.ativo:
+        payload.update({"inativado_em": None, "inativado_motivo": None, "inativado_por": None})
+    else:
+        payload.update({
+            "inativado_em": agora,
+            "inativado_motivo": (data.motivo or "").strip() or None,
+            "inativado_por": user["id"],
+        })
+
+    res = db.table("profiles").update(payload).eq("id", profile_id).execute()
+    if not res.data:
+        raise HTTPException(404, "Usuário não encontrado.")
+
+    # 100 anos: o GoTrue quer uma duração, não um "para sempre".
+    corte_imediato, aviso = True, None
+    try:
+        db.auth.admin.update_user_by_id(
+            profile_id, {"ban_duration": "none" if data.ativo else "876000h"}
+        )
+    except Exception as e:
+        corte_imediato = False
+        aviso = ("Marquei no cadastro, mas não consegui derrubar a sessão agora "
+                 f"({type(e).__name__}). O acesso cai em até 2 minutos.")
+        print(f"[situacao-usuario] ban falhou para {profile_id}: {e}")
+
+    return {
+        "success": True,
+        "ativo": bool(data.ativo),
+        "nome": alvo.get("full_name"),
+        "corte_imediato": corte_imediato,
+        "aviso": aviso,
+    }
+
+
 # ═══ GERENCIAMENTO DE CARTEIRAS ═══════════════════════════════════════
 
 @router.get("/usuarios/{profile_id}/carteiras")

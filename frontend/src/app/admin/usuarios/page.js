@@ -9,7 +9,7 @@ import { useToast } from '@/components/Toast';
 import {
   Users, ShieldAlert, PlusCircle, Trash2, Mail, Loader2, X,
   RefreshCw, Building2, Link2, Unlink, ChevronDown, ChevronUp,
-  Eye, EyeOff, UserCog, Check, KeyRound, Copy, CalendarDays
+  Eye, EyeOff, UserCog, Check, KeyRound, Copy, CalendarDays, Ban, UserCheck
 } from 'lucide-react';
 
 // A ordem em que os papéis aparecem, e o rótulo mais explicativo de cada um.
@@ -480,6 +480,13 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
   // Situação do gerente na operação (0104).
   const [ativo, setAtivo] = useState(u.gerente_ativo !== false);
   const [salvandoSituacao, setSalvandoSituacao] = useState(false);
+
+  // ACESSO ao sistema (0121) — outra coisa. "Fora da operação" é um gerente que
+  // não recebe quadro de mês; "sem acesso" é alguém que não entra mais. Um
+  // gerente de férias sai da operação e continua entrando; quem saiu da empresa
+  // perde o acesso e continua no histórico.
+  const [comAcesso, setComAcesso] = useState(u.ativo !== false);
+  const [salvandoAcesso, setSalvandoAcesso] = useState(false);
   const emOperacao = u.condominios_em_operacao ?? 0;
   const naCarteira = u.condominios_total ?? 0;
   // Os que estão na carteira mas ainda não entraram — os que virão junto.
@@ -536,6 +543,48 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
     }
   }
 
+  async function alternarAcesso() {
+    const cortando = comAcesso;
+    let motivo = null;
+    if (cortando) {
+      const ok = window.confirm([
+        `Cortar o acesso de ${u.full_name}?`,
+        '',
+        'A pessoa para de entrar no sistema em segundos, e some das telas de trabalho.',
+        'O histórico fica: o que ela aprovou e lançou continua com o nome dela.',
+        '',
+        'Dá para devolver o acesso a qualquer momento.',
+      ].join('\n'));
+      if (!ok) return;
+      motivo = window.prompt(
+        ['Por que o acesso foi cortado?',
+          '(fica registrado — seis meses depois alguém vai perguntar)'].join('\n'), '');
+      if (motivo === null) return;
+    }
+
+    setSalvandoAcesso(true);
+    try {
+      const r = await apiFetch(`/api/usuarios/${u.id}/situacao`, {
+        method: 'POST',
+        body: JSON.stringify({ ativo: !cortando, motivo: motivo || null }),
+      });
+      setComAcesso(!cortando);
+      addToast(
+        cortando ? `${u.full_name} não entra mais no sistema.` : `${u.full_name} voltou a ter acesso.`,
+        cortando ? 'warning' : 'success',
+      );
+      // A rota avisa quando marcou no cadastro mas não conseguiu derrubar a
+      // sessão agora — nesse caso o corte leva até 2 minutos, e quem clicou
+      // precisa saber disso em vez de achar que já foi.
+      if (r?.aviso) addToast(r.aviso, 'warning');
+      onSync?.();
+    } catch (e) {
+      addToast(e.message || 'Não foi possível mudar o acesso.', 'error');
+    } finally {
+      setSalvandoAcesso(false);
+    }
+  }
+
   async function salvarNotif() {
     setSavingNotif(true);
     try {
@@ -560,6 +609,12 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-slate-800 truncate flex items-center gap-2">
             <span className="truncate">{u.full_name || 'Usuário'}</span>
+            {!comAcesso && (
+              <span className="shrink-0 rounded-md border border-rose-300 bg-rose-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-rose-600"
+                title={u.inativado_motivo || 'Esta pessoa não entra mais no sistema'}>
+                sem acesso
+              </span>
+            )}
             {isGerente && !ativo && (
               <span className="shrink-0 rounded-md border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500"
                 title={esperando ? `${esperando} condomínios entram junto quando ele for liberado` : undefined}>
@@ -581,6 +636,17 @@ function UserCard({ u, currentUserId, onSync, onCarteira, onDeleted, gerentes = 
             <button onClick={() => onSync(u)} title="Resetar senha"
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500 hover:text-slate-950 transition-all text-[10px] font-bold uppercase tracking-wider">
               <KeyRound className="w-3.5 h-3.5" /> Senha
+            </button>
+            <button onClick={alternarAcesso} disabled={salvandoAcesso}
+              title={comAcesso ? 'Cortar o acesso (o histórico fica)' : 'Devolver o acesso'}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 ${
+                comAcesso
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-white'
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500 hover:text-white'}`}>
+              {salvandoAcesso
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : (comAcesso ? <Ban className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />)}
+              {comAcesso ? 'Acesso' : 'Liberar'}
             </button>
             <button onClick={() => onDeleted(u)} title="Excluir usuário"
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all text-[10px] font-bold uppercase tracking-wider">
