@@ -1,5 +1,5 @@
 python-dotenv
-supabase
+supabase==2.28.2
 httpx
 fastapi
 uvicorn

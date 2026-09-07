@@ -12,6 +12,13 @@ from typing import Optional
 from fastapi import HTTPException, Header  # type: ignore
 from supabase import create_client, Client  # type: ignore
 
+# Aplicado aqui porque TODO módulo de rota importa este arquivo — é o único
+# ponto por onde a API inteira passa antes de falar com o banco. Ver
+# `supabase_sem_none.py`: `maybe_single()` devolvia None e derrubou 83
+# requisições em produção.
+import supabase_sem_none as _sem_none
+_sem_none.aplicar()
+
 # Supabase Client setup
 SB_URL = os.getenv("SUPABASE_URL", "")
 SB_SERVICE = os.getenv("SUPABASE_SERVICE_KEY", "")
