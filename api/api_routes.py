@@ -832,10 +832,21 @@ def api_renotificar_emissao(pacote_id: str, user: dict = Depends(get_current_use
 
 
 @router.get("/condominios")
-def api_condominios(user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+def api_condominios(basico: int = 0, user: dict = Depends(get_current_user), db: Client = Depends(get_db)):
+    """A lista de condomínios. Com `?basico=1`, só o necessário para escolher um.
+
+    A tabela tem 22 colunas, e `select('*')` nos 325 são **238 KB e 530 ms**
+    contra **45 KB e 270 ms** de três colunas (medido em 07/09/2026, com o banco
+    a 185 ms daqui). A tela de cadastro precisa de tudo; os seletores de
+    condomínio espalhados por seis telas precisam do nome e do dono.
+
+    Opt-in, e não o contrário: mudar o padrão calaria uma tela que dependesse de
+    uma coluna que sumiu — e o jeito de descobrir seria o usuário reclamando.
+    """
     try:
         # Puxa os condomínios (sem join complexo para evitar travamentos)
-        query = db.table("condominios").select("*").order("name")
+        colunas = "id, name, gerente_id, situacao, due_day" if basico else "*"
+        query = db.table("condominios").select(colunas).order("name")
         
         if user["role"] in ("gerente", "assistente"):
             # Por CONDOMINIO, nao por dono: durante uma cobertura de ferias o

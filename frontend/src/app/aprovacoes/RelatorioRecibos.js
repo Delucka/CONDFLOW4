@@ -41,7 +41,7 @@ export default function RelatorioRecibos() {
   const { addToast } = useToast();
   const supabase = useMemo(() => createClient(), []);
 
-  const { data: condosData } = useSWR('/api/condominios', apiFetcher);
+  const { data: condosData } = useSWR('/api/condominios?basico=1', apiFetcher);
   const condos = condosData?.condos || [];
 
   const anoAtual = new Date().getFullYear();

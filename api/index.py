@@ -84,6 +84,31 @@ async def add_cache_headers(request: Request, call_next):
             response.headers["Cache-Control"] = "public, max-age=86400"  # 1 day
     return response
 
+
+@app.middleware("http")
+async def _esquece_cache_apos_escrita(request: Request, call_next):
+    """Toda escrita bem-sucedida esvazia o cache de referência (`cache_ref`).
+
+    Poderia ser preciso — invalidar só nos onze endpoints que hoje mexem em
+    carteira. Não é, de propósito: essa lista envelhece, e o dia em que alguém
+    criar o décimo segundo sem lembrar deste arquivo, o sistema passa a
+    autorizar por dado velho. Autorização não é lugar de lista que precisa ser
+    mantida à mão.
+
+    O preço de exagerar é uma requisição pagando o reaquecimento (três idas ao
+    banco) depois de cada escrita. Escritas são dezenas por hora; leituras são
+    milhares. O preço de errar para o outro lado é um gerente enxergando
+    condomínio que já não é dele.
+    """
+    response = await call_next(request)
+    try:
+        if request.method not in ("GET", "HEAD", "OPTIONS") and response.status_code < 400:
+            import cache_ref
+            cache_ref.invalidar_carteiras()
+    except Exception as e:      # nunca derruba a resposta que já está pronta
+        print(f"[cache] invalidacao falhou: {type(e).__name__}: {e}")
+    return response
+
 # ═══ Supabase ═════════════════════════════════════════════════════════
 SB_URL = os.getenv("SUPABASE_URL", "")
 SB_ANON = os.getenv("SUPABASE_KEY", "")

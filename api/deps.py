@@ -94,19 +94,32 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     _user_cache[tkey] = (result, now + _USER_CACHE_TTL)
     return dict(result)
 
+# O de-para gerente↔condomínio sai do cache de processo (`cache_ref`), não da
+# rede. São três tabelas minúsculas consultadas em TODA requisição — e o banco
+# está a 185 ms daqui. Cada função abaixo cai para a consulta direta se o cache
+# falhar por qualquer motivo: o caminho antigo continua sendo o plano B.
+import cache_ref as _ref
+
+
 def get_gerente_id(db: Client, profile_id: str) -> Optional[str]:
-    res = db.table("gerentes").select("id").eq("profile_id", profile_id).execute()
-    if res.data:
-        return res.data[0]["id"]
-    return None
+    try:
+        return _ref.gerente_id_do_profile(db, profile_id)
+    except Exception as e:
+        print(f"[cache] gerentes indisponivel, consultando direto: {type(e).__name__}")
+        res = db.table("gerentes").select("id").eq("profile_id", profile_id).execute()
+        return res.data[0]["id"] if res.data else None
 
 def gerente_condo_ids(db: Client, profile_id: str):
     """IDs dos condomínios sob a gerência do usuário (lista vazia se não for gerente / sem condos)."""
     g_id = get_gerente_id(db, profile_id)
     if not g_id:
         return []
-    res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
-    return [c["id"] for c in (res.data or [])]
+    try:
+        return _ref.condominios_do_gerente(db, g_id)
+    except Exception as e:
+        print(f"[cache] condominios indisponivel, consultando direto: {type(e).__name__}")
+        res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
+        return [c["id"] for c in (res.data or [])]
 
 def carteira_gerente_id(db: Client, user: dict):
     """gerentes.id da carteira do usuário — gerente: a sua; assistente: a do gerente vinculado."""
@@ -137,16 +150,10 @@ def condos_cobertos_por_ausencia(db: Client, user: dict):
     if not uid:
         return []
     try:
-        from datetime import date
-        hoje = date.today().isoformat()
-        linhas = (db.table("gerente_ausencia_condominios")
-                  .select("condominio_id, gerente_ausencias!inner(data_inicio, data_fim, encerrada_em)")
-                  .eq("substituto_id", uid)
-                  .is_("gerente_ausencias.encerrada_em", "null")
-                  .lte("gerente_ausencias.data_inicio", hoje)
-                  .gte("gerente_ausencias.data_fim", hoje)
-                  .execute().data or [])
-        return [l["condominio_id"] for l in linhas]
+        # Uma consulta serve TODOS os substitutos — são pouquíssimas linhas —
+        # e a data entra na chave, para uma cobertura não sobreviver à virada
+        # do dia num processo que ficou de pé.
+        return list(_ref.ausencias_de_hoje(db).get(uid, []))
     except Exception as e:
         # 0117 ainda nao rodou, ou o embed falhou: ninguem cobre ninguem.
         print(f"[carteira] ausencias nao consultadas (segue sem): {type(e).__name__}")
@@ -160,5 +167,9 @@ def carteira_condo_ids(db: Client, user: dict):
     g_id = carteira_gerente_id(db, user)
     if not g_id:
         return cobertos
-    res = db.table("condominios").select("id").eq("gerente_id", g_id).execute()
-    return list({c["id"] for c in (res.data or [])} | set(cobertos))
+    try:
+        proprios = _ref.condominios_do_gerente(db, g_id)
+    except Exception as e:
+        print(f"[cache] condominios indisponivel, consultando direto: {type(e).__name__}")
+        proprios = [c["id"] for c in (db.table("condominios").select("id").eq("gerente_id", g_id).execute().data or [])]
+    return list(set(proprios) | set(cobertos))

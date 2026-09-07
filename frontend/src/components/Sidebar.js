@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useState, useRef, useEffect } from 'react';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
 import { usePendingCount } from '@/lib/usePendingCount';
+import { aoAproximar } from '@/lib/prefetchRota';
 import ThemeToggle from './ThemeToggle';
 import { LayoutDashboard, Building, FileCheck2, Users, LogOut, ChevronLeft, ChevronRight, Receipt, FileUp, KeyRound, Droplet, Mail, X, FileText, Printer } from 'lucide-react';
 import { LogoMark } from './Logo';
@@ -107,6 +108,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
               const showBadge = item.showBadge && pendingCount > 0;
               return (
                 <Link key={item.href} href={item.href} onClick={handleNav}
+                  {...aoAproximar(item.href)}
                   title={isCollapsed ? item.label : undefined}
                   aria-current={active ? 'page' : undefined}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors relative ${active ? 'bg-violet-600 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'} ${isCollapsed ? 'justify-center px-0' : ''}`}>
@@ -129,6 +131,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile = () => {} }
                   const active = isActive(item.href);
                   return (
                     <Link key={item.href} href={item.href} onClick={handleNav}
+                      {...aoAproximar(item.href)}
                       title={isCollapsed ? item.label : undefined}
                       aria-current={active ? 'page' : undefined}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors ${active ? 'bg-violet-600 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'} ${isCollapsed ? 'justify-center px-0' : ''}`}>

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
+import { aoAproximar } from '@/lib/prefetchRota';
 import { ROLE_LABELS, canAccessPath } from '@/lib/roles';
 import { usePendingCount } from '@/lib/usePendingCount';
 import { LogoMark } from './Logo';
@@ -126,6 +127,7 @@ export default function MobileShell({ children }) {
               <Link
                 key={t.href}
                 href={t.href}
+                {...aoAproximar(t.href)}
                 aria-current={active ? 'page' : undefined}
                 className="relative flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] active:opacity-60 transition-opacity"
               >
@@ -188,7 +190,7 @@ export default function MobileShell({ children }) {
                 {visibleMais.map((i) => {
                   const active = isActive(i.href);
                   return (
-                    <Link key={i.href} href={i.href}
+                    <Link key={i.href} href={i.href} {...aoAproximar(i.href)}
                       className={`flex flex-col items-center justify-center text-center gap-2 py-4 px-1 rounded-2xl border transition-colors active:opacity-70 ${active ? 'bg-violet-600 border-violet-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
                       <i.icon className={`w-6 h-6 ${active ? 'text-white' : 'text-violet-600'}`} aria-hidden="true" />
                       <span className="text-[11px] font-bold leading-tight">{i.label}</span>

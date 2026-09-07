@@ -618,7 +618,7 @@ export default function CobrancasExtrasPage() {
     (async () => {
       setLoadingCondos(true);
       try {
-        const res = await apiFetch('/api/condominios');
+        const res = await apiFetch('/api/condominios?basico=1');
         const data = (res?.condos || [])
           .map(c => ({ id: c.id, name: c.name }))
           .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
