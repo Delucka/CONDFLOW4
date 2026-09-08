@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRealtime } from '@/lib/realtime';
 import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search, Droplet, GripVertical } from 'lucide-react';
-import { safeStorageName } from '@/lib/storage';
+import { safeStorageName, validarArquivo, mensagemDeUpload, ACCEPT_UPLOAD } from '@/lib/storage';
 import { nomeDocumento } from '@/lib/rotuloDocumento';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
@@ -458,11 +458,13 @@ export default function VisaoEmissor({ profile }) {
   // está sendo emitido.
   async function anexarDocumentoCobranca(cobranca, file) {
     if (!file) return;
+    const problema = validarArquivo(file);
+    if (problema) { addToast(problema, 'error'); return; }
     setAnexandoDoc(cobranca.id);
     try {
       const caminho = `cobrancas_extras/${activePacote.condominio_id}/${Date.now()}_${safeStorageName(file.name)}`;
       const { error: upErr } = await supabase.storage.from('emissoes').upload(caminho, file);
-      if (upErr) throw upErr;
+      if (upErr) throw new Error(mensagemDeUpload(upErr));
       await apiPost(`/api/cobrancas-extras/${cobranca.id}/documento`, { attachments: [caminho] });
       addToast('Documento anexado. A cobrança já pode entrar na emissão.', 'success');
       setConfReload(n => n + 1);
@@ -1454,7 +1456,7 @@ export default function VisaoEmissor({ profile }) {
     // Upload da resposta de correcao se aplicavel
     if (ehRespostaCorrecao && respostaCorrecaoFile) {
       try {
-        const path = `respostas-correcao/${activePacote.id}/${Date.now()}_${respostaCorrecaoFile.name}`;
+        const path = `respostas-correcao/${activePacote.id}/${Date.now()}_${safeStorageName(respostaCorrecaoFile.name)}`;
         const { error: upErr } = await supabase.storage.from('emissoes').upload(path, respostaCorrecaoFile);
         if (upErr) throw upErr;
         updatePayload.resposta_correcao_arquivo_url = path;
@@ -2040,7 +2042,9 @@ export default function VisaoEmissor({ profile }) {
                                       : <><Paperclip className="w-2.5 h-2.5" /> anexar documento</>}
                                     <input
                                       type="file"
-                                      accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
+                                      /* Oferecia .doc/.docx/.xls/.xlsx, que o bucket recusa com 415.
+                                         Oferecer o que não sobe é mandar o usuário tentar à toa. */
+                                      accept={ACCEPT_UPLOAD}
                                       disabled={anexandoDoc === c.id}
                                       onClick={e => e.stopPropagation()}
                                       onChange={e => {

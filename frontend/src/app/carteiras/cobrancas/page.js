@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { apiFetch } from '@/lib/api';
+import { safeStorageName, validarArquivo, mensagemDeUpload, ACCEPT_UPLOAD } from '@/lib/storage';
 import { mesAnoVigente, mesFechado } from '@/lib/mesVigente';
 import { can } from '@/lib/roles';
 import {
@@ -149,6 +150,10 @@ function ModalLancar({ condominioId, condominioNome, onClose, onSaved }) {
       addToast('Anexe o documento que comprova a cobrança.', 'error');
       return;
     }
+    // Conferir aqui, e não depois do envio: o bucket recusa Word, Excel e
+    // qualquer coisa acima de 25 MB, e a recusa dele chega em inglês.
+    const problema = validarArquivo(selectedFile);
+    if (problema) { addToast(problema, 'error'); return; }
     if (parcelasEmMesBloqueado.length > 0) {
       addToast('Alguma parcela cai em mês bloqueado. Escolha outro mês inicial.', 'error');
       return;
@@ -163,12 +168,18 @@ function ModalLancar({ condominioId, condominioNome, onClose, onSaved }) {
       let fileUrl = null;
       if (selectedFile) {
         const sb = createClient();
-        const fileName = `${Date.now()}_${selectedFile.name}`;
+        // O Storage recusa a chave com acento, ç, ~, # ou \ -- devolve
+        // `InvalidKey`, em inglês, e o anexo simplesmente não sobe. Em nome de
+        // arquivo em português isso é o caso comum, não a exceção:
+        // "Manutenção.pdf", "Reparação — Março.pdf", "NF #123.pdf". Medido
+        // contra o bucket de produção em 08/09/2026: com acento, 400; saneado,
+        // 200. Espaço, parênteses e ? passam.
+        const fileName = `${Date.now()}_${safeStorageName(selectedFile.name)}`;
         const { data: uploadData, error: uploadErr } = await sb.storage
           .from('emissoes')
           .upload(`cobrancas_extras/${condominioId}/${fileName}`, selectedFile);
         
-        if (uploadErr) throw uploadErr;
+        if (uploadErr) throw new Error(mensagemDeUpload(uploadErr));
         fileUrl = uploadData.path;
       }
 
@@ -318,7 +329,13 @@ function ModalLancar({ condominioId, condominioNome, onClose, onSaved }) {
         <div className="pt-2">
             <label className="block text-center border-2 border-dashed border-slate-700 
 hover:border-amber-500/50 rounded-xl p-4 cursor-pointer bg-slate-100/50 hover:bg-amber-500/5 transition-all group">
-                <input type="file" className="hidden" onChange={(e) => setSelectedFile(e.target.files[0])} />
+                <input type="file" className="hidden" accept={ACCEPT_UPLOAD}
+                  onChange={(e) => {
+                    const f = e.target.files[0];
+                    const erro = f ? validarArquivo(f) : null;
+                    if (erro) { addToast(erro, 'error'); e.target.value = ''; setSelectedFile(null); return; }
+                    setSelectedFile(f);
+                  }} />
                 <div className="flex flex-col items-center gap-2">
                     <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center 
 group-hover:scale-110 transition-transform">

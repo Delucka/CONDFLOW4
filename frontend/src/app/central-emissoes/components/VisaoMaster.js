@@ -608,7 +608,10 @@ export default function VisaoMaster() {
       setStatusUpload({ ...novoStatus });
       try {
         const ext      = file.name.split('.').pop().toLowerCase();
-        const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        // Era um saneador próprio, que barrava o InvalidKey mas trocava cada
+        // acento por `_` ("Manutenção" -> "Manuten__o"). O compartilhado tira o
+        // acento e mantém a letra ("Manutencao").
+        const safeName = `${Date.now()}_${safeStorageName(file.name)}`;
         const filePath = `${pacoteExpedir.condominio_id}/${pacoteExpedir.id}/${safeName}`;
 
         const { error: upErr } = await supabase.storage
