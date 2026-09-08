@@ -1,7 +1,55 @@
 # Mover o Supabase para São Paulo
 
-> Levantamento e medições de **07/09/2026**. Nada aqui foi executado ainda —
-> este é o documento que precisa existir **antes** da janela de manutenção.
+> **EXECUTADO em 07/09/2026.** O banco está em `sa-east-1` (São Paulo), projeto
+> `condominios2` / `zdudjjlqltgbhehmhwfp`. O que segue é o registro do que foi
+> feito, com os números medidos depois. O projeto antigo continua de pé como
+> rede de segurança — apagar por volta de **22/09/2026**.
+
+## O resultado
+
+| | Oregon | São Paulo |
+|---|---|---|
+| 1 linha | 267 ms | **60 ms** |
+| 325 linhas, 3 colunas (45 KB) | 270 ms | **69 ms** |
+| 325 linhas, `select *` (238 KB) | 532 ms | **75 ms** |
+| 3.588 `rateios_valores` (189 KB) | 456 ms | **73 ms** |
+| preâmbulo do gerente, instância fria | 285 ms | **108 ms** |
+
+Somando com o cache e o paralelismo das camadas 3 e 4, o preâmbulo saiu de
+**1.665 ms para 108 ms — 15×**. E o tamanho do dado praticamente parou de
+custar: 238 KB agora saem em 75 ms, contra 532 ms.
+
+### Como foi
+
+1. `pg_dump` nativo (17.11) pelo pooler, com os mesmos comandos que a CLI do
+   Supabase gera — só que sem Docker. A CLI emite `--quote-all-identifier` no
+   singular, que o `pg_dump` de verdade recusa; corrigido para o plural.
+2. Restauração em **5,4 s, zero erros**, com `--single-transaction` e
+   `ON_ERROR_STOP=1`.
+3. Conferência: **69 tabelas e 15.650 linhas** dos dois lados, diferença de 2
+   linhas em `auth.refresh_tokens` (sessões criadas durante o dump). Estrutura
+   idêntica: 61 policies, 37 tabelas com RLS, 26 funções, 17 triggers, 136
+   índices, 1 view, mesmas 6 extensões.
+4. `pg_cron` recriado à mão (o schema `cron` não vem no dump).
+5. Storage: **927 arquivos / 272,8 MB em 203 s**, zero falhas. Conferido:
+   mesma contagem, **mesma soma exata de bytes** (286.066.905) e 30 arquivos
+   sorteados idênticos por SHA-256.
+6. Quatro variáveis trocadas na Vercel e deploy. O bundle do navegador passou a
+   referenciar só o projeto novo.
+
+O projeto novo usa as **chaves no formato novo** (`sb_publishable_` /
+`sb_secret_`). Conferido antes de virar: `supabase-py` e `@supabase/ssr` 0.10.0
+aceitam as duas, e nenhum código nosso decodifica a chave como JWT. O JWKS do
+projeto novo também publica ES256, então o `JWT_LOCAL=1` continua valendo.
+
+### Ainda pendente
+
+- **Auth → URL Configuration** no projeto novo: `Site URL` e a lista de
+  *Redirect URLs*. Não vêm no dump e não aparecem em `/auth/v1/settings`. É a
+  armadilha que já mordeu este projeto uma vez (ver a nota sobre reset de senha).
+- O `.env` da VPS ainda aponta para o projeto antigo. Nada usa hoje, mas fica
+  errado se alguém voltar a usar.
+- Apagar o projeto antigo por volta de 22/09 e **religar o spend cap**.
 
 ## O problema, em uma linha
 
