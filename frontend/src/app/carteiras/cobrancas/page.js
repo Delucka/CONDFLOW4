@@ -8,11 +8,12 @@ import { can } from '@/lib/roles';
 import {
   Plus, Trash2, Loader2, X, AlertCircle, CheckCircle2,
   Receipt, Calendar, Repeat, Building2, Clock, Lock,
-  UploadCloud, FileText, ChevronDown, Search, Pencil,
+  UploadCloud, FileText, ChevronDown, Search, Pencil, Ban
 } from 'lucide-react';
 
 import { useLockedMonths } from '@/lib/useLockedMonths';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import Botao from '@/components/Botao';
 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -530,6 +531,119 @@ function ModalAlterar({ grupo, onClose, onSaved }) {
 }
 
 // ─── Modal: Solicitar Cancelamento ────────────────────────────────
+/**
+ * Remocao definitiva de uma cobranca extra — so o master.
+ *
+ * Existe porque `solicitar-cancelamento` so alcanca cobranca `ativa` do mes
+ * corrente em diante. O que ja entrou numa emissao vira `processada`, e a
+ * partir dai ninguem tinha caminho: lancou errado e a emissao passou, a linha
+ * ficava para sempre na tela.
+ *
+ * A previa vem antes da pergunta. Se a cobranca esta dentro de uma emissao
+ * REGISTRADA E LACRADA, o modal diz isso com todas as letras — porque a
+ * remocao limpa a tela mas nao reescreve o que ja foi cobrado, e quem clica
+ * precisa saber a diferenca antes de clicar, nao depois.
+ */
+function ModalRemover({ grupo, onClose, onSaved }) {
+  const { addToast } = useToast();
+  const [motivo, setMotivo] = useState('');
+  const [previa, setPrevia] = useState(null);
+  const [removendo, setRemovendo] = useState(false);
+  const parcelas = grupo?.parcelas || [];
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const rs = await Promise.all(parcelas.map((p) => apiFetch(
+        '/api/cobrancas-extras/' + p.id + '/remover',
+        { method: 'POST', body: JSON.stringify({ motivo: '', confirmar: false }) },
+      ).catch(() => null)));
+      if (!vivo) return;
+      const lacradas = rs.filter((r) => r && r.em_emissao_lacrada && r.em_emissao_lacrada.length);
+      setPrevia({
+        total: parcelas.length,
+        lacradas: lacradas.length,
+        onde: (lacradas[0] && lacradas[0].em_emissao_lacrada[0]) || null,
+      });
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grupo?.grupo_id]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (motivo.trim().length < 5) { addToast('Diga por que esta removendo — fica registrado.', 'warning'); return; }
+    setRemovendo(true);
+    try {
+      for (const p of parcelas) {
+        // Uma de cada vez, de proposito: se a terceira falhar, as duas
+        // primeiras ja sairam e a mensagem diz onde parou.
+        await apiFetch('/api/cobrancas-extras/' + p.id + '/remover', {
+          method: 'POST', body: JSON.stringify({ motivo: motivo.trim(), confirmar: true }),
+        });
+      }
+      addToast(parcelas.length === 1 ? 'Cobranca removida.' : parcelas.length + ' parcelas removidas.', 'success');
+      onSaved(); onClose();
+    } catch (err) {
+      addToast(err.message || 'Nao consegui remover.', 'error');
+    } finally { setRemovendo(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Ban className="w-5 h-5 text-rose-500" aria-hidden="true" />
+            <h3 className="text-lg font-bold text-slate-800">Remover cobranca</h3>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-700" aria-label="Fechar"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="bg-slate-100 rounded-lg p-3 text-sm">
+            <p className="font-bold text-slate-800">{grupo.descricao_base}</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {parcelas.length === 1 ? '1 lancamento' : parcelas.length + ' parcelas'} · some das telas e para de ser cobrada.
+            </p>
+          </div>
+
+          {previa === null ? (
+            <p className="text-xs text-slate-500">Conferindo onde ela aparece...</p>
+          ) : previa.lacradas > 0 ? (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-800">Ja foi emitida</p>
+              <p className="text-[12px] text-amber-900 mt-1">
+                {previa.lacradas === 1 ? 'Esta cobranca esta' : previa.lacradas + ' destas parcelas estao'} dentro de uma
+                emissao <b>registrada e lacrada</b>{previa.onde ? ' (' + previa.onde.mes + '/' + previa.onde.ano + ')' : ''}.
+                {' '}Remover tira da tela e do que vem pela frente, mas <b>nao altera a emissao ja enviada</b> —
+                o boleto que saiu continua sendo o que saiu.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">Nao esta dentro de nenhuma emissao registrada.</p>
+          )}
+
+          <div>
+            <label htmlFor="motivo-remover" className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+              Por que esta removendo
+            </label>
+            <textarea id="motivo-remover" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3}
+              placeholder="Ex.: lancamento de teste, criado por engano"
+              className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500/60" />
+            <p className="text-[10px] text-slate-400 mt-1">Fica registrado com o seu nome e a data.</p>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Botao variante="discreto" onClick={onClose} type="button">Cancelar</Botao>
+            <Botao variante="perigo" type="submit" icone={Ban} carregando={removendo}
+              disabled={motivo.trim().length < 5}>Remover</Botao>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function ModalCancelar({ cobranca, onClose, onSaved }) {
   const { addToast } = useToast();
   const [motivo, setMotivo] = useState('');
@@ -600,6 +714,7 @@ export default function CobrancasExtrasPage() {
   const [loading, setLoading] = useState(false);
   const [modalLancar, setModalLancar] = useState(false);
   const [modalCancelar, setModalCancelar] = useState(null);
+  const [modalRemover, setModalRemover] = useState(null);
   const [modalAlterar, setModalAlterar] = useState(null);
   const [alteracoes, setAlteracoes] = useState([]);
   const [decidindo, setDecidindo] = useState(null);
@@ -611,6 +726,9 @@ export default function CobrancasExtrasPage() {
   const podeLancar   = can(role, 'edit_cobrancas_extras');
   const podeExecutar = role === 'master' || role === 'departamento';
   const podeSolicitar = role === 'master' || role === 'gerente' || role === 'assistente';
+  // Remover de vez e so do master, e alcanca inclusive a `processada` —
+  // que e justamente a que nao tinha caminho nenhum.
+  const ehMaster = role === 'master';
 
   // Carrega condomínios da carteira — usa /api/condominios (já filtra carteira p/ gerente E assistente)
   useEffect(() => {
@@ -891,6 +1009,10 @@ export default function CobrancasExtrasPage() {
                   )}
                   {podeSolicitar && grupo.status === 'ativa' && (
                     <button onClick={() => setModalCancelar(grupo)} className="tap shrink-0 text-slate-400" aria-label="Solicitar cancelamento"><Trash2 className="w-4 h-4" /></button>
+                  )}
+                  {ehMaster && (
+                    <button onClick={() => setModalRemover(grupo)} className="tap shrink-0 text-slate-400 hover:text-rose-600"
+                      title="Remover de vez (so master)" aria-label="Remover cobranca"><Ban className="w-4 h-4" /></button>
                   )}
                 </div>
                 {grupo.status === 'solicitado_cancelamento' && (
@@ -1201,6 +1323,9 @@ export default function CobrancasExtrasPage() {
       )}
       {modalCancelar && (
         <ModalCancelar cobranca={modalCancelar} onClose={() => setModalCancelar(null)} onSaved={carregar} />
+      )}
+      {modalRemover && (
+        <ModalRemover grupo={modalRemover} onClose={() => setModalRemover(null)} onSaved={carregar} />
       )}
       {modalAlterar && (
         <ModalAlterar grupo={modalAlterar} onClose={() => setModalAlterar(null)} onSaved={carregar} />

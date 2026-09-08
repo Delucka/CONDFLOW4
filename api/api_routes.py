@@ -643,7 +643,7 @@ def _cobrancas_da_emissao(db, pac):
             .select("id, description, attachments, status") \
             .eq("condominio_id", pac["condominio_id"]) \
             .eq("mes", pac.get("mes_referencia")).eq("ano", pac.get("ano_referencia")) \
-            .neq("status", "cancelada").execute().data or []
+            .not_.in_("status", "(cancelada,removida)").execute().data or []
         incl = pac.get("cobrancas_incluidas")
         if isinstance(incl, list):
             rows = [c for c in rows if c.get("id") in incl]
@@ -3303,7 +3303,7 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
             .select("id,description,amount,created_at,attachments,status,mes,ano,unidades,parcela_atual,parcela_total,grupo_id,"
                     "alteracao_proposta,alteracao_motivo,alteracao_pedida_por") \
             .eq("condominio_id", condo_id) \
-            .neq("status", "cancelada")
+            .not_.in_("status", "(cancelada,removida)")
 
         if req_mes and req_ano:
             query = query.eq("mes", int(req_mes)).eq("ano", int(req_ano))
@@ -3765,6 +3765,108 @@ def api_executar_cancelamento(
         raise HTTPException(400, str(e))
 
 
+class RemoverCobrancaSchema(BaseModel):
+    motivo: str
+    confirmar: bool = False
+
+
+@router.post("/cobrancas-extras/{cobranca_id}/remover")
+def api_remover_cobranca_extra(
+    cobranca_id: str,
+    data: RemoverCobrancaSchema,
+    user: dict = Depends(get_current_user),
+    db: Client = Depends(get_db),
+):
+    """Tira uma cobrança extra de circulação — inclusive as já `processada`.
+
+    O BURACO QUE ISTO FECHA
+    -----------------------
+    `solicitar-cancelamento` só enxerga `status = 'ativa'` e só marca parcela do
+    mês corrente em diante. Cobrança que já entrou numa emissão vira
+    `processada`, e a partir daí **nenhum papel tinha caminho para ela** — nem o
+    master. Lançou errado e a emissão passou? A linha ficava para sempre.
+
+    O QUE ELA NÃO FAZ
+    -----------------
+    Não reescreve emissão registrada. Se a cobrança está dentro de um pacote
+    **lacrado**, o pacote fica como está: ele é o registro fiel do que foi
+    cobrado naquele mês, e mexer nele faria o sistema discordar dos boletos que
+    já saíram. A cobrança some das telas e para de ser cobrada daqui para a
+    frente; o passado continua contado como aconteceu.
+
+    Em pacote NÃO lacrado (rascunho, em aprovação), o id é retirado de
+    `cobrancas_incluidas` — senão a emissão continuaria levando junto uma
+    cobrança que já não existe.
+
+    `removida` em vez de apagar a linha: quem removeu, quando e por quê ficam
+    registrados. Numa administradora, "essa cobrança sumiu" é pergunta que
+    alguém faz seis meses depois.
+
+    Com `confirmar: false` não muda nada — devolve só o impacto, para a tela
+    poder avisar antes de perguntar "tem certeza?".
+    """
+    require_role(user, ["master"])
+
+    motivo = (data.motivo or "").strip()
+    if data.confirmar and len(motivo) < 5:
+        raise HTTPException(400, "Diga por que está removendo (o motivo fica registrado).")
+
+    atual = (db.table("cobrancas_extras")
+             .select("id, condominio_id, description, amount, mes, ano, status, grupo_id")
+             .eq("id", cobranca_id).maybe_single().execute().data)
+    if not atual:
+        raise HTTPException(404, "Cobrança não encontrada.")
+    if atual["status"] == "removida":
+        return {"success": True, "ja_removida": True}
+
+    # Onde ela aparece. `contains` com JSON — a coluna é uma lista de ids.
+    try:
+        import json as _json
+        pacotes = (db.table("emissoes_pacotes")
+                   .select("id, mes_referencia, ano_referencia, status, lacrada, cobrancas_incluidas")
+                   .contains("cobrancas_incluidas", _json.dumps([cobranca_id]))
+                   .execute().data or [])
+    except Exception as e:
+        log.warning(f"[remover-cobranca] nao consegui olhar os pacotes: {type(e).__name__}: {e}")
+        pacotes = []
+
+    lacrados = [p for p in pacotes if p.get("lacrada")]
+    soltos = [p for p in pacotes if not p.get("lacrada")]
+    resumo = {
+        "descricao": atual.get("description"),
+        "valor": atual.get("amount"),
+        "competencia": f"{atual.get('mes')}/{atual.get('ano')}",
+        "status_atual": atual.get("status"),
+        "em_emissao_lacrada": [
+            {"mes": p["mes_referencia"], "ano": p["ano_referencia"], "status": p["status"]}
+            for p in lacrados
+        ],
+        "em_emissao_aberta": len(soltos),
+    }
+
+    if not data.confirmar:
+        return {"success": True, "previa": True, **resumo}
+
+    # Tira da emissão que ainda pode mudar. A lacrada não se toca.
+    desvinculadas = 0
+    for p in soltos:
+        try:
+            nova = [c for c in (p.get("cobrancas_incluidas") or []) if c != cobranca_id]
+            db.table("emissoes_pacotes").update({"cobrancas_incluidas": nova}).eq("id", p["id"]).execute()
+            desvinculadas += 1
+        except Exception as e:
+            log.warning(f"[remover-cobranca] pacote {p['id']} nao soltou a cobranca: {type(e).__name__}: {e}")
+
+    db.table("cobrancas_extras").update({
+        "status": "removida",
+        "motivo_cancelamento": motivo,
+        "cancelado_por": user["id"],
+    }).eq("id", cobranca_id).execute()
+
+    log.info(f"[remover-cobranca] {cobranca_id} removida por {user.get('full_name')} — {motivo[:80]}")
+    return {"success": True, "desvinculadas": desvinculadas, **resumo}
+
+
 # =============================================================================
 # Gerente na operacao, e a carteira que ele deixa para tras
 # =============================================================================
@@ -4145,7 +4247,7 @@ def api_listar_cobrancas(
     try:
         query = db.table("cobrancas_extras").select("*") \
             .eq("condominio_id", condominio_id) \
-            .neq("status", "cancelada")
+            .not_.in_("status", "(cancelada,removida)")
             
         if mes and ano:
             query = query.eq("mes", mes).eq("ano", ano)
