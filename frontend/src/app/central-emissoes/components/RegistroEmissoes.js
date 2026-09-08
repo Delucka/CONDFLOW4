@@ -302,7 +302,7 @@ export default function RegistroEmissoes({ profile }) {
             .eq('condominio_id', pacote.condominio_id)
             .eq('mes', pacote.mes_referencia)
             .eq('ano', pacote.ano_referencia)
-            .neq('status', 'cancelada');
+            .neq('status', 'cancelada').neq('status', 'removida');
           let list = rows || [];
           const incl = pacote.cobrancas_incluidas;
           if (Array.isArray(incl)) list = list.filter(c => incl.includes(c.id));

@@ -643,7 +643,7 @@ def _cobrancas_da_emissao(db, pac):
             .select("id, description, attachments, status") \
             .eq("condominio_id", pac["condominio_id"]) \
             .eq("mes", pac.get("mes_referencia")).eq("ano", pac.get("ano_referencia")) \
-            .not_.in_("status", "(cancelada,removida)").execute().data or []
+            .not_.in_("status", ["cancelada", "removida"]).execute().data or []
         incl = pac.get("cobrancas_incluidas")
         if isinstance(incl, list):
             rows = [c for c in rows if c.get("id") in incl]
@@ -3303,7 +3303,7 @@ def api_dados_conferencia(condo_id: str, request: Request, user: dict = Depends(
             .select("id,description,amount,created_at,attachments,status,mes,ano,unidades,parcela_atual,parcela_total,grupo_id,"
                     "alteracao_proposta,alteracao_motivo,alteracao_pedida_por") \
             .eq("condominio_id", condo_id) \
-            .not_.in_("status", "(cancelada,removida)")
+            .not_.in_("status", ["cancelada", "removida"])
 
         if req_mes and req_ano:
             query = query.eq("mes", int(req_mes)).eq("ano", int(req_ano))
@@ -4245,9 +4245,15 @@ def api_listar_cobrancas(
         if condominio_id not in carteira_condo_ids(db, user):
             raise HTTPException(403, "Este condomínio não está na sua carteira.")
     try:
+        # LISTA, não string. `.not_.in_("status", "(cancelada,removida)")` não
+        # levanta erro nem devolve aviso: o PostgREST engole o filtro malformado
+        # e devolve TUDO. Escrito assim por mim em 08/09/2026, passou um dia
+        # mostrando de volta as canceladas -- e ninguém notou, porque a tela
+        # continuava funcionando, só mentindo. Medido contra produção: sem filtro
+        # 179 linhas, com a string 179, com a lista 138.
         query = db.table("cobrancas_extras").select("*") \
             .eq("condominio_id", condominio_id) \
-            .not_.in_("status", "(cancelada,removida)")
+            .not_.in_("status", ["cancelada", "removida"])
             
         if mes and ano:
             query = query.eq("mes", mes).eq("ano", ano)

@@ -244,7 +244,7 @@ export default function VisualizadorConferencia({ arquivo, arquivos = [], curren
         // Sem snapshot (emissões antigas): reconstrói da tabela (inclui 'processada').
         const { data: rows } = await supabase.from('cobrancas_extras')
           .select('id, description, amount, mes, ano, unidades, attachments, status, parcela_atual, parcela_total')
-          .eq('condominio_id', cid).eq('mes', m).eq('ano', a).neq('status', 'cancelada');
+          .eq('condominio_id', cid).eq('mes', m).eq('ano', a).neq('status', 'cancelada').neq('status', 'removida');
         let list = rows || [];
         if (Array.isArray(incluidas)) list = list.filter((c) => incluidas.includes(c.id));
         if (!cancelado) setCobrancasSnap(list.map((c) => ({

@@ -1305,12 +1305,18 @@ export default function VisaoEmissor({ profile }) {
     let cobrancas_snapshot = null;
     if (activePacote.condominio_id) {
       try {
+        // Dois `.neq` e nao um `.not('status','in', ...)`: a forma negada do `in`
+        // no PostgREST pede a lista como texto entre parenteses, e um texto
+        // malformado ali nao da erro -- ele simplesmente nao filtra nada. Foi
+        // exatamente o que aconteceu no backend em 08/09/2026. Aqui a emissao e
+        // CONGELADA logo abaixo, entao uma cobranca removida que escape vira
+        // permanente no pacote. Dois `neq` sao mais longos e nao tem como falhar calados.
         const { data: rows } = await supabase.from('cobrancas_extras')
           .select('id, description, amount, mes, ano, unidades, attachments, status, parcela_atual, parcela_total')
           .eq('condominio_id', activePacote.condominio_id)
           .eq('mes', activePacote.mes_referencia)
           .eq('ano', activePacote.ano_referencia)
-          .neq('status', 'cancelada');
+          .neq('status', 'cancelada').neq('status', 'removida');
         let list = rows || [];
         const incl = activePacote.cobrancas_incluidas;
         if (Array.isArray(incl)) list = list.filter((c) => incl.includes(c.id));
