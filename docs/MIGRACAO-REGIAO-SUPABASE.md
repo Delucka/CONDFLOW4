@@ -42,6 +42,28 @@ O projeto novo usa as **chaves no formato novo** (`sb_publishable_` /
 aceitam as duas, e nenhum código nosso decodifica a chave como JWT. O JWKS do
 projeto novo também publica ES256, então o `JWT_LOCAL=1` continua valendo.
 
+### O que quebrou depois, e o que ensinou
+
+**08/09/2026 — upload parou de funcionar.** Anexar arquivo em cobrança extra
+respondia `new row violates row-level security policy`. Causa: o dump de schema
+**exclui o schema `storage`**, e as policies do bucket vivem em
+`storage.objects`. O projeto antigo tinha 3; o novo nasceu com 0. Consertado
+pela migration **0122**, que é cópia fiel das de lá.
+
+Por que ninguém viu antes: a conferência da migração foi toda de **leitura** —
+927 arquivos comparados por SHA-256, 15.650 linhas contadas tabela a tabela. E
+leitura de arquivo usa URL assinada gerada pela API com a chave de serviço, que
+**ignora RLS**. Só a ESCRITA sai do navegador e passa pelo RLS. Um dia inteiro
+de verificação sem nunca tentar gravar nada.
+
+**A lição, para a próxima migração:** conferir leitura não conferre escrita. A
+lista de fumaça precisa ter pelo menos um upload, um insert pela tela e um
+delete — as três coisas que passam por policy.
+
+Depois disso, os dois projetos foram comparados item a item nos schemas que o
+dump exclui (policies fora do `public`, jobs do `pg_cron`, extensões, buckets,
+`supabase_functions`): tudo igual, e não havia Database Webhooks em uso.
+
 ### Ainda pendente
 
 - **Auth → URL Configuration** no projeto novo: `Site URL` e a lista de
