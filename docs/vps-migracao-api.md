@@ -163,6 +163,9 @@ TLS e DNS ficam no Cloudflare; a VPS não abre nenhuma porta de entrada. Ótimo 
 
 ## Depois da migração (próximos ganhos)
 
-1. **OCR nativo** — instalar `tesseract-ocr tesseract-ocr-por` na VPS e mover o OCR do navegador pra cá (mais rápido, ainda grátis). O `por.traineddata` já está no repo.
+1. **OCR nativo** — instalar `tesseract-ocr tesseract-ocr-por` na VPS e mover o OCR do navegador pra cá (mais rápido, ainda grátis). O `por.traineddata` **saiu do repositório** em 08/09/2026 — eram 15 MB que
+   subiam em todo deploy da Vercel para servir a um plano que nunca aconteceu.
+   Quando for a hora, o pacote `tesseract-ocr-por` já traz o arquivo; não é
+   preciso versioná-lo.
 2. **Tarefas de fundo** — buscar boleto do Ahreas / limpeza de retenção via `cron` ou `APScheduler` no mesmo processo.
 3. **Redis** (opcional) — cache compartilhado entre workers + rate-limit.
