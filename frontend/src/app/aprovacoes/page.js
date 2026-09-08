@@ -9,7 +9,7 @@ import { combina } from '@/lib/busca';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import {
-  CheckCircle2, AlertCircle, Clock, Search,
+  CheckCircle2, XCircle, AlertCircle, Clock, Search,
   MessageSquare, Building2, Loader2, Send,
   History, Inbox, Eye, ShieldCheck, Filter,
   FileText, Lock, Unlock, Globe, User, Calendar,
@@ -38,6 +38,7 @@ import RelatorioEmissoes from '@/app/aprovacoes/RelatorioEmissoes';
 import RelatorioDocumentos from './RelatorioDocumentos';
 import RelatorioExpedicao from '@/components/RelatorioExpedicao';
 import RelatorioRecibos from './RelatorioRecibos';
+import Botao from '@/components/Botao';
 import { carteirasCobertas } from '@/lib/carteira';
 import BaixarDocumentosEmissao from '@/app/aprovacoes/BaixarDocumentosEmissao';
 import { Package, Archive, BarChart3, UserCheck, Printer, FolderDown, ReceiptText } from 'lucide-react';
@@ -134,6 +135,8 @@ export default function AprovacoesPage() {
 
   const { count: minhasPendenciasEmissao } = usePendingCount();
   const [processing, setProcessing] = useState(null);
+  // Qual botão de reabertura foi apertado — para só ele girar.
+  const [respondendo, setRespondendo] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [arquivoConferencia, setArquivoConferencia] = useState(null);
@@ -253,6 +256,7 @@ export default function AprovacoesPage() {
       addToast(e.message || 'Erro ao liberar', 'error');
     } finally {
       setExecutandoEdicao(null);
+      setRespondendo(null);
     }
   }
   async function handleLiberarTodos() {
@@ -296,6 +300,7 @@ export default function AprovacoesPage() {
     }
   }
   async function handleResponderReabertura(edicao, aprovar) {
+    setRespondendo(`${edicao.id}:${aprovar ? 'sim' : 'nao'}`);
     setExecutandoEdicao(edicao.id);
     try {
       await apiPost(`/api/edicoes-mensais/${edicao.id}/responder-reabertura`, { aprovar });
@@ -681,10 +686,17 @@ export default function AprovacoesPage() {
                       <p className="text-[11px] text-slate-400">{MESES[e.mes_referencia]}/{e.ano_referencia} · motivo: {e.reabertura_motivo}</p>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => handleResponderReabertura(e, true)} disabled={executandoEdicao === e.id}
-                        className="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-semibold uppercase">Aprovar</button>
-                      <button onClick={() => handleResponderReabertura(e, false)} disabled={executandoEdicao === e.id}
-                        className="px-3 py-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-[10px] font-semibold uppercase">Negar</button>
+                      {/* Só o botão clicado gira: `executandoEdicao` guarda o id,
+                          mas quem foi apertado é `respondendo`. Sem isso os dois
+                          rodariam juntos e ninguém saberia qual resposta foi. */}
+                      <Botao tom="sucesso" tamanho="sm" icone={CheckCircle2}
+                        onClick={() => handleResponderReabertura(e, true)}
+                        carregando={respondendo === `${e.id}:sim`}
+                        disabled={executandoEdicao === e.id}>Aprovar</Botao>
+                      <Botao tom="perigo" tamanho="sm" icone={XCircle}
+                        onClick={() => handleResponderReabertura(e, false)}
+                        carregando={respondendo === `${e.id}:nao`}
+                        disabled={executandoEdicao === e.id}>Negar</Botao>
                     </div>
                   </div>
                 ))}

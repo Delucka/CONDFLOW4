@@ -383,6 +383,33 @@ html.dark {
   outline-color: #7da2ff !important;
 }
 
+/* ═══ O botão precisa parecer clicável, e responder ao clique ═══════════
+   Medido em 07/09/2026 no site publicado: `cursor: default` em TODOS os
+   botões, e UMA regra de `:active` no app inteiro (o Primer, do GitHub, tem
+   41). Era a maior parte da sensação de "botão sem vida" — antes de qualquer
+   spinner, o ponteiro do mouse nem virava mãozinha.
+
+   A causa do cursor é o Tailwind 4, que deixou de dar `cursor: pointer` a
+   `<button>` (mudança da v4; até a v3 vinha do navegador). São 498 botões no
+   app: consertar aqui vale mais que 498 edições.
+
+   O pressionado é `brightness`, não `transform`. Conferido no CSS do GitHub e
+   do Linear: nenhum dos dois encolhe o botão — os dois trocam a COR do fundo.
+   `brightness` faz isso sobre qualquer fundo, sem precisar de uma regra por
+   variante. E é instantâneo de propósito: transição no pressionado atrasaria
+   justamente o retorno que se quer imediato. */
+
+:where(button, [role="button"], summary, label[for]):not(:disabled):not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+:where(button, [role="button"]):disabled,
+:where(button, [role="button"])[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+:where(button, [role="button"]):not(:disabled):not([aria-disabled="true"]):active {
+  filter: brightness(0.92);
+}
+
 /* Alvo de toque mínimo (WCAG 2.5.5) para botões só-ícone */
 .tap { min-width: 44px; min-height: 44px; }
 
