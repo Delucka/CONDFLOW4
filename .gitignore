@@ -25,5 +25,9 @@ Thumbs.db
 .env.vercel
 
 # Grafo/vault gerados pela graphify — reconstruíveis, não versionar
-graphify-out/obsidian/
-graphify-out/cache/
+# Saida gerada pelo graphify. Antes so `obsidian/` e `cache/` eram ignorados,
+# e os outros 88 arquivos ficavam versionados -- inertes enquanto ninguem
+# reconstruia. Com o gancho de post-commit ligado, cada commit passaria a sujar
+# o proximo com centenas de KB de graph.json e graph.html misturados ao codigo.
+# Saida de ferramenta nao se versiona.
+graphify-out/

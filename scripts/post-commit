@@ -1,0 +1,36 @@
+#!/bin/sh
+# ─────────────────────────────────────────────────────────────────────────────
+# Mantém o mapa do projeto (grafo + vault do Obsidian) em dia a cada commit.
+#
+# Este NÃO é o gancho de fábrica do graphify. O de fábrica reconstrói o grafo
+# mas nunca chama `to_obsidian` — o vault ficaria parado, que é justamente o
+# que se queria resolver. Aqui roda `scripts/graphify_atualiza.py`, que usa a
+# mesma função da biblioteca e acrescenta o passo do vault.
+#
+# REGRAS QUE ESTE GANCHO RESPEITA:
+#   · Não trava o commit — roda destacado, depois do commit já feito.
+#   · Não fala no terminal — tudo vai para o log.
+#   · Não custa nada — é só AST, sem LLM.
+#   · Não roda no meio de rebase/merge/cherry-pick, senão o `--continue`
+#     esbarra em arquivo mexido.
+# ─────────────────────────────────────────────────────────────────────────────
+GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+[ -d "$GIT_DIR/rebase-merge" ] && exit 0
+[ -d "$GIT_DIR/rebase-apply" ] && exit 0
+[ -f "$GIT_DIR/MERGE_HEAD" ]   && exit 0
+[ -f "$GIT_DIR/CHERRY_PICK_HEAD" ] && exit 0
+
+RAIZ=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -f "$RAIZ/scripts/graphify_atualiza.py" ] || exit 0
+
+PY=""
+for c in python python3; do
+  command -v "$c" >/dev/null 2>&1 && "$c" -c "import graphify" 2>/dev/null && { PY="$c"; break; }
+done
+[ -z "$PY" ] && exit 0
+
+LOG="$RAIZ/graphify-out/ultima-atualizacao.log"
+mkdir -p "$(dirname "$LOG")"
+nohup "$PY" "$RAIZ/scripts/graphify_atualiza.py" > "$LOG" 2>&1 < /dev/null &
+disown 2>/dev/null || true
+exit 0
