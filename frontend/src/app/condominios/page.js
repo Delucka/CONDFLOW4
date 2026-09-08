@@ -20,6 +20,7 @@ import TagConsumo from '@/components/TagConsumo';
 import TagPrioritario from '@/components/TagPrioritario';
 import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
 import { btn, cn } from '@/lib/botoes';
+import Botao from '@/components/Botao';
 import { extrairTextoPdf, lerCondominos, exibirCnpj } from '@/lib/importarCondominos';
 const PainelMoradores = dynamic(() => import('./PainelMoradores'), { ssr: false });
 const PainelPrioridades = dynamic(() => import('@/components/PainelPrioridades'), { ssr: false });
@@ -236,7 +237,13 @@ export default function CondominiosPage() {
     }
   }
 
+  // Qual condominio esta abrindo a previa. Sao ate QUATRO idas ao banco em
+  // sequencia aqui embaixo -- sem sinal, o usuario clica no olho, a tela
+  // fica parada, e ele clica de novo.
+  const [abrindoPrevia, setAbrindoPrevia] = useState(null);
+
   const handleQuickView = async (condoId) => {
+    setAbrindoPrevia(condoId);
     try {
       const { data: fileData, error: fileError } = await supabase
         .from('emissoes_arquivos')
@@ -293,6 +300,8 @@ export default function CondominiosPage() {
     } catch (err) {
       console.error(err);
       addToast('Não foi possível abrir a prévia.', 'error');
+    } finally {
+      setAbrindoPrevia(null);
     }
   };
 
@@ -583,7 +592,8 @@ export default function CondominiosPage() {
               return (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {condos.map(c => (
-                    <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} onMoradores={setMoradoresDe} onPrioridade={abrirPrioridadeDe} />
+                    <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} onMoradores={setMoradoresDe} onPrioridade={abrirPrioridadeDe}
+                      abrindo={abrindoPrevia === c.id} />
                   ))}
                 </div>
               );
@@ -593,7 +603,8 @@ export default function CondominiosPage() {
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filtered.map(c => (
-                  <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} onMoradores={setMoradoresDe} onPrioridade={abrirPrioridadeDe} />
+                  <CondoCard key={c.id} c={c} canEdit={canEdit} onEdit={openEdit} onQuickView={handleQuickView} onMoradores={setMoradoresDe} onPrioridade={abrirPrioridadeDe}
+                      abrindo={abrindoPrevia === c.id} />
                 ))}
               </div>
             );
@@ -1039,7 +1050,7 @@ function ImportarCondominios({ open, onClose, onPronto, addToast }) {
 }
 
 // Componente Card para evitar repetição
-function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores, onPrioridade }) {
+function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores, onPrioridade, abrindo }) {
   return (
     <div className="glass-panel p-5 md:p-6 rounded-2xl md:rounded-[2rem] border-slate-200 hover:border-violet-500/30 transition-all group shadow-xl flex flex-col justify-between h-full">
         <div>
@@ -1091,13 +1102,13 @@ function CondoCardBase({ c, canEdit, onEdit, onQuickView, onMoradores, onPriorid
             que o outro. Antes um era azul preenchido e os outros cinza, sugerindo
             uma hierarquia que não existe. */}
         <div className="pt-6 border-t border-slate-200 flex gap-2">
-           <button
+           <Botao
+             variante="icone"
+             icone={Eye}
              onClick={() => onQuickView(c.id)}
+             carregando={abrindo}
              aria-label={`Ver última emissão de ${c.name}`}
-             title="Ver última emissão"
-             className={btn.icone}>
-             <Eye className="w-4 h-4" aria-hidden="true" />
-           </button>
+             title="Ver última emissão" />
            <Link href={`/condominio/${c.id}/arrecadacoes`}
              aria-label={`Abrir planilha de ${c.name}`}
              className={cn(btn.pequeno, 'flex-1')}>Planilha</Link>
