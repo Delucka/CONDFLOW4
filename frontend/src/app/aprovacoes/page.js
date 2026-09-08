@@ -689,11 +689,11 @@ export default function AprovacoesPage() {
                       {/* Só o botão clicado gira: `executandoEdicao` guarda o id,
                           mas quem foi apertado é `respondendo`. Sem isso os dois
                           rodariam juntos e ninguém saberia qual resposta foi. */}
-                      <Botao tom="sucesso" tamanho="sm" icone={CheckCircle2}
+                      <Botao variante="aprovar" className="px-3 py-1.5 text-[10px]" icone={CheckCircle2}
                         onClick={() => handleResponderReabertura(e, true)}
                         carregando={respondendo === `${e.id}:sim`}
                         disabled={executandoEdicao === e.id}>Aprovar</Botao>
-                      <Botao tom="perigo" tamanho="sm" icone={XCircle}
+                      <Botao variante="recusar" className="px-3 py-1.5 text-[10px]" icone={XCircle}
                         onClick={() => handleResponderReabertura(e, false)}
                         carregando={respondendo === `${e.id}:nao`}
                         disabled={executandoEdicao === e.id}>Negar</Botao>

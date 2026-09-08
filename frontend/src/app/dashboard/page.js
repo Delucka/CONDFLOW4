@@ -18,7 +18,7 @@ import {
   Building, FileEdit, Clock, CheckCircle2, Inbox, Layers, Receipt,
   AlertCircle, Eye, ShieldCheck, MessageSquare, Send, Loader2,
   FileCheck, User, Activity, Zap, Lock, Unlock, Timer, TrendingUp,
-  ClipboardList, CalendarClock, BarChart3, ChevronRight, ArrowUpDown, Search, X, Ban
+  ClipboardList, CalendarClock, BarChart3, ChevronRight, ArrowUpDown, Search, X, Ban, RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
@@ -35,6 +35,7 @@ const FilaOcorrencias = dynamic(
 import { SkeletonTable } from '@/components/Skeleton';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { btn, cn } from '@/lib/botoes';
+import Botao from '@/components/Botao';
 import { tipo, raio } from '@/lib/tipografia';
 
 // Trabalhamos 1 mês à frente: o padrão das telas é o mês VIGENTE (M+1).
@@ -371,7 +372,21 @@ export default function DashboardPage() {
   useRealtime(['emissoes_pacotes', 'processos', 'pipeline_config'], () => mutate());
   useRealtime(['edicoes_mensais'], () => mutateEdicoes());
 
+  // Qual condomínio está abrindo a prévia. São até QUATRO idas ao banco em
+  // sequência aqui embaixo — sem isso o usuário clica no olho e a tela fica
+  // parada, o que faz ele clicar de novo.
+  const [abrindoPrevia, setAbrindoPrevia] = useState(null);
+
+  // "Tentar novamente" chamava `mutate()` e não dizia nada: numa tela que já
+  // falhou, um botão que parece não responder é a segunda decepção seguida.
+  const [retentando, setRetentando] = useState(false);
+  const tentarDeNovo = async () => {
+    setRetentando(true);
+    try { await mutate(); } finally { setRetentando(false); }
+  };
+
   const handleQuickView = async (condoId) => {
+    setAbrindoPrevia(condoId);
     try {
       const { data: fileData } = await supabase
         .from('emissoes_arquivos').select('*').eq('condominio_id', condoId)
@@ -413,6 +428,8 @@ export default function DashboardPage() {
       });
     } catch (err) {
       addToast('Não foi possível abrir a prévia.', 'error');
+    } finally {
+      setAbrindoPrevia(null);
     }
   };
 
@@ -558,7 +575,8 @@ export default function DashboardPage() {
         <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
         <h3 className={`${tipo.titulo} mb-2`}>Erro de conexão</h3>
         <p className="text-slate-400 mb-6">Não foi possível carregar os dados do painel. O servidor pode estar iniciando — tente de novo em alguns segundos.</p>
-        <button onClick={() => mutate()} className={btn.primario}>Tentar novamente</button>
+        <Botao variante="primario" icone={RefreshCw} onClick={tentarDeNovo}
+          carregando={retentando} rotuloCarregando="Tentando…">Tentar novamente</Botao>
       </div>
     );
   }
@@ -731,9 +749,9 @@ export default function DashboardPage() {
                     <Link href={`/carteiras/cobrancas?condo=${c.id}`} className={cn(btn.pequeno, 'py-2.5')}>
                       <Receipt className="w-3.5 h-3.5" aria-hidden="true" /> Cobranças
                     </Link>
-                    <button onClick={() => handleQuickView(c.id)} className={cn(btn.pequeno, 'py-2.5')}>
-                      <Eye className="w-3.5 h-3.5" aria-hidden="true" /> Ver
-                    </button>
+                    <Botao variante="pequeno" className="py-2.5" icone={Eye}
+                      onClick={() => handleQuickView(c.id)}
+                      carregando={abrindoPrevia === c.id}>Ver</Botao>
                   </div>
                 </div>
               );
@@ -993,7 +1011,8 @@ export default function DashboardPage() {
                                 <Link href={`/carteiras/cobrancas?condo=${c.id}`}    className={btn.iconeDiscreto} title="Cobranças" aria-label="Cobranças"><Receipt className="w-4 h-4" aria-hidden="true" /></Link>
                               </>
                             )}
-                            <button onClick={() => handleQuickView(c.id)}   className={btn.iconeDiscreto} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-4 h-4" aria-hidden="true" /></button>
+                            <Botao variante="iconeDiscreto" icone={Eye} onClick={() => handleQuickView(c.id)}
+                              carregando={abrindoPrevia === c.id} title="Ver última emissão" aria-label="Ver última emissão" />
                           </div>
                         </td>
                       </tr>
@@ -1048,7 +1067,8 @@ export default function DashboardPage() {
                             <Link href={`/carteiras/cobrancas?condo=${c.id}`} className={btn.icone} title="Cobranças" aria-label="Cobranças"><Receipt className="w-4 h-4" aria-hidden="true" /></Link>
                           </>
                         )}
-                        <button onClick={() => handleQuickView(c.id)} className={btn.icone} title="Ver última emissão" aria-label="Ver última emissão"><Eye className="w-4 h-4" aria-hidden="true" /></button>
+                        <Botao variante="icone" icone={Eye} onClick={() => handleQuickView(c.id)}
+                          carregando={abrindoPrevia === c.id} title="Ver última emissão" aria-label="Ver última emissão" />
                       </div>
                     </div>
                     <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2 pl-6">
