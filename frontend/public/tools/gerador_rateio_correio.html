@@ -239,7 +239,7 @@
 
   <div class="note">
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.2v3.4M8 5.2v.01"/></svg>
-    <span>Tudo roda no seu navegador, <strong>sem usar créditos</strong>. No <strong>XLS dos Correios</strong> a leitura é exata: bloco e unidade (até com letra) saem direto das colunas — cada bloco vira um quadro. No PDF/imagem usa OCR e confere a quantidade contra o total da folha. O tipo <strong>Simples/A.R você escolhe</strong>.</span>
+    <span>Tudo roda no seu navegador, <strong>sem usar créditos</strong>. No <strong>XLS dos Correios</strong> a leitura é exata: bloco e unidade (até com letra) saem direto das colunas — cada bloco vira um quadro. No PDF/imagem usa OCR e confere a quantidade contra o total da folha. O tipo <strong>Simples/A.R você escolhe</strong>. Os quadros aparecem na <strong>ordem dos nomes dos arquivos</strong> (1, 2, 3…), e os blocos de um mesmo arquivo ficam juntos.</span>
   </div>
 
   <div class="topbar">
@@ -642,7 +642,11 @@
   }
 
   /* ---------- cards ---------- */
-  function makeCard(name, meta){
+  // `depois`: o quadro nasce logo abaixo desse outro, em vez de no fim da lista.
+  // Sem isso, os quadros extras de um arquivo (um por bloco) iam para o fim
+  // conforme cada raia do pool terminava -- ou seja, na ordem em que o OCR
+  // conseguiu ler, que na pratica e a ordem do tamanho do arquivo.
+  function makeCard(name, meta, depois){
     docSeq++;
     const card=document.createElement("section");
     card.className="card doc"; card.dataset.id="d"+docSeq;
@@ -654,7 +658,8 @@
         '<button class="x-doc" type="button" title="Remover"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>'+
       '</div>'+
       '<div class="doc-body"><div class="reading-state"><span class="spin" style="color:var(--accent)"></span> <span class="rtext">Preparando…</span></div></div>';
-    $("#docs").appendChild(card); refreshTop();
+    if(depois && depois.parentNode) depois.after(card); else $("#docs").appendChild(card);
+    refreshTop();
     card.querySelector(".x-doc").addEventListener("click",()=>{ card.remove(); refreshTop(); });
     return card;
   }
@@ -794,23 +799,28 @@
   }
 
   /* ---------- intake XLS dos Correios (exato, sem OCR) ---------- */
-  async function handleXlsxFiles(files){
+  // Recebe as vagas já criadas por `handleFiles`, na ordem certa. O primeiro
+  // bloco da planilha ocupa a vaga do próprio arquivo; os demais entram logo
+  // abaixo dela, de modo que os quadros de um arquivo ficam sempre juntos.
+  async function handleXlsxFiles(jobs){
     const ok = await waitForXlsx();
     await carregarCadastro();                                  // lista oficial pronta antes de ler (encaixe + validação)
-    for(const file of files){
-      if(!ok || !window.XLSX){ showError(makeCard(file.name,"planilha"),"O leitor de planilha não carregou — recarregue a página conectado à internet."); continue; }
+    for(const { file, card } of jobs){
+      if(!ok || !window.XLSX){ showError(card,"O leitor de planilha não carregou — recarregue a página conectado à internet."); continue; }
       let datasets=[];
       try{ datasets = parseXlsx(await file.arrayBuffer()); }
-      catch(err){ showError(makeCard(file.name,"planilha"),(err&&err.message)||"Não consegui ler a planilha."); continue; }
-      if(!datasets.length){ showError(makeCard(file.name,"planilha"),"Não encontrei nenhuma “Relação de Objetos (Correio)” nesta planilha."); continue; }
-      let i=0;
+      catch(err){ showError(card,(err&&err.message)||"Não consegui ler a planilha."); continue; }
+      if(!datasets.length){ showError(card,"Não encontrei nenhuma “Relação de Objetos (Correio)” nesta planilha."); continue; }
+      let i=0, ancora=card;
       for(const ds of datasets){
         const titulo = ds.condominio_codigo + (ds.bloco && ds.bloco!=="0" ? (" · Bloco "+ds.bloco) : "");
         const nome = ds.condominio_nome||"";
         const metaCad = cadMetaSuffix(ds);
-        const card = makeCard(titulo, nome);
-        populate(card, ds);
-        if(metaCad){ const fm=card.querySelector(".fmeta"); if(fm) fm.textContent = nome + metaCad; }
+        const alvo = (i===0) ? card : makeCard(titulo, nome, ancora);
+        if(i===0){ const fn=alvo.querySelector(".fname"); if(fn) fn.textContent = titulo; }
+        populate(alvo, ds);
+        const fm=alvo.querySelector(".fmeta"); if(fm) fm.textContent = nome + metaCad;
+        ancora = alvo;
         if(++i % 10 === 0) await new Promise(r=>requestAnimationFrame(r));   // mantém a UI fluida em arquivos grandes
       }
     }
@@ -821,26 +831,37 @@
     const all = Array.from(fileList||[]);
     if(!all.length) return;
     const isXlsx = f => /\.(xlsx|xlsm|xls)$/i.test(f.name) || /spreadsheet|excel/i.test(f.type||"");
-    const xlsxFiles = all.filter(isXlsx);
-    const files = all.filter(f=>!isXlsx(f));
 
-    if(xlsxFiles.length) await handleXlsxFiles(xlsxFiles);
-    if(!files.length) return;
+    // A ordem dos quadros é a ordem dos NOMES dos arquivos, e não a ordem em que
+    // eles chegaram. O navegador entrega o `FileList` na ordem em que o sistema
+    // listou a seleção -- se o Explorer estiver ordenado por tamanho, é assim que
+    // eles chegam. `numeric:true` faz 2 vir antes de 10.
+    const ordem = new Intl.Collator("pt-BR", { numeric:true, sensitivity:"base" });
+    all.sort((a,b)=>ordem.compare(a.name||"", b.name||""));
+
+    // Todas as vagas são criadas AGORA, já na ordem final. Depois disso, tanto a
+    // leitura da planilha quanto o OCR só preenchem vaga que já existe -- então
+    // nada do que acontece durante a leitura pode mudar a ordem da tela.
+    const jobs = all.map(file=>{
+      const sizeMB=file.size/1048576;
+      const meta = isXlsx(file) ? "planilha" : (sizeMB<1?Math.round(file.size/1024)+" KB":sizeMB.toFixed(1)+" MB");
+      return { file, card: makeCard(file.name, meta), xlsx: isXlsx(file) };
+    });
+    const xlsxJobs = jobs.filter(j=>j.xlsx);
+    const ocrJobs  = jobs.filter(j=>!j.xlsx);
+
+    if(xlsxJobs.length) await handleXlsxFiles(xlsxJobs);
+    if(!ocrJobs.length) return;
 
     await carregarCadastro();   // cadastro pronto p/ encaixar/​corrigir o que o OCR ler
 
-    // Cria os cards já, na ordem (caminho OCR)
-    const jobs = files.map(file=>{
-      const sizeMB=file.size/1048576; const meta=(sizeMB<1?Math.round(file.size/1024)+" KB":sizeMB.toFixed(1)+" MB");
-      return { file, card: makeCard(file.name, meta) };
-    });
-    if(!ocrReady){ jobs.forEach(j=>showError(j.card,"O leitor de PDF/imagem ainda está carregando — aguarde alguns segundos e solte de novo. (O XLS dos Correios não depende disso.)")); return; }
+    if(!ocrReady){ ocrJobs.forEach(j=>showError(j.card,"O leitor de PDF/imagem ainda está carregando — aguarde alguns segundos e solte de novo. (O XLS dos Correios não depende disso.)")); return; }
 
     let idx=0;
     async function lane(worker){
-      while(idx < jobs.length){
+      while(idx < ocrJobs.length){
         const my = idx++;                 // JS é single-thread entre awaits → sem corrida; cada raia pega um índice
-        const { file, card } = jobs[my];
+        const { file, card } = ocrJobs[my];
         try{
           badge(card,"reading","Lendo…"); setRead(card,"Reconhecendo o texto…");
           const { text, pages }=await ocrFileWithWorker(file, worker, (p,n)=>{
@@ -865,9 +886,10 @@
           if(dss[0].condominio_codigo){ const fn=card.querySelector(".fname"); if(fn) fn.textContent = dss[0].condominio_codigo + (dss[0].bloco&&dss[0].bloco!=="0"?(" · Bloco "+dss[0].bloco):""); }
           populate(card, dss[0]);
           { const fm=card.querySelector(".fmeta"), sfx=cadMetaSuffix(dss[0]); if(fm&&sfx) fm.textContent=(dss[0].condominio_nome||"")+sfx; }
-          for(let k=1;k<dss.length;k++){           // demais blocos -> quadros extras
+          let ancora=card;
+          for(let k=1;k<dss.length;k++){           // demais blocos -> quadros extras, logo abaixo deste arquivo
             const t=dss[k].condominio_codigo + (dss[k].bloco&&dss[k].bloco!=="0"?(" · Bloco "+dss[k].bloco):"");
-            const c2=makeCard(t, dss[k].condominio_nome||""); populate(c2, dss[k]);
+            const c2=makeCard(t, dss[k].condominio_nome||"", ancora); ancora=c2; populate(c2, dss[k]);
             const fm2=c2.querySelector(".fmeta"), sfx2=cadMetaSuffix(dss[k]); if(fm2&&sfx2) fm2.textContent=(dss[k].condominio_nome||"")+sfx2;
           }
         }catch(err){ showError(card,(err&&err.message)||"Não consegui ler o documento."); }
