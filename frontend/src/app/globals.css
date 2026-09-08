@@ -410,6 +410,24 @@ html.dark {
   filter: brightness(0.92);
 }
 
+/* ═══ A coluna que não pode sumir ═════════════════════════════════════
+   Com o zoom do navegador em 150%, um monitor de 1920 vira ~1280 px de CSS —
+   e a tabela do painel fica mais larga que o espaço. O `overflow-x-auto` já
+   existia, mas rolar tabela dentro de painel ninguém descobre: na prática a
+   coluna **Ações** simplesmente sumia, que é a única com o que clicar.
+
+   `background-color: inherit` (e não uma cor fixa) para a célula acompanhar o
+   `hover` da linha — com cor cravada, a coluna fixa ficaria clara enquanto o
+   resto da linha escurece, e a emenda apareceria. Exige que a linha tenha um
+   fundo próprio, senão o conteúdo passa por baixo. */
+
+.col-fixa-direita {
+  position: sticky;
+  right: 0;
+  background-color: inherit;
+  border-left: 1px solid var(--color-border-subtle);
+}
+
 /* Alvo de toque mínimo (WCAG 2.5.5) para botões só-ícone */
 .tap { min-width: 44px; min-height: 44px; }
 

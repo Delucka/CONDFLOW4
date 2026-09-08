@@ -777,10 +777,13 @@ export default function DashboardPage() {
     <div className="animate-fade-in w-full h-full relative space-y-4 pb-12">
 
       {/* ── TOPO: Tabela Situação Semestral + Fila de Conferência ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+      {/* A divisão 2/3 + 1/3 só a partir de `xl` (1280 px). Em `lg` (1024) a
+          tabela ficava com ~630 px para quatro colunas e três ícones de ação —
+          e é exatamente a faixa em que cai quem usa o zoom do navegador. */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
 
         {/* Tabela de Condomínios (Esquerda - 2/3) */}
-        <div className="lg:col-span-2 glass-panel rounded-xl overflow-hidden flex flex-col">
+        <div className="xl:col-span-2 glass-panel rounded-xl overflow-hidden flex flex-col">
           {/* Cabeçalho + busca. Antes eram três controles do mesmo tamanho lado a
               lado, o placeholder cortava no meio ("Buscar condomínio (código ou no…")
               e nada dizia quantos resultados sobraram. Agora a BUSCA é larga e
@@ -934,7 +937,7 @@ export default function DashboardPage() {
                     </th>
                     <th className="px-3 py-2.5">Planilha</th>
                     <th className="px-3 py-2.5">Emissão</th>
-                    <th className="px-4 py-2.5 text-right">Ações</th>
+                    <th className="px-4 py-2.5 text-right col-fixa-direita bg-[var(--color-surface)]">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm divide-y divide-slate-200">
@@ -969,7 +972,7 @@ export default function DashboardPage() {
                         tabIndex={podeEmitir ? 0 : undefined}
                         onKeyDown={podeEmitir ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirEmissao(c); } } : undefined}
                         title={podeEmitir ? `Montar a emissão de ${c.name}` : undefined}
-                        className={`hover:bg-slate-100 transition-colors group ${podeEmitir ? 'cursor-pointer' : ''}`}>
+                        className={`bg-[var(--color-surface)] hover:bg-slate-100 transition-colors group ${podeEmitir ? 'cursor-pointer' : ''}`}>
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             {isLocked
@@ -989,13 +992,13 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 whitespace-nowrap">
                           {procStatus
                             ? <StatusBadge status={procStatus} flow="processo" />
                             : <span className="text-[10px] text-slate-400 font-bold">—</span>
                           }
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 whitespace-nowrap">
                           {emissaoStatus
                             ? <StatusBadge status={emissaoStatus} flow="emissao" />
                             : <span className="text-[10px] text-slate-400 font-bold">—</span>
@@ -1003,7 +1006,7 @@ export default function DashboardPage() {
                         </td>
                         {/* stopPropagation: sem isto, clicar num ícone dispara
                             TAMBÉM o clique da linha e a pessoa acaba na emissão. */}
-                        <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-4 py-2 col-fixa-direita" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1 justify-end">
                             {!fazEmissao && (
                               <>

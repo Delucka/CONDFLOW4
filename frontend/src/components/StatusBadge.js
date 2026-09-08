@@ -69,7 +69,7 @@ export default function StatusBadge({ status, flow }) {
   // font-black + caixa alta + tracking largo, 300 deles competiam com o nome do
   // condomínio — que é o que a pessoa está procurando.
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-semibold ${config.classes}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap px-2 py-0.5 rounded-md border text-[11px] font-semibold ${config.classes}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${config.dot}`} />
       {config.label}
     </span>

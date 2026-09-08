@@ -518,7 +518,11 @@ export default function FilaOcorrencias({ semente = null, esperandoPainel = fals
       </div>
 
       {/* Tabs */}
-      <div className="flex px-6 border-b border-slate-200 bg-slate-50">
+      {/* `overflow-x-auto` + `shrink-0`: com o painel estreito (zoom do
+          navegador), as três abas não cabiam e a última era cortada no meio —
+          "ALTERAÇÕES 29" virava "ALTERAÇÕES 2". Agora elas rolam em vez de
+          sumir, e o respiro diminui antes disso acontecer. */}
+      <div className="flex px-3 xl:px-6 border-b border-slate-200 bg-slate-50 overflow-x-auto">
         {[
           { id: 'afazer',    label: 'A Fazer',     count: acoes.length },
           { id: 'ocorrencia', label: 'Ocorrências', count: ocorrencias.filter(o => o.tipo === 'ocorrencia').length },
@@ -527,7 +531,7 @@ export default function FilaOcorrencias({ semente = null, esperandoPainel = fals
           <button
             key={tab.id}
             onClick={() => setAbaAtiva(tab.id)}
-            className={`px-6 py-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 flex items-center gap-2 ${
+            className={`shrink-0 whitespace-nowrap px-3 xl:px-5 py-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 flex items-center gap-2 ${
               abaAtiva === tab.id
                 ? 'border-violet-600 text-violet-700 bg-violet-500/5'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
