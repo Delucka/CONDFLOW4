@@ -102,12 +102,19 @@ export default function SegundasViasPage() {
     finally { setSaving(false); }
   }
 
+  // Qual arquivo esta abrindo. `abrirArquivoSeguro` pede uma URL assinada ao
+  // servidor antes de abrir a aba -- ate voltar, a tela ficava muda e o
+  // usuario clicava de novo, o que abria duas abas.
+  const [abrindoArquivo, setAbrindoArquivo] = useState(null);
+
   async function abrirArquivo(path) {
     if (!path) return;
+    setAbrindoArquivo(path);
     try {
       const ok = await abrirArquivoSeguro(path);
       if (!ok) addToast('Não consegui abrir o arquivo.', 'error');
     } catch (e) { addToast(e?.message || 'Não consegui abrir o arquivo.', 'error'); }
+    setAbrindoArquivo(null);
   }
 
   const [emitindoId, setEmitindoId] = useState(null);
@@ -125,10 +132,14 @@ export default function SegundasViasPage() {
     finally { setEmitindoId(null); }
   }
 
+  const [cancelandoSv, setCancelandoSv] = useState(null);
+
   async function handleCancelar(sv) {
     if (!confirm('Cancelar esta solicitação?')) return;
+    setCancelandoSv(sv.id);
     try { await apiPost(`/api/segundas-vias/${sv.id}/cancelar`, {}); addToast('Solicitação cancelada.', 'success'); mutate(); }
     catch (err) { addToast(err.message, 'error'); }
+    setCancelandoSv(null);
   }
 
   // Solicitar alteração (nova data / e-mail / motivo) numa 2ª via existente — sem abrir outro chamado
@@ -315,8 +326,16 @@ export default function SegundasViasPage() {
                       </div>
                       {sv.observacoes && <p className="text-[11px] text-slate-500 italic mt-1 line-clamp-2">&ldquo;{sv.observacoes}&rdquo;</p>}
                       <div className="flex items-center gap-3 mt-1.5">
-                        {sv.anexo_url && <button onClick={() => abrirArquivo(sv.anexo_url)} className="text-[10px] font-bold text-violet-700 hover:text-violet-900 inline-flex items-center gap-1"><Paperclip className="w-3 h-3" /> autorização</button>}
-                        {sv.boleto_url && <button onClick={() => abrirArquivo(sv.boleto_url)} className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1"><FileText className="w-3 h-3" /> boleto</button>}
+                        {sv.anexo_url && <button onClick={() => abrirArquivo(sv.anexo_url)} disabled={abrindoArquivo === sv.anexo_url}
+                          className="text-[10px] font-bold text-violet-700 hover:text-violet-900 inline-flex items-center gap-1 disabled:opacity-50">
+                          {abrindoArquivo === sv.anexo_url
+                            ? <Loader2 className="w-3 h-3 motion-safe:animate-spin" aria-hidden="true" />
+                            : <Paperclip className="w-3 h-3" aria-hidden="true" />} autorização</button>}
+                        {sv.boleto_url && <button onClick={() => abrirArquivo(sv.boleto_url)} disabled={abrindoArquivo === sv.boleto_url}
+                          className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1 disabled:opacity-50">
+                          {abrindoArquivo === sv.boleto_url
+                            ? <Loader2 className="w-3 h-3 motion-safe:animate-spin" aria-hidden="true" />
+                            : <FileText className="w-3 h-3" aria-hidden="true" />} boleto</button>}
                       </div>
                     </div>
 
@@ -336,9 +355,11 @@ export default function SegundasViasPage() {
                         </button>
                       )}
                       {sv.status !== 'cancelado' && sv.status !== 'emitido' && (
-                        <button onClick={() => handleCancelar(sv)} title="Cancelar"
-                          className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-300 transition-all">
-                          <X className="w-4 h-4" />
+                        <button onClick={() => handleCancelar(sv)} title="Cancelar" disabled={cancelandoSv === sv.id}
+                          className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-300 transition-all disabled:opacity-50">
+                          {cancelandoSv === sv.id
+                            ? <Loader2 className="w-4 h-4 motion-safe:animate-spin" aria-hidden="true" />
+                            : <X className="w-4 h-4" aria-hidden="true" />}
                         </button>
                       )}
                     </div>

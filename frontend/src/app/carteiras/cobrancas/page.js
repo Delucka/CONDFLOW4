@@ -827,7 +827,12 @@ export default function CobrancasExtrasPage() {
     }
   }
 
+  // Qual grupo esta sendo cancelado. Sem isto o emissor clicava em
+  // "Executar" e nada mudava na tela ate a lista recarregar.
+  const [executandoCancel, setExecutandoCancel] = useState(null);
+
   async function handleExecutarCancelamento(grupo_id) {
+    setExecutandoCancel(grupo_id);
     try {
       await apiFetch('/api/cobrancas-extras/executar-cancelamento', {
         method: 'POST',
@@ -838,6 +843,7 @@ export default function CobrancasExtrasPage() {
     } catch (err) {
       addToast(err.message, 'error');
     }
+    setExecutandoCancel(null);
   }
 
   // Stats
@@ -970,6 +976,7 @@ export default function CobrancasExtrasPage() {
                   <p className="text-sm font-bold text-slate-800 break-words">{c.descricao} — {c.condominio}</p>
                   <p className="text-[11px] text-slate-500 mt-0.5">{c.parcelas_pendentes} parcela(s) de R$ {Number(c.valor_parcela).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · <em>{c.motivo}</em></p>
                   <button onClick={() => handleExecutarCancelamento(c.grupo_id)}
+                    disabled={executandoCancel === c.grupo_id}
                     className="mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-black active:opacity-80">
                     <CheckCircle2 className="w-3.5 h-3.5" /> Cancelar parcelas futuras
                   </button>
@@ -1171,11 +1178,13 @@ export default function CobrancasExtrasPage() {
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <button onClick={() => handleDecidirAlteracao(a, false)} disabled={decidindo === a.id}
-                      className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-50">
+                      className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-50 inline-flex items-center gap-1.5">
+                      {decidindo === a.id && <Loader2 className="w-3.5 h-3.5 motion-safe:animate-spin" aria-hidden="true" />}
                       Recusar
                     </button>
                     <button onClick={() => handleDecidirAlteracao(a, true)} disabled={decidindo === a.id}
                       className="px-4 py-2 rounded-lg bg-violet-600 text-white text-xs font-bold hover:bg-violet-500 disabled:opacity-50 flex items-center gap-1">
+                      {decidindo === a.id && <Loader2 className="w-3.5 h-3.5 motion-safe:animate-spin" aria-hidden="true" />}
                       <CheckCircle2 className="w-3 h-3" /> {decidindo === a.id ? '…' : 'Aprovar'}
                     </button>
                   </div>
