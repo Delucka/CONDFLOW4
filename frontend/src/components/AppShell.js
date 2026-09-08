@@ -16,8 +16,16 @@ export default function AppShell({ children }) {
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Fecha o menu mobile ao trocar de rota
-  useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  // Fecha o menu mobile ao trocar de rota.
+  //
+  // Ajustado durante o RENDER, nao num efeito. Com efeito, a tela chegava a
+  // pintar uma vez na rota nova com a gaveta ainda aberta, e so no quadro
+  // seguinte ela fechava — um piscar curto, mas visivel no celular.
+  const [rotaAnterior, setRotaAnterior] = useState(pathname);
+  if (rotaAnterior !== pathname) {
+    setRotaAnterior(pathname);
+    setDrawerOpen(false);
+  }
 
   useEffect(() => {
     if (!loading && !user && pathname !== '/' && pathname !== '/login' && pathname !== '/reset-password') {

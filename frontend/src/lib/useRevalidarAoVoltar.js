@@ -21,10 +21,19 @@ import { useEffect, useRef } from 'react';
  */
 export function useRevalidarAoVoltar(fn, esperaMs = 20000) {
   const fnRef = useRef(fn);
-  fnRef.current = fn;               // sempre a versão atual, sem reassinar eventos
-  const ultimaRef = useRef(Date.now());
+  // Atribuido num efeito, nao durante o render: mexer em `ref.current` no
+  // corpo do componente torna o render impuro, e o React pode descartar e
+  // refazer esse render. O efeito roda antes de qualquer clique ou troca de
+  // aba, entao a funcao ja esta atualizada quando alguem precisa dela.
+  useEffect(() => { fnRef.current = fn; });
+  // Zero, e nao `Date.now()`: ler o relogio durante o render torna o
+  // componente impuro — dois renders seguidos dariam valores diferentes. O
+  // efeito abaixo carimba a hora na montagem, que e quando ela importa.
+  const ultimaRef = useRef(0);
 
   useEffect(() => {
+    if (ultimaRef.current === 0) ultimaRef.current = Date.now();
+
     function talvezRebuscar() {
       if (document.visibilityState !== 'visible') return;
       const agora = Date.now();

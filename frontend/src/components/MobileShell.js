@@ -60,8 +60,13 @@ export default function MobileShell({ children }) {
   const [maisOpen, setMaisOpen] = useState(false);
   const sheetRef = useRef(null);
 
-  // Fecha a folha ao trocar de rota
-  useEffect(() => { setMaisOpen(false); }, [pathname]);
+  // Fecha a folha ao trocar de rota — durante o render, pelo mesmo motivo do
+  // AppShell: no efeito, a folha aparecia por um quadro na tela nova.
+  const [rotaAnterior, setRotaAnterior] = useState(pathname);
+  if (rotaAnterior !== pathname) {
+    setRotaAnterior(pathname);
+    setMaisOpen(false);
+  }
 
   // Foco preso + trava o scroll do body com a folha aberta
   useFocusTrap(sheetRef, maisOpen, () => setMaisOpen(false));

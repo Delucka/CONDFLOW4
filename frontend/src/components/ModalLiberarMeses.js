@@ -69,7 +69,7 @@ export default function ModalLiberarMeses({
     setAlteracoes(data || []);
     setCarregando(false);
   }
-  useEffect(() => { carregarAlteracoes(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [condoId, ano]);
+  useEffect(() => { carregarAlteracoes();   }, [condoId, ano]);
 
   // A primeira alteração ainda prevista trava dela em diante.
   const mesQueTrava = useMemo(() => {

@@ -57,7 +57,7 @@ export default function AlterarSenhaPage() {
           </div>
           <div className="flex-1">
             <p className="text-violet-300 font-bold text-sm">Precisa alterar a senha de outro usuário?</p>
-            <p className="text-violet-200/70 text-xs mt-0.5">Vá em <strong>Acessos e Perfis</strong> e clique em "Senha" no card do usuário.</p>
+            <p className="text-violet-200/70 text-xs mt-0.5">Vá em <strong>Acessos e Perfis</strong> e clique em &quot;Senha&quot; no card do usuário.</p>
           </div>
           <ChevronRight className="w-5 h-5 text-violet-400 group-hover:translate-x-1 transition-transform" />
         </Link>

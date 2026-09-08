@@ -1,25 +1,32 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Download, Share, Plus, X, MoreVertical } from 'lucide-react';
 import { usePwaInstall } from '@/lib/pwaInstall';
 
 // Botão "Instalar app" (PWA), funciona pros DOIS sistemas:
 // • Android/Chrome: dispara o instalador nativo em 1 toque (evento já capturado no carregamento).
 // • iPhone/Safari: mostra o passo a passo (a Apple não permite instalação automática).
+const nuncaMuda = () => () => {};
+const leEhIOS = () => /iphone|ipad|ipod/i.test(window.navigator.userAgent || '');
+const leInstalado = () => window.matchMedia('(display-mode: standalone)').matches
+  || window.navigator.standalone === true;
+function assinarInstalacao(aoMudar) {
+  window.addEventListener('appinstalled', aoMudar);
+  const mq = window.matchMedia('(display-mode: standalone)');
+  mq.addEventListener('change', aoMudar);
+  return () => { window.removeEventListener('appinstalled', aoMudar); mq.removeEventListener('change', aoMudar); };
+}
+
 export default function InstallAppButton() {
   const { canInstall, install } = usePwaInstall();
-  const [isIOS, setIsIOS] = useState(false);
-  const [standalone, setStandalone] = useState(true); // assume instalado até checar (evita piscar)
   const [sheet, setSheet] = useState(null); // 'ios' | 'android' | null
 
-  useEffect(() => {
-    const nav = window.navigator;
-    setIsIOS(/iphone|ipad|ipod/i.test(nav.userAgent || ''));
-    setStandalone(window.matchMedia('(display-mode: standalone)').matches || nav.standalone === true);
-    const onInstalled = () => setStandalone(true);
-    window.addEventListener('appinstalled', onInstalled);
-    return () => window.removeEventListener('appinstalled', onInstalled);
-  }, []);
+  // Se o app ja esta instalado e se o aparelho e iPhone sao estado do NAVEGADOR,
+  // nao do componente. Copiar para dentro exigia um efeito so para sincronizar.
+  // No servidor nao ha `window`, entao o valor do terceiro argumento assume
+  // "instalado" — que e o que ja evitava o botao piscar na primeira pintura.
+  const standalone = useSyncExternalStore(assinarInstalacao, leInstalado, () => true);
+  const isIOS = useSyncExternalStore(nuncaMuda, leEhIOS, () => false);
 
   if (standalone) return null; // já instalado
 
@@ -76,7 +83,7 @@ export default function InstallAppButton() {
                 </li>
                 <li className="flex items-center gap-3">
                   <span className="w-7 h-7 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center font-black text-sm shrink-0">2</span>
-                  <span className="text-sm text-slate-700 font-medium"><strong>Instalar aplicativo</strong> (ou "Adicionar à tela inicial")</span>
+                  <span className="text-sm text-slate-700 font-medium"><strong>Instalar aplicativo</strong> (ou &quot;Adicionar à tela inicial&quot;)</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <span className="w-7 h-7 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center font-black text-sm shrink-0">3</span>

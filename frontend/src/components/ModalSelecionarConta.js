@@ -15,7 +15,9 @@ import { Search, X, ChevronDown, ChevronRight, Loader2, FolderOpen, FileText, Ch
 export default function ModalSelecionarConta({ planoId, onSelect, onClose, selectedId }) {
   const { plano, arvore, loading } = usePlanoContas(planoId);
   const [busca, setBusca]                 = useState('');
-  const [expandidos, setExpandidos]       = useState({}); // { grupoId: true, sinteticaId: true }
+  // O que o usuario abriu ou fechou a mao. Com busca ativa, `expandidos` abaixo
+  // ignora isto e abre tudo — mas sem perder o que ele tinha escolhido.
+  const [expandidosManual, setExpandidos] = useState({}); // { grupoId: true, sinteticaId: true }
   const [mostrarSoSinteticas, setMostrarSoSinteticas] = useState(false);
 
   // Filtra árvore pela busca textual (busca em nome + código reduzido)
@@ -43,17 +45,26 @@ export default function ModalSelecionarConta({ planoId, onSelect, onClose, selec
     }).filter(Boolean);
   }, [arvore, busca]);
 
-  // Auto-expande grupos quando há busca
-  useEffect(() => {
-    if (busca.trim()) {
-      const exp = {};
-      arvoreFiltrada.forEach(g => { exp[g.id] = true; g.filhos.forEach(s => { exp[s.id] = true; }); });
-      setExpandidos(exp);
-    }
-  }, [busca, arvoreFiltrada]);
+  // Com busca ativa, TUDO que sobrou fica aberto — senao o resultado da busca
+  // fica escondido dentro de grupos fechados.
+  //
+  // Isso e DERIVADO da busca, nao um estado a guardar. Guardado num efeito, ele
+  // atropelava o que o usuario tinha aberto ou fechado a mao, e ainda pintava a
+  // arvore fechada por um quadro antes de abrir.
+  const expandidos = useMemo(() => {
+    if (!busca.trim()) return expandidosManual;
+    const todos = {};
+    arvoreFiltrada.forEach((g) => {
+      todos[g.id] = true;
+      g.filhos.forEach((s) => { todos[s.id] = true; });
+    });
+    return todos;
+  }, [busca, arvoreFiltrada, expandidosManual]);
 
   function toggle(id) {
-    setExpandidos(prev => ({ ...prev, [id]: !prev[id] }));
+    // Parte de `expandidos` (o que esta na tela agora), nao de `expandidosManual`:
+    // durante uma busca tudo esta aberto, e fechar um grupo tem de fechar aquele.
+    setExpandidos({ ...expandidos, [id]: !expandidos[id] });
   }
 
   function selecionar(item) {

@@ -89,6 +89,10 @@ export default function NotificationsBell() {
   // para o mesmo sino.
   useEffect(() => {
     if (!user?.id) return;
+    // O lint acusa `setState` sincrono aqui, mas nao e: `fetchItems` e async
+    // e so toca no estado DEPOIS do await. A regra nao enxerga isso. Nao vale
+    // reescrever codigo certo para calar analise estatica.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchItems();
     const t = setInterval(fetchItems, 60000);
     const ch = supabase

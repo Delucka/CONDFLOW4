@@ -15,6 +15,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+
+    // Bibliotecas de terceiros servidas estaticamente. Sao codigo do pdf.js
+    // distribuido pronto -- os 4 erros de `Do not assign to the variable
+    // module` vinham dali. Analisar codigo que nao escrevemos e que nao vamos
+    // editar so gasta o sinal do lint: quem le a saida aprende a ignorar.
+    "public/pdfjs-wasm/**",
+    "public/pdf.worker.min.mjs",
+    "public/sw.js",
   ]),
 
   // ── no-undef: a checagem que o build NÃO faz ──

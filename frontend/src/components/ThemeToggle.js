@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Sun, Moon } from 'lucide-react';
 
 /**
@@ -8,16 +8,25 @@ import { Sun, Moon } from 'lucide-react';
  * persistido em localStorage. O script no <head> (layout.js) aplica antes
  * de pintar, evitando o flash de tema errado ao recarregar.
  */
-export default function ThemeToggle({ collapsed }) {
-  const [dark, setDark] = useState(false);
+// A verdade sobre o tema e a classe `dark` no <html> — quem a aplica antes de
+// pintar e o script do <head>. Copiar isso para dentro de um estado obrigava um
+// efeito para sincronizar, e desincronizava se outro lugar mexesse no tema.
+//
+// `useSyncExternalStore` le a fonte direto e ainda avisa quando ela muda: o
+// MutationObserver faz o botao acompanhar qualquer troca de tema, venha de onde
+// vier. O terceiro argumento e o valor do servidor, que nao tem DOM.
+function assinarTema(aoMudar) {
+  const obs = new MutationObserver(aoMudar);
+  obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  return () => obs.disconnect();
+}
+const lerTema = () => document.documentElement.classList.contains('dark');
 
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains('dark'));
-  }, []);
+export default function ThemeToggle({ collapsed }) {
+  const dark = useSyncExternalStore(assinarTema, lerTema, () => false);
 
   function toggle() {
     const next = !dark;
-    setDark(next);
     document.documentElement.classList.toggle('dark', next);
     try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch {}
   }
