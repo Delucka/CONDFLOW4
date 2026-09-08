@@ -9,8 +9,38 @@ import { createClient } from '@/utils/supabase/client';
 let API = process.env.NEXT_PUBLIC_API_URL || '';
 if (API.includes('api.emissaonline.com')) API = '';
 
+// Nada aqui pode ficar pendurado para sempre.
+//
+// Em 08/09/2026 os botões de anexar e de cancelar cobrança ficavam girando sem
+// fim: nenhum erro na tela, nenhum registro em `audit_erros`, spinner eterno. A
+// causa importa menos que a regra que faltava — **toda espera precisa de prazo**.
+// Sem prazo, uma requisição que não volta prende o botão, o usuário clica de
+// novo, e ninguém fica sabendo que houve falha.
+//
+// 30 s é folgado de propósito: a maior chamada do sistema (montar a emissão) já
+// foi medida bem abaixo disso, então este teto só dispara quando algo está
+// realmente errado.
+const PRAZO = 30000;
+
+function comPrazo(promessa, ms, oQue) {
+  let t;
+  return Promise.race([
+    promessa.finally(() => clearTimeout(t)),
+    new Promise((_, rejeita) => {
+      t = setTimeout(() => rejeita(new Error(
+        `${oQue} não respondeu em ${Math.round(ms / 1000)}s. Verifique a conexão e tente de novo.`
+      )), ms);
+    }),
+  ]);
+}
+
 async function getAuthHeaders(supabase) {
-  const { data: { session } } = await supabase.auth.getSession();
+  // `getSession()` renova o token sozinho quando ele expirou -- e é aí que ela
+  // pode demorar. Com sessão de um projeto que já não existe (foi o caso depois
+  // da mudança de região), ela ficava esperando por algo que nunca vinha.
+  const { data: { session } } = await comPrazo(
+    supabase.auth.getSession(), 15000, 'A verificação da sua sessão',
+  );
   const headers = { 'Content-Type': 'application/json' };
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
@@ -39,10 +69,25 @@ export async function apiFetch(path, opts = {}, _jaRenovou = false) {
   const supabase = createClient();
   try {
     const headers = await getAuthHeaders(supabase);
-    const response = await fetch(`${API}${path}`, {
-      ...opts,
-      headers: { ...headers, ...opts.headers },
-    });
+    // `AbortController` e não só um `Promise.race`: assim a requisição é de fato
+    // cancelada, em vez de continuar viva ocupando conexão depois de desistirmos.
+    const cancelador = new AbortController();
+    const alarme = setTimeout(() => cancelador.abort(), opts.prazo || PRAZO);
+    let response;
+    try {
+      response = await fetch(`${API}${path}`, {
+        ...opts,
+        signal: cancelador.signal,
+        headers: { ...headers, ...opts.headers },
+      });
+    } catch (e) {
+      if (e?.name === 'AbortError') {
+        throw new Error('O servidor não respondeu a tempo. Tente de novo em instantes.');
+      }
+      throw e;
+    } finally {
+      clearTimeout(alarme);
+    }
 
     // 401 = problema de AUTENTICAÇÃO (token expirado/derrubado), não de conexão.
     if (response.status === 401) {

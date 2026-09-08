@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { apiFetch } from '@/lib/api';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS } from '@/lib/roles';
@@ -59,26 +60,11 @@ const roleStyle = {
   outros: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
 };
 
-async function getToken() {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token;
-}
-
-async function apiFetch(url, opts = {}) {
-  const token = await getToken();
-  const res = await fetch(url, {
-    ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...(opts.headers || {}),
-    },
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.detail || 'Erro na requisição');
-  return json;
-}
+// `apiFetch` vem de `@/lib/api`. Esta tela tinha uma cópia própria, mais fraca:
+// sem prazo, sem renovar a sessão no 401, e chamando `res.json()` ANTES de olhar
+// o status — uma resposta que não fosse JSON estourava um erro sem sentido.
+// Duas cópias de uma função de rede significam dois lugares para consertar, e um
+// deles sempre fica para trás.
 
 // ─── Modal Criar Usuário ───────────────────────────────────────────────
 function ModalCriarUsuario({ onClose, onCreated, gerentes = [] }) {

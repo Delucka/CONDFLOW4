@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
+import { apiFetch } from '@/lib/api';
 import { mesAnoVigente, mesFechado } from '@/lib/mesVigente';
 import { can } from '@/lib/roles';
 import {
@@ -27,22 +28,11 @@ function getMesAtual() {
 // calendário, e as três telas fechavam o mês em datas diferentes.
 const isMesNoPassado = (mes, ano) => mesFechado(mes, ano);
 
-async function getToken() {
-  const sb = createClient();
-  const { data: { session } } = await sb.auth.getSession();
-  return session?.access_token;
-}
-
-async function apiFetch(url, opts = {}) {
-  const token = await getToken();
-  const res = await fetch(url, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) }
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.detail || 'Erro');
-  return json;
-}
+// `apiFetch` vem de `@/lib/api`. Esta tela tinha uma cópia própria, mais fraca:
+// sem prazo, sem renovar a sessão no 401, e chamando `res.json()` ANTES de olhar
+// o status -- uma resposta que não fosse JSON estourava um erro sem sentido.
+// Duas cópias de uma função de rede significam dois lugares para consertar, e um
+// deles sempre fica para trás.
 
 // ─── Modal: Lançar Cobrança ────────────────────────────────────────
 // ─── Picker de condomínio com busca (digita código ou nome) ───
