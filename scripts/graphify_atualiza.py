@@ -33,8 +33,31 @@ def main() -> int:
         print(f"[graphify] biblioteca indisponivel ({type(e).__name__}); nada a fazer")
         return 0
 
+    # `to_json` tem uma trava: recusa sobrescrever o grafo quando o novo tem
+    # MENOS nos que o antigo. Existe para um erro de extracao nao apagar o mapa
+    # inteiro em silencio -- e por isso ela fica LIGADA no dia a dia.
+    #
+    # Mas encolher tambem e legitimo: apagar codigo morto, ou excluir um vendor
+    # do `.graphifyignore`. Nesses casos, `GRAPHIFY_FORCE=1`.
+    # `to_json` tem uma trava que recusa sobrescrever o grafo quando o novo tem
+    # MENOS nos que o antigo. Existe para um erro de extracao nao apagar o mapa
+    # em silencio, e por isso fica LIGADA no dia a dia.
+    #
+    # Mas encolher tambem e legitimo -- apagar codigo morto, ou excluir um
+    # vendor no `.graphifyignore`. Nesses casos: GRAPHIFY_FORCE=1.
+    #
+    # E `force` sozinho NAO BASTA: `_rebuild_code` MESCLA no graph.json que ja
+    # existe, entao no antigo continuam la para sempre. Custou uma hora
+    # descobrir -- o log dizia "Rebuilt: 5162 nodes" enquanto so 300 arquivos
+    # eram extraidos. Por isso, forcando, o grafo antigo sai da frente primeiro.
+    import os as _os
+    forcar = _os.environ.get("GRAPHIFY_FORCE", "").lower() in ("1", "true", "sim")
+    if forcar:
+        antigo = SAIDA / "graph.json"
+        if antigo.exists():
+            antigo.rename(SAIDA / "graph.json.anterior")
     try:
-        _rebuild_code(RAIZ)
+        _rebuild_code(RAIZ, force=forcar)
     except Exception as e:
         print(f"[graphify] reconstrucao do grafo falhou: {type(e).__name__}: {e}")
         return 0            # nao propaga: o commit ja aconteceu

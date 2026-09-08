@@ -1,0 +1,27 @@
+# O que NÃO entra no mapa do projeto.
+#
+# Medido em 08/09/2026: 3.501 dos 5.162 nós do grafo — 68% — vinham de um
+# arquivo só, o `pdf.worker.min.mjs`. Por isso o relatório apontava `N`,
+# `warn()`, `Catalog` e `PDFEditor` como as "abstrações centrais" do sistema:
+# são internos do pdf.js, não nossos. E o vault do Obsidian, que tinha 443
+# notas, inchou para 5.679 — quase todas ruído.
+#
+# Estes arquivos continuam no site e são necessários em produção. O que muda é
+# só que o mapa deixa de fingir que eles são nossa arquitetura.
+
+# ── Bibliotecas de terceiros servidas pelo site ──────────────────────
+frontend/public/pdf.worker.min.mjs
+frontend/public/pdfjs-wasm/
+frontend/public/pdfjs-standard-fonts/
+*.min.js
+*.min.mjs
+
+# Gerado pelo build do PWA, não escrito por ninguém.
+frontend/public/sw.js
+
+# ── Ruído de documentação ────────────────────────────────────────────
+# Cópia do arquivo da raiz: contado duas vezes, dobra o peso do mesmo texto.
+frontend/PROJETO_CONDFLOW_CONTEXTO.md
+
+# A própria saída do graphify — senão o mapa mapeia a si mesmo.
+graphify-out/
