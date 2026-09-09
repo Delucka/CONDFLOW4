@@ -583,7 +583,7 @@ export default function ArrecadacoesPage() {
       const currentLabel = startNum + (m - mesIni);
       if (currentLabel > 0 && currentLabel <= total) {
         return (
-          <span className="inline-block text-[8px] font-semibold text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full px-1.5 mt-0.5">
+          <span className="inline-block text-[10px] font-bold text-violet-600 bg-violet-500/10 border border-violet-500/25 rounded-full px-1.5 mt-0.5">
             {String(currentLabel).padStart(2, '0')}/{String(total).padStart(2, '0')}
           </span>
         );
@@ -1398,11 +1398,11 @@ export default function ArrecadacoesPage() {
                     <tr>
                         <th style={{ left: 0 }}
                             className="sticky z-30 bg-slate-50 border-b border-slate-200 px-4 py-3 text-left align-bottom">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Conta</span>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Conta</span>
                         </th>
                         <th style={{ left: LARG_CONTA }}
                             className={`sticky z-30 bg-slate-50 border-b border-r border-slate-200 px-4 py-3 text-left align-bottom ${bordaCongelada}`}>
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Verba</span>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Verba</span>
                         </th>
                         {months.map(m => {
                             const altList = alteracoesPorMes[m] || [];
@@ -1417,12 +1417,12 @@ export default function ArrecadacoesPage() {
                                             cada célula: 12 meses × N verbas de cadeadinho, e a
                                             grade inteira lia como alerta. Uma vez no cabeçalho
                                             diz a mesma coisa. */}
-                                        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${atual ? 'text-violet-700' : 'text-slate-600'}`}>
+                                        <span className={`inline-flex items-center gap-1 text-[12px] font-bold ${atual ? 'text-violet-700' : 'text-slate-800'}`}>
                                             {mesTravado && (
                                               <Lock className="w-2.5 h-2.5 text-slate-400" aria-hidden="true"
                                                     title={`Mês bloqueado: ${reasonLabel(reason)}`} />
                                             )}
-                                            {MESES[m]}<span className="font-normal text-slate-400">/{String(selectedYear).slice(-2)}</span>
+                                            {MESES[m]}<span className="font-semibold text-slate-500">/{String(selectedYear).slice(-2)}</span>
                                         </span>
                                         {/* Só aparece quando há o que mostrar. Antes eram
                                             12 botões vazios no cabeçalho, um por mês, todos
@@ -1487,16 +1487,16 @@ export default function ArrecadacoesPage() {
                                 className="sticky z-20 bg-white group-hover:bg-slate-50 transition-colors px-4 py-2.5 align-middle">
                                 {r.conta_contabil ? (
                                   <>
-                                    <div className="text-[11px] font-semibold text-slate-700 tabular-nums truncate"
+                                    <div className="text-[12px] font-bold text-slate-800 tabular-nums truncate"
                                          title={`Conta contábil${r.conta_nome ? ` — ${r.conta_nome}` : ''}`}>
                                       {r.conta_contabil}
                                     </div>
-                                    <div className="text-[10px] text-slate-400 tabular-nums" title="Análise financeira">
+                                    <div className="text-[11px] font-semibold text-slate-500 tabular-nums" title="Análise financeira">
                                       an. {r.conta_analise_fin || '—'}
                                     </div>
                                   </>
                                 ) : (
-                                  <div className="text-[11px] text-amber-600">sem conta</div>
+                                  <div className="text-[12px] font-semibold text-amber-600">sem conta</div>
                                 )}
                             </td>
 
@@ -1509,17 +1509,17 @@ export default function ArrecadacoesPage() {
                                             value={r.nome}
                                             onChange={e => handleRateioChange(r.id, 'nome', e.target.value)}
                                             disabled={!canEdit}
-                                            className="w-full bg-transparent! border-0! rounded-none! p-0 text-[12px] font-semibold uppercase text-slate-800 placeholder:text-slate-400 disabled:cursor-default"
+                                            className="w-full bg-transparent! border-0! rounded-none! p-0 text-[13px] font-bold uppercase text-slate-900 placeholder:text-slate-400 disabled:cursor-default"
                                             placeholder="Ex: Fundo de Obras"
                                         />
                                         {/* A coluna CONTA já diz "sem conta" quando falta.
                                             Repetir aqui era a mesma informação duas vezes,
                                             uma delas em âmbar, gritando em toda linha. */}
                                         {r.conta_nome && (
-                                          <div className="truncate text-[10px] mt-0.5 text-slate-400">{r.conta_nome}</div>
+                                          <div className="truncate text-[11px] mt-0.5 font-medium text-slate-500">{r.conta_nome}</div>
                                         )}
                                         {r.is_parcelado && (
-                                            <div className="flex items-center gap-1 mt-1 text-[9px] font-medium text-slate-400">
+                                            <div className="flex items-center gap-1 mt-1 text-[10px] font-semibold text-slate-500">
                                                 <Layers className="w-3 h-3 text-violet-500" aria-hidden="true" />
                                                 Parcelado ({r.parcela_inicio}/{r.parcela_total}) a partir do mês {r.mes_inicio}
                                             </div>
@@ -1563,12 +1563,12 @@ export default function ArrecadacoesPage() {
                                                reescreve as CLASSES, não as variáveis `--color-slate-*`
                                                — no escuro aquilo piscaria claro. O foco já vem do
                                                `input:focus` do globals.css, que é `!important`. */
-                                            className={`w-full bg-transparent! border-0! rounded-md! px-2 py-1.5 text-right text-[12px] tabular-nums outline-none transition-colors
-                                                ${isPlanilhaSpecial ? 'text-center font-semibold text-violet-500' : isZero ? 'text-slate-400' : 'font-semibold text-slate-800'}
+                                            className={`w-full bg-transparent! border-0! rounded-md! px-2 py-1.5 text-right text-[13px] tabular-nums outline-none transition-colors
+                                                ${isPlanilhaSpecial ? 'text-center font-bold text-violet-500' : isZero ? 'font-medium text-slate-500' : 'font-bold text-slate-900'}
                                                 ${cellDisabled ? 'cursor-not-allowed opacity-60' : ''}
                                             `}
                                         />
-                                        <div className="text-center h-4">
+                                        <div className="text-center h-[18px]">
                                             {getParcelaBadge(r, m)}
                                         </div>
                                     </td>
@@ -1599,11 +1599,11 @@ export default function ArrecadacoesPage() {
                       <tr className="border-t-2 border-slate-200 bg-slate-50">
                           <td style={{ left: 0 }} className="sticky z-20 bg-slate-50 px-4 py-2.5"></td>
                           <td style={{ left: LARG_CONTA }}
-                              className={`sticky z-20 bg-slate-50 border-r border-slate-200 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 ${bordaCongelada}`}>
+                              className={`sticky z-20 bg-slate-50 border-r border-slate-200 px-4 py-2.5 text-[12px] font-bold uppercase tracking-wider text-slate-700 ${bordaCongelada}`}>
                               Total do mês
                           </td>
                           {months.map(m => (
-                            <td key={m} className={`border-r border-slate-100 px-3 py-2.5 text-right text-[12px] font-bold tabular-nums ${m === urlMes ? 'bg-violet-50/40' : ''} ${totalPorMes[m] === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
+                            <td key={m} className={`border-r border-slate-100 px-3 py-2.5 text-right text-[13px] font-bold tabular-nums ${m === urlMes ? 'bg-violet-50/40' : ''} ${totalPorMes[m] === 0 ? 'text-slate-500' : 'text-slate-900'}`}>
                                 {formatBRL(totalPorMes[m])}
                             </td>
                           ))}
