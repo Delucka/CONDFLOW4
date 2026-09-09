@@ -485,7 +485,11 @@ export default function ArrecadacoesPage() {
 
   // Alterações de rateio (AGO/AGE/Reuniao) — indicador no cabeçalho do mês
   const { porMes: alteracoesPorMes } = useAlteracoesRateio(condoId, selectedYear);
-  const [modalAlteracoesMes, setModalAlteracoesMes] = useState(null); // null | número do mês
+  const [modalAlteracoesMes, setModalAlteracoesMes] = useState(null); // null = fechado · 0 = agenda do ano · 1-12 = aquele mês
+  const totalAlteracoesAno = useMemo(
+    () => Object.values(alteracoesPorMes || {}).reduce((n, lista) => n + (lista?.length || 0), 0),
+    [alteracoesPorMes],
+  );
 
   // Permissão de edição em nível de página (ações gerais como "salvar observações", "adicionar verba")
   // Per-célula adicional: !isLocked(mes)
@@ -600,7 +604,7 @@ export default function ArrecadacoesPage() {
     }).select().single();
     if (error) throw new Error(error.message || 'Não consegui criar a verba.');
     setRateios((atuais) => [...atuais, data]);
-  }, { sucesso: 'Nova verba adicionada.' });
+  }, { sucesso: 'Novo rateio adicionado.' });
 
   const handleDelete = async (id) => {
     if (!confirm('Remover este rateio permanentemente?')) return;
@@ -1317,7 +1321,21 @@ export default function ArrecadacoesPage() {
               {adicionandoVerba
                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
                 : <PlusCircle className="w-3.5 h-3.5" aria-hidden="true" />}
-              Nova verba
+              Novo Rateio
+            </button>
+            {/* `0` = abrir sem mês escolhido: o modal cai na lista do ano
+                inteiro, que é a agenda. Com um mês (clique no aviso do
+                cabeçalho) ele já abre o formulário daquele mês. */}
+            <button
+              type="button"
+              onClick={() => setModalAlteracoesMes(0)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-50"
+            >
+              <FileWarning className="w-3.5 h-3.5" aria-hidden="true" />
+              Agendar AGO/AGE/Reunião
+              {totalAlteracoesAno > 0 && (
+                <span className="ml-0.5 rounded-full bg-violet-100 px-1.5 text-[10px] leading-4 text-violet-700">{totalAlteracoesAno}</span>
+              )}
             </button>
             <button
               type="button"
@@ -1406,23 +1424,20 @@ export default function ArrecadacoesPage() {
                                             )}
                                             {MESES[m]}<span className="font-normal text-slate-400">/{String(selectedYear).slice(-2)}</span>
                                         </span>
-                                        {canEdit && (
-                                          <button onClick={() => setModalAlteracoesMes(m)}
-                                            title={
-                                              totalAlts > 0
-                                                ? `${totalAlts} alteração${totalAlts > 1 ? 'ões' : ''} ${temPrevista ? '(há previstas)' : 'registrada(s)'}`
-                                                : 'Marcar alteração (AGO/AGE/Reunião)'
-                                            }
-                                            aria-label={totalAlts > 0 ? `${totalAlts} alteração(ões) em ${MESES[m]}` : `Marcar alteração em ${MESES[m]}`}
-                                            className={`inline-flex h-6 items-center gap-1 rounded-full px-2 text-[10px] font-semibold transition-colors ${
-                                              totalAlts === 0
-                                                ? 'text-slate-400 hover:bg-slate-200/70 hover:text-slate-600'
-                                                : temPrevista
-                                                  ? 'bg-amber-100 text-amber-700'
-                                                  : 'bg-emerald-100 text-emerald-700'
+                                        {/* Só aparece quando há o que mostrar. Antes eram
+                                            12 botões vazios no cabeçalho, um por mês, todos
+                                            dizendo "+ AGO/AGE/Reunião" — e o cabeçalho inteiro
+                                            era isso. Registrar passou para a barra de cima;
+                                            aqui ficou o aviso, que é informação. */}
+                                        {totalAlts > 0 && (
+                                          <button onClick={() => canEdit && setModalAlteracoesMes(m)}
+                                            title={`${totalAlts} alteração${totalAlts > 1 ? 'ões' : ''} ${temPrevista ? '(há previstas)' : 'registrada(s)'}`}
+                                            aria-label={`${totalAlts} alteração(ões) em ${MESES[m]}`}
+                                            className={`inline-flex h-5 items-center gap-1 rounded-full px-1.5 text-[10px] font-semibold transition-colors ${
+                                              temPrevista ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
                                             }`}>
                                             <FileWarning className="w-3 h-3" aria-hidden="true" />
-                                            {totalAlts > 0 && totalAlts}
+                                            {totalAlts}
                                           </button>
                                         )}
                                     </div>
@@ -1481,7 +1496,7 @@ export default function ArrecadacoesPage() {
                                     </div>
                                   </>
                                 ) : (
-                                  <div className="text-[11px] text-slate-400">sem conta</div>
+                                  <div className="text-[11px] text-amber-600">sem conta</div>
                                 )}
                             </td>
 
@@ -1494,12 +1509,15 @@ export default function ArrecadacoesPage() {
                                             value={r.nome}
                                             onChange={e => handleRateioChange(r.id, 'nome', e.target.value)}
                                             disabled={!canEdit}
-                                            className="w-full bg-transparent border-none p-0 text-[12px] font-semibold uppercase text-slate-800 placeholder:text-slate-400 focus:ring-0 disabled:cursor-default"
+                                            className="w-full bg-transparent! border-0! rounded-none! p-0 text-[12px] font-semibold uppercase text-slate-800 placeholder:text-slate-400 disabled:cursor-default"
                                             placeholder="Ex: Fundo de Obras"
                                         />
-                                        <div className={`truncate text-[10px] mt-0.5 ${r.conta_nome ? 'text-slate-400' : 'text-amber-600'}`}>
-                                            {r.conta_nome || 'conta não vinculada'}
-                                        </div>
+                                        {/* A coluna CONTA já diz "sem conta" quando falta.
+                                            Repetir aqui era a mesma informação duas vezes,
+                                            uma delas em âmbar, gritando em toda linha. */}
+                                        {r.conta_nome && (
+                                          <div className="truncate text-[10px] mt-0.5 text-slate-400">{r.conta_nome}</div>
+                                        )}
                                         {r.is_parcelado && (
                                             <div className="flex items-center gap-1 mt-1 text-[9px] font-medium text-slate-400">
                                                 <Layers className="w-3 h-3 text-violet-500" aria-hidden="true" />
@@ -1527,7 +1545,7 @@ export default function ArrecadacoesPage() {
                                 const displayValue = isPlanilhaSpecial ? val : formatBRL(val);
                                 const atual = m === urlMes;
                                 return (
-                                    <td key={m} className={`relative border-r border-slate-100 px-1 py-2 align-middle ${atual ? 'bg-violet-50/40' : ''} ${mesTravado ? 'bg-slate-50/80' : ''}`}
+                                    <td key={m} className={`relative border-r border-slate-100 px-1 py-2 align-middle ${atual ? 'bg-violet-50/40' : ''} ${mesTravado ? 'bg-slate-50' : ''}`}
                                         title={mesTravado ? `Mês bloqueado: ${reasonLabel(reason)}` : undefined}>
                                         <input
                                             type="text"
@@ -1540,9 +1558,14 @@ export default function ArrecadacoesPage() {
                                             disabled={cellDisabled}
                                             placeholder="R$ 0,00"
                                             aria-label={`${r.nome || 'Verba'} em ${MESES[m]}`}
-                                            className={`w-full rounded-md bg-transparent px-2 py-1.5 text-right text-[12px] tabular-nums border-none outline-none transition-colors focus:ring-0
+                                            /* Sem realce próprio de hover/foco: `hover:bg-slate-100!`
+                                               é um token diferente de `bg-slate-100`, e o tema escuro
+                                               reescreve as CLASSES, não as variáveis `--color-slate-*`
+                                               — no escuro aquilo piscaria claro. O foco já vem do
+                                               `input:focus` do globals.css, que é `!important`. */
+                                            className={`w-full bg-transparent! border-0! rounded-md! px-2 py-1.5 text-right text-[12px] tabular-nums outline-none transition-colors
                                                 ${isPlanilhaSpecial ? 'text-center font-semibold text-violet-500' : isZero ? 'text-slate-400' : 'font-semibold text-slate-800'}
-                                                ${cellDisabled ? 'cursor-not-allowed' : 'hover:bg-white focus:bg-white focus:ring-2 focus:ring-violet-400'}
+                                                ${cellDisabled ? 'cursor-not-allowed opacity-60' : ''}
                                             `}
                                         />
                                         <div className="text-center h-4">
@@ -2093,7 +2116,7 @@ export default function ArrecadacoesPage() {
         <ModalAlteracoesRateio
           condoId={condoId}
           ano={selectedYear}
-          mesInicial={modalAlteracoesMes}
+          mesInicial={modalAlteracoesMes || null}
           onClose={() => setModalAlteracoesMes(null)}
         />
       )}
