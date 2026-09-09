@@ -13,7 +13,7 @@ import {
   Save, Lock, ArrowLeft, PlusCircle, X, Search,
   ChevronDown, ChevronRight, Layers, Building, Calendar, Info,
   Printer, Send, Trash2, CheckCircle2, Settings, Timer, FileWarning,
-  Copy, Minus, Plus, ShieldAlert
+  Copy, Minus, Plus, ShieldAlert, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -24,6 +24,7 @@ import { mesVigente } from '@/lib/mesVigente';
 import { useAlteracoesRateio } from '@/lib/useAlteracoesRateio';
 import ModalAlteracoesRateio from '@/components/ModalAlteracoesRateio';
 import { proporAgrupamento } from '@/lib/agruparVerbas';
+import { useAcao } from '@/lib/useAcao';
 
 const MESES_CURTO_PRE = ['', 'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
                          'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -534,18 +535,19 @@ export default function ArrecadacoesPage() {
     return null;
   };
 
-  const handleAddNew = async () => {
+  // `error` era desestruturado e nunca lido: quando o insert falhava, a tela
+  // não dizia nada e o usuário clicava de novo — e cada clique que desse certo
+  // criaria mais uma verba "NOVO RATEIO" igual. Agora o erro estoura, o
+  // `useAcao` o transforma em toast e trava o clique duplo por `ref`.
+  const [handleAddNew, adicionandoVerba] = useAcao(async () => {
     const { data, error } = await supabase.from('rateios_config').insert({
         condominio_id: condoId,
         nome: 'NOVO RATEIO',
         ordem: rateios.length + 1
     }).select().single();
-    
-    if (data) {
-        setRateios([...rateios, data]);
-        addToast('Novo rateio adicionado!');
-    }
-  };
+    if (error) throw new Error(error.message || 'Não consegui criar a verba.');
+    setRateios((atuais) => [...atuais, data]);
+  }, { sucesso: 'Nova verba adicionada.' });
 
   const handleDelete = async (id) => {
     if (!confirm('Remover este rateio permanentemente?')) return;
@@ -933,8 +935,10 @@ export default function ArrecadacoesPage() {
 
         {/* Adicionar verba */}
         {canEdit && (
-          <button onClick={handleAddNew} className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-2xl text-[11px] font-semibold text-slate-500  active:opacity-70">
-            <PlusCircle className="w-4 h-4" aria-hidden="true" /> Adicionar verba
+          <button onClick={handleAddNew} disabled={adicionandoVerba} className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-200 rounded-2xl text-[11px] font-semibold text-slate-500 disabled:opacity-50 active:opacity-70">
+            {adicionandoVerba
+              ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+              : <PlusCircle className="w-4 h-4" aria-hidden="true" />} Adicionar verba
           </button>
         )}
 
@@ -1240,13 +1244,31 @@ export default function ArrecadacoesPage() {
               ? <>Este condomínio emite em <strong>{grupos.length} grupos</strong>: {grupos.map(g => g.nome + (g.due_day ? ` (dia ${g.due_day})` : '')).join(' · ')}</>
               : <>Emite em <strong>um vencimento só</strong>. Se tiver bloco ou vencimento separado, crie um grupo.</>}
           </p>
-          <button
-            type="button"
-            onClick={() => setEditandoGrupo({ id: null, nome: '', due_day: '' })}
-            className="shrink-0 rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-50"
-          >
-            + Novo grupo
-          </button>
+          {/* As duas ações de "criar" ficam juntas, no alto.
+              A de verba existia só no rodapé da tabela — e o rodapé fica DENTRO
+              da área que rola na horizontal, então ele andava para o lado junto
+              com os meses: para adicionar uma verba depois de olhar dezembro,
+              era rolar de volta até achar o botão. Aqui ela não se move. */}
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAddNew}
+              disabled={adicionandoVerba}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-50 disabled:opacity-50"
+            >
+              {adicionandoVerba
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                : <PlusCircle className="w-3.5 h-3.5" aria-hidden="true" />}
+              Nova verba
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditandoGrupo({ id: null, nome: '', due_day: '' })}
+              className="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-bold text-violet-700 transition-colors hover:bg-violet-50"
+            >
+              + Novo grupo
+            </button>
+          </div>
         </div>
       )}
 
@@ -1455,8 +1477,10 @@ export default function ArrecadacoesPage() {
                     {canEdit && (
                         <tr>
                             <td colSpan={15} className="p-4 bg-slate-100">
-                                <button onClick={handleAddNew} className="flex items-center gap-2 px-6 py-2 border-2 border-dashed border-slate-200 hover:border-violet-500/50 rounded-xl text-[10px] font-semibold text-slate-500 hover:text-violet-400 transition-all  mx-auto group">
-                                    <PlusCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                <button onClick={handleAddNew} disabled={adicionandoVerba} className="flex items-center gap-2 px-6 py-2 border-2 border-dashed border-slate-200 hover:border-violet-500/50 rounded-xl text-[10px] font-semibold text-slate-500 hover:text-violet-400 transition-all disabled:opacity-50 mx-auto group">
+                                    {adicionandoVerba
+                                      ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+                                      : <PlusCircle className="w-5 h-5 group-hover:scale-110 transition-transform" aria-hidden="true" />}
                                     Adicionar Nova Verba (Rateio)
                                 </button>
                             </td>
