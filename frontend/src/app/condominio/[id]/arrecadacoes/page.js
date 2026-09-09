@@ -29,6 +29,24 @@ import { useAcao } from '@/lib/useAcao';
 const MESES_CURTO_PRE = ['', 'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
                          'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
+// Larguras da grade, em pixels. Ficam AQUI e em nenhum outro lugar porque o
+// `left` de uma coluna congelada precisa bater exatamente com a largura da
+// coluna anterior. Antes não batia: a largura vinha de `min-w-[200px]` — que é
+// um mínimo, não uma medida, e a coluna renderizava mais larga que isso — e o
+// `left` era `200px` cravado à mão. A diferença entre os dois é a faixa da
+// coluna de mês que aparecia dentro da área congelada ao arrastar para o lado.
+//
+// Com um `<colgroup>` a largura passa a ser exata, e o `left` sai da mesma
+// constante: não há como um mudar sem o outro.
+const LARG_CONTA = 208;
+const LARG_VERBA = 240;
+const LARG_MES   = 124;
+const LARG_ACOES = 56;
+// A tabela tem largura FIXA. Com `w-full` + `table-layout: auto` o navegador
+// aperta as colunas para caber na tela e as larguras acima viram sugestão --
+// e aí o `left` do sticky deixa de bater com a largura real.
+const LARG_TOTAL = LARG_CONTA + LARG_VERBA + 12 * LARG_MES + LARG_ACOES;
+
 const MESES = {
     1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
     7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
@@ -192,6 +210,21 @@ export default function ArrecadacoesPage() {
   const [aplicarCount, setAplicarCount] = useState(1);
 
   const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), []);
+
+  // A borda das colunas congeladas só aparece quando há algo escondido atrás
+  // dela. Sombra permanente numa tabela vira sujeira; sombra que surge ao
+  // arrastar é o que diz "tem mais coisa para este lado".
+  const [gridRolada, setGridRolada] = useState(false);
+
+  // A sombra fica na ÚLTIMA coluna congelada e cai para fora dela
+  // (`translate-x-full`), então ela escurece o começo dos meses em vez de
+  // manchar a própria coluna. Antes eram `shadow-xl` e `shadow-2xl` fixos, nas
+  // duas colunas, aparecendo mesmo com a grade parada no começo.
+  // A célula é `sticky`, ou seja, já é posicionada: o `::after` se ancora nela
+  // sem precisar de `relative`.
+  const bordaCongelada = gridRolada
+    ? 'after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-4 after:translate-x-full after:bg-gradient-to-r after:from-black/10 after:to-transparent'
+    : '';
 
 
   // Pipeline config — prazo de edição com verificação em tempo real
@@ -395,6 +428,26 @@ export default function ArrecadacoesPage() {
     }
     return out;
   }, [rateios, grupos]);
+
+  // As verbas que estão de fato na tela — é sobre elas que o total soma.
+  const rateiosVisiveis = useMemo(
+    () => linhasDaTabela.filter(i => i.tipo !== 'faixa').map(i => i.r),
+    [linhasDaTabela],
+  );
+
+  // Total por mês. `PLANILHA` fica de fora: é a verba que vem do rateio da
+  // emissão, não um número — somá-la como zero seria mentir por omissão.
+  const totalPorMes = useMemo(() => {
+    const t = {};
+    for (let m = 1; m <= 12; m++) {
+      t[m] = rateiosVisiveis.reduce((soma, r) => {
+        const v = rateiosVals[r.id]?.[m];
+        if (!v || v === 'PLANILHA') return soma;
+        return soma + (parseValorNumerico(v) || 0);
+      }, 0);
+    }
+    return t;
+  }, [rateiosVisiveis, rateiosVals]);
 
   // ── Aviso ao sair com mês preenchido e NÃO liberado (avisa, não trava) ──
   const [avisoSaida, setAvisoSaida] = useState(false);
@@ -745,6 +798,11 @@ export default function ArrecadacoesPage() {
     return { mesTravado, reason, cellDisabled: !canEdit || mesTravado };
   };
 
+  // A trava é do MÊS, não da célula. Calcular uma vez serve o cabeçalho e as
+  // 12 × N células de uma vez -- e apaga a cópia da regra que vivia dentro do
+  // laço das células, que é como duas versões da mesma regra começam a divergir.
+  const travaPorMes = months.reduce((acc, m) => { acc[m] = mesTravadoInfo(m); return acc; }, {});
+
   // ─── Atalho do celular: aplicar um valor a N meses a partir do mês selecionado ───
   const aplicarValorMeses = (rid, valor, count) => {
     const start = mesSelMobile;
@@ -875,7 +933,7 @@ export default function ArrecadacoesPage() {
         {/* Lista de verbas do mês */}
         {rateios.length === 0 ? (
           <div className="py-12 text-center">
-            <Layers className="w-10 h-10 text-slate-300 mx-auto mb-2" aria-hidden="true" />
+            <Layers className="w-10 h-10 text-slate-400 mx-auto mb-2" aria-hidden="true" />
             <p className="text-slate-500 font-bold text-sm">Nenhuma verba cadastrada</p>
           </div>
         ) : (
@@ -1293,64 +1351,97 @@ export default function ArrecadacoesPage() {
         );
       })()}
 
-      {/* ─── GRID SPREADSHEET ─── */}
-      <div className="glass-panel rounded-2xl overflow-hidden border-slate-200 relative shadow-2xl">
-        <div className="overflow-x-auto overflow-y-visible scrollbar-thin">
-            <table className="w-full border-collapse">
-                <thead className="bg-slate-100">
+      {/* ─── A GRADE ───
+          Uma planilha de 15 colunas cabe em pouca tela, então as duas primeiras
+          ficam congeladas à esquerda e a de excluir à direita. Três regras
+          fazem isso funcionar, e as três estavam quebradas antes:
+
+          1. A largura vem do `<colgroup>` E a tabela é `table-fixed`. Só com as
+             duas: sob `table-layout: auto`, largura de `<col>` é sugestão, e o
+             navegador aperta as colunas para caber em `w-full`.
+          2. O `left` de cada coluna congelada sai da MESMA constante que dá a
+             largura da anterior. Antes a largura era `min-w-[200px]` (mínimo,
+             não medida) e o `left` era `200px` cravado — a diferença entre os
+             dois é a faixa de mês que aparecia por dentro da área congelada.
+          3. Nada de `backdrop-blur` nas células congeladas. Sobre fundo opaco
+             ele não desfoca nada e cria um contexto de empilhamento novo, que é
+             justamente o que faz a célula sticky deixar passar o que devia cobrir. */}
+      <div className="glass-panel rounded-2xl overflow-hidden border-slate-200 relative">
+        <div className="overflow-x-auto overflow-y-visible scrollbar-thin"
+             onScroll={(e) => setGridRolada(e.currentTarget.scrollLeft > 0)}>
+            <table className="border-collapse table-fixed" style={{ width: LARG_TOTAL }}>
+                <colgroup>
+                    <col style={{ width: LARG_CONTA }} />
+                    <col style={{ width: LARG_VERBA }} />
+                    {months.map(m => <col key={m} style={{ width: LARG_MES }} />)}
+                    <col style={{ width: LARG_ACOES }} />
+                </colgroup>
+                <thead>
                     <tr>
-                        <th className="px-4 py-4 text-left text-[10px] font-semibold text-slate-400  border-r border-slate-200 min-w-[200px] sticky left-0 z-30 bg-slate-50 backdrop-blur-md">
-                            Conta Contábil
+                        <th style={{ left: 0 }}
+                            className="sticky z-30 bg-slate-50 border-b border-slate-200 px-4 py-3 text-left align-bottom">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Conta</span>
                         </th>
-                        <th className="px-4 py-4 text-left text-[10px] font-semibold text-slate-400  border-r border-slate-200 min-w-[220px] sticky left-[200px] z-30 bg-slate-50 backdrop-blur-md">
-                            Verbas / Descritivo
+                        <th style={{ left: LARG_CONTA }}
+                            className={`sticky z-30 bg-slate-50 border-b border-r border-slate-200 px-4 py-3 text-left align-bottom ${bordaCongelada}`}>
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Verba</span>
                         </th>
                         {months.map(m => {
                             const altList = alteracoesPorMes[m] || [];
                             const temPrevista = altList.some(a => a.status === 'prevista');
                             const totalAlts = altList.length;
+                            const atual = m === urlMes;
+                            const { mesTravado, reason } = travaPorMes[m];
                             return (
-                                <th key={m} className={`px-2 py-3 text-center text-[10px] font-semibold border-r border-slate-200 min-w-[120px] relative ${
-                                    m === urlMes
-                                      ? 'bg-violet-50 text-violet-700 ring-1 ring-inset ring-violet-300'
-                                      : 'bg-slate-100 text-slate-400'}`}>
-                                    <div className="flex items-center justify-center gap-1.5">
-                                        <span>{MESES[m]} / {String(selectedYear).slice(-2)}</span>
+                                <th key={m} className={`relative border-b border-slate-200 px-2 py-2 align-bottom ${atual ? 'bg-violet-50' : 'bg-slate-50'}`}>
+                                    <div className="flex flex-col items-center gap-1">
+                                        {/* O cadeado é do MÊS. Ele ficava repetido no canto de
+                                            cada célula: 12 meses × N verbas de cadeadinho, e a
+                                            grade inteira lia como alerta. Uma vez no cabeçalho
+                                            diz a mesma coisa. */}
+                                        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${atual ? 'text-violet-700' : 'text-slate-600'}`}>
+                                            {mesTravado && (
+                                              <Lock className="w-2.5 h-2.5 text-slate-400" aria-hidden="true"
+                                                    title={`Mês bloqueado: ${reasonLabel(reason)}`} />
+                                            )}
+                                            {MESES[m]}<span className="font-normal text-slate-400">/{String(selectedYear).slice(-2)}</span>
+                                        </span>
+                                        {canEdit && (
+                                          <button onClick={() => setModalAlteracoesMes(m)}
+                                            title={
+                                              totalAlts > 0
+                                                ? `${totalAlts} alteração${totalAlts > 1 ? 'ões' : ''} ${temPrevista ? '(há previstas)' : 'registrada(s)'}`
+                                                : 'Marcar alteração (AGO/AGE/Reunião)'
+                                            }
+                                            aria-label={totalAlts > 0 ? `${totalAlts} alteração(ões) em ${MESES[m]}` : `Marcar alteração em ${MESES[m]}`}
+                                            className={`inline-flex h-6 items-center gap-1 rounded-full px-2 text-[10px] font-semibold transition-colors ${
+                                              totalAlts === 0
+                                                ? 'text-slate-400 hover:bg-slate-200/70 hover:text-slate-600'
+                                                : temPrevista
+                                                  ? 'bg-amber-100 text-amber-700'
+                                                  : 'bg-emerald-100 text-emerald-700'
+                                            }`}>
+                                            <FileWarning className="w-3 h-3" aria-hidden="true" />
+                                            {totalAlts > 0 && totalAlts}
+                                          </button>
+                                        )}
                                     </div>
-                                    {canEdit && (
-                                      <button onClick={() => setModalAlteracoesMes(m)}
-                                        title={
-                                          totalAlts > 0
-                                            ? `${totalAlts} alteração${totalAlts > 1 ? 'ões' : ''} ${temPrevista ? '(há previstas)' : 'registrada(s)'}`
-                                            : 'Marcar alteração (AGO/AGE/Reunião)'
-                                        }
-                                        className={`mt-1.5 mx-auto flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
-                                          totalAlts === 0
-                                            ? 'bg-slate-50 hover:bg-amber-500/10 border border-slate-200 hover:border-amber-500/40 text-slate-500 hover:text-amber-400'
-                                            : temPrevista
-                                              ? 'bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 ring-1 ring-amber-500/30 animate-pulse'
-                                              : 'bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
-                                        }`}>
-                                        <FileWarning className="w-3 h-3" />
-                                        {totalAlts === 0 ? '+ AGO/AGE/Reunião' : `${totalAlts} alt.`}
-                                      </button>
-                                    )}
+                                    {atual && <span className="absolute inset-x-0 bottom-0 h-0.5 bg-violet-500" aria-hidden="true" />}
                                 </th>
                             );
                         })}
-                        <th className="px-2 py-4 w-12 bg-slate-100"></th>
+                        <th style={{ right: 0 }} className="sticky z-30 bg-slate-50 border-b border-l border-slate-200"></th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody>
                     {linhasDaTabela.map((item) => item.tipo === 'faixa' ? (
                         <tr key={`faixa-${item.g.id}`}>
                             {/* Tinta de acento, não cinza de fundo: no escuro o
                                 `bg-slate-100` vira a cor "afundada" e a faixa lia
                                 como uma laje cinza solta. `bg-violet-50` tem
-                                override de tema e fica sutil nos dois modos —
-                                igual à faixa do painel de emissão. */}
-                            <td colSpan={3 + months.length}
-                                className="sticky left-0 z-30 bg-violet-50 border-y border-violet-200 px-4 py-2">
+                                override de tema e fica sutil nos dois modos. */}
+                            <td colSpan={2 + months.length + 1}
+                                className="sticky left-0 z-20 bg-violet-50 border-y border-violet-200 px-4 py-2">
                                 <span className="flex items-center gap-2.5 flex-wrap">
                                     <span className="text-sm font-semibold text-slate-800">{item.g.nome}</span>
                                     {item.g.due_day && (
@@ -1375,63 +1466,68 @@ export default function ArrecadacoesPage() {
                         </tr>
                     ) : (
                         (r => (
-                        <tr key={r.id} className="group hover:bg-slate-100 transition-colors relative">
+                        <tr key={r.id} className="group border-b border-slate-100 hover:bg-slate-50 transition-colors">
                             {/* COL: CONTA */}
-                            <td className="p-2 border-r border-slate-200 sticky left-0 z-20 bg-white backdrop-blur-sm group-hover:bg-slate-100 transition-colors shadow-xl relative">
-                                <div className="w-full text-left p-2 rounded-lg text-xs">
-                                    <div className="text-[10px] font-semibold text-violet-400 mb-0.5 truncate" title="Conta Contábil e Nome">
-                                        CT. {r.conta_contabil || '—'} {r.conta_nome ? `- ${r.conta_nome}` : ''}
+                            <td style={{ left: 0 }}
+                                className="sticky z-20 bg-white group-hover:bg-slate-50 transition-colors px-4 py-2.5 align-middle">
+                                {r.conta_contabil ? (
+                                  <>
+                                    <div className="text-[11px] font-semibold text-slate-700 tabular-nums truncate"
+                                         title={`Conta contábil${r.conta_nome ? ` — ${r.conta_nome}` : ''}`}>
+                                      {r.conta_contabil}
                                     </div>
-                                    <div className="text-[9px] font-semibold text-violet-400 mb-0.5" title="Análise Financeira">
-                                        AN. {r.conta_analise_fin || '—'}
+                                    <div className="text-[10px] text-slate-400 tabular-nums" title="Análise financeira">
+                                      an. {r.conta_analise_fin || '—'}
                                     </div>
-                                </div>
+                                  </>
+                                ) : (
+                                  <div className="text-[11px] text-slate-400">sem conta</div>
+                                )}
                             </td>
 
                             {/* COL: VERBA */}
-                            <td className="p-3 border-r border-slate-200 sticky left-[200px] z-20 bg-white backdrop-blur-sm group-hover:bg-slate-100 transition-colors shadow-2xl">
-                                <div className="flex justify-between items-start gap-2">
-                                    <div className="flex-1">
+                            <td style={{ left: LARG_CONTA }}
+                                className={`sticky z-20 bg-white group-hover:bg-slate-50 transition-colors border-r border-slate-200 px-4 py-2.5 align-middle ${bordaCongelada}`}>
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
                                         <input
                                             value={r.nome}
                                             onChange={e => handleRateioChange(r.id, 'nome', e.target.value)}
                                             disabled={!canEdit}
-                                            className="w-full bg-transparent border-none p-0 text-xs font-semibold uppercase text-slate-800 placeholder:text-slate-600 focus:ring-0 disabled:cursor-default"
+                                            className="w-full bg-transparent border-none p-0 text-[12px] font-semibold uppercase text-slate-800 placeholder:text-slate-400 focus:ring-0 disabled:cursor-default"
                                             placeholder="Ex: Fundo de Obras"
                                         />
-                                        <div className="text-[9px] font-bold text-slate-500 truncate mt-1 max-w-[150px]">{r.conta_nome || 'Conta não vinculada'}</div>
+                                        <div className={`truncate text-[10px] mt-0.5 ${r.conta_nome ? 'text-slate-400' : 'text-amber-600'}`}>
+                                            {r.conta_nome || 'conta não vinculada'}
+                                        </div>
+                                        {r.is_parcelado && (
+                                            <div className="flex items-center gap-1 mt-1 text-[9px] font-medium text-slate-400">
+                                                <Layers className="w-3 h-3 text-violet-500" aria-hidden="true" />
+                                                Parcelado ({r.parcela_inicio}/{r.parcela_total}) a partir do mês {r.mes_inicio}
+                                            </div>
+                                        )}
                                     </div>
                                     {canEdit && (
-                                        <button onClick={() => setEditingRateioId(r.id)} className="p-1.5 text-slate-500 hover:text-violet-400 bg-slate-100/50 hover:bg-violet-500/10 rounded-lg transition-all" title="Configurações Avançadas">
-                                            <Settings className="w-4 h-4" />
+                                        <button onClick={() => setEditingRateioId(r.id)}
+                                          className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                                          title="Configurações avançadas da verba"
+                                          aria-label={`Configurações da verba ${r.nome || ''}`}>
+                                            <Settings className="w-3.5 h-3.5" aria-hidden="true" />
                                         </button>
                                     )}
                                 </div>
-                                {r.is_parcelado && (
-                                    <div className="flex items-center gap-1 mt-2 text-[8px] font-medium text-slate-400">
-                                        <Layers className="w-3 h-3 text-violet-500" />
-                                        Parcelado ({r.parcela_inicio}/{r.parcela_total}) a partir do Mês {r.mes_inicio}
-                                    </div>
-                                )}
                             </td>
 
-                            {/* MONTHS VALUES */}
+                            {/* MESES */}
                             {months.map(m => {
                                 const val = rateiosVals[r.id]?.[m] || '0.00';
-                                const edicaoFinalizadaMes = !!edicoesLockedMeses[m];
-                                const lockReason = reasonFor(m);
-                                const hardLock = lockReason === 'emitido';        // pacote registrado -> só retificação
-                                const reaberto = mesesReabertos.has(m);           // master abriu/reabriu este mês no painel
-                                const softLock = isLocked(m) && !hardLock && !reaberto;  // prazo/preparação cedem à reabertura
-                                const mesTravado = hardLock || edicaoFinalizadaMes || softLock;
-                                const cellDisabled = !canEdit || mesTravado;
-                                const reason = edicaoFinalizadaMes ? 'Edição finalizada (liberada). Solicite reabertura para alterar.' : lockReason;
+                                const { mesTravado, reason, cellDisabled } = travaPorMes[m];
                                 const isPlanilhaSpecial = val === 'PLANILHA';
                                 const isZero = !isPlanilhaSpecial && parseValorNumerico(val) === 0;
-                                // Sempre mostra formatado em BRL (mascara em tempo real no onChange)
                                 const displayValue = isPlanilhaSpecial ? val : formatBRL(val);
+                                const atual = m === urlMes;
                                 return (
-                                    <td key={m} className={`p-1 border-r border-slate-200 min-w-[120px] relative ${mesTravado ? 'bg-rose-500/[0.04]' : ''}`}
+                                    <td key={m} className={`relative border-r border-slate-100 px-1 py-2 align-middle ${atual ? 'bg-violet-50/40' : ''} ${mesTravado ? 'bg-slate-50/80' : ''}`}
                                         title={mesTravado ? `Mês bloqueado: ${reasonLabel(reason)}` : undefined}>
                                         <input
                                             type="text"
@@ -1443,17 +1539,12 @@ export default function ArrecadacoesPage() {
                                             onFocus={isPlanilhaSpecial ? undefined : handleCurrencyFocus}
                                             disabled={cellDisabled}
                                             placeholder="R$ 0,00"
-                                            className={`w-full text-right bg-transparent border-none text-xs font-bold px-2 py-2 focus:bg-slate-50 transition-colors focus:ring-0
-                                                ${isPlanilhaSpecial ? 'text-violet-400 font-semibold text-center' : isZero ? 'text-slate-600' : 'text-slate-800'}
-                                                ${cellDisabled ? 'opacity-50 cursor-not-allowed' : ''}
-                                                ${mesTravado ? 'text-rose-300/70' : ''}
+                                            aria-label={`${r.nome || 'Verba'} em ${MESES[m]}`}
+                                            className={`w-full rounded-md bg-transparent px-2 py-1.5 text-right text-[12px] tabular-nums border-none outline-none transition-colors focus:ring-0
+                                                ${isPlanilhaSpecial ? 'text-center font-semibold text-violet-500' : isZero ? 'text-slate-400' : 'font-semibold text-slate-800'}
+                                                ${cellDisabled ? 'cursor-not-allowed' : 'hover:bg-white focus:bg-white focus:ring-2 focus:ring-violet-400'}
                                             `}
                                         />
-                                        {mesTravado && (
-                                          <span className="absolute top-0.5 right-1 text-[8px] font-medium text-rose-400/70 pointer-events-none">
-                                            <Lock className="w-2.5 h-2.5" />
-                                          </span>
-                                        )}
                                         <div className="text-center h-4">
                                             {getParcelaBadge(r, m)}
                                         </div>
@@ -1461,11 +1552,16 @@ export default function ArrecadacoesPage() {
                                 );
                             })}
 
-                            {/* ACÕES */}
-                            <td className="p-2 text-center bg-slate-100">
+                            {/* AÇÕES — pinada à direita: com 12 meses, o botão de
+                                excluir ficava no fim de uma rolagem inteira. */}
+                            <td style={{ right: 0 }}
+                                className="sticky z-20 bg-white group-hover:bg-slate-50 transition-colors border-l border-slate-200 px-1 text-center align-middle">
                                 {canEdit && (
-                                  <button onClick={() => handleDelete(r.id)} className="text-rose-500/60 hover:text-rose-400 p-1.5 hover:bg-rose-400/10 rounded-lg transition-all" title="Excluir rateio">
-                                      <Trash2 className="w-4 h-4" />
+                                  <button onClick={() => handleDelete(r.id)}
+                                    className="rounded-md p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                                    title="Excluir verba"
+                                    aria-label={`Excluir a verba ${r.nome || ''}`}>
+                                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                                   </button>
                                 )}
                             </td>
@@ -1473,18 +1569,23 @@ export default function ArrecadacoesPage() {
                         ))(item.r)
                     ))}
 
-                    {/* Botão Adicionar Row */}
-                    {canEdit && (
-                        <tr>
-                            <td colSpan={15} className="p-4 bg-slate-100">
-                                <button onClick={handleAddNew} disabled={adicionandoVerba} className="flex items-center gap-2 px-6 py-2 border-2 border-dashed border-slate-200 hover:border-violet-500/50 rounded-xl text-[10px] font-semibold text-slate-500 hover:text-violet-400 transition-all disabled:opacity-50 mx-auto group">
-                                    {adicionandoVerba
-                                      ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-                                      : <PlusCircle className="w-5 h-5 group-hover:scale-110 transition-transform" aria-hidden="true" />}
-                                    Adicionar Nova Verba (Rateio)
-                                </button>
+                    {/* TOTAL — a soma que antes só existia na cabeça de quem lia.
+                        `PLANILHA` (a verba que vem do rateio) não entra: não é
+                        número, e somá-la como zero seria mentir por omissão. */}
+                    {rateiosVisiveis.length > 0 && (
+                      <tr className="border-t-2 border-slate-200 bg-slate-50">
+                          <td style={{ left: 0 }} className="sticky z-20 bg-slate-50 px-4 py-2.5"></td>
+                          <td style={{ left: LARG_CONTA }}
+                              className={`sticky z-20 bg-slate-50 border-r border-slate-200 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 ${bordaCongelada}`}>
+                              Total do mês
+                          </td>
+                          {months.map(m => (
+                            <td key={m} className={`border-r border-slate-100 px-3 py-2.5 text-right text-[12px] font-bold tabular-nums ${m === urlMes ? 'bg-violet-50/40' : ''} ${totalPorMes[m] === 0 ? 'text-slate-400' : 'text-slate-900'}`}>
+                                {formatBRL(totalPorMes[m])}
                             </td>
-                        </tr>
+                          ))}
+                          <td style={{ right: 0 }} className="sticky z-20 bg-slate-50 border-l border-slate-200"></td>
+                      </tr>
                     )}
                 </tbody>
             </table>
