@@ -1,3 +1,21 @@
+// Esta página usa cor literal (`bg-[#ffffff]`, `text-[#64748b]`) onde o resto
+// do app usaria `bg-white` e `text-slate-500`. Não é desleixo, é proposital.
+//
+// O tema escuro do app sequestra essas classes, no globals.css:
+//
+//     .dark .bg-white { background-color: var(--color-surface) !important; }
+//
+// Isso serve às telas de dentro, que são desenhadas nos dois temas. Esta aqui é
+// uma página pública de tema único — 68 cores literais contra 27 classes — e
+// então o `!important` escurecia o fundo enquanto o texto, que já era hex
+// escuro, continuava escuro. Medido em produção em 09/09/2026: contraste 1.14
+// nos títulos de seção e nos cartões, onde o mínimo legível é 4.5. Da dobra
+// para baixo a página inteira virava um retângulo escuro vazio para quem
+// estivesse com o tema escuro ligado.
+//
+// Se um dia a landing for desenhada também no escuro, o caminho é o contrário:
+// voltar às classes de tema e deixar o globals.css cuidar delas.
+
 import Link from 'next/link';
 import { Fredoka } from 'next/font/google';
 import { LogoMark, LogoGlyph } from '@/components/Logo';
@@ -57,7 +75,7 @@ function PushLink({ href, children, color = 'navy', className = '' }) {
   const c = {
     navy:   'bg-[#1e3a8a] text-white shadow-[0_5px_0_#16306b] active:shadow-[0_0_0_#16306b]',
     orange: 'bg-[#3b6fe0] text-white shadow-[0_5px_0_#2f5bc4] active:shadow-[0_0_0_#2f5bc4]',
-    white:  'bg-white text-[#1e3a8a] shadow-[0_5px_0_#d4ddef] active:shadow-[0_0_0_#d4ddef]',
+    white:  'bg-[#ffffff] text-[#1e3a8a] shadow-[0_5px_0_#d4ddef] active:shadow-[0_0_0_#d4ddef]',
   }[color];
   return (
     <Link
@@ -79,7 +97,7 @@ function Wordmark({ className = '' }) {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-700">
+    <div className="min-h-screen bg-[#f8fafc] text-[#334155]">
       {/* ─── Nav ─── */}
       <header className="sticky top-0 z-40 border-b-2 border-[#1e3a8a]/10 bg-[#f8fafc]/85 backdrop-blur-md">
         <nav className="max-w-6xl mx-auto px-5 h-[68px] flex items-center justify-between">
@@ -88,8 +106,8 @@ export default function Home() {
             <Wordmark />
           </Link>
           <div className="flex items-center gap-1 sm:gap-3">
-            <a href="#recursos" className={`hidden sm:inline-flex text-sm font-semibold text-slate-500 hover:text-[#1e3a8a] px-3 py-2 rounded-xl transition-colors ${fredoka.className}`}>Recursos</a>
-            <a href="#como-funciona" className={`hidden sm:inline-flex text-sm font-semibold text-slate-500 hover:text-[#1e3a8a] px-3 py-2 rounded-xl transition-colors ${fredoka.className}`}>Como funciona</a>
+            <a href="#recursos" className={`hidden sm:inline-flex text-sm font-semibold text-[#64748b] hover:text-[#1e3a8a] px-3 py-2 rounded-xl transition-colors ${fredoka.className}`}>Recursos</a>
+            <a href="#como-funciona" className={`hidden sm:inline-flex text-sm font-semibold text-[#64748b] hover:text-[#1e3a8a] px-3 py-2 rounded-xl transition-colors ${fredoka.className}`}>Como funciona</a>
             <PushLink href="/login" className="!px-5 !py-2.5 !text-sm">Entrar</PushLink>
           </div>
         </nav>
@@ -103,13 +121,13 @@ export default function Home() {
         <div className="relative max-w-6xl mx-auto px-5 pt-12 pb-12 md:pt-20 md:pb-20 grid lg:grid-cols-2 gap-10 items-center">
           {/* Texto */}
           <div className="animate-fade-up text-center lg:text-left">
-            <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border-2 border-[#1e3a8a]/10 text-[#1e3a8a] text-xs font-bold uppercase tracking-widest ${fredoka.className}`}>
+            <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#ffffff] border-2 border-[#1e3a8a]/10 text-[#1e3a8a] text-xs font-bold uppercase tracking-widest ${fredoka.className}`}>
               <Building2 className="w-3.5 h-3.5" /> Gestão de condomínios
             </span>
             <h1 className={`mt-5 text-4xl md:text-5xl lg:text-[3.7rem] font-bold tracking-tight text-[#102347] leading-[1.06] ${fredoka.className}`}>
               Cuidar do condomínio<br className="hidden md:block" /> ficou <span className="text-[#3b6fe0]">leve</span>.
             </h1>
-            <p className="mt-5 text-lg text-slate-500 leading-relaxed max-w-xl mx-auto lg:mx-0">
+            <p className="mt-5 text-lg text-[#64748b] leading-relaxed max-w-xl mx-auto lg:mx-0">
               Arrecadações, cobranças, emissões com aprovação multinível e leitura automática de faturas.
               Menos planilha solta, mais controle — do lançamento à prestação de contas.
             </p>
@@ -117,7 +135,7 @@ export default function Home() {
               <PushLink href="/login" color="navy">Acessar o sistema <ArrowRight className="w-4 h-4" /></PushLink>
               <PushLink href="#recursos" color="white">Ver recursos</PushLink>
             </div>
-            <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-slate-500 justify-center lg:justify-start">
+            <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-[#64748b] justify-center lg:justify-start">
               {['Leitura automática de faturas', 'Aprovação multinível', 'Auditoria completa'].map(t => (
                 <li key={t} className="inline-flex items-center gap-1.5">
                   <span className="inline-flex w-5 h-5 rounded-full bg-[#e9f7ee] text-[#1d9e75] items-center justify-center"><Check className="w-3 h-3" strokeWidth={3} /></span>{t}
@@ -136,15 +154,15 @@ export default function Home() {
                 <LogoGlyph size={230} />
               </div>
               {/* balão de fala */}
-              <div className={`absolute -top-2 -right-2 sm:right-0 bg-white border-2 border-[#1e3a8a]/10 rounded-2xl rounded-br-sm px-4 py-2.5 shadow-[0_4px_0_#e7ddcb] ${fredoka.className}`}>
+              <div className={`absolute -top-2 -right-2 sm:right-0 bg-[#ffffff] border-2 border-[#1e3a8a]/10 rounded-2xl rounded-br-sm px-4 py-2.5 shadow-[0_4px_0_#e7ddcb] ${fredoka.className}`}>
                 <p className="text-sm font-semibold text-[#1e3a8a]">Bora deixar o<br />condomínio em ordem!</p>
               </div>
               {/* chips flutuantes */}
-              <div className="absolute -left-3 sm:-left-8 top-1/3 bg-white border-2 border-[#3b6fe0]/20 rounded-2xl px-3 py-2 shadow-[0_4px_0_#d4ddef] flex items-center gap-2 animate-float" style={{ animationDelay: '600ms' }}>
+              <div className="absolute -left-3 sm:-left-8 top-1/3 bg-[#ffffff] border-2 border-[#3b6fe0]/20 rounded-2xl px-3 py-2 shadow-[0_4px_0_#d4ddef] flex items-center gap-2 animate-float" style={{ animationDelay: '600ms' }}>
                 <span className="inline-flex w-7 h-7 rounded-lg bg-[#eaf1ff] text-[#3b6fe0] items-center justify-center"><ScanLine className="w-4 h-4" /></span>
                 <span className={`text-xs font-bold text-[#102347] ${fredoka.className}`}>Fatura lida</span>
               </div>
-              <div className="absolute -right-2 sm:-right-6 bottom-8 bg-white border-2 border-[#1d9e75]/20 rounded-2xl px-3 py-2 shadow-[0_4px_0_#d7ecdf] flex items-center gap-2 animate-float" style={{ animationDelay: '300ms' }}>
+              <div className="absolute -right-2 sm:-right-6 bottom-8 bg-[#ffffff] border-2 border-[#1d9e75]/20 rounded-2xl px-3 py-2 shadow-[0_4px_0_#d7ecdf] flex items-center gap-2 animate-float" style={{ animationDelay: '300ms' }}>
                 <span className="inline-flex w-7 h-7 rounded-lg bg-[#e9f7ee] text-[#1d9e75] items-center justify-center"><FileCheck2 className="w-4 h-4" /></span>
                 <span className={`text-xs font-bold text-[#102347] ${fredoka.className}`}>Aprovado</span>
               </div>
@@ -154,12 +172,12 @@ export default function Home() {
       </section>
 
       {/* ─── Para quem é ─── */}
-      <section className="border-y-2 border-[#1e3a8a]/10 bg-white">
+      <section className="border-y-2 border-[#1e3a8a]/10 bg-[#ffffff]">
         <div className="max-w-6xl mx-auto px-5 py-8">
-          <p className={`text-center text-xs font-bold uppercase tracking-widest text-slate-400 ${fredoka.className}`}>Feito para quem cuida de condomínios</p>
+          <p className={`text-center text-xs font-bold uppercase tracking-widest text-[#94a3b8] ${fredoka.className}`}>Feito para quem cuida de condomínios</p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
             {PARA_QUEM.map(t => (
-              <span key={t} className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#f8fafc] border-2 border-[#1e3a8a]/10 text-sm font-semibold text-slate-600 ${fredoka.className}`}>
+              <span key={t} className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#f8fafc] border-2 border-[#1e3a8a]/10 text-sm font-semibold text-[#475569] ${fredoka.className}`}>
                 <Check className="w-3.5 h-3.5 text-[#3b6fe0]" strokeWidth={3} /> {t}
               </span>
             ))}
@@ -171,32 +189,32 @@ export default function Home() {
       <section className="max-w-6xl mx-auto px-5 py-16 md:py-24">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className={`text-3xl md:text-4xl font-bold tracking-tight text-[#102347] ${fredoka.className}`}>Por que o CondoFlow</h2>
-          <p className="mt-4 text-lg text-slate-500">Não é mais uma planilha — é o ciclo do mês organizado de ponta a ponta.</p>
+          <p className="mt-4 text-lg text-[#64748b]">Não é mais uma planilha — é o ciclo do mês organizado de ponta a ponta.</p>
         </div>
         <div className="mt-12 grid md:grid-cols-3 gap-6">
           {BENEFICIOS.map(({ icon: Icon, titulo, desc, tint }) => (
-            <div key={titulo} className={`rounded-3xl bg-white border-2 border-b-[6px] ${TINTS[tint].br} p-7 transition-transform hover:-translate-y-1`}>
+            <div key={titulo} className={`rounded-3xl bg-[#ffffff] border-2 border-b-[6px] ${TINTS[tint].br} p-7 transition-transform hover:-translate-y-1`}>
               <span className={`inline-flex w-14 h-14 rounded-2xl items-center justify-center ${TINTS[tint].icon}`}><Icon className="w-7 h-7" /></span>
               <h3 className={`mt-5 text-lg font-bold text-[#102347] ${fredoka.className}`}>{titulo}</h3>
-              <p className="mt-2 text-sm text-slate-500 leading-relaxed">{desc}</p>
+              <p className="mt-2 text-sm text-[#64748b] leading-relaxed">{desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* ─── Recursos ─── */}
-      <section id="recursos" className="bg-white border-y-2 border-[#1e3a8a]/10 scroll-mt-20">
+      <section id="recursos" className="bg-[#ffffff] border-y-2 border-[#1e3a8a]/10 scroll-mt-20">
         <div className="max-w-6xl mx-auto px-5 py-16 md:py-24">
           <div className="max-w-2xl mx-auto text-center">
             <h2 className={`text-3xl md:text-4xl font-bold tracking-tight text-[#102347] ${fredoka.className}`}>Tudo o que a gestão precisa</h2>
-            <p className="mt-4 text-lg text-slate-500">Cada etapa do mês — do lançamento à emissão e à aprovação — num fluxo claro e auditável.</p>
+            <p className="mt-4 text-lg text-[#64748b]">Cada etapa do mês — do lançamento à emissão e à aprovação — num fluxo claro e auditável.</p>
           </div>
           <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {RECURSOS.map(({ icon: Icon, titulo, desc, tint }) => (
               <div key={titulo} className={`rounded-3xl ${TINTS[tint].soft} border-2 border-b-[6px] ${TINTS[tint].br} p-6 transition-transform hover:-translate-y-1`}>
                 <span className={`inline-flex w-12 h-12 rounded-2xl items-center justify-center ${TINTS[tint].icon}`}><Icon className="w-6 h-6" /></span>
                 <h3 className={`mt-4 text-base font-bold text-[#102347] ${fredoka.className}`}>{titulo}</h3>
-                <p className="mt-2 text-sm text-slate-600 leading-relaxed">{desc}</p>
+                <p className="mt-2 text-sm text-[#475569] leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>
@@ -207,14 +225,14 @@ export default function Home() {
       <section id="como-funciona" className="max-w-6xl mx-auto px-5 py-16 md:py-24 scroll-mt-20">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className={`text-3xl md:text-4xl font-bold tracking-tight text-[#102347] ${fredoka.className}`}>Como funciona</h2>
-          <p className="mt-4 text-lg text-slate-500">Quatro passos do começo ao fim do ciclo mensal.</p>
+          <p className="mt-4 text-lg text-[#64748b]">Quatro passos do começo ao fim do ciclo mensal.</p>
         </div>
         <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {PASSOS.map((p, i) => (
-            <div key={p.n} className="relative rounded-3xl bg-white border-2 border-b-[6px] border-[#1e3a8a]/12 p-6">
+            <div key={p.n} className="relative rounded-3xl bg-[#ffffff] border-2 border-b-[6px] border-[#1e3a8a]/12 p-6">
               <span className={`inline-flex w-11 h-11 rounded-2xl bg-[#1e3a8a] text-white items-center justify-center text-lg font-bold ${fredoka.className}`}>{p.n}</span>
               <h3 className={`mt-4 text-base font-bold text-[#102347] ${fredoka.className}`}>{p.titulo}</h3>
-              <p className="mt-2 text-sm text-slate-500 leading-relaxed">{p.desc}</p>
+              <p className="mt-2 text-sm text-[#64748b] leading-relaxed">{p.desc}</p>
               {i < PASSOS.length - 1 && <ArrowRight className="hidden lg:block absolute top-8 -right-3.5 w-6 h-6 text-[#3b6fe0]" strokeWidth={2.5} />}
             </div>
           ))}
@@ -222,7 +240,7 @@ export default function Home() {
       </section>
 
       {/* ─── FAQ ─── */}
-      <section id="faq" className="bg-white border-y-2 border-[#1e3a8a]/10 scroll-mt-20">
+      <section id="faq" className="bg-[#ffffff] border-y-2 border-[#1e3a8a]/10 scroll-mt-20">
         <div className="max-w-3xl mx-auto px-5 py-16 md:py-24">
           <h2 className={`text-3xl md:text-4xl font-bold tracking-tight text-[#102347] text-center ${fredoka.className}`}>Perguntas frequentes</h2>
           <div className="mt-10 space-y-3">
@@ -232,7 +250,7 @@ export default function Home() {
                   <span className={`text-base font-semibold text-[#102347] ${fredoka.className}`}>{q}</span>
                   <ChevronDown className="w-5 h-5 text-[#3b6fe0] shrink-0 transition-transform group-open:rotate-180" strokeWidth={2.5} />
                 </summary>
-                <p className="mt-3 text-sm text-slate-500 leading-relaxed">{a}</p>
+                <p className="mt-3 text-sm text-[#64748b] leading-relaxed">{a}</p>
               </details>
             ))}
           </div>
@@ -260,10 +278,10 @@ export default function Home() {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="border-t-2 border-[#1e3a8a]/10 bg-white">
+      <footer className="border-t-2 border-[#1e3a8a]/10 bg-[#ffffff]">
         <div className="max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2.5"><LogoMark size={32} /><Wordmark className="!text-lg" /></Link>
-          <p className="text-xs text-slate-400 font-semibold">© {new Date().getFullYear()} CondoFlow · Sistema de Gestão de Condomínios</p>
+          <p className="text-xs text-[#94a3b8] font-semibold">© {new Date().getFullYear()} CondoFlow · Sistema de Gestão de Condomínios</p>
           <Link href="/login" className={`text-sm font-bold text-[#1e3a8a] hover:text-[#3b6fe0] transition-colors ${fredoka.className}`}>Entrar →</Link>
         </div>
       </footer>
