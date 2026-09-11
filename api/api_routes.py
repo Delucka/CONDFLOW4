@@ -4670,6 +4670,161 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
             "total_condos": len(condos), "avisados": avisados}
 
 
+def _condos_preenchidos(db, condo_ids, mes, ano):
+    """Condominios com ao menos um valor > 0 digitado no mes.
+
+    Mesma regra da previa e da abertura: o valor e TEXT, pode vir com virgula
+    ou com palavra ("PLANILHA"), e o que nao converte nao conta.
+    """
+    out = set()
+    if not condo_ids:
+        return out
+    try:
+        rc = (db.table("rateios_config").select("id, condominio_id")
+                .in_("condominio_id", list(condo_ids)).execute().data or [])
+        por_rateio = {r["id"]: r["condominio_id"] for r in rc}
+        chaves = list(por_rateio.keys())
+        for i in range(0, len(chaves), 200):
+            for v in (db.table("rateios_valores").select("rateio_id, valor")
+                        .in_("rateio_id", chaves[i:i + 200])
+                        .eq("month", mes).eq("ano", ano).execute().data or []):
+                try:
+                    n = float(str(v.get("valor") or "0").replace(",", "."))
+                except (TypeError, ValueError):
+                    n = 0.0
+                if n > 0:
+                    out.add(por_rateio[v["rateio_id"]])
+    except Exception as e:
+        log.warning(f"[lembrar] preenchidos falhou (segue sem): {e}")
+    return out
+
+
+class LembrarGerentesSchema(BaseModel):
+    mes: Optional[int] = None
+    ano: Optional[int] = None
+    gerente_id: Optional[str] = None   # id do PROFILE, como o painel manda; nulo = todos
+    confirmar: bool = False            # False = so a previa, nada e enviado
+
+
+_LEMBRETE_INTERVALO_MIN = 10
+
+
+@router.post("/edicoes-mensais/lembrar")
+def api_lembrar_gerentes(data: LembrarGerentesSchema, user: dict = Depends(get_current_user),
+                         db: Client = Depends(get_db)):
+    """Cutuca os gerentes que ainda tem planilha para liberar no mes.
+
+    Abrir o mes de novo servia de lembrete, mas e a acao errada para isso: o
+    nome nao diz o que o master quer, e ela mexe no quadro. Aqui o quadro fica
+    como esta -- so sai o aviso, com a situacao de AGORA de cada carteira: o
+    que falta preencher, o que falta so liberar e o que ja foi.
+
+    Duas regras:
+    - So e lembrado quem tem pendencia (a regra mora no proprio aviso).
+    - Um gerente nao recebe o lembrete do mesmo mes duas vezes em 10 minutos.
+      Protege do clique duplo e do "sera que foi?" sem impedir o master de
+      cutucar de novo mais tarde, que e justamente o uso.
+
+    `confirmar=false` devolve so a previa -- quem recebe e quanto cada um tem
+    pendente -- e nao envia nada. O painel mostra isso antes de mandar.
+    """
+    from datetime import datetime as _dtm, timedelta as _td, timezone as _tz
+
+    if user.get("role") not in EMIT_DOCUMENT:
+        raise HTTPException(403, "Apenas o emissor ou o master pode lembrar os gerentes")
+    mes_padrao, ano_padrao = _mes_alvo_padrao()
+    mes = data.mes or mes_padrao
+    ano = data.ano or ano_padrao
+    if mes < 1 or mes > 12:
+        raise HTTPException(400, "mes invalido")
+    rotulo = f"{_MES_NOME[mes]}/{ano}"
+
+    # Mesmo recorte da abertura: gerente na operacao, condominio ativo.
+    hoje_iso = _dtm.now().date().isoformat()
+    ger = db.table("gerentes").select("id, nome, ativo, ativo_desde, profile_id").execute().data or []
+    ativos = {g["id"]: g for g in ger
+              if g.get("ativo") is not False
+              and (not g.get("ativo_desde") or str(g["ativo_desde"]) <= hoje_iso)}
+    q = db.table("condominios").select("id, gerente_id").eq("situacao", "ativo")
+    if data.gerente_id:
+        g_real = get_gerente_id(db, data.gerente_id) or data.gerente_id
+        q = q.eq("gerente_id", g_real)
+    condos = [c for c in (q.execute().data or []) if c.get("gerente_id") in ativos]
+    ids = [c["id"] for c in condos]
+
+    status_de = {}
+    if ids:
+        for e in (db.table("edicoes_mensais").select("condominio_id, status")
+                    .in_("condominio_id", ids)
+                    .eq("mes_referencia", mes).eq("ano_referencia", ano).execute().data or []):
+            status_de[e["condominio_id"]] = e["status"]
+
+    pendentes = [c for c in condos if status_de.get(c["id"]) == "em_edicao"]
+    liberados = [c for c in condos if status_de.get(c["id"]) == "edicao_finalizada"]
+    # Nao aberto nao entra no lembrete: o gerente nao tem como preencher o que
+    # nao abriu. Vai so a contagem, para o painel dizer que falta abrir.
+    nao_abertos = sum(1 for c in condos if c["id"] not in status_de)
+    preenchidos = _condos_preenchidos(db, [c["id"] for c in pendentes], mes, ano)
+
+    def item(c):
+        return {"condominio_id": c["id"], "gerente_id": c.get("gerente_id")}
+    abertos_l = [item(c) for c in pendentes if c["id"] not in preenchidos]
+    preench_l = [item(c) for c in pendentes if c["id"] in preenchidos]
+    libs_l = [item(c) for c in liberados]
+
+    resumo = {}
+    for c in condos:
+        g = c["gerente_id"]
+        r = resumo.setdefault(g, {"gerente": ativos[g].get("nome") or "gerente",
+                                  "profile_id": ativos[g].get("profile_id"),
+                                  "pendentes": 0, "liberados": 0})
+        st = status_de.get(c["id"])
+        if st == "em_edicao":
+            r["pendentes"] += 1
+        elif st == "edicao_finalizada":
+            r["liberados"] += 1
+
+    # Quem ja recebeu o lembrete deste mes ha menos de 10 minutos.
+    recentes = set()
+    pids = [r["profile_id"] for r in resumo.values() if r["profile_id"] and r["pendentes"]]
+    if pids:
+        desde = (_dtm.now(_tz.utc) - _td(minutes=_LEMBRETE_INTERVALO_MIN)).isoformat()
+        for n in (db.table("notificacoes").select("user_id, titulo")
+                    .in_("user_id", pids).eq("tipo", "lembrete_planilha")
+                    .gte("created_at", desde).execute().data or []):
+            if rotulo in (n.get("titulo") or ""):
+                recentes.add(n["user_id"])
+
+    vao_receber, em_dia, sem_login, lembrados_agora = [], [], [], []
+    for g, r in sorted(resumo.items(), key=lambda kv: kv[1]["gerente"]):
+        linha = {"gerente": r["gerente"], "pendentes": r["pendentes"], "liberados": r["liberados"]}
+        if not r["pendentes"]:
+            em_dia.append(linha)
+        elif not r["profile_id"]:
+            sem_login.append(linha)
+        elif r["profile_id"] in recentes:
+            lembrados_agora.append(linha)
+        else:
+            vao_receber.append(linha)
+
+    resposta = {"mes": mes, "ano": ano, "vao_receber": vao_receber, "em_dia": em_dia,
+                "sem_login": sem_login, "lembrados_agora": lembrados_agora,
+                "nao_abertos": nao_abertos, "intervalo_min": _LEMBRETE_INTERVALO_MIN}
+    if not data.confirmar:
+        return resposta
+
+    # O intervalo so existe aqui, entao quem caiu nele sai das listas antes de
+    # chegar ao aviso. Quem esta em dia sai sozinho, pela regra do proprio aviso.
+    barrados = {g for g, r in resumo.items() if r["profile_id"] in recentes}
+
+    def fora(lst):
+        return [e for e in lst if e["gerente_id"] not in barrados]
+    resposta["avisados"] = _notificar_gerente_abertura(
+        db, mes, ano, fora(abertos_l), fora(preench_l), fora(libs_l),
+        user.get("full_name") or "A administração", modo="lembrete")
+    return resposta
+
+
 @router.get("/edicoes-mensais")
 def api_listar_edicoes(
     status: Optional[str] = None,
@@ -5200,7 +5355,8 @@ def _meses_em_branco(db, edicoes):
     }
 
 
-def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_liberados, autor_nome):
+def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_liberados, autor_nome,
+                                modo="abertura"):
     """Avisa o gerente que o mes abriu — e o que ja estava preenchido.
 
     Sem isto, abrir o mes era um evento invisivel: o gerente so descobria
@@ -5263,10 +5419,16 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
             # de entrada sem abrir nada. Entao ele diz a acao -- quantas faltam
             # liberar -- e nao so que o mes abriu.
             n_pendentes = n_abriu + n_prontos
+            # Lembrete so para quem tem o que fazer. "Lembre-se de liberar" para
+            # quem ja liberou tudo ensina a pessoa a ignorar o aviso seguinte.
+            if modo == "lembrete" and not n_pendentes:
+                continue
             if n_pendentes:
                 titulo = f"{rotulo}: {n_pendentes} planilha{'s' if n_pendentes != 1 else ''} para liberar"
             else:
                 titulo = f"{rotulo}: todas as suas planilhas já estão liberadas"
+            if modo == "lembrete":
+                titulo = "Lembrete · " + titulo
 
             # Os TRES grupos com nome, a acao primeiro. A primeira versao contava
             # o grupo que mais importa -- "28 para preencher" -- e nomeava so os
@@ -5279,7 +5441,9 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
                 partes.append(f"Preenchidos, falta liberar ({n_prontos}), confira: {_lista(dados['preenchidos'])}")
             if n_liberados:
                 partes.append(f"Já liberados por você ({n_liberados}), não voltam: {_lista(dados['liberados'])}")
-            mensagem = f"{autor_nome} abriu {rotulo}. " + ". ".join(partes) + "."
+            abertura_txt = (f"{autor_nome} abriu {rotulo}. " if modo == "abertura"
+                            else f"{autor_nome} está lembrando você das planilhas de {rotulo}. ")
+            mensagem = abertura_txt + ". ".join(partes) + "."
 
             # O e-mail recebe os mesmos tres grupos em BLOCOS, com uma tarja de
             # cor cada um — a cor diz o que fazer: azul preencher, verde nao e
@@ -5297,7 +5461,8 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
                 return h + '</div>'
 
             html = (f'<p style="margin:0 0 18px;color:#475569;font-size:14px;line-height:1.6;">'
-                    f'{autor_nome} abriu o mês para a sua carteira.</p>')
+                    + (f'{autor_nome} abriu o mês para a sua carteira.</p>' if modo == "abertura"
+                       else f'{autor_nome} está lembrando você: ainda há planilha de {rotulo} para liberar.</p>'))
             # Teto 40: a maior carteira ativa tem 30. No e-mail cabe a lista
             # inteira, e e ela que o gerente usa para trabalhar.
             if n_abriu:
@@ -5319,7 +5484,7 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
             # O teto e 1200, nao 240: aqui a lista de nomes E a informacao, e
             # cortar em 240 devolveria o problema que este aviso veio resolver.
             db.table("notificacoes").insert({
-                "user_id": pid, "tipo": "mes_aberto",
+                "user_id": pid, "tipo": "mes_aberto" if modo == "abertura" else "lembrete_planilha",
                 "titulo": titulo[:120], "mensagem": mensagem[:1200],
                 "email_html": html,
                 "link": "/aprovacoes",

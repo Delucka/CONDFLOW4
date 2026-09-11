@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { usePipelineConfig } from '@/lib/usePipelineConfig';
 import { combina } from '@/lib/busca';
-import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, Upload, Users, AlertTriangle } from 'lucide-react';
+import { Building, PlusCircle, Pencil, Search, X, Loader2, User, Calendar, ShieldCheck, Eye, ChevronLeft, ChevronRight, Timer, Globe, Save, Lock, Unlock, Upload, Users, AlertTriangle, BellRing } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/utils/supabase/client';
 
@@ -21,6 +21,7 @@ import TagPrioritario from '@/components/TagPrioritario';
 import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
 import { btn, cn } from '@/lib/botoes';
 import Botao from '@/components/Botao';
+import { useAcao } from '@/lib/useAcao';
 import { extrairTextoPdf, lerCondominos, exibirCnpj } from '@/lib/importarCondominos';
 const PainelMoradores = dynamic(() => import('./PainelMoradores'), { ssr: false });
 const PainelPrioridades = dynamic(() => import('@/components/PainelPrioridades'), { ssr: false });
@@ -171,6 +172,38 @@ export default function CondominiosPage() {
       setForcingAll(false);
     }
   };
+
+  // ── Lembrar os gerentes ────────────────────────────────────────────────
+  // Duas idas: a primeira só pergunta ao servidor quem vai receber (nada é
+  // enviado); a segunda, depois de o master ver a lista, envia. Mandar e-mail
+  // para pessoas de verdade merece o segundo clique.
+  //
+  // O lembrete é por GERENTE, então o filtro de condomínio não entra: vale o
+  // filtro de gerente, ou todos.
+  const [lembrete, setLembrete] = useState(null);   // prévia aberta no modal
+  const payloadLembrete = (confirmar) => {
+    const pl = { mes: mesEdicao, ano: pipelineAno, confirmar };
+    if (gerenteFilter) pl.gerente_id = gerenteFilter;
+    return pl;
+  };
+  const [pedirPreviaLembrete, buscandoLembrete] = useAcao(async () => {
+    const r = await apiPost('/api/edicoes-mensais/lembrar', payloadLembrete(false));
+    if (r.vao_receber?.length) { setLembrete(r); return; }
+    // Ninguém para lembrar: diz POR QUÊ, em vez de abrir um modal vazio.
+    const mesTxt = `${_MESES[r.mes]}/${r.ano}`;
+    if (r.lembrados_agora?.length) {
+      addToast(`Quem tem pendência em ${mesTxt} já foi lembrado há menos de ${r.intervalo_min} minutos.`);
+    } else if (r.nao_abertos && !r.em_dia?.length) {
+      addToast(`${mesTxt} ainda não foi aberto — abra o mês antes de lembrar.`, 'error');
+    } else {
+      addToast(`Ninguém com planilha pendente em ${mesTxt}: está todo mundo em dia.`, 'success');
+    }
+  });
+  const [enviarLembrete, enviandoLembrete] = useAcao(async () => {
+    const r = await apiPost('/api/edicoes-mensais/lembrar', payloadLembrete(true));
+    setLembrete(null);
+    return r;
+  }, { sucesso: (r) => `Lembrete enviado a ${r.avisados} gerente${r.avisados !== 1 ? 's' : ''}.` });
 
   // SWR para Dados de Condomínios e Gerentes
   const { data: condosData, mutate: mutateCondos, isLoading: loadingCondos } = useSWR('/api/condominios', apiFetcher);
@@ -472,6 +505,11 @@ export default function CondominiosPage() {
                   </span>
                 )}
               </button>
+              <Botao variante="secundario" icone={BellRing} carregando={buscandoLembrete}
+                onClick={pedirPreviaLembrete} className="min-w-[170px]"
+                title="Manda um lembrete a quem ainda tem planilha para liberar neste mês. Não mexe no quadro.">
+                {selGerenteNome ? `Lembrar ${selGerenteNome.split(' ')[0]}` : 'Lembrar gerentes'}
+              </Botao>
             </div>
             <label className="flex items-start gap-2 text-[11px] text-slate-600 cursor-pointer select-none">
               <input type="checkbox" checked={forcarReabertura} onChange={e => setForcarReabertura(e.target.checked)}
@@ -483,6 +521,9 @@ export default function CondominiosPage() {
                 </span>
               </span>
             </label>
+            <p className="text-[11px] text-slate-500">
+              <b>Lembrar</b> só avisa quem ainda tem planilha para liberar, com a lista de cada um. Não mexe no quadro.
+            </p>
           </div>
 
 
@@ -631,6 +672,50 @@ export default function CondominiosPage() {
 
       {/* Cadastro/Edição — usa o Modal acessível do projeto (Escape, foco preso,
           role="dialog", trava o scroll e vira bottom-sheet no celular). */}
+      <Modal open={!!lembrete} onClose={() => setLembrete(null)} maxWidth="max-w-md"
+        title={lembrete ? `Lembrar gerentes · ${_MESES[lembrete.mes]}/${lembrete.ano}` : ''}>
+        {lembrete && (
+          <div className="p-5 sm:p-6 space-y-4">
+            <p className="text-sm text-slate-600">
+              Cada um recebe, no e-mail e no sino, a lista do que ainda falta liberar. Nada no quadro muda.
+            </p>
+            <ul className="rounded-xl border border-slate-200">
+              {lembrete.vao_receber.map(g => (
+                <li key={g.gerente} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm border-b border-slate-100 last:border-0">
+                  <span className="font-semibold text-slate-800">{g.gerente}</span>
+                  <span className="text-slate-600 tabular-nums">
+                    {g.pendentes} para liberar{g.liberados > 0 && <span className="text-slate-400"> · {g.liberados} já liberado{g.liberados !== 1 ? 's' : ''}</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {(lembrete.em_dia.length > 0 || lembrete.lembrados_agora.length > 0
+              || lembrete.sem_login.length > 0 || lembrete.nao_abertos > 0) && (
+              <div className="space-y-1 text-xs text-slate-500">
+                {lembrete.em_dia.length > 0 && (
+                  <p>Em dia, não recebem: {lembrete.em_dia.map(g => g.gerente).join(', ')}.</p>
+                )}
+                {lembrete.lembrados_agora.length > 0 && (
+                  <p>Lembrados há menos de {lembrete.intervalo_min} min, ficam de fora agora: {lembrete.lembrados_agora.map(g => g.gerente).join(', ')}.</p>
+                )}
+                {lembrete.sem_login.length > 0 && (
+                  <p>Sem acesso ao sistema, não há como avisar: {lembrete.sem_login.map(g => g.gerente).join(', ')}.</p>
+                )}
+                {lembrete.nao_abertos > 0 && (
+                  <p>{lembrete.nao_abertos} condomínio{lembrete.nao_abertos !== 1 ? 's' : ''} ainda não aberto{lembrete.nao_abertos !== 1 ? 's' : ''} neste mês — não entra{lembrete.nao_abertos !== 1 ? 'm' : ''} no lembrete.</p>
+                )}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Botao variante="discreto" onClick={() => setLembrete(null)}>Cancelar</Botao>
+              <Botao variante="primario" icone={BellRing} carregando={enviandoLembrete} onClick={enviarLembrete}>
+                Enviar a {lembrete.vao_receber.length} gerente{lembrete.vao_receber.length !== 1 ? 's' : ''}
+              </Botao>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
