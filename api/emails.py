@@ -10,6 +10,9 @@ O provedor vem das variáveis de ambiente, não do código:
 `GMAIL_USER` / `GMAIL_APP_PASSWORD` continuam funcionando como segunda opção,
 para a migração não exigir trocar tudo no mesmo minuto.
 
+    EMAIL_COPIA_OCULTA  para onde vai a cópia oculta de todo e-mail
+                        (padrão: condoflow@emissaonline.com; vazio desliga)
+
 Best-effort por decisão: e-mail que não sai não pode derrubar a operação que o
 disparou — um convite de acesso falhar não desfaz o cadastro do usuário. Por
 isso estas funções devolvem True/False e não levantam.
@@ -17,8 +20,10 @@ isso estas funções devolvem True/False e não levantam.
 
 from log import log
 
-def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -> bool:
+def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None,
+                       copia_oculta: bool = True) -> bool:
     """Envia e-mail HTML via SMTP. cc=lista de e-mails; anexos=lista de (nome, bytes, mime).
+    `copia_oculta=False` tira a cópia do arquivo (só para e-mail com senha ou link de acesso).
     Best-effort: retorna True/False, não levanta."""
     import os, smtplib
     from email.mime.text import MIMEText
@@ -47,6 +52,16 @@ def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -
     from_name = os.getenv("EMAIL_FROM_NAME", "CondoFlow")
     cc = [c for c in (cc or []) if c]
 
+    # Cópia oculta para o arquivo da empresa (pedido do usuário, 11/09/2026).
+    # A caixa que envia não guarda o que sai pelo servidor — não havia onde ver
+    # o que o sistema mandou. A cópia vai só no ENVELOPE (sendmail), nunca no
+    # cabeçalho: é isso que a torna oculta, quem recebe não vê que ela existe.
+    # E-mail de acesso e de senha pedem `copia_oculta=False`: levam senha e link
+    # de entrada, e o arquivo não pode virar um cofre de credenciais.
+    arquivo = (os.getenv("EMAIL_COPIA_OCULTA", "condoflow@emissaonline.com") or "").strip() if copia_oculta else ""
+    ja_recebe = {x.strip().lower() for x in [to] + cc if x}
+    bcc = [arquivo] if arquivo and arquivo.lower() not in ja_recebe else []
+
     msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
     msg["From"] = f"{from_name} <{smtp_user}>"
@@ -74,11 +89,11 @@ def _enviar_email_smtp(to: str, subject: str, html: str, cc=None, anexos=None) -
             with smtplib.SMTP(host, port, timeout=20) as s:
                 s.starttls()
                 s.login(smtp_user, smtp_pass)
-                s.sendmail(smtp_user, [to] + cc, msg.as_string())
+                s.sendmail(smtp_user, [to] + cc + bcc, msg.as_string())
         else:
             with smtplib.SMTP_SSL(host, port, timeout=20) as s:
                 s.login(smtp_user, smtp_pass)
-                s.sendmail(smtp_user, [to] + cc, msg.as_string())
+                s.sendmail(smtp_user, [to] + cc + bcc, msg.as_string())
         return True
     except Exception as e:
         log.warning(f"[email] erro ao enviar para {to} por {host}:{port}: {e}")
@@ -105,7 +120,8 @@ def _enviar_email_acesso(db, email: str, full_name: str, password: str) -> bool:
         )
         html = db.rpc("email_template", {"p_titulo": titulo, "p_mensagem": corpo, "p_link": "/login"}).execute().data
         if isinstance(html, str) and html:
-            return _enviar_email_smtp(email, "Bem-vindo ao CondoFlow — seus dados de acesso", html)
+            return _enviar_email_smtp(email, "Bem-vindo ao CondoFlow — seus dados de acesso", html,
+                                      copia_oculta=False)   # leva a senha temporária
     except Exception as e:
         log.warning(f"[enviar_acesso] falha: {e}")
     return False
@@ -132,7 +148,8 @@ def _enviar_email_recuperacao(db, email: str, full_name: str, link: str) -> bool
         )
         html = db.rpc("email_template", {"p_titulo": "Redefinir sua senha", "p_mensagem": corpo, "p_link": None}).execute().data
         if isinstance(html, str) and html:
-            return _enviar_email_smtp(email, "CondoFlow — Redefinir senha", html)
+            return _enviar_email_smtp(email, "CondoFlow — Redefinir senha", html,
+                                      copia_oculta=False)   # leva o link de troca de senha
     except Exception as e:
         log.warning(f"[email_recuperacao] falha: {e}")
     return False
