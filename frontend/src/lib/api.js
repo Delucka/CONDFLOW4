@@ -61,6 +61,25 @@ function irParaLoginSessaoExpirada() {
   window.location.href = `/login?expirado=1&next=${next}`;
 }
 
+// O `detail` do FastAPI nem sempre é texto. Erro de validação (422) vem como
+// LISTA de objetos — [{ loc: ['body', 'due_day'], msg: '...' }] — e jogar isso
+// direto no `new Error()` virava "[object Object]" no aviso da tela: a pessoa
+// via que falhou, não o quê, e clicava de novo (em 11/09/2026 foram quatro
+// avisos iguais em sequência). Aqui a lista vira uma frase com o nome do campo.
+function textoDoErro(json) {
+  const d = json?.detail ?? json?.message;
+  if (!d) return '';
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) {
+    const campos = [...new Set(d.map((e) => {
+      const loc = (e?.loc || []).filter((x) => x !== 'body' && x !== 'query' && typeof x !== 'number');
+      return loc[loc.length - 1] || 'um campo';
+    }))];
+    return `O servidor recusou o formato de: ${campos.join(', ')}. Recarregue a página e tente de novo.`;
+  }
+  try { return JSON.stringify(d); } catch { return ''; }
+}
+
 export async function apiFetcher(url) {
   return apiFetch(url);
 }
@@ -111,7 +130,7 @@ export async function apiFetch(path, opts = {}, _jaRenovou = false) {
         const text = await response.text();
         try {
           const json = JSON.parse(text);
-          errorMessage = json.detail || json.message || errorMessage;
+          errorMessage = textoDoErro(json) || errorMessage;
         } catch {
           errorMessage = text || errorMessage;
         }

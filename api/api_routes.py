@@ -3,7 +3,7 @@
 # Log da API: `logging`, nao `print` — o print nao chega ao log da Vercel.
 from log import log
 import os
-from typing import Optional, List
+from typing import Optional, List, Union
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File # type: ignore
 from supabase import Client # type: ignore
 from pydantic import BaseModel # type: ignore
@@ -927,12 +927,18 @@ class CondoData(BaseModel):
     # real vem de profiles.gerente_id (0057); `fluxo` é coluna de `processos`.
     id: Optional[str] = None
     name: str
-    due_day: Optional[str] = None
-    due_day_2: Optional[str] = None
+    # Número OU texto. O formulário manda o dia do jeito que veio do banco —
+    # NÚMERO (17) — e ele só vira texto ("17") se a pessoa mexer no campo. Com
+    # `str` aqui, o Pydantic v2 recusava o 17 com 422 antes de chegar ao handler:
+    # quem abria o cadastro e mudava OUTRA coisa (a tag de consumo, 11/09/2026)
+    # não conseguia salvar nenhum condomínio que tivesse vencimento, e a tela
+    # mostrava "[object Object]". `_dia_vencimento` já trata os dois formatos.
+    due_day: Optional[Union[int, str]] = None
+    due_day_2: Optional[Union[int, str]] = None
     gerente_id: Optional[str] = None
     cnpj: Optional[str] = None
     tem_consumo: Optional[bool] = None   # 0091 — depende de concessionária
-    prazo_expedicao_dia: Optional[str] = None   # 0096 — dia limite p/ expedir
+    prazo_expedicao_dia: Optional[Union[int, str]] = None   # 0096 — dia limite p/ expedir (mesmo caso do due_day)
     prioridade_motivo: Optional[str] = None      # 0096 — por que é prioritário
     usa_filipeta: Optional[bool] = None          # 0110 — manda filipeta junto com o boleto
     assistente: Optional[str] = None   # ignorado
