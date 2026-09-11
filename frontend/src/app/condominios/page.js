@@ -154,10 +154,17 @@ export default function CondominiosPage() {
       else if (gerenteFilter) payload.gerente_id = gerenteFilter;
       const res = await apiPost('/api/edicoes-mensais/abrir', payload);
       const mantidos = res.mantidos_liberados || 0;
+      const jaAbertos = res.ja_abertos || 0;
+      const avisados = res.avisados || 0;
+      // O fim do toast responde a pergunta que antes ficava sem resposta:
+      // o comunicado saiu? Zero avisados com condomínio no alvo é problema,
+      // e aparece na hora — não dias depois, pela boca do gerente.
       addToast(
         `${_MESES[mesEdicao]}/${pipelineAno} aberto · ${res.criados} novos + ${res.reabertos} reabertos`
-        + (mantidos ? ` · ${mantidos} mantido${mantidos !== 1 ? 's' : ''} liberado${mantidos !== 1 ? 's' : ''}` : ''),
-        'success');
+        + (jaAbertos ? ` · ${jaAbertos} já aberto${jaAbertos !== 1 ? 's' : ''}` : '')
+        + (mantidos ? ` · ${mantidos} mantido${mantidos !== 1 ? 's' : ''} liberado${mantidos !== 1 ? 's' : ''}` : '')
+        + ` · aviso enviado a ${avisados} gerente${avisados !== 1 ? 's' : ''}`,
+        avisados === 0 && (res.total_condos || 0) > 0 ? 'error' : 'success');
     } catch (err) {
       addToast('Erro: ' + err.message, 'error');
     } finally {

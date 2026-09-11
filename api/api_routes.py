@@ -4565,6 +4565,7 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
 
     criados = 0
     reabertos = 0
+    ja_abertos = 0
     mantidos_liberados = 0
     # Quem passou a poder preencher, e quem ja estava preenchido — o aviso ao
     # gerente precisa dos dois: um diz o que fazer, o outro o que conferir.
@@ -4611,6 +4612,14 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
                     }).execute()
                 except Exception as _e:
                     log.warning(f"[abrir_edicao] falha ao registrar reabertura: {_e}")
+            else:
+                # Ja estava aberto e ainda nao liberado. O banco nao muda, mas o
+                # AVISO precisa dele: e trabalho pendente do gerente. Antes este
+                # caso nao caia em lista nenhuma e o condominio sumia do aviso --
+                # abrir o mes de novo para lembrar a carteira mandava so os ja
+                # liberados e escondia justamente os que faltavam.
+                ja_abertos += 1
+                lista_abertos.append({"condominio_id": c["id"], "gerente_id": c.get("gerente_id")})
         else:
             db.table("edicoes_mensais").insert({
                 "condominio_id": c["id"],
@@ -4650,11 +4659,15 @@ def api_abrir_edicao(data: AbrirEdicaoSchema, user: dict = Depends(get_current_u
     lista_preenchidos = [e for e in lista_abertos if e["condominio_id"] in preenchidos_ids]
     lista_abertos = [e for e in lista_abertos if e["condominio_id"] not in preenchidos_ids]
 
-    _notificar_gerente_abertura(db, mes, ano, lista_abertos, lista_preenchidos, lista_liberados,
-                                user.get("full_name") or "A administração")
+    # Quantos gerentes foram avisados volta para a tela: sem isso o master nao
+    # tinha como saber se o comunicado saiu -- e "nao receberam" so aparecia
+    # dias depois, pela boca do gerente.
+    avisados = _notificar_gerente_abertura(db, mes, ano, lista_abertos, lista_preenchidos, lista_liberados,
+                                           user.get("full_name") or "A administração")
 
     return {"ok": True, "mes": mes, "ano": ano, "criados": criados, "reabertos": reabertos,
-            "mantidos_liberados": mantidos_liberados, "total_condos": len(condos)}
+            "ja_abertos": ja_abertos, "mantidos_liberados": mantidos_liberados,
+            "total_condos": len(condos), "avisados": avisados}
 
 
 @router.get("/edicoes-mensais")
@@ -5199,7 +5212,8 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
     `abertos` e `ja_preenchidos` sao listas de {condominio_id, gerente_id}.
     """
     if not abertos and not ja_preenchidos and not ja_liberados:
-        return
+        return 0
+    enviados = 0
     try:
         todos = abertos + ja_preenchidos + ja_liberados
         ids = list({e["condominio_id"] for e in todos})
@@ -5245,20 +5259,26 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
                     return ", ".join(ordenados)
                 return ", ".join(ordenados[:teto]) + f" e mais {len(ordenados) - teto}"
 
-            titulo = f"{rotulo} aberto para preenchimento"
+            # O titulo vira o ASSUNTO do e-mail: e o que o gerente le na caixa
+            # de entrada sem abrir nada. Entao ele diz a acao -- quantas faltam
+            # liberar -- e nao so que o mes abriu.
+            n_pendentes = n_abriu + n_prontos
+            if n_pendentes:
+                titulo = f"{rotulo}: {n_pendentes} planilha{'s' if n_pendentes != 1 else ''} para liberar"
+            else:
+                titulo = f"{rotulo}: todas as suas planilhas já estão liberadas"
+
+            # Os TRES grupos com nome, a acao primeiro. A primeira versao contava
+            # o grupo que mais importa -- "28 para preencher" -- e nomeava so os
+            # outros dois: o gerente sabia QUANTOS faltavam, nao QUAIS. Foi o
+            # aviso de 02/09/2026, e o que o usuario reclamou.
             partes = []
             if n_abriu:
-                partes.append(f"{n_abriu} para preencher")
-            if n_liberados:
-                partes.append(
-                    f"{n_liberados} já liberado{'s' if n_liberados != 1 else ''}, não volta{'m' if n_liberados != 1 else ''} para você: "
-                    f"{_lista(dados['liberados'])}"
-                )
+                partes.append(f"Precisam ser preenchidos e liberados ({n_abriu}): {_lista(dados['abriu'])}")
             if n_prontos:
-                partes.append(
-                    f"{n_prontos} já preenchido{'s' if n_prontos != 1 else ''}, confira antes de liberar: "
-                    f"{_lista(dados['preenchidos'])}"
-                )
+                partes.append(f"Preenchidos, falta liberar ({n_prontos}), confira: {_lista(dados['preenchidos'])}")
+            if n_liberados:
+                partes.append(f"Já liberados por você ({n_liberados}), não voltam: {_lista(dados['liberados'])}")
             mensagem = f"{autor_nome} abriu {rotulo}. " + ". ".join(partes) + "."
 
             # O e-mail recebe os mesmos tres grupos em BLOCOS, com uma tarja de
@@ -5278,18 +5298,21 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
 
             html = (f'<p style="margin:0 0 18px;color:#475569;font-size:14px;line-height:1.6;">'
                     f'{autor_nome} abriu o mês para a sua carteira.</p>')
+            # Teto 40: a maior carteira ativa tem 30. No e-mail cabe a lista
+            # inteira, e e ela que o gerente usa para trabalhar.
             if n_abriu:
-                html += _bloco("#3b6fe0", f"{n_abriu} para preencher",
-                               "Estão vazios e esperando os valores.")
-            if n_liberados:
-                html += _bloco("#16a34a",
-                               f"{n_liberados} já liberado{'s' if n_liberados != 1 else ''} — não volta{'m' if n_liberados != 1 else ''} para você",
-                               _lista(dados["liberados"], teto=20).replace(", ", "<br>"))
+                html += _bloco("#3b6fe0",
+                               f"{n_abriu} precisa{'m' if n_abriu != 1 else ''} ser preenchido{'s' if n_abriu != 1 else ''} e liberado{'s' if n_abriu != 1 else ''}",
+                               _lista(dados["abriu"], teto=40).replace(", ", "<br>"))
             if n_prontos:
                 html += _bloco("#ea9214",
-                               f"{n_prontos} já preenchido{'s' if n_prontos != 1 else ''} — confira antes de liberar",
-                               _lista(dados["preenchidos"], teto=20).replace(", ", "<br>"),
-                               "Os valores foram digitados antes de o mês abrir. Confira se ainda valem.")
+                               f"{n_prontos} preenchido{'s' if n_prontos != 1 else ''} — falta só liberar",
+                               _lista(dados["preenchidos"], teto=40).replace(", ", "<br>"),
+                               "Os valores foram digitados antes de o mês abrir. Confira se ainda valem antes de liberar.")
+            if n_liberados:
+                html += _bloco("#16a34a",
+                               f"{n_liberados} já liberado{'s' if n_liberados != 1 else ''} por você — não volta{'m' if n_liberados != 1 else ''}",
+                               _lista(dados["liberados"], teto=40).replace(", ", "<br>"))
             html += ('<p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">'
                      'Sem liberação ninguém emite — nem agora, nem quando o mês chegar.</p>')
 
@@ -5301,9 +5324,11 @@ def _notificar_gerente_abertura(db, mes, ano, abertos, ja_preenchidos, ja_libera
                 "email_html": html,
                 "link": "/aprovacoes",
             }).execute()
+            enviados += 1
     except Exception as e:
         # Aviso nunca derruba a abertura.
         log.warning(f"[abrir_edicao] notificacao ao gerente falhou: {type(e).__name__}: {e}")
+    return enviados
 
 
 def _notificar_emissao_liberacao(db, edicoes, autor_nome):
