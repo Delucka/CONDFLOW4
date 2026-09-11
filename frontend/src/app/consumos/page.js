@@ -1,4 +1,6 @@
 'use client';
+import FiltroVencimento from '@/components/FiltroVencimento';
+import { passaVencimento } from '@/lib/vencimento';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import FilaCobrancaContas from '@/components/FilaCobrancaContas';
@@ -421,6 +423,7 @@ export default function ConsumosPage() {
   const [search, setSearch] = useState('');
   const [filtroConc, setFiltroConc] = useState('todas'); // todas | SABESP | COMGAS | ENEL | outra
   const [filtroGerente, setFiltroGerente] = useState('todos');
+  const [filtroVenc, setFiltroVenc] = useState('');   // lib/vencimento.js
   const [ordenacao, setOrdenacao] = useState('codigo'); // codigo | nome | vencimento | gerente
   const [showNovaModal, setShowNovaModal] = useState(false);
   const [showAddCondoModal, setShowAddCondoModal] = useState(false);
@@ -547,12 +550,13 @@ export default function ConsumosPage() {
     if (filtroGerente !== 'todos') {
       list = list.filter(c => c.gerente_nome === filtroGerente);
     }
+    if (filtroVenc) list = list.filter(c => passaVencimento(c, filtroVenc));
     if (ordenacao === 'nome') list.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
     else if (ordenacao === 'vencimento') list.sort((a,b) => (a.due_day || 99) - (b.due_day || 99));
     else if (ordenacao === 'gerente') list.sort((a,b) => (a.gerente_nome || 'zz').localeCompare(b.gerente_nome || 'zz'));
     else list.sort((a,b) => (a.codigo || 9999) - (b.codigo || 9999));
     return list;
-  }, [condosComFaturas, search, filtroConc, filtroGerente, ordenacao]);
+  }, [condosComFaturas, search, filtroConc, filtroGerente, filtroVenc, ordenacao]);
 
   async function handleDuplicar(fatura) {
     try {
@@ -975,6 +979,8 @@ export default function ConsumosPage() {
           <option value="todos">Todos os gerentes</option>
           {gerentesDisponiveis.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
+        <FiltroVencimento itens={condosComFaturas} value={filtroVenc} onChange={setFiltroVenc}
+          className={`bg-white border ${filtroVenc ? 'border-violet-400 text-violet-700' : 'border-slate-200 text-slate-800'} rounded-xl px-3 py-2 text-sm outline-none focus:border-violet-500/50 max-w-[200px]`} />
         <select value={ordenacao} onChange={e => setOrdenacao(e.target.value)}
           className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:border-violet-500/50">
           <option value="codigo">Ordenar: Código</option>

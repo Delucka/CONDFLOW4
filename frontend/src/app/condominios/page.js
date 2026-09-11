@@ -20,6 +20,8 @@ import TagConsumo from '@/components/TagConsumo';
 import TagPrioritario from '@/components/TagPrioritario';
 import { lerCondominios, MODELO_CSV } from '@/lib/importarCondominios';
 import { btn, cn } from '@/lib/botoes';
+import FiltroVencimento from '@/components/FiltroVencimento';
+import { passaVencimento } from '@/lib/vencimento';
 import Botao from '@/components/Botao';
 import { useAcao } from '@/lib/useAcao';
 import { extrairTextoPdf, lerCondominos, exibirCnpj } from '@/lib/importarCondominos';
@@ -37,6 +39,7 @@ export default function CondominiosPage() {
   const { addToast } = useToast();
 
   const [search, setSearch] = useState('');
+  const [filtroVenc, setFiltroVenc] = useState('');   // lib/vencimento.js
   const [modalOpen, setModalOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [prioridadesOpen, setPrioridadesOpen] = useState(false);
@@ -240,7 +243,7 @@ export default function CondominiosPage() {
   const vaoAbrir = forcarReabertura ? (previa?.total ?? alvoCount) : (previa?.vao_abrir ?? alvoCount);
 
   const canEdit = user?.role === 'master';
-  const filtered = condos.filter(c => combina(search, c.name, c.gerente_name));
+  const filtered = condos.filter(c => combina(search, c.name, c.gerente_name) && passaVencimento(c, filtroVenc));
 
   function openEdit(condo = null) {
     if (condo) {
@@ -541,6 +544,8 @@ export default function CondominiosPage() {
             className="w-full bg-white border border-slate-200 rounded-2xl py-3 md:py-4 pl-12 pr-6 text-sm text-slate-800 outline-none focus:border-violet-500/50 transition-all shadow-inner"
           />
         </div>
+        <FiltroVencimento itens={condos} value={filtroVenc} onChange={setFiltroVenc}
+          className={`w-full md:w-auto bg-white border ${filtroVenc ? 'border-violet-400 text-violet-700' : 'border-slate-200 text-slate-700'} rounded-2xl py-3 md:py-4 px-4 text-sm outline-none focus:border-violet-500/50 cursor-pointer`} />
 
         {canEdit && (
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
@@ -568,7 +573,7 @@ export default function CondominiosPage() {
       </div>
 
       {/* Breadcrumb / Back Button */}
-      {selectedGerente && !search && (
+      {selectedGerente && !search && !filtroVenc && (
         <div className="flex items-center gap-4 animate-fade-in">
           <button
             onClick={() => setSelectedGerente(null)}
@@ -595,7 +600,7 @@ export default function CondominiosPage() {
           {(() => {
             const isSupervisor = ['master', 'supervisor_gerentes', 'supervisora', 'supervisora_contabilidade'].includes(user?.role);
             
-            if (isSupervisor && !search) {
+            if (isSupervisor && !search && !filtroVenc) {
               // Agrupar por gerente
               const groups = filtered.reduce((acc, c) => {
                 const gName = c.gerente_name || 'Sem Gerente';

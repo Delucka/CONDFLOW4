@@ -1,4 +1,6 @@
 'use client';
+import FiltroVencimento from '@/components/FiltroVencimento';
+import { passaVencimento } from '@/lib/vencimento';
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
@@ -219,6 +221,7 @@ export default function AprovacoesPage() {
   // O gerente não precisa filtrar por gerente: a fila dele já é só dele.
   const [buscaFila, setBuscaFila] = useState('');
   const [filtroGerenteFila, setFiltroGerenteFila] = useState('');
+  const [filtroVencFila, setFiltroVencFila] = useState('');   // lib/vencimento.js
 
   // Opções do dropdown saem dos próprios registros do mês — sem requisição extra, e
   // sem poluir a lista com gerente que não tem nada nesta fila.
@@ -233,10 +236,14 @@ export default function AprovacoesPage() {
   // Filtra ANTES de separar por status, para as três seções e a contagem lerem a mesma lista.
   const edicoesVisiveis = useMemo(() => edicoes.filter(e => {
     if (filtroGerenteFila && e.gerente_id !== filtroGerenteFila) return false;
+    if (!passaVencimento(e.condominios, filtroVencFila)) return false;
     return combina(buscaFila, e.condominios?.name, nomeGerente(e));
-  }), [edicoes, buscaFila, filtroGerenteFila]);
+  }), [edicoes, buscaFila, filtroGerenteFila, filtroVencFila]);
 
-  const filtroAtivo = Boolean(buscaFila || filtroGerenteFila);
+  const filtroAtivo = Boolean(buscaFila || filtroGerenteFila || filtroVencFila);
+  // A linha de filtros aparece para o próprio gerente também quando há
+  // vencimento a escolher — ele não tem o filtro de gerente, mas tem este.
+  const temVencFila = useMemo(() => edicoes.some(e => e.condominios?.due_day), [edicoes]);
   const edicoesEmEdicao    = edicoesVisiveis.filter(e => e.status === 'em_edicao');
   const edicoesFinalizadas = edicoesVisiveis.filter(e => e.status === 'edicao_finalizada');
   const edicoesReaberturas = edicoesVisiveis.filter(e => e.status === 'reabertura_solicitada');
@@ -632,7 +639,7 @@ export default function AprovacoesPage() {
               )}
             </div>
 
-            {(!isGerente && gerentesDaFila.length > 1) || filtroAtivo ? (
+            {(!isGerente && gerentesDaFila.length > 1) || temVencFila || filtroAtivo ? (
               <div className="flex flex-wrap items-center gap-2">
                 {!isGerente && gerentesDaFila.length > 1 && (
                   <select
@@ -647,8 +654,11 @@ export default function AprovacoesPage() {
                     ))}
                   </select>
                 )}
+                <FiltroVencimento itens={edicoes} value={filtroVencFila} onChange={setFiltroVencFila}
+                  pegar={e => [e?.condominios?.due_day, e?.condominios?.due_day_2]}
+                  className={`text-[13px] bg-white border ${filtroVencFila ? 'border-violet-400 text-violet-700' : 'border-slate-200 text-slate-700'} ${raio.controle} px-2.5 py-1.5 outline-none focus:border-violet-500 cursor-pointer max-w-[190px]`} />
                 {filtroAtivo && (
-                  <button onClick={() => { setBuscaFila(''); setFiltroGerenteFila(''); }}
+                  <button onClick={() => { setBuscaFila(''); setFiltroGerenteFila(''); setFiltroVencFila(''); }}
                     className="text-[13px] text-slate-500 hover:text-violet-600 underline underline-offset-2">
                     Limpar filtros
                   </button>

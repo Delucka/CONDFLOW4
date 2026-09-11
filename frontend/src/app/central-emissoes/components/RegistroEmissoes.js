@@ -1,4 +1,6 @@
 'use client';
+import FiltroVencimento from '@/components/FiltroVencimento';
+import { passaVencimento } from '@/lib/vencimento';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { MarcaDaguaCancelada } from '@/components/SeloCancelada';
@@ -16,6 +18,10 @@ import { anexarGrupos } from '@/lib/conjuntoEmissao';
 import { condosDaCarteira } from '@/lib/carteira';
 import SeloGrupo from './SeloGrupo';
 
+// Dia de vencimento de uma emissão: o do GRUPO quando ela tem grupo (é o que
+// sai no boleto); senão, o do cadastro — os dois, se o vencimento é dividido.
+const vencDoPacote = (p) => p?.grupo_due_day ?? [p?.condominios?.due_day, p?.condominios?.due_day_2];
+
 export default function RegistroEmissoes({ profile }) {
   const supabase = createClient();
   const { addToast } = useToast();
@@ -24,6 +30,7 @@ export default function RegistroEmissoes({ profile }) {
   const [pacotes, setPacotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
+  const [filtroVenc, setFiltroVenc] = useState('');   // lib/vencimento.js
   const [competencia, setCompetencia] = useState('');
   const [situacao, setSituacao] = useState('todas');   // todas | registradas | canceladas
   const [pagina, setPagina] = useState(1);
@@ -57,7 +64,7 @@ export default function RegistroEmissoes({ profile }) {
       // Traz expedidas (novo fluxo) + registrado+lacrada=true (dados legados antes da migração)
       let query = supabase
         .from('emissoes_pacotes')
-        .select('*, condominios(name)')
+        .select('*, condominios(name, due_day, due_day_2)')
         // 'cancelada' entra aqui (0101): a emissão cancelada precisa ficar
         // VISÍVEL, com o motivo, senão cancelar volta a ser o mesmo que apagar
         // — e o erro que motivou o cancelamento se perde.
@@ -158,6 +165,7 @@ export default function RegistroEmissoes({ profile }) {
         const [mes, ano] = competencia.split('/');
         if (String(p.mes_referencia).padStart(2,'0') !== mes || String(p.ano_referencia) !== ano) return false;
       }
+      if (!passaVencimento(p, filtroVenc, vencDoPacote)) return false;
       // Cancelada é rara e some no meio das registradas. Sem um filtro, achar
       // "aquela que foi cancelada mês passado" vira rolagem.
       const ehCanc = (p.status || '').toLowerCase() === 'cancelada';
@@ -165,7 +173,7 @@ export default function RegistroEmissoes({ profile }) {
       if (situacao === 'registradas' && ehCanc) return false;
       return true;
     });
-  }, [pacotes, busca, competencia, situacao]);
+  }, [pacotes, busca, competencia, situacao, filtroVenc]);
 
   const totalCanceladas = useMemo(
     () => pacotes.filter(p => (p.status || '').toLowerCase() === 'cancelada').length,
@@ -174,7 +182,8 @@ export default function RegistroEmissoes({ profile }) {
 
   const totalPaginas = Math.ceil(pacotesFiltrados.length / ITENS_POR_PAGINA);
   const pacotesPaginados = pacotesFiltrados.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA);
-  const temFiltros = busca || competencia;
+  const temFiltros = busca || competencia || filtroVenc;
+  const temVencimento = pacotes.some(x => vencDoPacote(x) != null);
   const canRetif = ['master', 'departamento'].includes(profile?.role);
   const canDelete = profile?.role === 'master';
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -425,8 +434,16 @@ export default function RegistroEmissoes({ profile }) {
               </option>
             </select>
           </div>
+          {(temVencimento || filtroVenc) && (
+            <div className="min-w-[160px]">
+              <label className="block text-[10px] font-semibold text-slate-500 mb-2">Vencimento</label>
+              <FiltroVencimento itens={pacotes} value={filtroVenc} pegar={vencDoPacote}
+                onChange={v => { setFiltroVenc(v); setPagina(1); }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-500 transition-all appearance-none" />
+            </div>
+          )}
           {temFiltros && (
-            <button onClick={limparFiltros} className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-2">
+            <button onClick={() => { limparFiltros(); setFiltroVenc(''); }} className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-2">
               <X className="w-3 h-3" /> Limpar
             </button>
           )}

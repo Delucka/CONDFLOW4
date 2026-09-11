@@ -4,6 +4,8 @@ import { createClient } from '@/utils/supabase/client';
 import { useRealtime } from '@/lib/realtime';
 import { UploadCloud, FileText, CheckCircle, Check, Clock, Loader2, Trash2, Package, ChevronDown, ChevronRight, Send, FolderOpen, Plus, X, FileCheck, Lock, Unlock, ClipboardCheck, StickyNote, AlertCircle, Sparkles, Paperclip, Ban, ShieldCheck, Search, Droplet, GripVertical } from 'lucide-react';
 import { safeStorageName, validarArquivo, mensagemDeUpload, ACCEPT_UPLOAD } from '@/lib/storage';
+import FiltroVencimento from '@/components/FiltroVencimento';
+import { passaVencimento } from '@/lib/vencimento';
 import { nomeDocumento } from '@/lib/rotuloDocumento';
 import StatusBadge from './StatusBadge';
 import { useToast } from '@/components/Toast';
@@ -133,6 +135,7 @@ export default function VisaoEmissor({ profile }) {
   // Carteiras expandidas
   const [expandedCarteiras, setExpandedCarteiras] = useState({});
   const [buscaCarteira, setBuscaCarteira] = useState('');
+  const [filtroVenc, setFiltroVenc] = useState('');   // lib/vencimento.js
   // Prioridade: clicar na tag abre o painel focado naquele condomínio; o botão
   // da barra abre vazio, para marcar vários.
   const [prioridadesOpen, setPrioridadesOpen] = useState(false);
@@ -1640,7 +1643,7 @@ export default function VisaoEmissor({ profile }) {
     const q = (buscaCarteira || '').trim();
     const out = {};
     Object.entries(carteiras).forEach(([gerente, condos]) => {
-      const porSituacao = condos.filter(passaNaSituacao);
+      const porSituacao = condos.filter(passaNaSituacao).filter(c => passaVencimento(c, filtroVenc));
       if (!porSituacao.length) return;
       if (!q) { out[gerente] = porSituacao; return; }
       if (combina(q, gerente)) { out[gerente] = porSituacao; return; }   // achou o gerente: leva a carteira toda
@@ -1649,7 +1652,7 @@ export default function VisaoEmissor({ profile }) {
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carteiras, buscaCarteira, situacao, pacotesPorCondo, edicoesMap, mes, ano]);
+  }, [carteiras, buscaCarteira, situacao, filtroVenc, pacotesPorCondo, edicoesMap, mes, ano]);
   const totalEncontrados = useMemo(
     () => Object.values(carteirasFiltradas).reduce((s, arr) => s + arr.length, 0),
     [carteirasFiltradas]
@@ -2543,6 +2546,8 @@ export default function VisaoEmissor({ profile }) {
               {f.rotulo}
             </button>
           ))}
+          <FiltroVencimento itens={Object.values(carteiras).flat()} value={filtroVenc} onChange={setFiltroVenc}
+            className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium bg-white outline-none focus:border-violet-500 cursor-pointer ${filtroVenc ? 'border-violet-400 text-violet-700' : 'border-slate-200 text-slate-700'}`} />
           {/* Marcar prioridade sem sair de Fazer Emissões — é aqui que se
               descobre que um condomínio tem prazo, montando a emissão dele. */}
           <button type="button" onClick={() => abrirPrioridadeDe(null)}
@@ -2566,7 +2571,9 @@ export default function VisaoEmissor({ profile }) {
 
         {Object.keys(carteirasFiltradas).length === 0 && (
           <div className="text-center py-10 text-slate-500 text-sm border border-dashed border-slate-200 rounded-2xl">
-            Nenhum condomínio ou carteira encontrado para “{buscaCarteira}”.
+            {buscaCarteira
+              ? <>Nenhum condomínio ou carteira encontrado para “{buscaCarteira}”.</>
+              : 'Nenhum condomínio com esses filtros.'}
           </div>
         )}
 

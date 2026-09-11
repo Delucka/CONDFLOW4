@@ -1,4 +1,6 @@
 'use client';
+import FiltroVencimento from '@/components/FiltroVencimento';
+import { passaVencimento } from '@/lib/vencimento';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -63,6 +65,7 @@ export default function Expedicao() {
   const [mesAba, setMesAba] = useState(null);      // "2026-09"
   const [filtro, setFiltro] = useState('a_imprimir');
   const [busca, setBusca] = useState('');
+  const [filtroVenc, setFiltroVenc] = useState('');   // lib/vencimento.js
   const [marcando, setMarcando] = useState(null);
   const fetchFila = useCallback(async () => {
       // Spinner de tela cheia SÓ na primeira carga. Antes, todo rebusca (voltar
@@ -160,6 +163,13 @@ export default function Expedicao() {
     return abas[0]?.chave || null;
   }, [mesAba, abas]);
 
+  // O seletor de vencimento oferece os dias do mês que está na aba — não os
+  // de todos os meses, senão aparece "dia 20" numa aba onde nada vence dia 20.
+  const remessasDaAba = useMemo(
+    () => remessas.filter(r => `${r.ano_referencia}-${String(r.mes_referencia).padStart(2, '0')}` === abaAtiva),
+    [remessas, abaAtiva],
+  );
+
   // ── Busca: número, nome ou dia de vencimento, num campo só ──
   // Termo numérico casa com o código do condomínio E com o dia do vencimento —
   // obrigar a escolher o tipo seria uma pergunta a mais para quem só quer achar.
@@ -175,6 +185,9 @@ export default function Expedicao() {
         if (filtro === 'a_imprimir') return r.etapa === 'imprimir';
         return r.etapa === 'impresso';
       })
+      // `vencimento` já é o do GRUPO quando a remessa tem grupo — é o dia que
+      // vai no boleto, e é por ele que a impressão se organiza.
+      .filter(r => passaVencimento(r, filtroVenc, x => x?.vencimento))
       .filter(r => {
         if (!termo) return true;
         const nome = semAcento(r.condominios?.name);
@@ -186,7 +199,7 @@ export default function Expedicao() {
       })
       .sort((a, b) => (a.vencimento ?? 99) - (b.vencimento ?? 99)
         || String(a.condominios?.name || '').localeCompare(String(b.condominios?.name || '')));
-  }, [remessas, abaAtiva, filtro, busca]);
+  }, [remessas, abaAtiva, filtro, busca, filtroVenc]);
 
   // ── Ações ──
   async function imprimir(r) {
@@ -302,6 +315,9 @@ export default function Expedicao() {
             </button>
           )}
         </div>
+        <FiltroVencimento itens={remessasDaAba} value={filtroVenc} onChange={setFiltroVenc}
+          pegar={x => x?.vencimento}
+          className={`bg-white border ${filtroVenc ? 'border-violet-400 text-violet-700' : 'border-slate-200 text-slate-700'} rounded-xl px-3 py-2.5 text-sm outline-none focus:border-violet-500 cursor-pointer`} />
         {/* Rola em vez de ser cortado. Os três filtros somam mais que a
             largura de um celular, e o `overflow-x-hidden` da casca mobile
             recortava o terceiro — "Sem filipeta" ficava invisível e sem

@@ -4837,8 +4837,9 @@ def api_listar_edicoes(
     # O gerente vem embutido porque quem supervisiona ve a fila INTEIRA — sem o nome
     # nao da para saber de quem e cada planilha. `edicoes_mensais.gerente_id` tem FK
     # real para `gerentes` (0034), entao sai na mesma consulta, sem chamada extra.
-    SEL_COM_GERENTE = "*, condominios(name), gerentes(id, nome, profiles!gerentes_profile_id_fkey(full_name))"
-    SEL_SIMPLES = "*, condominios(name)"
+    # O vencimento vem junto para a fila poder ser filtrada por ele.
+    SEL_COM_GERENTE = "*, condominios(name, due_day, due_day_2), gerentes(id, nome, profiles!gerentes_profile_id_fkey(full_name))"
+    SEL_SIMPLES = "*, condominios(name, due_day, due_day_2)"
 
     def _montar(selecao):
         q = db.table("edicoes_mensais").select(selecao)

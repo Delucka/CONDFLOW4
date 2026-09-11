@@ -1,4 +1,6 @@
 'use client';
+import FiltroVencimento from '@/components/FiltroVencimento';
+import { passaVencimento } from '@/lib/vencimento';
 import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import useSWR from 'swr';
 import StatsCard from '@/components/StatsCard';
@@ -171,6 +173,8 @@ function PipelineWidget({ processos, condosTotal, pipelineConfig, countdown }) {
 export default function DashboardPage() {
   const [filtroGerente, setFiltroGerente] = useState('');
   const [buscaCondo, setBuscaCondo] = useState('');
+  // '' = todos · 'sem' = sem vencimento · '5' = vence dia 5 (lib/vencimento.js)
+  const [filtroVenc, setFiltroVenc] = useState('');
   // Recalculado a cada montagem da tela (ver nota no topo do arquivo)
   const [vigente] = useState(mesAnoVigente);
   const [mesEmissao, setMesEmissao] = useState(vigente.mes);
@@ -547,6 +551,7 @@ export default function DashboardPage() {
 
     const achados = condos
       .filter(passa)
+      .filter(c => passaVencimento(c, filtroVenc))
       .filter(c => combina(buscaCondo, c.name, c.gerente_name));
 
     // SEMPRE por código. O filtro muda o que aparece, nunca a ordem — a lista é
@@ -556,7 +561,7 @@ export default function DashboardPage() {
       ordemAsc ? codeOf(a.name) - codeOf(b.name) : codeOf(b.name) - codeOf(a.name)
     ));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [condos, ordemAsc, buscaCondo, situacao, processos, emissaoByCondominio, canceladasPorCondo]);
+  }, [condos, ordemAsc, buscaCondo, situacao, filtroVenc, processos, emissaoByCondominio, canceladasPorCondo]);
   const pendingProcesses = useMemo(() => {
     if (!data?.processos) return [];
     const out = [];
@@ -673,6 +678,10 @@ export default function DashboardPage() {
             ))}
           </select>
         )}
+
+        {/* Filtro por vencimento */}
+        <FiltroVencimento itens={condos} value={filtroVenc} onChange={setFiltroVenc}
+          className={`w-full text-sm font-bold bg-white border ${filtroVenc ? 'border-violet-400 text-violet-700' : 'border-slate-200 text-slate-700'} rounded-xl px-3 py-3 outline-none focus:border-violet-500`} />
 
         {/* Cabeçalho da lista + ordenação */}
         <div className="flex items-center justify-between px-0.5 pt-1">
@@ -894,8 +903,13 @@ export default function DashboardPage() {
                 </select>
               )}
 
-              {(filtroGerente || buscaCondo) && (
-                <button onClick={() => { setFiltroGerente(''); setBuscaCondo(''); }}
+              {/* Os dias saem da lista do mês na tela: o seletor só oferece
+                  vencimento que existe — o dia 31 que não acha nada não aparece. */}
+              <FiltroVencimento itens={condos} value={filtroVenc} onChange={setFiltroVenc}
+                className={`text-[13px] bg-white border ${filtroVenc ? 'border-violet-400 text-violet-700' : 'border-slate-200 text-slate-700'} ${raio.controle} px-2.5 py-1.5 outline-none focus:border-violet-500 cursor-pointer max-w-[190px]`} />
+
+              {(filtroGerente || buscaCondo || filtroVenc) && (
+                <button onClick={() => { setFiltroGerente(''); setBuscaCondo(''); setFiltroVenc(''); }}
                   className="text-[13px] text-slate-500 hover:text-violet-600 underline underline-offset-2">
                   Limpar filtros
                 </button>
