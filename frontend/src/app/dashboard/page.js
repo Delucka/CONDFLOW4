@@ -994,7 +994,12 @@ export default function DashboardPage() {
                               : <Unlock  className="w-3 h-3 text-emerald-500/50 shrink-0" />
                             }
                             <div>
-                              <p className={`${tipo.item} group-hover:text-violet-600 transition-colors truncate flex items-center gap-1.5`}>
+                              {/* Sem `truncate`: numa tabela de largura automática ele não corta o nome, só
+                                  proíbe a quebra — e a coluna vira do tamanho do nome inteiro mais
+                                  as tags. A tabela passava da largura do painel, rolava para o lado, e a
+                                  coluna Ações (presa à direita) cobria o status da Emissão:
+                                  "Aguardando registro" virava "Aguardando". O nome quebra em duas linhas. */}
+                              <p className={`${tipo.item} group-hover:text-violet-600 transition-colors flex flex-wrap items-center gap-x-1.5 gap-y-0.5`}>
                                 {c.name}
                                 {c.tem_consumo && <TagConsumo concessionarias={concessionariasPorCondo[c.id]} />}
                                 <TagPrioritario condo={c} mes={mesEmissao} ano={vigente.ano} onEditar={abrirPrioridadeDe} />
